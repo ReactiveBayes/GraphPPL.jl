@@ -1,0 +1,4 @@
+name = "GraphPPL"
+uuid = "b3f8163a-e979-4e85-b43e-1f63d8c8b42c"
+authors = ["Ivan Bocharov <bocharovia@gmail.com>"]
+version = "0.1.0"
