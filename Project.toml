@@ -2,3 +2,8 @@ name = "GraphPPL"
 uuid = "b3f8163a-e979-4e85-b43e-1f63d8c8b42c"
 authors = ["Ivan Bocharov <bocharovia@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
