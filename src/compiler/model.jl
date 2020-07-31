@@ -1,13 +1,14 @@
 export @model
 
-using MacroTools:postwalk, rmlines
+using MacroTools: postwalk, rmlines, prettify
+
+macro model(ex::Expr)
+    return esc(postwalk(rmlines, generate_model(ex)))
+end
 
 function generate_model(model_expr::Expr)
-    stripped = postwalk(rmlines, model_expr)
-    @assert stripped.head == :block
-    @assert stripped.args[1].head == Symbol("=")
-
-    program = stripped.args[1]
+    program = postwalk(rmlines, model_expr)
+    @assert program.head == :function
     
     model_signature = program.args[1]
     model_name, argument_names = analyze_signature(model_signature)
@@ -15,17 +16,21 @@ function generate_model(model_expr::Expr)
     model_definition = program.args[2]
     model_expr = build_model(model_definition)
     
-    return quote
+    result = quote
         function $model_name($(argument_names...))
             $model_expr
         end
     end
+
+    return result
 end
 
 function build_model(model_definition::Expr)
     for (i, expr) in enumerate(model_definition.args)
         model_definition.args[i] = rewrite_expression(expr)
     end
+    println("INSIDE BUILD")
+    dump(model_definition)
     return model_definition
 end
 
@@ -33,7 +38,7 @@ function rewrite_expression(expr)
     if expr.head == :call && expr.args[1] == :~
         return rewrite_tilde_expression(expr)
     else
-        error("Unsupported expression")
+        expr
     end
 end
 
@@ -64,12 +69,10 @@ function analyze_signature(args_expr)
     return model_name, argument_names
 end
 
-klmn = quote 
-    kalman(n,y) = begin
-        x ~ Normal(0,1)
-        y ~ Normal(0,1)
-        z ~ Normal(x,y)
-    end
+@model function kalman(n,y)
+    println("Kek")
+    x ~ Normal(0,1)
+    y ~ Normal(0,1)
+    z ~ Normal(x,y)
+    z = x+y
 end
-
-a = postwalk(rmlines, generate_model(klmn))
