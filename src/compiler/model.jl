@@ -18,6 +18,7 @@ function generate_model(model_expr::Expr)
     
     result = quote
         function $model_name($(argument_names...))
+            g = FactorGraph()
             $model_expr
         end
     end
@@ -29,7 +30,6 @@ function build_model(model_definition::Expr)
     for (i, expr) in enumerate(model_definition.args)
         model_definition.args[i] = rewrite_expression(expr)
     end
-    println("INSIDE BUILD")
     dump(model_definition)
     return model_definition
 end
@@ -70,7 +70,6 @@ function analyze_signature(args_expr)
 end
 
 @model function kalman(n,y)
-    println("Kek")
     x ~ Normal(0,1)
     y ~ Normal(0,1)
     z ~ Normal(x,y)

@@ -4,16 +4,16 @@ function generateCodeForDistribution(dist::Type{<:Distribution})
 
     target_expr = 
     """
-        function $(name)Node()
-            return Node{$name}($field_names, Set{Variable}(), $dist)
+        function $(name)Node(g::FactorGraph)
+            return FactorNode{$name}($field_names, Set{Variable}(), $dist)
         end
         
-        function $(name)Node(neighbors::Set{Variable})
-            return Node{$name}($field_names, neighbors, $dist)
+        function $(name)Node(g::FactorGraph, neighbors::Set{Variable})
+            return FactorNode{$name}($field_names, neighbors, $dist)
         end
 
-        function $(name)Node(neighbors::Vector{Variable})
-            return Node{$name}($field_names, Set(neighbors), $dist)
+        function $(name)Node(g::FactorGraph, neighbors::Vector{Variable})
+            return FactorNode{$name}($field_names, Set(neighbors), $dist)
         end
     """
     println(target_expr)
