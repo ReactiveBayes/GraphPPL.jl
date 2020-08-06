@@ -6,6 +6,7 @@ using Distributions
     x ~ Normal(0,1) ∥ [id=:test]
     y ~ Normal(0,1)
     z ~ Normal(x,y)
+    a = x+y ∥ [id=:test1]
 end
 
 kalman(12,2)

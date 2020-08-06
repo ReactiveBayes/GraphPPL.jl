@@ -1,6 +1,6 @@
 function rewrite_expression(definition::Expr)
     
-    # dump(definition)
+    dump(definition)
     expr = if is_tilde(definition)
         rewrite_tilde_expression(definition)
     elseif is_assign(definition)
@@ -8,7 +8,7 @@ function rewrite_expression(definition::Expr)
     else
         definition
     end
-    
+
     return expr
 end
 
@@ -20,7 +20,7 @@ is_tilde(expr)       = false
 
 function rewrite_tilde_expression(def)
     if def.args[3].args[1] == :(∥)
-        options = get_options(def)
+        options = get_options(def.args[3].args[3])
         node = def.args[3].args[2]
     else
         options = Dict{Symbol,Any}()
@@ -70,14 +70,22 @@ is_assign(expr::Expr) = expr.head === :(=)
 is_assign(expr)       = false
 
 function rewrite_assign_expression(def)
-    var_id = extract_variable_id(target, Dict())
+    if def.args[2].args[1] == :(∥)
+        options = get_options(def.args[2].args[3])
+    else
+        options = Dict{Symbol,Any}()
+    end
+
+    target = def.args[1]
+
+    var_id = extract_variable_id(target, options)
 
     # Form 2 always creates a new Variable
     # Build complete expression
     var_id_sym = gensym()
     return quote
         begin
-            $(def)
+            $(target) = $(def.args[2].args[2])
             $(var_id_sym) = $(var_id)
             if $(var_id_sym) != :auto
                 # update id of newly created Variable
@@ -90,16 +98,16 @@ function rewrite_assign_expression(def)
     end
 end
 
-function get_options(expr::Expr)
+function get_options(options_expr::Expr)
     options = Dict{Symbol,Any}()
-    if expr.args[3].args[1] == :(∥)
-        options_expr = expr.args[3].args[3]
-        options_expr.head == :vect || return :(error("Incorrect options specification: options argument must be a vector expression"))
-        for arg in options_expr.args
-            arg isa Expr && arg.head == :(=) || return :(error("Incorrect options specification: options item must be an assignment expression"))
-            options[arg.args[1]] = arg.args[2]
-        end
+    
+    options_expr.head == :vect || return :(error("Incorrect options specification: options argument must be a vector expression"))
+    
+    for arg in options_expr.args
+        arg isa Expr && arg.head == :(=) || return :(error("Incorrect options specification: options item must be an assignment expression"))
+        options[arg.args[1]] = arg.args[2]
     end
+
     return options
 end
 
