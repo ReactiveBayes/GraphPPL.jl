@@ -1,29 +1,35 @@
 function rewrite_expression(definition::Expr)
     
-    # Parse RV definition expression
-    # It can take three forms:
-    # FORM 1: x ~ Probdist(...)
-    # FORM 2: x = a + b
-    # FORM 3: x
-
-    expr = if rv_isa_form1(definition)
-        rv_form1(definition, definition.args[2], definition.args[3])
-    elseif rv_isa_form2(definition)
-        rv_form2(definition, definition.args[1], definition.args[2])
+    # dump(definition)
+    expr = if is_tilde(definition)
+        rewrite_tilde_expression(definition)
+    elseif is_assign(definition)
+        rewrite_assign_expression(definition)
     else
         definition
     end
+    
     return expr
 end
 
 # Parse RV definition expression
 
 # FORM 1: @RV x ~ Probdist(...)
-rv_isa_form1(expr::Expr) = expr.head === :call && expr.args[1] === :(~)
-rv_isa_form1(expr)       = false
+is_tilde(expr::Expr) = expr.head === :call && expr.args[1] === :(~)
+is_tilde(expr)       = false
 
-function rv_form1(def, target, node)
-    var_id = extract_variable_id(target, Dict())
+function rewrite_tilde_expression(def)
+    if def.args[3].args[1] == :(∥)
+        options = get_options(def)
+        node = def.args[3].args[2]
+    else
+        options = Dict{Symbol,Any}()
+        node = def.args[3]
+    end
+
+    target = def.args[2]
+
+    var_id = extract_variable_id(target, options)
     
     node.args[1] = node.args[1]*:Node
 
@@ -60,10 +66,10 @@ function rv_form1(def, target, node)
 end
 
 # FORM 2: @RV x = a + b
-rv_isa_form2(expr::Expr) = expr.head === :(=)
-rv_isa_form2(expr)       = false
+is_assign(expr::Expr) = expr.head === :(=)
+is_assign(expr)       = false
 
-function rv_form2(def, target, node)
+function rewrite_assign_expression(def)
     var_id = extract_variable_id(target, Dict())
 
     # Form 2 always creates a new Variable
@@ -82,6 +88,19 @@ function rv_form2(def, target, node)
             $(target)
         end
     end
+end
+
+function get_options(expr::Expr)
+    options = Dict{Symbol,Any}()
+    if expr.args[3].args[1] == :(∥)
+        options_expr = expr.args[3].args[3]
+        options_expr.head == :vect || return :(error("Incorrect options specification: options argument must be a vector expression"))
+        for arg in options_expr.args
+            arg isa Expr && arg.head == :(=) || return :(error("Incorrect options specification: options item must be an assignment expression"))
+            options[arg.args[1]] = arg.args[2]
+        end
+    end
+    return options
 end
 
 # If variable expression is a symbol

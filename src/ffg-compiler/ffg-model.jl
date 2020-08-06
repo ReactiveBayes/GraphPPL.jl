@@ -20,6 +20,7 @@ function generate_model(model_expr::Expr)
         function $model_name($(argument_names...))
             g = FactorGraph()
             $model_expr
+            return g
         end
     end
 
