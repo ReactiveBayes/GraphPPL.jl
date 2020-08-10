@@ -9,6 +9,7 @@ using InteractiveUtils: subtypes
 const FFG = true
 
 if FFG
+    include("ffg-compiler/helpers.jl")
     include("ffg-compiler/variable.jl")
     include("ffg-compiler/generate_nodes.jl")
     include("ffg-compiler/ffg-model.jl")

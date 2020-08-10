@@ -1,14 +1,15 @@
-function rewrite_expression(definition::Expr)
+function rewrite_expression(expression::Expr)
     
-    dump(definition)
-    expr = if is_tilde(definition)
-        rewrite_tilde_expression(definition)
-    elseif is_assign(definition)
-        rewrite_assign_expression(definition)
+    expr = if is_tilde(expression)
+        rewrite_tilde_expression(expression)
+    elseif is_assign(expression)
+        rewrite_assign_expression(expression)
+    elseif is_for(expression)
+        rewrite_for_block(expression)
     else
-        definition
+        expression
     end
-
+    
     return expr
 end
 
@@ -31,7 +32,10 @@ function rewrite_tilde_expression(def)
 
     var_id = extract_variable_id(target, options)
     
-    node.args[1] = node.args[1]*:Node
+    # Temporary check to test if we use FL
+    if !isdefined(ForneyLab, node.args[1])
+        node.args[1] = node.args[1]*:Node
+    end
 
     if isa(node.args[2], Expr) && (node.args[2].head == :parameters)
         node.args = vcat(node.args[1:2], [target], node.args[3:end])
@@ -65,27 +69,28 @@ function rewrite_tilde_expression(def)
     end
 end
 
-# FORM 2: @RV x = a + b
-is_assign(expr::Expr) = expr.head === :(=)
+# FORM 2: @RV x ← a + b
+is_assign(expr::Expr) = expr.head === :call && expr.args[1] === :(←)
 is_assign(expr)       = false
 
 function rewrite_assign_expression(def)
-    if def.args[2].args[1] == :(∥)
-        options = get_options(def.args[2].args[3])
+    if def.args[3].args[1] == :(∥)
+        options = get_options(def.args[3].args[3])
     else
         options = Dict{Symbol,Any}()
     end
 
-    target = def.args[1]
+    target = def.args[2]
 
     var_id = extract_variable_id(target, options)
-
+    println(target)
+    
     # Form 2 always creates a new Variable
     # Build complete expression
     var_id_sym = gensym()
     return quote
         begin
-            $(target) = $(def.args[2].args[2])
+            $(target) = $(def.args[3].args[2])
             $(var_id_sym) = $(var_id)
             if $(var_id_sym) != :auto
                 # update id of newly created Variable
@@ -98,52 +103,20 @@ function rewrite_assign_expression(def)
     end
 end
 
-function get_options(options_expr::Expr)
-    options = Dict{Symbol,Any}()
+# for loop
+is_for(expr::Expr) = expr.head === :for
+is_for(expr)       = false
+
+function rewrite_for_block(def)
+    body_block = def.args[2]
     
-    options_expr.head == :vect || return :(error("Incorrect options specification: options argument must be a vector expression"))
+    dump(body_block)
     
-    for arg in options_expr.args
-        arg isa Expr && arg.head == :(=) || return :(error("Incorrect options specification: options item must be an assignment expression"))
-        options[arg.args[1]] = arg.args[2]
+    for (i, expr) in enumerate(body_block.args)
+        body_block.args[i] = rewrite_expression(expr)
     end
-
-    return options
-end
-
-# If variable expression is a symbol
-# RV x ...
-function extract_variable_id(expr::Symbol, options)
-    if haskey(options, :id)
-        return check_id_available(options[:id])
-    else
-        return guard_variable_id(:($(string(expr))))
+    
+    return quote
+        $(body_block)    
     end
-end
-
-# If variable expression is an indexing expression
-# RV x[i] ...
-function extract_variable_id(expr::Expr, options)
-    if haskey(options, :id)
-        return check_id_available(options[:id])
-    else
-        argstr = map(arg -> :(string($arg)), @view expr.args[2:end])
-        return guard_variable_id(:($(string(expr.args[1]) * "_") * $(reduce((current, item) -> :($current * "_" * $item), argstr))))
-    end
-end
-
-# Fallback
-function extract_variable_id(expr, options)
-    return :(ForneyLab.generateId(Variable))
-end
-
-
-function check_id_available(expr)
-    return :(!haskey(currentGraph().variables, $(expr)) ? $(expr) : error("Specified id is already assigned to another Variable"))
-end
-
-# Ensure that variable has a unique id in a current factor graph, generate a new one otherwise
-function guard_variable_id(expr)
-    idsymbol = :(Symbol($(expr)))
-    return :(!haskey(currentGraph().variables, $idsymbol) ? $idsymbol : ForneyLab.generateId(Variable))
 end
