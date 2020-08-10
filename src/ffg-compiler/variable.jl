@@ -13,9 +13,8 @@ function rewrite_expression(expression::Expr)
     return expr
 end
 
-# Parse RV definition expression
 
-# FORM 1: @RV x ~ Probdist(...)
+# Tilde expression: x ~ Probdist(...)
 is_tilde(expr::Expr) = expr.head === :call && expr.args[1] === :(~)
 is_tilde(expr)       = false
 
@@ -69,7 +68,7 @@ function rewrite_tilde_expression(def)
     end
 end
 
-# FORM 2: @RV x ← a + b
+# Assignment with options: x ← a + b
 is_assign(expr::Expr) = expr.head === :call && expr.args[1] === :(←)
 is_assign(expr)       = false
 
@@ -84,8 +83,6 @@ function rewrite_assign_expression(def)
 
     var_id = extract_variable_id(target, options)
     
-    # Form 2 always creates a new Variable
-    # Build complete expression
     var_id_sym = gensym()
     return quote
         begin
