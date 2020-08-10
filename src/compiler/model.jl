@@ -30,7 +30,6 @@ function build_model(model_definition::Expr)
     for (i, expr) in enumerate(model_definition.args)
         model_definition.args[i] = rewrite_expression(expr)
     end
-    dump(model_definition)
     return model_definition
 end
 

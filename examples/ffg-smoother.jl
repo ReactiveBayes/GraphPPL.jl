@@ -2,23 +2,24 @@ using GraphPPL
 using ForneyLab
 using Distributions
 
-# State prior
 
-@RV x_0 ~ GaussianMeanVariance(m_x_0, v_x_0)
+@ffgmodel function smoother(n, prior)
+    x_0 ~ GaussianMeanVariance(prior.m, prior.v)
 
-# Transition and observation model
-x = Vector{Variable}(undef, n_samples)
-y = Vector{Variable}(undef, n_samples)
+    x = Vector{Variable}(undef, n)
+    y = Vector{Variable}(undef, n)
 
-x_t_min = x_0
-for t = 1:n_samples
-    @RV n_t ~ GaussianMeanVariance(0.0, 200.0) # observation noise
-    @RV x[t] = x_t_min + 1.0
-    @RV y[t] = x[t] + n_t
-
-    # Data placeholder
-    placeholder(y[t], :y, index=t)
-    
-    # Reset state for next step
-    x_t_min = x[t]
+    x_t_min = x_0
+    for t = 1:n
+        n_t ~ GaussianMeanVariance(0.0, 200.0)
+        x[t] = x_t_min + 1.0
+        y[t] ← x[t] + n_t ∥ [id=:y*t]
+        placeholder(y[t], :y*t, index=t)
+        x_t_min = x[t]
+    end
 end
+
+prior = (m=0.0,v=1.0)
+smoother(10, prior)
+
+ForneyLab.draw(external_viewer=:default)

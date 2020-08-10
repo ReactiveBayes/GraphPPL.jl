@@ -83,7 +83,6 @@ function rewrite_assign_expression(def)
     target = def.args[2]
 
     var_id = extract_variable_id(target, options)
-    println(target)
     
     # Form 2 always creates a new Variable
     # Build complete expression
@@ -110,13 +109,11 @@ is_for(expr)       = false
 function rewrite_for_block(def)
     body_block = def.args[2]
     
-    dump(body_block)
-    
     for (i, expr) in enumerate(body_block.args)
         body_block.args[i] = rewrite_expression(expr)
     end
     
     return quote
-        $(body_block)    
+        $(def)    
     end
 end
