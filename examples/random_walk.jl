@@ -14,6 +14,6 @@ using Distributions
      
 end
 
-g = kalman(10)
+g = random_walk(10)
 
 ForneyLab.draw(external_viewer=:default)

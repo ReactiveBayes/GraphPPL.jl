@@ -20,6 +20,6 @@ using Distributions
 end
 
 prior = (m=0.0,v=1.0)
-smoother(10, prior)
+g = smoother(10, prior)
 
 ForneyLab.draw(external_viewer=:default)
