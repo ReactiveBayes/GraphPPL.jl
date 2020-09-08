@@ -1,10 +1,30 @@
-export @model
+export @reactivemodel
 
 using MacroTools: postwalk, rmlines, prettify
 
-macro model(ex::Expr)
+macro reactivemodel(ex::Expr)
     return esc(postwalk(rmlines, generate_model(ex)))
 end
+
+
+# function kalman_filter_graph()
+#     model = Model(DefaultMessageGate())    
+    
+#     x_prior = add!(model, datavar(:x_prior, Normal{Float64}))
+#     add_1   = add!(model, constvar(:add_1, 1.0))    
+#     noise   = add!(model, constvar(:noise, Normal(0.0, sqrt(200.0))))    
+    
+#     x = add!(model, randomvar(:x))
+#     y = add!(model, datavar(:y, Float64))    
+    
+#     x_prev_add = add!(model, make_node(+, x_prior, add_1, x))
+#     add_x_and_noise = add!(model, make_node(+, x, noise, y))
+    
+#     activate!(model, x_prev_add)
+#     activate!(model, add_x_and_noise)    
+    
+#     return x_prior, x, y
+# end
 
 function generate_model(model_expr::Expr)
     program = postwalk(rmlines, model_expr)
@@ -18,11 +38,14 @@ function generate_model(model_expr::Expr)
     
     result = quote
         function $model_name($(argument_names...))
-            g = FactorGraph()
+            model = Model(DefaultMessageGate())
             $model_expr
+            return g
         end
     end
 
+    result = postwalk(rmlines, result)
+    
     return result
 end
 
@@ -30,29 +53,8 @@ function build_model(model_definition::Expr)
     for (i, expr) in enumerate(model_definition.args)
         model_definition.args[i] = rewrite_expression(expr)
     end
-    return model_definition
-end
-
-function rewrite_expression(expr)
-    if expr.head == :call && expr.args[1] == :~
-        return rewrite_tilde_expression(expr)
-    else
-        expr
-    end
-end
-
-function rewrite_tilde_expression(expr)
-    lhs = expr.args[2]
-    rhs = expr.args[3]
-
-    var_id = gensym(lhs)
-    dist = Symbol(rhs.args[1])
-    arguments = rhs.args[2:end]
     
-    return quote 
-        $lhs = Variable($var_id) 
-        Node($dist, Set{Variable}([$lhs, $(arguments...)]))
-    end
+    return model_definition
 end
 
 function analyze_signature(args_expr)
@@ -67,3 +69,5 @@ function analyze_signature(args_expr)
     
     return model_name, argument_names
 end
+
+
