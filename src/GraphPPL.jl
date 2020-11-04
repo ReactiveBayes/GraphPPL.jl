@@ -16,18 +16,22 @@ function quote_symbol(sym::Expr)
     return sym
 end
 
-function collect_varid(varid::Symbol)
-   return varid, varid, varid
+function collect_varids(varid::Symbol)
+
+    short_sym_id = varid
+    full_sym_id  = varid
+
+    return varid, short_sym_id, full_sym_id
 end
 
-function collect_varid(varid::Expr)
+function collect_varids(varid::Expr)
    @capture(varid, id_[idx__]) || 
        error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
    
-   short_id = id
-   full_id  = Expr(:call, :Symbol, GraphPPL.quote_symbol(id), Expr(:quote, :_), ReactiveMP.with_separator(Expr(:quote, :_), idx)...)
+   short_sym_id = id
+   full_sym_id  = Expr(:call, :Symbol, GraphPPL.quote_symbol(id), Expr(:quote, :_), ReactiveMP.with_separator(Expr(:quote, :_), idx)...)
    
-   return short_id, full_id, varid
+   return varid, short_sym_id, full_sym_id
 end
 
 function write_randomvar_expression(model, varid, inputs)
@@ -42,18 +46,13 @@ function write_as_variable_args(model, args)
     return map(arg -> :(ReactiveMP.as_variable($model, $(GraphPPL.quote_symbol(gensym(:arg))), $arg)), args)
 end
 
-function write_make_node_expression(model, varids, fform, args, short_varid, full_varid, varid, nodeid)
-   if short_varid ∈ varids
-       return quote 
-           $nodeid = ReactiveMP.make_node($model, $fform, $varid, $(GraphPPL.write_as_variable_args(model, args)...)) 
-       end
-   else    
-       push!(varids, short_varid)
-       return quote 
-           $nodeid, $varid = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.quote_symbol(full_varid))), $(GraphPPL.write_as_variable_args(model, args)...))
-       end
-   end
-end
+function write_make_node_expression(model, fform, args, nodeid, varid)
+    return :($nodeid = ReactiveMP.make_node($model, $fform, $varid, $(GraphPPL.write_as_variable_args(model, args)...)) )
+ end
+
+function write_autovar_make_node_expression(model, fform, args, nodeid, varid, autovar_id)
+    return :(($nodeid, $varid) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.quote_symbol(autovar_id))), $(GraphPPL.write_as_variable_args(model, args)...)))
+ end
 
 macro model(model_specification)
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
@@ -95,8 +94,14 @@ macro model(model_specification)
        
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, varid_ ~ fform_(args__))
-            short_varid, full_varid, varid = collect_varid(varid)
-            return write_make_node_expression(model, varids, fform, args, short_varid, full_varid, varid, gensym())
+            nodeid = gensym()
+            varid, short_sym_id, full_sym_id = collect_varids(varid)
+            if short_sym_id ∈ varids
+                return write_make_node_expression(model, fform, args, nodeid, varid)
+            else
+                push!(varids, short_sym_id)
+                return write_autovar_make_node_expression(model, fform, args, nodeid, varid, full_sym_id)
+            end
         else
             return expression
         end
