@@ -79,16 +79,22 @@ function factorisation_replace_var_name(varnames, arg::Symbol)
     return index === nothing ? arg : index
 end
 
+function factorisation_name_to_index(form, name)
+    return ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ name }) })
+end
+
 function write_factorisation_options(form, args, foption)
     if @capture(foption, q = *(factors__))
         factorisation = sort(map(factors) do factor
             @capture(factor, q(names__)) || error("Invalid factorisation constraint: $factor")
-            return sort(map((name) -> ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ factorisation_replace_var_name(args, name) }) }), names))
+            return sort(map((n) -> factorisation_name_to_index(form, n), map((n) -> factorisation_replace_var_name(args, n), names)))
         end, by = first)
         allunique(Iterators.flatten(factorisation)) || error("Invalid factorisation constraint: $foption. Arguments are not unique")
         return Expr(:(=), :factorisation, Expr(:tuple, map(f -> Expr(:tuple, f...), factorisation)...))
-    elseif @capture(foption, q = q(args__))
-        error("Invalid factorisation constraint: $foption")
+    elseif @capture(foption, q = q(names__))
+        factorisation = sort(map((n) -> factorisation_name_to_index(form, n), map((n) -> factorisation_replace_var_name(args, n), names)))
+        allunique(Iterators.flatten(factorisation)) || error("Invalid factorisation constraint: $foption. Arguments are not unique")
+        return Expr(:(=), :factorisation, Expr(:tuple, Expr(:tuple, factorisation...)))
     elseif @capture(foption, q = T_())
         return :(factorisation = $(T)())
     else
