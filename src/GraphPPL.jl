@@ -65,19 +65,46 @@ function normalize_tilde_arguments(args)
     end
 end
 
-function parse_node_options(form, kwargs)
+function is_factorisation_option(option)
+    return option isa Expr && option.head === :(=) && option.args[1] === :q
+end
+
+function factorisation_replace_var_name(varnames, arg::Expr)
+    index = findfirst(==(arg), varnames)
+    return index === nothing ? error("Invalid factorisation argument: $arg") : index
+end
+
+function factorisation_replace_var_name(varnames, arg::Symbol)
+    index = findfirst(==(arg), varnames)
+    return index === nothing ? arg : index
+end
+
+function write_factorisation_options(form, args, foption)
+    if @capture(foption, q = *(factors__))
+        factorisation = sort(map(factors) do factor
+            @capture(factor, q(names__)) || error("Invalid factorisation constraint: $factor")
+            return sort(map((name) -> ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ factorisation_replace_var_name(args, name) }) }), names))
+        end, by = first)
+        allunique(Iterators.flatten(factorisation)) || error("Invalid factorisation constraint: $foption. Arguments are not unique")
+        return Expr(:(=), :factorisation, Expr(:tuple, map(f -> Expr(:tuple, f...), factorisation)...))
+    elseif @capture(foption, q = q(args__))
+        error("Invalid factorisation constraint: $foption")
+    elseif @capture(foption, q = T_())
+        return :(factorisation = $(T)())
+    else
+        error("Invalid factorisation constraint: $foption")
+    end
+end
+
+function parse_node_options(form, args, kwargs)
     return map(kwargs) do kwarg
-        if @capture(kwarg, q = *(factors__))
-            factorisation = sort(map(factors) do factor
-                @capture(factor, q(names__)) || error("Invalid factorisation constraint: $factor")
-                return sort(map((name) -> ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ name }) }), names))
-            end, by = first)
-            return Expr(:(=), :factorisation, Expr(:tuple, map(f -> Expr(:tuple, f...), factorisation)...))
-        elseif @capture(kwarg, q = T_())
-            return :(factorisation = $(T)())
-        else
-            return kwarg
+
+        # Factorisation constraint option
+        if is_factorisation_option(kwarg)
+            return write_factorisation_options(form, args, kwarg)
         end
+
+        return kwarg
     end
 end
 
@@ -111,7 +138,7 @@ macro model(model_specification)
         if @capture(expression, varid_ ~ fform_(args__; kwargs__))
             nodeid = gensym()
             varid, short_sym_id, full_sym_id = collect_varids(varid)
-            options = parse_node_options(fform, kwargs)
+            options = parse_node_options(fform, [ varid, args... ], kwargs)
             if short_sym_id ∈ varids
                 return write_make_node_expression(model, fform, args, options, nodeid, varid)
             else
