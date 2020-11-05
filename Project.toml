@@ -5,4 +5,3 @@ version = "0.1.0"
 
 [deps]
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-ReactiveMP = "a194aa59-28ba-4574-a09c-4a745416d6e3"

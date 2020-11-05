@@ -36,23 +36,50 @@ end
 
 function write_randomvar_expression(model, varid, inputs)
     return :($varid = ReactiveMP.randomvar($model, $(GraphPPL.quote_symbol(varid)), $(inputs...)))
- end
+end
 
 function write_datavar_expression(model, varid, inputs)
-   return :($varid = ReactiveMP.datavar($model, $(GraphPPL.quote_symbol(varid)), Dirac{$(inputs[1])}, $(inputs[2:end]...)))
+    return :($varid = ReactiveMP.datavar($model, $(GraphPPL.quote_symbol(varid)), Dirac{$(inputs[1])}, $(inputs[2:end]...)))
 end
 
 function write_as_variable_args(model, args)
     return map(arg -> :(ReactiveMP.as_variable($model, $(GraphPPL.quote_symbol(gensym(:arg))), $arg)), args)
 end
 
-function write_make_node_expression(model, fform, args, nodeid, varid)
-    return :($nodeid = ReactiveMP.make_node($model, $fform, $varid, $(GraphPPL.write_as_variable_args(model, args)...)) )
- end
+function write_make_node_expression(model, fform, args, kwargs, nodeid, varid)
+    return :($nodeid = ReactiveMP.make_node($model, $fform, $varid, $(GraphPPL.write_as_variable_args(model, args)...); $(kwargs...)) )
+end
 
-function write_autovar_make_node_expression(model, fform, args, nodeid, varid, autovar_id)
-    return :(($nodeid, $varid) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.quote_symbol(autovar_id))), $(GraphPPL.write_as_variable_args(model, args)...)))
- end
+function write_autovar_make_node_expression(model, fform, args, kwargs, nodeid, varid, autovar_id)
+    return :(($nodeid, $varid) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.quote_symbol(autovar_id))), $(GraphPPL.write_as_variable_args(model, args)...); $(kwargs...)))
+end
+
+function normalize_tilde_arguments(args)
+    return postwalk(args) do arg
+        if @capture(arg, f_(g__))
+            nvarid = gensym()
+            return quote $nvarid ~ $f($(g...)); $nvarid end
+        else
+            return arg
+        end
+    end
+end
+
+function parse_node_options(form, kwargs)
+    return map(kwargs) do kwarg
+        if @capture(kwarg, q = *(factors__))
+            factorisation = sort(map(factors) do factor
+                @capture(factor, q(names__)) || error("Invalid factorisation constraint: $factor")
+                return sort(map((name) -> ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ name }) }), names))
+            end, by = first)
+            return Expr(:(=), :factorisation, Expr(:tuple, map(f -> Expr(:tuple, f...), factorisation)...))
+        elseif @capture(kwarg, q = T_())
+            return :(factorisation = $(T)())
+        else
+            return kwarg
+        end
+    end
+end
 
 macro model(model_specification)
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
@@ -71,36 +98,25 @@ macro model(model_specification)
             @assert varid ∉ varids
             push!(varids, varid)
             return GraphPPL.write_randomvar_expression(model, varid, inputs)
+        elseif @capture(expression, varid_ ~ fform_(args__))
+            return :($varid ~ $(fform)($((normalize_tilde_arguments(args))...); ))
+        elseif @capture(expression, varid_ ~ (fform_(args__) where { options__ }))
+            return :($varid ~ $(fform)($((normalize_tilde_arguments(args))...); $(options...)))
         else
             return expression
         end
     end
        
     ms_body = postwalk(ms_body) do expression
-        if @capture(expression, varid_ ~ fform_(args__)) 
-            normalized_args = postwalk(args) do arg
-                if @capture(arg, f_(g__))
-                    nvarid = gensym()
-                    return quote $nvarid ~ $f($(g...)); $nvarid end
-                else
-                    return arg
-                end
-            end
-            return :($varid ~ $(fform)($(normalized_args...)))
-        else
-            return expression
-        end
-    end
-       
-    ms_body = postwalk(ms_body) do expression
-        if @capture(expression, varid_ ~ fform_(args__))
+        if @capture(expression, varid_ ~ fform_(args__; kwargs__))
             nodeid = gensym()
             varid, short_sym_id, full_sym_id = collect_varids(varid)
+            options = parse_node_options(fform, kwargs)
             if short_sym_id ∈ varids
-                return write_make_node_expression(model, fform, args, nodeid, varid)
+                return write_make_node_expression(model, fform, args, options, nodeid, varid)
             else
                 push!(varids, short_sym_id)
-                return write_autovar_make_node_expression(model, fform, args, nodeid, varid, full_sym_id)
+                return write_autovar_make_node_expression(model, fform, args, options, nodeid, varid, full_sym_id)
             end
         else
             return expression
