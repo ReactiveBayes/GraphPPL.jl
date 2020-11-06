@@ -4,7 +4,7 @@ import ReactiveMP
 
 export @model
 
-import MacroTools: @capture, postwalk
+import MacroTools: @capture, postwalk, prewalk
 
 """
     fquote(expr)
@@ -74,10 +74,13 @@ function write_autovar_make_node_expression end
 include("backends/reactivemp.jl")
 
 function normalize_tilde_arguments(args)
-    return postwalk(args) do arg
-        if @capture(arg, f_(g__))
-            nvarid = gensym()
-            return quote $nvarid ~ $f($(g...)); $nvarid end
+    return map(args) do arg
+        if @capture(arg, id_[idx__])
+            return arg
+        elseif @capture(arg, f_(v__))
+            nvarexpr = gensym(:nvar)
+            v = normalize_tilde_arguments(v)
+            return :($nvarexpr ~ $f($(v...); ); $nvarexpr)
         else
             return arg
         end
@@ -175,6 +178,7 @@ macro model(model_specification)
             return write_randomvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
         elseif @capture(expression, varexpr_ ~ fform_(arguments__; kwarguments__))
+            # println(expression)
             nodeexpr = gensym()
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
