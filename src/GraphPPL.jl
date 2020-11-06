@@ -58,10 +58,11 @@ function normalize_tilde_arguments(args)
     return map(args) do arg
         if @capture(arg, id_[idx__])
             return arg
-        elseif @capture(arg, f_(v__))
+        elseif @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
             nvarexpr = gensym(:nvar)
+            options  = options !== nothing ? options : []
             v = normalize_tilde_arguments(v)
-            return :($nvarexpr ~ $f($(v...); ); $nvarexpr)
+            return :($nvarexpr ~ $f($(v...); $(options...)); $nvarexpr)
         else
             return arg
         end
