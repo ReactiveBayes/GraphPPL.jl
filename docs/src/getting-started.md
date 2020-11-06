@@ -122,10 +122,6 @@ y ~ NormalMeanVariance(x[i - 1], variance) # While in principle `i - 1` is an in
 y ~ NormalMeanVariance(A * x[i - 1], variance) # This example will create a `*` anonymous node (in case if x[i - 1] is a random variable) and leave `x[i - 1]` untoched.
 ```
 
-Extra anonymous nodes are not always created
-
-[WIP SECTION THIS IS NOT IMPLEMENTED]
-
 It is possible to return a node reference from `~` operator. Use the following syntax
 
 ```julia

@@ -59,10 +59,11 @@ function normalize_tilde_arguments(args)
         if @capture(arg, id_[idx__])
             return arg
         elseif @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
-            nvarexpr = gensym(:nvar)
+            nvarexpr  = gensym(:nvar)
+            nnodeexpr = gensym(:nnode)
             options  = options !== nothing ? options : []
             v = normalize_tilde_arguments(v)
-            return :($nvarexpr ~ $f($(v...); $(options...)); $nvarexpr)
+            return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $nvarexpr)
         else
             return arg
         end
@@ -113,6 +114,7 @@ macro model(model_specification)
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
             options = options === nothing ? [] : options
+            varexpr =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
         else
             return expression
@@ -141,9 +143,8 @@ macro model(model_specification)
 
             return write_randomvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
-        elseif @capture(expression, varexpr_ ~ fform_(arguments__; kwarguments__))
+        elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
             # println(expression)
-            nodeexpr = gensym()
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
