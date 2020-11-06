@@ -6,53 +6,72 @@ export @model
 
 import MacroTools: @capture, postwalk
 
-include("helpers.jl")
+"""
+    fquote(expr)
 
-function quote_symbol(sym::Symbol)
-    return Expr(:quote, sym)
+This function forces `Expr` or `Symbol` to be quoted.
+"""
+fquote(expr::Symbol) = Expr(:quote, expr)
+fquote(expr::Expr)   = expr
+
+"""
+    ensure_type
+"""
+ensure_type(x::Type) = x
+ensure_type(x)       = error("Valid type object was expected but '$x' has been found")
+
+"""
+    parse_varexpr(varexpr)
+
+This function parses variable id and returns a tuple of 3 different representations of the same variable 
+1. Original expression
+2. Short variable identificator (used in variables lookup table)
+3. Full variable identificator (used in model as a variable id)
+"""
+function parse_varexpr(varexpr::Symbol)
+    varexpr  = varexpr
+    short_id = varexpr
+    full_id  = varexpr
+    return varexpr, short_id, full_id
 end
 
-function quote_symbol(sym::Expr)
-    return sym
-end
-
-function collect_varids(varid::Symbol)
-
-    short_sym_id = varid
-    full_sym_id  = varid
-
-    return varid, short_sym_id, full_sym_id
-end
-
-function collect_varids(varid::Expr)
-   @capture(varid, id_[idx__]) || 
-       error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
+function parse_varexpr(varexpr::Expr)
+    @capture(varexpr, id_[idx__]) || 
+        error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
    
-   short_sym_id = id
-   full_sym_id  = Expr(:call, :Symbol, GraphPPL.quote_symbol(id), Expr(:quote, :_), ReactiveMP.with_separator(Expr(:quote, :_), idx)...)
-   
-   return varid, short_sym_id, full_sym_id
+    varexpr  = varexpr
+    short_id = id
+    full_id  = Expr(:call, :Symbol, fquote(id), Expr(:quote, :_), Expr(:quote, Symbol(join(idx, :_))))
+
+    return varexpr, short_id, full_id
 end
 
-function write_randomvar_expression(model, varid, inputs)
-    return :($varid = ReactiveMP.randomvar($model, $(GraphPPL.quote_symbol(varid)), $(inputs...)))
-end
+"""
+    write_randomvar_expression(backend, model, varexpr, arguments)
+"""
+function write_randomvar_expression end
 
-function write_datavar_expression(model, varid, inputs)
-    return :($varid = ReactiveMP.datavar($model, $(GraphPPL.quote_symbol(varid)), Dirac{$(inputs[1])}, $(inputs[2:end]...)))
-end
+"""
+    write_datavar_expression(backend, model, varexpr, type, arguments)
+"""
+function write_datavar_expression end
 
-function write_as_variable_args(model, args)
-    return map(arg -> :(ReactiveMP.as_variable($model, $(GraphPPL.quote_symbol(gensym(:arg))), $arg)), args)
-end
+"""
+    write_as_variable(backend, model, varexpr)
+"""
+function write_as_variable end
 
-function write_make_node_expression(model, fform, args, kwargs, nodeid, varid)
-    return :($nodeid = ReactiveMP.make_node($model, $fform, $varid, $(GraphPPL.write_as_variable_args(model, args)...); $(kwargs...)) )
-end
+"""
+    write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+"""
+function write_make_node_expression end
 
-function write_autovar_make_node_expression(model, fform, args, kwargs, nodeid, varid, autovar_id)
-    return :(($nodeid, $varid) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.quote_symbol(autovar_id))), $(GraphPPL.write_as_variable_args(model, args)...); $(kwargs...)))
-end
+"""
+    write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
+"""
+function write_autovar_make_node_expression end
+
+include("backends/reactivemp.jl")
 
 function normalize_tilde_arguments(args)
     return postwalk(args) do arg
@@ -118,44 +137,62 @@ macro model(model_specification)
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
         error("Model specification language requires full function definition")
        
-    model = gensym(:model)
-   
-    varids = Set{Symbol}()
+    backend = ReactiveMPBackend()
 
+    model = gensym(:model)
+
+    # Step 1: Probabilistic arguments normalisation
     ms_body = postwalk(ms_body) do expression
-        if @capture(expression, varid_ = datavar(inputs__)) 
-            @assert varid ∉ varids
-            push!(varids, varid)
-            return GraphPPL.write_datavar_expression(model, varid, inputs)
-        elseif @capture(expression, varid_ = randomvar(inputs__))
-            @assert varid ∉ varids
-            push!(varids, varid)
-            return GraphPPL.write_randomvar_expression(model, varid, inputs)
-        elseif @capture(expression, varid_ ~ fform_(args__))
-            return :($varid ~ $(fform)($((normalize_tilde_arguments(args))...); ))
-        elseif @capture(expression, varid_ ~ (fform_(args__) where { options__ }))
-            return :($varid ~ $(fform)($((normalize_tilde_arguments(args))...); $(options...)))
+        if @capture(expression, varexpr_ ~ fform_(arguments__))
+            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); ))
+        elseif @capture(expression, varexpr_ ~ (fform_(arguments__) where { options__ }))
+            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
         else
             return expression
         end
     end
+
+    varids = Set{Symbol}()
        
+    # Step 2: Main pass
     ms_body = postwalk(ms_body) do expression
-        if @capture(expression, varid_ ~ fform_(args__; kwargs__))
-            nodeid = gensym()
-            varid, short_sym_id, full_sym_id = collect_varids(varid)
-            options = parse_node_options(fform, [ varid, args... ], kwargs)
-            if short_sym_id ∈ varids
-                return write_make_node_expression(model, fform, args, options, nodeid, varid)
+        # Step 2.1 Convert datavar calls
+        if @capture(expression, varexpr_ = datavar(arguments__)) 
+            @assert varexpr ∉ varids "Invalid model specification: $varexpr is duplicated"
+            @assert length(arguments) >= 1 "datavar() call requires type specification as a first argument"
+            
+            push!(varids, varexpr)
+
+            type = :(GraphPPL.ensure_type($(arguments[1])))
+            tail = arguments[2:end]
+
+            return write_datavar_expression(backend, model, varexpr, type, tail)
+        # Step 2.2 Convert randomvar calls
+        elseif @capture(expression, varexpr_ = randomvar(arguments__))
+            @assert varexpr ∉ varids "Invalid model specification: $varexpr is duplicated"
+            push!(varids, varexpr)
+
+            return write_randomvar_expression(backend, model, varexpr, arguments)
+        # Step 2.2 Convert tilde expressions
+        elseif @capture(expression, varexpr_ ~ fform_(arguments__; kwarguments__))
+            nodeexpr = gensym()
+            varexpr, short_id, full_id = parse_varexpr(varexpr)
+
+            variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
+            options   = parse_node_options(fform, [ varexpr, arguments... ], kwarguments)
+            
+            if short_id ∈ varids
+                return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
             else
-                push!(varids, short_sym_id)
-                return write_autovar_make_node_expression(model, fform, args, options, nodeid, varid, full_sym_id)
+                push!(varids, short_id)
+                return write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, full_id)
             end
         else
             return expression
         end
     end
-                
+
+    # Step 3: Final pass
     ms_body = postwalk(ms_body) do expression
         @capture(expression, return ret_) ? quote activate!($model); $expression end : expression
     end
