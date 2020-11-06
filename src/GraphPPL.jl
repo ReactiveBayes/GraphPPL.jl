@@ -47,6 +47,28 @@ function parse_varexpr(varexpr::Expr)
 end
 
 """
+    normalize_tilde_arguments(args)
+
+This function 'normalizes' every argument of a tilde expression making every inner function call to be a tilde expression as well. 
+It forces MSL to create anonymous node for any non-linear variable transformation or deterministic relationships. MSL does not check (and cannot in general) 
+if some inner function call leads to a constant expression or not (e.g. `Normal(0.0, sqrt(10.0))`). Backend API should decide whenever to create additional anonymous nodes 
+for constant non-linear transformation expressions or not by analyzing input arguments.
+"""
+function normalize_tilde_arguments(args)
+    return map(args) do arg
+        if @capture(arg, id_[idx__])
+            return arg
+        elseif @capture(arg, f_(v__))
+            nvarexpr = gensym(:nvar)
+            v = normalize_tilde_arguments(v)
+            return :($nvarexpr ~ $f($(v...); ); $nvarexpr)
+        else
+            return arg
+        end
+    end
+end
+
+"""
     write_randomvar_expression(backend, model, varexpr, arguments)
 """
 function write_randomvar_expression end
@@ -67,74 +89,16 @@ function write_as_variable end
 function write_make_node_expression end
 
 """
-    write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
+    write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
 """
 function write_autovar_make_node_expression end
 
+"""
+    write_node_options(backend, fform, variables, options)
+"""
+function write_node_options end
+
 include("backends/reactivemp.jl")
-
-function normalize_tilde_arguments(args)
-    return map(args) do arg
-        if @capture(arg, id_[idx__])
-            return arg
-        elseif @capture(arg, f_(v__))
-            nvarexpr = gensym(:nvar)
-            v = normalize_tilde_arguments(v)
-            return :($nvarexpr ~ $f($(v...); ); $nvarexpr)
-        else
-            return arg
-        end
-    end
-end
-
-function is_factorisation_option(option)
-    return option isa Expr && option.head === :(=) && option.args[1] === :q
-end
-
-function factorisation_replace_var_name(varnames, arg::Expr)
-    index = findfirst(==(arg), varnames)
-    return index === nothing ? error("Invalid factorisation argument: $arg") : index
-end
-
-function factorisation_replace_var_name(varnames, arg::Symbol)
-    index = findfirst(==(arg), varnames)
-    return index === nothing ? arg : index
-end
-
-function factorisation_name_to_index(form, name)
-    return ReactiveMP.interface_get_index(Val{ form }, Val{ ReactiveMP.interface_get_name(Val{ form }, Val{ name }) })
-end
-
-function write_factorisation_options(form, args, foption)
-    if @capture(foption, q = *(factors__))
-        factorisation = sort(map(factors) do factor
-            @capture(factor, q(names__)) || error("Invalid factorisation constraint: $factor")
-            return sort(map((n) -> factorisation_name_to_index(form, n), map((n) -> factorisation_replace_var_name(args, n), names)))
-        end, by = first)
-        allunique(Iterators.flatten(factorisation)) || error("Invalid factorisation constraint: $foption. Arguments are not unique")
-        return Expr(:(=), :factorisation, Expr(:tuple, map(f -> Expr(:tuple, f...), factorisation)...))
-    elseif @capture(foption, q = q(names__))
-        factorisation = sort(map((n) -> factorisation_name_to_index(form, n), map((n) -> factorisation_replace_var_name(args, n), names)))
-        allunique(Iterators.flatten(factorisation)) || error("Invalid factorisation constraint: $foption. Arguments are not unique")
-        return Expr(:(=), :factorisation, Expr(:tuple, Expr(:tuple, factorisation...)))
-    elseif @capture(foption, q = T_())
-        return :(factorisation = $(T)())
-    else
-        error("Invalid factorisation constraint: $foption")
-    end
-end
-
-function parse_node_options(form, args, kwargs)
-    return map(kwargs) do kwarg
-
-        # Factorisation constraint option
-        if is_factorisation_option(kwarg)
-            return write_factorisation_options(form, args, kwarg)
-        end
-
-        return kwarg
-    end
-end
 
 macro model(model_specification)
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
@@ -146,9 +110,8 @@ macro model(model_specification)
 
     # Step 1: Probabilistic arguments normalisation
     ms_body = postwalk(ms_body) do expression
-        if @capture(expression, varexpr_ ~ fform_(arguments__))
-            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); ))
-        elseif @capture(expression, varexpr_ ~ (fform_(arguments__) where { options__ }))
+        if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
+            options = options === nothing ? [] : options
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
         else
             return expression
@@ -183,7 +146,7 @@ macro model(model_specification)
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
-            options   = parse_node_options(fform, [ varexpr, arguments... ], kwarguments)
+            options   = write_node_options(backend, fform, [ varexpr, arguments... ], kwarguments)
             
             if short_id ∈ varids
                 return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
