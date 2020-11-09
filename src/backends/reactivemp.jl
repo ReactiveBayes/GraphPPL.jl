@@ -28,11 +28,21 @@ function write_node_options(::ReactiveMPBackend, fform, variables, options)
         # Factorisation constraint option
         if @capture(option, q = fconstraint_)
             return write_fconstraint_option(fform, variables, fconstraint)
+        elseif @capture(option, meta = fmeta_)
+            return write_meta_option(fmeta)
         end
 
         error("Unknown option '$option' for '$fform' node")
     end
 end
+
+# Meta helpe frunctions
+
+function write_meta_option(fmeta)
+    return :(meta = $fmeta)
+end
+
+# Factorisation constraint helper functions
 
 function factorisation_replace_var_name(varnames, arg::Expr)
     index = findfirst(==(arg), varnames)
