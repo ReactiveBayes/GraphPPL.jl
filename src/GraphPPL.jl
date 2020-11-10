@@ -163,7 +163,7 @@ macro model(model_specification)
 
     # Step 3: Final pass
     ms_body = postwalk(ms_body) do expression
-        @capture(expression, return ret_) ? quote activate!($model); $expression end : expression
+        @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
         
     res = quote
