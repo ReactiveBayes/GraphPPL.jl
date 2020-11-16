@@ -128,7 +128,7 @@ macro model(model_specification)
     # Step 0: Check that all inputs are not AbstractVariables
     # It is highly recommended not to create AbstractVariables outside of the model creation macro
     # Doing so can lead to undefined behaviour
-    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args)
+    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_ids)
 
     # Step 1: Probabilistic arguments normalisation
     ms_body = postwalk(ms_body) do expression
