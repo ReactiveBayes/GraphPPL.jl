@@ -2,6 +2,10 @@ export ReactiveMPBackend
 
 struct ReactiveMPBackend end
 
+function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
+    return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments")
+end
+
 function write_randomvar_expression(::ReactiveMPBackend, model, varexp, arguments)
     return :($varexp = ReactiveMP.randomvar($model, $(fquote(varexp)), $(arguments...)))
 end

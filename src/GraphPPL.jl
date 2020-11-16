@@ -71,6 +71,11 @@ function normalize_tilde_arguments(args)
 end
 
 """
+    write_argument_guard(backend, argument)
+"""
+function write_argument_guard end
+
+"""
     write_randomvar_expression(backend, model, varexpr, arguments)
 """
 function write_randomvar_expression end
@@ -110,6 +115,21 @@ macro model(model_specification)
 
     model = gensym(:model)
 
+    ms_args_ids = map(ms_args) do ms_arg
+        if ms_arg isa Symbol
+            return ms_arg::Symbol
+        elseif ms_arg isa Expr && ms_arg.head === :(::)
+            return ms_arg.args[1]::Symbol
+        else
+            error("Invalid argument specification: $(ms_arg)")
+        end
+    end
+
+    # Step 0: Check that all inputs are not AbstractVariables
+    # It is highly recommended not to create AbstractVariables outside of the model creation macro
+    # Doing so can lead to undefined behaviour
+    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args)
+
     # Step 1: Probabilistic arguments normalisation
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
@@ -121,7 +141,7 @@ macro model(model_specification)
         end
     end
 
-    varids = Set{Symbol}()
+    varids = Set{Symbol}(ms_args_ids)
        
     # Step 2: Main pass
     ms_body = postwalk(ms_body) do expression
@@ -168,6 +188,7 @@ macro model(model_specification)
         
     res = quote
         function $ms_name($(ms_args...))
+            $(ms_args_checks...)
             $model = Model()
             $ms_body
             error("'return' statement is missing")
