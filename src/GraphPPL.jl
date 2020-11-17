@@ -4,7 +4,11 @@ import ReactiveMP
 
 export @model
 
-import MacroTools: @capture, postwalk, prewalk
+import MacroTools: @capture, postwalk, prewalk, walk
+
+function conditioned_walk(f, condition_skip, condition_apply, x) 
+    walk(x, x -> condition_skip(x) ? x : condition_apply(x) ? f(x) : conditioned_walk(f, condition_skip, condition_apply, x), identity)
+end
 
 """
     fquote(expr)
@@ -193,7 +197,10 @@ macro model(model_specification)
     end
 
     # Step 3: Final pass
-    ms_body = postwalk(ms_body) do expression
+    final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
+    final_pass_target     = (x) -> @capture(x, return ret_)
+
+    ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
         @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
         
