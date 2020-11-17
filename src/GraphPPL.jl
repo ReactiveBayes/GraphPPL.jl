@@ -56,17 +56,28 @@ for constant non-linear transformation expressions or not by analyzing input arg
 """
 function normalize_tilde_arguments(args)
     return map(args) do arg
-        if @capture(arg, id_[idx__])
-            return arg
-        elseif @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
-            nvarexpr  = gensym(:nvar)
-            nnodeexpr = gensym(:nnode)
-            options  = options !== nothing ? options : []
-            v = normalize_tilde_arguments(v)
-            return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $nvarexpr)
+        if @capture(arg, id_[idx_])
+            return :($(__normalize_arg(id))[$idx])
         else
-            return arg
+            return __normalize_arg(arg)
         end
+    end
+end
+
+function __normalize_arg(arg)
+    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
+        if f === :(|>)
+            @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
+            f = v[2]
+            v = [ v[1] ]
+        end
+        nvarexpr  = gensym(:nvar)
+        nnodeexpr = gensym(:nnode)
+        options  = options !== nothing ? options : []
+        v = normalize_tilde_arguments(v)
+        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $nvarexpr)
+    else
+        return arg
     end
 end
 
