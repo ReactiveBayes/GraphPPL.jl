@@ -120,9 +120,25 @@ function write_autovar_make_node_expression end
 """
 function write_node_options end
 
+
+
 include("backends/reactivemp.jl")
 
 macro model(model_specification)
+    return esc(:(@model [] $model_specification))
+end
+
+macro model(model_options, model_specification)
+    @capture(model_options, [ ms_options__ ]) ||
+        error("Model specification options should be in a form of [ option1 = ..., option2 = ... ]")
+
+    ms_options = map(ms_options) do option
+        (@capture(option, name_ = value_) && name isa Symbol) || error("Invalid option specification: $(option). Expected: 'option_name = option_value'.")
+        return (name, value)
+    end
+
+    ms_options = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
+
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
         error("Model specification language requires full function definition")
        
@@ -203,11 +219,12 @@ macro model(model_specification)
     ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
         @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
-        
+
     res = quote
-        function $ms_name($(ms_args...))
+
+        function $ms_name($(ms_args...); options = $(ms_options))
             $(ms_args_checks...)
-            $model = Model()
+            $model = Model(options)
             $ms_body
             error("'return' statement is missing")
         end     
