@@ -34,16 +34,24 @@ function write_node_options(::ReactiveMPBackend, fform, variables, options)
             return write_fconstraint_option(fform, variables, fconstraint)
         elseif @capture(option, meta = fmeta_)
             return write_meta_option(fmeta)
+        elseif @capture(option, portal = fportal_)
+            return write_portal_option(fportal)
         end
 
         error("Unknown option '$option' for '$fform' node")
     end
 end
 
-# Meta helpe frunctions
+# Meta helper functions
 
 function write_meta_option(fmeta)
     return :(meta = $fmeta)
+end
+
+# Portal helper functions
+
+function write_portal_option(fportal)
+    return :(portal = $fportal)
 end
 
 # Factorisation constraint helper functions
