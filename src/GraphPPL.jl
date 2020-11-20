@@ -162,14 +162,36 @@ macro model(model_options, model_specification)
     ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_ids)
 
     # Step 1: Probabilistic arguments normalisation
-    ms_body = postwalk(ms_body) do expression
+    ms_body = prewalk(ms_body) do expression
         if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
-            options = options === nothing ? [] : options
-            varexpr =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
+            options   = options === nothing ? [] : options
+
+            # Filter out keywords arguments to options array
+            arguments = filter(arguments) do arg
+                ifparameters = arg isa Expr && arg.head === :parameters
+                if ifparameters
+                    foreach(a -> push!(options, a), arg.args)
+                end
+                return !ifparameters
+            end
+
+            varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
         else
             return expression
         end
+    end
+
+    bannedids = Set{Symbol}()
+
+    ms_body = postwalk(ms_body) do expression
+        if @capture(expression, lhs_ = rhs_)
+            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__)))
+                varexpr, short_id, full_id = parse_varexpr(lhs)
+                push!(bannedids, short_id)
+            end
+        end
+        return expression
     end
 
     varids = Set{Symbol}(ms_args_ids)
@@ -178,7 +200,7 @@ macro model(model_options, model_specification)
     ms_body = postwalk(ms_body) do expression
         # Step 2.1 Convert datavar calls
         if @capture(expression, varexpr_ = datavar(arguments__)) 
-            @assert varexpr ∉ varids "Invalid model specification: $varexpr is duplicated"
+            @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             @assert length(arguments) >= 1 "datavar() call requires type specification as a first argument"
             
             push!(varids, varexpr)
@@ -189,7 +211,7 @@ macro model(model_options, model_specification)
             return write_datavar_expression(backend, model, varexpr, type, tail)
         # Step 2.2 Convert randomvar calls
         elseif @capture(expression, varexpr_ = randomvar(arguments__))
-            @assert varexpr ∉ varids "Invalid model specification: $varexpr is duplicated"
+            @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             push!(varids, varexpr)
 
             return write_randomvar_expression(backend, model, varexpr, arguments)
@@ -197,6 +219,10 @@ macro model(model_options, model_specification)
         elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
             # println(expression)
             varexpr, short_id, full_id = parse_varexpr(varexpr)
+
+            if short_id ∈ bannedids
+                error("Invalid name '$(short_id)' for new random variable. '$(short_id)' was already initialized with '=' operator before.")
+            end
 
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
             options   = write_node_options(backend, fform, [ varexpr, arguments... ], kwarguments)
