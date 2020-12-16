@@ -29,6 +29,7 @@ docs/build
 
 demo/.ipynb_checkpoints
 demo/*incomplete.ipynb
+demo/*wip.ipynb
 demo/*.jl
 
 .idea
