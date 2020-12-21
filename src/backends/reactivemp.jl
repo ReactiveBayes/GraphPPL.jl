@@ -3,7 +3,7 @@ export ReactiveMPBackend
 struct ReactiveMPBackend end
 
 function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
-    return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments")
+    return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments. ConstVariables should be passed as their raw values.")
 end
 
 function write_randomvar_expression(::ReactiveMPBackend, model, varexp, arguments)
@@ -14,8 +14,12 @@ function write_datavar_expression(::ReactiveMPBackend, model, varexpr, type, arg
     return :($varexpr = ReactiveMP.datavar($model, $(fquote(varexpr)), Dirac{ $type }, $(arguments...)))
 end
 
+function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
+    return :($varexpr = ReactiveMP.constvar($model, $(fquote(varexpr)), $(arguments...)))
+end
+
 function write_as_variable(::ReactiveMPBackend, model, varexpr)
-    return :(ReactiveMP.as_variable($model, $(fquote(gensym(:arg))), $varexpr))
+    return :(ReactiveMP.as_variable($model, $varexpr))
 end
 
 function write_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr)

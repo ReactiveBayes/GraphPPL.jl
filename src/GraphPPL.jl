@@ -4,6 +4,7 @@ import ReactiveMP
 
 export @model
 
+import MacroTools
 import MacroTools: @capture, postwalk, prewalk, walk
 
 function conditioned_walk(f, condition_skip, condition_apply, x) 
@@ -101,6 +102,11 @@ function write_randomvar_expression end
 function write_datavar_expression end
 
 """
+    write_constvar_expression(backend, model, varexpr, arguments)
+"""
+function write_constvar_expression end
+
+"""
     write_as_variable(backend, model, varexpr)
 """
 function write_as_variable end
@@ -146,20 +152,42 @@ macro model(model_options, model_specification)
 
     model = gensym(:model)
 
-    ms_args_ids = map(ms_args) do ms_arg
-        if ms_arg isa Symbol
-            return ms_arg::Symbol
-        elseif ms_arg isa Expr && ms_arg.head === :(::)
-            return ms_arg.args[1]::Symbol
+    ms_args_const_ids = filter(ms_args) do ms_arg 
+        @capture(ms_arg, var_::ConstVariable)
+    end
+
+    ms_args_ids       = Vector{Symbol}()
+    ms_args_guard_ids = Vector{Symbol}()
+    ms_args_const_ids = Vector{Tuple{Symbol, Symbol}}()
+
+    ms_args = map(ms_args) do ms_arg
+        if @capture(ms_arg, arg_::ConstVariable)
+            rc_arg = gensym(:constvar)
+            push!(ms_args_const_ids, (arg, rc_arg))
+            push!(ms_args_guard_ids, rc_arg)
+            push!(ms_args_ids, arg)
+            return rc_arg
+        elseif @capture(ms_arg, arg_::T_)
+            push!(ms_args_guard_ids, arg)
+            push!(ms_args_ids, arg)
+            return ms_arg
+        elseif @capture(ms_arg, arg_Symbol)
+            push!(ms_args_guard_ids, arg)
+            push!(ms_args_ids, arg)
+            return ms_arg
         else
             error("Invalid argument specification: $(ms_arg)")
         end
     end
 
+    ms_args_const_init_block = map(ms_args_const_ids) do ms_arg_const_id
+        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ])
+    end
+
     # Step 0: Check that all inputs are not AbstractVariables
     # It is highly recommended not to create AbstractVariables outside of the model creation macro
     # Doing so can lead to undefined behaviour
-    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_ids)
+    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_guard_ids)
 
     # Step 1: Probabilistic arguments normalisation
     ms_body = prewalk(ms_body) do expression
@@ -186,7 +214,7 @@ macro model(model_options, model_specification)
 
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, lhs_ = rhs_)
-            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__)))
+            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__))) && !(@capture(rhs, constvar(args__)))
                 varexpr, short_id, full_id = parse_varexpr(lhs)
                 push!(bannedids, short_id)
             end
@@ -215,6 +243,12 @@ macro model(model_options, model_specification)
             push!(varids, varexpr)
 
             return write_randomvar_expression(backend, model, varexpr, arguments)
+        # Step 2.3 Conver constvar calls 
+        elseif @capture(expression, varexpr_ = constvar(arguments__))
+            @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
+            push!(varids, varexpr)
+
+            return write_constvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
         elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
             # println(expression)
@@ -251,6 +285,7 @@ macro model(model_options, model_specification)
         function $ms_name($(ms_args...); options = $(ms_options))
             $(ms_args_checks...)
             $model = Model(options)
+            $(ms_args_const_init_block...)
             $ms_body
             error("'return' statement is missing")
         end     
