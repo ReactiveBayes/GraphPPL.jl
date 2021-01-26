@@ -11,7 +11,7 @@ function write_randomvar_expression(::ReactiveMPBackend, model, varexp, argument
 end
 
 function write_datavar_expression(::ReactiveMPBackend, model, varexpr, type, arguments)
-    return :($varexpr = ReactiveMP.datavar($model, $(fquote(varexpr)), Dirac{ $type }, $(arguments...)))
+    return :($varexpr = ReactiveMP.datavar($model, $(fquote(varexpr)), ReactiveMP.PointMass{ $type }, $(arguments...)))
 end
 
 function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
