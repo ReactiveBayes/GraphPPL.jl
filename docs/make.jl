@@ -6,6 +6,7 @@ makedocs(
     sitename = "GraphPPL.jl",
     pages    = [
         "Home"                 => "index.md",
+        "User guide"           => "user-guide.md",
         "Transformation steps" => "getting-started.md",
     ],
     format   = Documenter.HTML(

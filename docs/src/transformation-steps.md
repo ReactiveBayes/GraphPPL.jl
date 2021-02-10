@@ -46,7 +46,7 @@ where `var"#model"` references to an anonymous model variable, `ensure_type` fun
 
 This step is recursive from top to bottom.
 
-### `randomv()` transformation
+### `randomvar()` transformation
 
 Any expression of the form 
 
@@ -58,6 +58,24 @@ is translated to
 
 ```
 randomvar(var"#model", args...)
+```
+
+where `var"#model"` references to an anonymous model variable, arguments are left untouched.
+
+This step is recursive from top to bottom.
+
+### `constvar()` transformation
+
+Any expression of the form 
+
+```
+constvar(args...)
+```
+
+is translated to 
+
+```
+constvar(var"#model", args...)
 ```
 
 where `var"#model"` references to an anonymous model variable, arguments are left untouched.
