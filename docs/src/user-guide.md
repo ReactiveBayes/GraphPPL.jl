@@ -25,7 +25,20 @@ Model parameters are optional and may be omitted:
 end
 ```
 
-`@model` macro returns a regular Julia function (in this example `model_name()`) which can be executed as usual.
+`@model` macro returns a regular Julia function (in this example `model_name()`) which can be executed as usual. It returns a reference to a model object itself and a tuple of a user specified return variables. E.g:
+
+```julia
+@model function my_model(model_arguments...)
+    # model specification here
+    # ...
+    return x, y
+end
+```
+
+```julia
+model, (x, y) = my_model(model_arguments...)
+```
+
 It is also important to note that any model should return something, e.g. variables, nodes. If model doesn't return anything an error will be raised in runtime. 
 
 ## A full example before diving in
@@ -57,7 +70,7 @@ Any runtime constant passed to a model as a model argument will be automatically
 
 You can create a constant within a model specification macro with `constvar()` function. For example:
 
-```
+```julia
 c = constvar(1.0)
 
 for i in 2:n
