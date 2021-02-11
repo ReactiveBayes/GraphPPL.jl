@@ -133,6 +133,16 @@ v = randomvar()
 y ~ NormalMeanVariance(m, v) # Creates a `y` random variable automatically
 ```
 
+```julia
+a = randomvar()
+b = randomvar()
+c ~ a + b
+```
+
+!!! note
+    The `GraphPPL.jl` package uses the `~` operator for modelling both stochastic and deterministic relationships between random variables.
+
+
 The `@model` macro automatically resolves any inner function calls into anonymous extra nodes in case this inner function call is a non-linear transformations. But it is important to note that the inference backend will try to optimize inner non-linear deterministic function calls in the case where all arguments are constants or data inputs. For example:
 
 ```julia
