@@ -1,13 +1,13 @@
 # User guide
 
-Probabilistic models incorporate the element of randomness to describe an event or phenomenon by using random variables and probability theory. A probabilistic model can be represented diagrammatically by using probabilistic graphical models (PGMs). A factor graph is a type of PGM that is well suited to cast inference tasks in terms of graphical manipulations.
+Probabilistic models incorporate elements of randomness to describe an event or phenomenon by using random variables and probability theory. A probabilistic model can be represented visually by using probabilistic graphical models (PGMs). A factor graph is a type of PGM that is well suited to cast inference tasks in terms of graphical manipulations.
 
-`GraphPPL.jl` is a Julia package with model specification language for probabilistic models and uses `ReactiveMP.jl` packages as a backend for a factor graph creation.
+`GraphPPL.jl` is a Julia package presenting a model specification language for probabilistic models and uses the `ReactiveMP.jl` package as a backend for a factor graph creation.
 
 ## Model specification
 
-`GraphPPL.jl` package exports `@model` macro for model specification. 
-`@model` macro accepts two arguments: model parameters and a model specification itself in a form of regular Julia function. For example: 
+The `GraphPPL.jl` package exports the `@model` macro for model specification. 
+This `@model` macro accepts two arguments: model options and the model specification itself in a form of regular Julia function. For example: 
 
 ```julia
 @model [ option1 = ..., option2 = ... ] function model_name(model_arguments...)
@@ -16,7 +16,7 @@ Probabilistic models incorporate the element of randomness to describe an event 
 end
 ```
 
-Model parameters are optional and may be omitted:
+Model options are optional and may be omitted:
 
 ```julia
 @model function model_name(model_arguments...)
@@ -25,7 +25,7 @@ Model parameters are optional and may be omitted:
 end
 ```
 
-`@model` macro returns a regular Julia function (in this example `model_name()`) which can be executed as usual. It returns a reference to a model object itself and a tuple of a user specified return variables. E.g:
+The `@model` macro returns a regular Julia function (in this example `model_name()`) which can be executed as usual. It returns a reference to a model object itself and a tuple of a user specified return variables, e.g:
 
 ```julia
 @model function my_model(model_arguments...)
@@ -39,10 +39,11 @@ end
 model, (x, y) = my_model(model_arguments...)
 ```
 
-It is also important to note that any model should return something, e.g. variables, nodes. If model doesn't return anything an error will be raised in runtime. 
+It is also important to note that any model should return something, such as variables or nodes. If a model doesn't return anything then an error will be raised during runtime. 
 
 ## A full example before diving in
 
+Before presenting the details of the model specification syntax, an example of a probabilistic model is given.
 Here is an example of a simple state space model with latent random variables `x` and noisy observations `y`:
 
 ```julia
@@ -66,7 +67,7 @@ end
 
 ### Constants
 
-Any runtime constant passed to a model as a model argument will be automatically converted to a clamped constant in the graph model at runtime. Sometimes it might be useful to create constants by hand (e.g. to avoid copying large matrices across the model and to avoid extensive memory allocations).
+Any runtime constant passed to a model as a model argument will be automatically converted to a fixed constant in the graph model at runtime. Sometimes it might be useful to create constants by hand (e.g. to avoid copying large matrices across the model and to avoid extensive memory allocations).
 
 You can create a constant within a model specification macro with `constvar()` function. For example:
 
@@ -94,69 +95,69 @@ end
 
 ### Data variables
 
-It is important to have a mechanism to pass data values to the model. You can create data inputs with `datavar()` function. As a first argument it accepts a type specification and optional dimensionality (as varargs or as a tuple).
+It is important to have a mechanism to pass data values to the model. You can create data inputs with `datavar()` function. As a first argument it accepts a type specification and optional dimensionality (as additional arguments or as a tuple).
 
 Examples: 
 
 ```julia
-y = datavar(Float64) # Creates a single data input with `y` identificator
+y = datavar(Float64) # Creates a single data input with `y` as identificator
 y = datavar(Float64, n) # Returns a vector of  `y_i` data input objects with length `n`
-y = datavar(Float64, n, n) # Returns a matrix of `y_i_j` data input objects with size `(n, n)`
-y = datavar(Float64, (n, n)) # It is also possible to use a tuple for dimensionality
+y = datavar(Float64, n, m) # Returns a matrix of `y_i_j` data input objects with size `(n, m)`
+y = datavar(Float64, (n, m)) # It is also possible to use a tuple for dimensionality
 ```
 
 ### Random variables
 
-There are several ways to create random variables. The first one is an explicit call to `randomvar` function. By default it doesn't accept any argument, creates a single random variable in the model and returns it. It is also possible to pass dimensionality arguments to `randomvar` function in the same way as for `datavar`.
+There are several ways to create random variables. The first one is an explicit call to `randomvar()` function. By default it doesn't accept any argument, creates a single random variable in the model and returns it. It is also possible to pass dimensionality arguments to `randomvar()` function in the same way as for the `datavar()` function.
 
 Examples: 
 
 ```julia
 x = randomvar() # Returns a single random variable which can be used later in the model
 x = randomvar(n) # Returns an vector of random variables with length `n`
-x = randomvar(n, n) # Returns a matrix of random variables with size `(n, n)`
-x = randomvar((n, n)) # It is also possible to use a tuple for dimensionality
+x = randomvar(n, m) # Returns a matrix of random variables with size `(n, m)`
+x = randomvar((n, m)) # It is also possible to use a tuple for dimensionality
 ```
 
-The second way to create a random variable is to create a node with `~` operator. If not created before random variables will be created automatically during node creation. Read more about `~` operator below.
+The second way to create a random variable is to create a node with the `~` operator. If the random variable has not yet been created before this call, it will be created automatically during the creation of the node. Read more about the `~` operator below.
 
 ## Node creation
 
 Factor nodes are used to define a relationship between random variables and/or constants and data inputs. A factor node defines a probability distribution over selected random variables. 
 
-We assign a probability distribution to a random variable using the `~` operator. For example, to create a random variable y sampled from a Gaussian distribution, where its mean and variance are controlled by the random variables `m` and `v` respectively, we define
+We model a random variable by a probability distribution using the `~` operator. For example, to create a random variable `y` which is modeled by a Normal distribution, where its mean and variance are controlled by the random variables `m` and `v` respectively, we define
 
 ```julia
 m = randomvar()
 v = randomvar()
-y ~ GaussianMeanVariance(m, v) # Creates a `y` random variable automatically
+y ~ NormalMeanVariance(m, v) # Creates a `y` random variable automatically
 ```
 
-`@model` macro automatically resolves any inner function calls into anonymous extra nodes in case of non-linear transformation. But it is important to note that inference backend will trye to optimize inner non-linear deterministic function calls in case if all arguments are constant or data inputs. For example:
+The `@model` macro automatically resolves any inner function calls into anonymous extra nodes in case this inner function call is a non-linear transformations. But it is important to note that the inference backend will try to optimize inner non-linear deterministic function calls in the case where all arguments are constants or data inputs. For example:
 
 ```julia
-noise ~ GaussianMeanVariance(mean, inv(precision)) # Will create a non-linear node in case if `precision` is a random variable. Won't create an additional non-linear node in case if `precision` is a constant or data input.
+noise ~ NormalMeanVariance(mean, inv(precision)) # Will create a non-linear node in case if `precision` is a random variable. Won't create an additional non-linear node in case if `precision` is a constant or data input.
 ```
 
-It is possible to use any complex expression with in `~` operator arguments list. The only one exception is `ref` expressions (e.g `x[i]`). All reference expressions within `~` operator arguments list left untouched during model parsing.
+It is possible to use any functional expression within the `~` operator arguments list. The only one exception is the `ref` expression (e.g `x[i]`). All reference expressions within the `~` operator arguments list are left untouched during model parsing. This means that the model parser will not create unnecessary nodes when only simple indexing is involved.
 
 ```julia
 y ~ NormalMeanVariance(x[i - 1], variance) # While in principle `i - 1` is an inner function call (`-(i, 1)`) model parser will leave it untouched and won't create any anonymous nodes for `ref` expressions.
 
-y ~ NormalMeanVariance(A * x[i - 1], variance) # This example will create a `*` anonymous node (in case if x[i - 1] is a random variable) and leave `x[i - 1]` untoched.
+y ~ NormalMeanVariance(A * x[i - 1], variance) # This example will create a `*` anonymous node (in case if x[i - 1] is a random variable) and leave `x[i - 1]` untouched.
 ```
 
-It is possible to return a node reference from `~` operator. Use the following syntax
+It is also possible to return a node reference from the `~` operator. Use the following syntax:
 
 ```julia
 node, y ~ NormalMeanVariance(mean, var)
 ```
 
-Having a node reference can be useful in case if user wants to return it from a model and use it later to specify initial joint marginals.
+Having a node reference can be useful in case the user wants to return it from a model and to use it later on to specify initial joint marginal distributions.
 
 ### Node creation options
 
-To pass an optional arguments to node creation constructor user can use `where { options...  }` options specification syntax.
+To pass optional arguments to the node creation constructor the user can use the `where { options...  }` options specification syntax.
 
 Example:
 
@@ -168,8 +169,8 @@ A list of all available options is presented below:
 
 #### Factorisation constraint option
 
-User can specify factorisation constraint over `q` for variational inference.
-General syntax for factorisation constraint over `q` is the following:
+Users can specify a factorisation constraint over the approximate posterior `q` for variational inference.
+The general syntax for factorisation constraints over `q` is the following:
 ```julia
 variable ~ Node(node_arguments...) where { q = RecognitionFactorisationConstraint }
 ```
@@ -182,7 +183,7 @@ Automatically specifies a mean-field factorisation
 
 Example:
 
-```
+```julia
 y ~ NormalMeanVariance(y_mean, y_var) where { q = MeanField() }
 ```
 
@@ -192,13 +193,13 @@ Automatically specifies a full factorisation
 
 Example:
 
-```
+```julia
 y ~ NormalMeanVariance(y_mean, y_var) where { q = FullFactorisation() }
 ```
 
 3. `q(μ)q(v)q(out)` or `q(μ) * q(v) * q(out)`
 
-User can specify any factorisation he wants via multiplication of `q(interface_names...)` factors. As interface names user can use interface names of an actual node (read node's documentation), its aliases (if available) or actual random variable names present in `~` operator expression.
+A user can specify any factorisation he wants as the multiplication of `q(interface_names...)` factors. As interface names the user can use the interface names of an actual node (read node's documentation), its aliases (if available) or actual random variable names present in the `~` operator expression.
 
 Examples: 
 
@@ -225,7 +226,7 @@ y ~ NormalMeanVariance(y_mean, y_var) where { q = q(y_mean, v)q(y) }
 
 #### Metadata option
 
-Is is possible to pass any extra metadata to a factor node with `meta` option. Metadata can be later accessed in message computation rules:
+Is is possible to pass any extra metadata to a factor node with the `meta` option. Metadata can be later accessed in message computation rules:
 
 ```julia
 z ~ f(x, y) where { meta = ... }
@@ -233,7 +234,7 @@ z ~ f(x, y) where { meta = ... }
 
 #### Portal option
 
-To assign a factor node's local portal for all outbound messages user may use a `portal` option:
+To assign a factor node's local portal for all outbound messages the user may use a `portal` option:
 
 ```julia
 y ~ NormalMeanVariance(m, v) where { portal = LoggerPortal() } # Log all outbound messages with `LoggerPortal` portal
