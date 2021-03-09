@@ -284,6 +284,7 @@ macro model(model_options, model_specification)
 
         function $ms_name($(ms_args...); options = $(ms_options))
             $(ms_args_checks...)
+            options = merge($(ms_options), options)
             $model = Model(options)
             $(ms_args_const_init_block...)
             $ms_body
