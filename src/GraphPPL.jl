@@ -221,7 +221,7 @@ function generate_model_expression(backend, model_options, model_specification)
             
             push!(varids, varexpr)
 
-            type = :(GraphPPL.ensure_type($(arguments[1])))
+            type = arguments[1]
             tail = arguments[2:end]
 
             return write_datavar_expression(backend, model, varexpr, type, tail)
