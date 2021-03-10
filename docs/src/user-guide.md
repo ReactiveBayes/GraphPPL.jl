@@ -6,7 +6,8 @@ Probabilistic models incorporate elements of randomness to describe an event or 
 
 ## Model specification
 
-The `GraphPPL.jl` package exports the `@model` macro for model specification. 
+The `GraphPPL.jl` package exports the `generate_model_expression` function for model specification. 
+`ReactiveMP.jl` package later than imports `generate_model_expression` and reexports it as a `@model` macro for model specification.
 This `@model` macro accepts two arguments: model options and the model specification itself in a form of regular Julia function. For example: 
 
 ```julia

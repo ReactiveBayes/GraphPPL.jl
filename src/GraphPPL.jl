@@ -1,8 +1,6 @@
 module GraphPPL
 
-import ReactiveMP
-
-export @model
+export generate_model_expression
 
 import MacroTools
 import MacroTools: @capture, postwalk, prewalk, walk
@@ -126,15 +124,7 @@ function write_autovar_make_node_expression end
 """
 function write_node_options end
 
-
-
-include("backends/reactivemp.jl")
-
-macro model(model_specification)
-    return esc(:(@model [] $model_specification))
-end
-
-macro model(model_options, model_specification)
+function generate_model_expression(backend, model_options, model_specification)
     @capture(model_options, [ ms_options__ ]) ||
         error("Model specification options should be in a form of [ option1 = ..., option2 = ... ]")
 
@@ -147,8 +137,6 @@ macro model(model_options, model_specification)
 
     @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
         error("Model specification language requires full function definition")
-       
-    backend = ReactiveMPBackend()
 
     model = gensym(:model)
 
