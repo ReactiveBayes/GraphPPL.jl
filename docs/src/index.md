@@ -6,8 +6,7 @@ Welcome to the documentation for GraphPPL.jl.
 
 ```@contents
 Pages = [
-  "user-guide.md",
-  "transformation-steps.md"
+  "user-guide.md"
 ]
 Depth = 2
 ```

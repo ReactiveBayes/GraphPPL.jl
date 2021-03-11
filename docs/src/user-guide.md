@@ -2,7 +2,7 @@
 
 Probabilistic models incorporate elements of randomness to describe an event or phenomenon by using random variables and probability theory. A probabilistic model can be represented visually by using probabilistic graphical models (PGMs). A factor graph is a type of PGM that is well suited to cast inference tasks in terms of graphical manipulations.
 
-`GraphPPL.jl` is a Julia package presenting a model specification language for probabilistic models and uses the `ReactiveMP.jl` package as a backend for a factor graph creation.
+`GraphPPL.jl` is a Julia package presenting a model specification language for probabilistic models.
 
 ## Model specification
 

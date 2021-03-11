@@ -1,7 +1,18 @@
 name = "GraphPPL"
 uuid = "b3f8163a-e979-4e85-b43e-1f63d8c8b42c"
 authors = ["Dmitry Bagaev <bvdmitri@gmail.com>"]
-version = "0.1.0"
+version = "1.0.0"
 
 [deps]
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+
+[compat]
+MacroTools = "0.5.6"
+julia = "1"
+
+[extras]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Documenter"]
