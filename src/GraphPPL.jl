@@ -1,6 +1,6 @@
 module GraphPPL
 
-export generate_model_expression
+export @model
 
 import MacroTools
 import MacroTools: @capture, postwalk, prewalk, walk
@@ -15,6 +15,7 @@ end
 This function forces `Expr` or `Symbol` to be quoted.
 """
 fquote(expr::Symbol) = Expr(:quote, expr)
+fquote(expr::Int)    = expr
 fquote(expr::Expr)   = expr
 
 """
@@ -123,6 +124,18 @@ function write_autovar_make_node_expression end
     write_node_options(backend, fform, variables, options)
 """
 function write_node_options end
+
+include("backends/reactivemp.jl")
+
+__get_current_backend() = ReactiveMPBackend()
+
+macro model(model_specification)
+    return esc(:(@model [] $model_specification))
+end
+
+macro model(model_options, model_specification)
+    return GraphPPL.generate_model_expression(__get_current_backend(), model_options, model_specification)
+end
 
 function generate_model_expression(backend, model_options, model_specification)
     @capture(model_options, [ ms_options__ ]) ||
