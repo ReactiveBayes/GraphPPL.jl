@@ -40,6 +40,12 @@ function parse_varexpr(varexpr::Symbol)
 end
 
 function parse_varexpr(varexpr::Expr)
+
+    # TODO: It might be handy to have this feature in the future for e.g. interacting with UnPack.jl package
+    # TODO: For now however we fallback to a more informative error message since it is not obvious how to parse such expressions yet
+    @capture(varexpr, (tupled_ids__, )) && 
+        error("Multiple variable declarations, definitions and assigments are forbidden within @model macro. Try to split $(varexpr) into several independent statements.")
+
     @capture(varexpr, id_[idx__]) || 
         error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
    
