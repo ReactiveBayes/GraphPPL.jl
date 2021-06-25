@@ -39,9 +39,9 @@ function write_node_options(::ReactiveMPBackend, fform, variables, options)
         if @capture(option, q = fconstraint_)
             return write_fconstraint_option(fform, variables, fconstraint)
         elseif @capture(option, meta = fmeta_)
-            return write_meta_option(fmeta)
+            return write_meta_option(fform, fmeta)
         elseif @capture(option, pipeline = fpipeline_)
-            return write_pipeline_option(fpipeline)
+            return write_pipeline_option(fform, fpipeline)
         end
 
         error("Unknown option '$option' for '$fform' node")
@@ -50,14 +50,42 @@ end
 
 # Meta helper functions
 
-function write_meta_option(fmeta)
+function write_meta_option(fform, fmeta)
     return :(meta = $fmeta)
 end
 
 # Pipeline helper functions
 
-function write_pipeline_option(fpipeline)
-    return :(pipeline = $fpipeline)
+function write_pipeline_option(fform, fpipeline)
+    if @capture(fpipeline, +(stages__))
+        return :(pipeline = ReactiveMP.FactorNodePipeline(+($(map(stage -> write_pipeline_stage(fform, stage), stages)...))))
+    else
+        return :(pipeline = ReactiveMP.FactorNodePipeline($(write_pipeline_stage(fform, fpipeline))))
+    end
+end
+
+function write_pipeline_stage(fform, stage)
+    if @capture(stage, Default())
+        return :(ReactiveMP.DefaultFunctionalDependencies())
+    elseif @capture(stage, RequireInbound(args__))
+
+        specs = map(args) do arg
+            if @capture(arg, name_Symbol)
+                return (name, :nothing)
+            elseif @capture(arg, name_Symbol = dist_)
+                return (name, dist)
+            else
+                error("Invalid arg specification in node's WithInbound dependencies list: $(arg). Should be either `name` or `name = initial` expression")
+            end
+        end
+
+        indices  = Expr(:tuple, map(s -> :(ReactiveMP.interface_get_index(Val{ $(GraphPPL.fquote(fform)) }, Val{ $(GraphPPL.fquote(first(s))) })), specs)...)
+        initials = Expr(:tuple, map(s -> :($(last(s))), specs)...)
+
+        return :(RequireInboundFunctionalDependencies($indices, $initials))
+    else
+        return stage
+    end
 end
 
 # Factorisation constraint helper functions
