@@ -67,6 +67,8 @@ end
 function write_pipeline_stage(fform, stage)
     if @capture(stage, Default())
         return :(ReactiveMP.DefaultFunctionalDependencies())
+    elseif @capture(stage, RequireEverything())
+        return :(ReactiveMP.RequireEverythingFunctionalDependencies())
     elseif @capture(stage, RequireInbound(args__))
 
         specs = map(args) do arg
