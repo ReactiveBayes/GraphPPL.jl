@@ -24,6 +24,9 @@ fquote(expr::Expr)   = expr
 ensure_type(x::Type) = x
 ensure_type(x)       = error("Valid type object was expected but '$x' has been found")
 
+is_kwargs_expression(x)       = false
+is_kwargs_expression(x::Expr) = x.head === :parameters
+
 """
     parse_varexpr(varexpr)
 
@@ -91,6 +94,10 @@ function __normalize_arg(arg)
     end
 end
 
+argument_write_default_value(arg, default::Nothing) = arg
+argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
+
+
 """
     write_argument_guard(backend, argument)
 """
@@ -154,37 +161,40 @@ function generate_model_expression(backend, model_options, model_specification)
 
     ms_options = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
 
-    @capture(model_specification, function ms_name_(ms_args__) ms_body_ end) || 
+    @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
         error("Model specification language requires full function definition")
 
     model = gensym(:model)
-
-    ms_args_const_ids = filter(ms_args) do ms_arg 
-        @capture(ms_arg, var_::ConstVariable)
-    end
 
     ms_args_ids       = Vector{Symbol}()
     ms_args_guard_ids = Vector{Symbol}()
     ms_args_const_ids = Vector{Tuple{Symbol, Symbol}}()
 
-    ms_args = map(ms_args) do ms_arg
-        if @capture(ms_arg, arg_::ConstVariable)
-            rc_arg = gensym(:constvar)
-            push!(ms_args_const_ids, (arg, rc_arg))
-            push!(ms_args_guard_ids, rc_arg)
-            push!(ms_args_ids, arg)
-            return rc_arg
-        elseif @capture(ms_arg, arg_::T_)
+    ms_arg_expression_converter = (ms_arg) -> begin
+        if @capture(ms_arg, arg_::ConstVariable = smth_) || @capture(ms_arg, arg_::ConstVariable)
+            # rc_arg = gensym(:constvar) 
+            push!(ms_args_const_ids, (arg, arg)) # backward compatibility for old behaviour with gensym
             push!(ms_args_guard_ids, arg)
             push!(ms_args_ids, arg)
-            return ms_arg
-        elseif @capture(ms_arg, arg_Symbol)
+            return argument_write_default_value(arg, smth)
+        elseif @capture(ms_arg, arg_::T_ = smth_) || @capture(ms_arg, arg_::T_)
             push!(ms_args_guard_ids, arg)
             push!(ms_args_ids, arg)
-            return ms_arg
+            return argument_write_default_value(:($(arg)::$(T)), smth)
+        elseif @capture(ms_arg, arg_Symbol = smth_) || @capture(ms_arg, arg_Symbol)
+            push!(ms_args_guard_ids, arg)
+            push!(ms_args_ids, arg)
+            return argument_write_default_value(arg, smth)
         else
             error("Invalid argument specification: $(ms_arg)")
         end
+    end
+
+    ms_args   = ms_args === nothing ? [] : map(ms_arg_expression_converter, ms_args)
+    ms_kwargs = ms_kwargs === nothing ? [] : map(ms_arg_expression_converter, ms_kwargs)
+
+    if length(Set(ms_args_ids)) !== length(ms_args_ids)
+        error("There are duplicates in argument specification list: $(ms_args_ids)")
     end
 
     ms_args_const_init_block = map(ms_args_const_ids) do ms_arg_const_id
@@ -289,7 +299,7 @@ function generate_model_expression(backend, model_options, model_specification)
 
     res = quote
 
-        function $ms_name($(ms_args...); options = $(ms_options))
+        function $ms_name($(ms_args...); $(ms_kwargs...), options = $(ms_options))
             $(ms_args_checks...)
             options = merge($(ms_options), options)
             $model = Model(options)
