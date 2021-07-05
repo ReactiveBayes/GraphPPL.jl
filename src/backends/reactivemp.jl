@@ -58,9 +58,9 @@ end
 
 function write_pipeline_option(fform, fpipeline)
     if @capture(fpipeline, +(stages__))
-        return :(pipeline = ReactiveMP.FactorNodePipeline(+($(map(stage -> write_pipeline_stage(fform, stage), stages)...))))
+        return :(pipeline = +($(map(stage -> write_pipeline_stage(fform, stage), stages)...)))
     else
-        return :(pipeline = ReactiveMP.FactorNodePipeline($(write_pipeline_stage(fform, fpipeline))))
+        return :(pipeline = $(write_pipeline_stage(fform, fpipeline)))
     end
 end
 
