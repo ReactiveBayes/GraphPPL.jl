@@ -104,17 +104,17 @@ argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
 function write_argument_guard end
 
 """
-    write_randomvar_expression(backend, model, varexpr, arguments)
+    write_randomvar_expression(backend, model, varexpr, arguments, kwarguments)
 """
 function write_randomvar_expression end
 
 """
-    write_datavar_expression(backend, model, varexpr, type, arguments)
+    write_datavar_expression(backend, model, varexpr, type, arguments, kwarguments)
 """
 function write_datavar_expression end
 
 """
-    write_constvar_expression(backend, model, varexpr, arguments)
+    write_constvar_expression(backend, model, varexpr, arguments, kwarguments)
 """
 function write_constvar_expression end
 
@@ -137,6 +137,21 @@ function write_autovar_make_node_expression end
     write_node_options(backend, fform, variables, options)
 """
 function write_node_options end
+
+"""
+    write_randomvar_options(backend, variable, options)
+"""
+function write_randomvar_options end
+
+"""
+    write_constvar_options(backend, variable, options)
+"""
+function write_constvar_options end
+
+"""
+    write_datavar_options(backend, variable, options)
+"""
+function write_datavar_options end
 
 include("backends/reactivemp.jl")
 
@@ -198,7 +213,7 @@ function generate_model_expression(backend, model_options, model_specification)
     end
 
     ms_args_const_init_block = map(ms_args_const_ids) do ms_arg_const_id
-        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ])
+        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ], [])
     end
 
     # Step 0: Check that all inputs are not AbstractVariables
@@ -222,6 +237,18 @@ function generate_model_expression(backend, model_options, model_specification)
 
             varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
+        elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
+            return :($varexpr = randomvar($(arguments...); $(write_randomvar_options(backend, varexpr, options)...)))
+        elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
+            return :($varexpr = datavar($(arguments...); $(write_datavar_options(backend, varexpr, options)...)))
+        elseif @capture(expression, varexpr_ = constvar(arguments__) where { options__ })
+            return :($varexpr = constvar($(arguments...); $(write_constvar_options(backend, varexpr, options)...)))
+        elseif @capture(expression, varexpr_ = randomvar(arguments__))
+            return :($varexpr = randomvar($(arguments...); ))
+        elseif @capture(expression, varexpr_ = datavar(arguments__))
+            return :($varexpr = datavar($(arguments...); ))
+        elseif @capture(expression, varexpr_ = constvar(arguments__))
+            return :($varexpr = constvar($(arguments...); ))
         else
             return expression
         end
@@ -244,28 +271,28 @@ function generate_model_expression(backend, model_options, model_specification)
     # Step 2: Main pass
     ms_body = postwalk(ms_body) do expression
         # Step 2.1 Convert datavar calls
-        if @capture(expression, varexpr_ = datavar(arguments__)) 
+        if @capture(expression, varexpr_ = datavar(arguments__; kwarguments__)) 
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             @assert length(arguments) >= 1 "datavar() call requires type specification as a first argument"
             
             push!(varids, varexpr)
 
-            type = arguments[1]
-            tail = arguments[2:end]
+            type_argument  = arguments[1]
+            tail_arguments = arguments[2:end]
 
-            return write_datavar_expression(backend, model, varexpr, type, tail)
+            return write_datavar_expression(backend, model, varexpr, type_argument, tail_arguments, kwarguments)
         # Step 2.2 Convert randomvar calls
-        elseif @capture(expression, varexpr_ = randomvar(arguments__))
+        elseif @capture(expression, varexpr_ = randomvar(arguments__; kwarguments__))
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             push!(varids, varexpr)
 
-            return write_randomvar_expression(backend, model, varexpr, arguments)
+            return write_randomvar_expression(backend, model, varexpr, arguments, kwarguments)
         # Step 2.3 Conver constvar calls 
-        elseif @capture(expression, varexpr_ = constvar(arguments__))
+        elseif @capture(expression, varexpr_ = constvar(arguments__; kwarguments__))
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             push!(varids, varexpr)
 
-            return write_constvar_expression(backend, model, varexpr, arguments)
+            return write_constvar_expression(backend, model, varexpr, arguments, kwarguments)
         # Step 2.2 Convert tilde expressions
         elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
             # println(expression)

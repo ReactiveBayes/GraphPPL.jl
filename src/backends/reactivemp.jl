@@ -8,16 +8,16 @@ function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
     return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments. ConstVariables should be passed as their raw values.")
 end
 
-function write_randomvar_expression(::ReactiveMPBackend, model, varexp, arguments)
-    return :($varexp = ReactiveMP.randomvar($model, $(GraphPPL.fquote(varexp)), $(arguments...)))
+function write_randomvar_expression(::ReactiveMPBackend, model, varexp, arguments, kwarguments)
+    return :($varexp = ReactiveMP.randomvar($model, $(GraphPPL.fquote(varexp)), $(arguments...); $(kwarguments...)))
 end
 
-function write_datavar_expression(::ReactiveMPBackend, model, varexpr, type, arguments)
-    return :($varexpr = ReactiveMP.datavar($model, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ GraphPPL.ensure_type($(type)) }, $(arguments...)))
+function write_datavar_expression(::ReactiveMPBackend, model, varexpr, type, arguments, kwarguments)
+    return :($varexpr = ReactiveMP.datavar($model, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ GraphPPL.ensure_type($(type)) }, $(arguments...); $(kwarguments...)))
 end
 
-function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
-    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...)))
+function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments, kwarguments)
+    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...); $(kwarguments...)))
 end
 
 function write_as_variable(::ReactiveMPBackend, model, varexpr)
@@ -137,5 +137,28 @@ function write_fconstraint_option(form, variables, fconstraint)
         return :(factorisation = FullFactorisation())
     else
         error("Invalid factorisation constraint: $fconstraint")
+    end
+end
+
+## 
+
+function write_randomvar_options(::ReactiveMPBackend, variable, options)
+    return map(options) do option
+        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
+        return option
+    end
+end
+
+function write_constvar_options(::ReactiveMPBackend, variable, options)
+    return map(options) do option
+        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
+        return option
+    end
+end
+
+function write_datavar_options(::ReactiveMPBackend, variable, options)
+    return map(options) do option
+        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
+        return option
     end
 end
