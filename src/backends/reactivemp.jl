@@ -129,8 +129,9 @@ function write_fconstraint_option(form, variables, fconstraint)
         end
 
         factorisation = Expr(:tuple, map(f -> Expr(:tuple, f...), indexed)...)
+        errorstr = """Invalid factorisation constraint: ($fconstraint). Arguments are not unique, check node's interface names and model specification variable names.""" 
 
-        return :(factorisation = GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error("Invalid factorisation constraint: $fconstraint. Arguments are not unique"))
+        return :(factorisation = GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error($errorstr))
     elseif @capture(fconstraint, MeanField())
         return :(factorisation = MeanField())
     elseif @capture(fconstraint, FullFactorisation())
