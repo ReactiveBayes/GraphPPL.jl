@@ -173,13 +173,17 @@ function write_make_constraints(::ReactiveMPBackend)
 end
 
 function write_factorisation_spec(::ReactiveMPBackend, constraints, entries) 
-    return :(ReactiveMP.search_factorisation_spec($constraints, $(entries...)))
+    return :(ReactiveMP.make_factorisation_spec($constraints, $(entries...)))
 end
 
 function write_factorisation_spec_entry(::ReactiveMPBackend, constraints, name, index) 
     return :(ReactiveMP.make_factorisation_spec_entry($constraints, $name, $index))
 end
 
-function write_factorisation_node(::ReactiveMPBackend, constraints, key, entries) 
-    return :(ReactiveMP.add_factorisation_node($constraints, $key, $(entries...)))
+function write_factorisation_merge_spec_entries(::ReactiveMPBackend, constraints, left, right)
+    return :(Base.merge!($left, $right))
+end
+
+function write_factorisation_node(::ReactiveMPBackend, constraints, key, rhs) 
+    return :(ReactiveMP.add_factorisation_node($constraints, $key, $(rhs)))
 end

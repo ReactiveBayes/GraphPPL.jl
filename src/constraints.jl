@@ -34,6 +34,11 @@ function write_factorisation_spec end
 function write_factorisation_spec_entry end
 
 """
+    write_factorisation_merge_spec_entries(backend, constraints, left, right)
+"""
+function write_factorisation_merge_spec_entries end
+
+"""
     write_factorisation_node(backend, constraints, key, entries)
 """
 function write_factorisation_node end
@@ -52,12 +57,21 @@ function generate_constraints_expression(backend, constraints_specification)
     constraints = gensym(:constraints)
 
     cs_body = prewalk(cs_body) do expression 
-        if @capture(expression, lhs_arg_ = *(rhs_entries__))
+        if @capture(expression, lhs_arg_ = rhs_)
             lhs = parse_qexpr(backend, constraints, lhs_arg)
-            rhs = map(entry -> parse_qexpr(backend, constraints, entry), rhs_entries)
-            # println(lhs)
-            # println(rhs)
-            # println(expression)
+
+            rhs = prewalk(rhs) do rhs_expression
+                if @capture(rhs_expression, q(args__))
+                    return parse_qexpr(backend, constraints, rhs_expression)
+                elseif @capture(rhs_expression, left_..right_)
+                    return write_factorisation_merge_spec_entries(backend, constraints, left, right)
+                end
+
+                return rhs_expression
+            end
+
+            # print(rhs)
+
             return write_factorisation_node(backend, constraints, lhs, rhs)
         end
         return expression
@@ -72,6 +86,7 @@ function generate_constraints_expression(backend, constraints_specification)
             function __from_model(model) 
                 $constraints = $(GraphPPL.write_make_constraints(backend))
                 $cs_body
+                $constraints
             end
             return __from_model
         end  
