@@ -69,9 +69,7 @@ function generate_constraints_expression(backend, constraints_specification)
 
                 return rhs_expression
             end
-
-            # print(rhs)
-
+            
             return write_factorisation_node(backend, constraints, lhs, rhs)
         end
         return expression
