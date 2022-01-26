@@ -163,3 +163,23 @@ function write_datavar_options(::ReactiveMPBackend, variable, options)
         return option
     end
 end
+
+# Constraints specification language
+
+## Factorisations constraints specification language
+
+function write_make_constraints(::ReactiveMPBackend) 
+    return :(ReactiveMP.Constraints())
+end
+
+function write_factorisation_spec(::ReactiveMPBackend, constraints, entries) 
+    return :(ReactiveMP.search_factorisation_spec($constraints, $(entries...)))
+end
+
+function write_factorisation_spec_entry(::ReactiveMPBackend, constraints, name, index) 
+    return :(ReactiveMP.make_factorisation_spec_entry($constraints, $name, $index))
+end
+
+function write_factorisation_node(::ReactiveMPBackend, constraints, key, entries) 
+    return :(ReactiveMP.add_factorisation_node($constraints, $key, $(entries...)))
+end

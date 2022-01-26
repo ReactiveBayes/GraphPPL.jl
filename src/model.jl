@@ -150,10 +150,6 @@ function write_constvar_options end
 """
 function write_datavar_options end
 
-include("backends/reactivemp.jl")
-
-__get_current_backend() = ReactiveMPBackend()
-
 macro model(model_specification)
     return esc(:(@model [] $model_specification))
 end

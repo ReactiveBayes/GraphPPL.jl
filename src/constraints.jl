@@ -1,30 +1,81 @@
 export @constraints
 
-struct FactorisationSpecExact end
-struct FactorisationSpecIndexed end
-struct FactorisationSpecRanged end
-struct FactorisationSpecSplitRanged end
-
-struct FactorisationSpec 
-    symbol :: Symbol
-    index
-end
-
-# `Node` here refers to a node in a tree, it has nothing to do with factor nodes
-struct FactorisationSpecNode 
-    symbols  :: Union{Nothing, Tuple}
-    children :: Vector{Union{FactorisationSpec, FactorisationSpecNode}}
-end
-
-macro constraints(constraints_spec)
-    if isblock(constraints_spec)
-        return :(GraphPPL.@constraints () = $(constraints_spec))
+function parse_qexpr(backend, constraints, expression::Expr)
+    if !@capture(expression, q(args__))
+        error("Cannot parse q expression: $(expression).")
     end
 
-    if !@capture(constraints_spec, (args__) = begin body_ end)
-        error("Invalid constraints specification. Constraints must have the following form:\n\n\t@constraints (args...) = begin\n\t\tbody...\n\tend\n")
+    entries = map(args) do entry 
+        if @capture(entry, name_Symbol)
+            return write_factorisation_spec_entry(backend, constraints, QuoteNode(name), :(nothing))
+        elseif @capture(entry, name_Symbol[index_])
+            return write_factorisation_spec_entry(backend, constraints, QuoteNode(name), index)
+        else 
+            error("Cannot parse entry of q expression: ($entry)")
+        end
     end
 
-    
+    return write_factorisation_spec(backend, constraints, entries)
+end
 
+"""
+    write_make_constraints(backend)
+"""
+function write_make_constraints end
+
+"""
+    write_factorisation_spec(backend, constraints, entries)
+"""
+function write_factorisation_spec end
+
+"""
+    write_factorisation_spec_entry(backend, constraints, arguments)
+"""
+function write_factorisation_spec_entry end
+
+"""
+    write_factorisation_node(backend, constraints, key, entries)
+"""
+function write_factorisation_node end
+
+
+macro constraints(constraints_specification)
+    return GraphPPL.generate_constraints_expression(__get_current_backend(), constraints_specification)
+end
+
+function generate_constraints_expression(backend, constraints_specification)
+
+
+    @capture(constraints_specification, (function cs_name_(cs_args__; cs_kwargs__) cs_body_ end) | (function cs_name_(cs_args__) cs_body_ end)) || 
+        error("Constraints specification language requires full function definition")
+
+    constraints = gensym(:constraints)
+
+    cs_body = prewalk(cs_body) do expression 
+        if @capture(expression, lhs_arg_ = *(rhs_entries__))
+            lhs = parse_qexpr(backend, constraints, lhs_arg)
+            rhs = map(entry -> parse_qexpr(backend, constraints, entry), rhs_entries)
+            # println(lhs)
+            # println(rhs)
+            # println(expression)
+            return write_factorisation_node(backend, constraints, lhs, rhs)
+        end
+        return expression
+    end
+
+    cs_args   = cs_args === nothing ? [] : cs_args
+    cs_kwargs = cs_kwargs === nothing ? [] : cs_kwargs
+
+    res = quote 
+        function $cs_name($(cs_args...); $(cs_kwargs...))
+            # TODO let block
+            function __from_model(model) 
+                $constraints = $(GraphPPL.write_make_constraints(backend))
+                $cs_body
+            end
+            return __from_model
+        end  
+    end
+
+    return esc(res)
 end
