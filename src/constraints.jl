@@ -78,6 +78,7 @@ function generate_constraints_expression(backend, constraints_specification)
         return expression
     end
 
+    # Second we transform all expression of the form `q(..) = ...`
     cs_body = prewalk(cs_body) do expression 
         if @capture(expression, lhs_arg_ = rhs_)
             lhs = parse_qexpr(backend, constraints, lhs_arg)
