@@ -168,16 +168,20 @@ end
 
 ## Factorisations constraints specification language
 
-function write_make_constraints(::ReactiveMPBackend) 
-    return :(ReactiveMP.Constraints())
+function write_constraints_factorisation(::ReactiveMPBackend) 
+    return :(Base.Dict{ReactiveMP.FactorisationSpec, ReactiveMP.FactorisationSpecList}())
+end
+
+function write_constraints_generator(::ReactiveMPBackend, generator)
+    return :(ReactiveMP.ConstraintsGenerator($generator))
 end
 
 function write_factorisation_spec(::ReactiveMPBackend, constraints, entries) 
-    return :(ReactiveMP.make_factorisation_spec($constraints, $(entries...)))
+    return :(ReactiveMP.FactorisationSpec(($(entries...), )))
 end
 
 function write_factorisation_spec_entry(::ReactiveMPBackend, constraints, name, index) 
-    return :(ReactiveMP.make_factorisation_spec_entry($constraints, $name, $index))
+    return :(ReactiveMP.FactorisationSpecEntry($name, $index))
 end
 
 function write_factorisation_merge_spec_entries(::ReactiveMPBackend, constraints, left, right)

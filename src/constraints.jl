@@ -19,9 +19,14 @@ function parse_qexpr(backend, constraints, expression::Expr)
 end
 
 """
-    write_make_constraints(backend)
+    write_constraints_factorisation(backend)
 """
-function write_make_constraints end
+function write_constraints_factorisation end
+
+"""
+    write_constraints_generator(backend, generator)
+"""
+function write_constraints_generator end
 
 """
     write_factorisation_spec(backend, constraints, entries)
@@ -50,6 +55,11 @@ end
 
 function generate_constraints_expression(backend, constraints_specification)
 
+    if isblock(constraints_specification)
+        generatedfname = gensym(:constraints)
+        generatedfbody = :(function $(generatedfname)() $constraints_specification end)
+        return :($(generate_constraints_expression(backend, generatedfbody))())
+    end
 
     @capture(constraints_specification, (function cs_name_(cs_args__; cs_kwargs__) cs_body_ end) | (function cs_name_(cs_args__) cs_body_ end)) || 
         error("Constraints specification language requires full function definition")
@@ -78,15 +88,20 @@ function generate_constraints_expression(backend, constraints_specification)
     cs_args   = cs_args === nothing ? [] : cs_args
     cs_kwargs = cs_kwargs === nothing ? [] : cs_kwargs
 
+    # By default `@constraints` macro should return a callable object over a model
+    # In this way we will have an access to model related variables later on
+    generatorfn = gensym(:__from_model)
+
     res = quote 
         function $cs_name($(cs_args...); $(cs_kwargs...))
             # TODO let block
-            function __from_model(model) 
-                $constraints = $(GraphPPL.write_make_constraints(backend))
+            $generatorfn = (model) -> begin
+                $constraints = $(GraphPPL.write_constraints_factorisation(backend))
                 $cs_body
-                $constraints
+                # TODO add form constraints
+                return $constraints
             end
-            return __from_model
+            return $(GraphPPL.write_constraints_generator(backend, generatorfn))
         end  
     end
 
