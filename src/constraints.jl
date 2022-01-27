@@ -64,7 +64,19 @@ function generate_constraints_expression(backend, constraints_specification)
     @capture(constraints_specification, (function cs_name_(cs_args__; cs_kwargs__) cs_body_ end) | (function cs_name_(cs_args__) cs_body_ end)) || 
         error("Constraints specification language requires full function definition")
 
+    modelvar    = gensym(:model)
     constraints = gensym(:constraints)
+
+    # First we modify all expression of the form symbol_[begin] or symbol_[end] 
+    # Each expression of this form refers to a special variable called `modelvar` and extract model related variable
+    cs_body = prewalk(cs_body) do expression 
+        if @capture(expression, symbol_[begin])
+            return :($(symbol)[firstindex($(modelvar)[$(QuoteNode(symbol))])])
+        elseif @capture(expression, symbol_[end])
+            return :($(symbol)[lastindex($(modelvar)[$(QuoteNode(symbol))])])
+        end
+        return expression
+    end
 
     cs_body = prewalk(cs_body) do expression 
         if @capture(expression, lhs_arg_ = rhs_)
@@ -95,7 +107,7 @@ function generate_constraints_expression(backend, constraints_specification)
     res = quote 
         function $cs_name($(cs_args...); $(cs_kwargs...))
             # TODO let block
-            $generatorfn = (model) -> begin
+            $generatorfn = ($modelvar) -> begin
                 $constraints = $(GraphPPL.write_constraints_factorisation(backend))
                 $cs_body
                 # TODO add form constraints
