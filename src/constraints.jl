@@ -67,13 +67,27 @@ function generate_constraints_expression(backend, constraints_specification)
     modelvar    = gensym(:model)
     constraints = gensym(:constraints)
 
-    # First we modify all expression of the form symbol_[begin] or symbol_[end] 
+    # First we modify all expression of the form symbol_[...begin...] or symbol_[...end...] 
     # Each expression of this form refers to a special variable called `modelvar` and extract model related variable
     cs_body = prewalk(cs_body) do expression 
-        if @capture(expression, symbol_[begin])
-            return :($(symbol)[firstindex($(modelvar)[$(QuoteNode(symbol))])])
-        elseif @capture(expression, symbol_[end])
-            return :($(symbol)[lastindex($(modelvar)[$(QuoteNode(symbol))])])
+        if @capture(expression, symbol_[indices__])
+            indices = map(indices) do index 
+                return prewalk(index) do index_expression
+                    # @show index_expression
+                    if @capture(index_expression, i_Symbol)
+                        if i === :begin
+                            return :(firstindex($(modelvar)[ $(QuoteNode(symbol)) ]))
+                        elseif i === :end
+                            return :(lastindex($(modelvar)[ $(QuoteNode(symbol)) ]))
+                        else 
+                            return index_expression
+                        end
+                    else
+                        return index_expression
+                    end
+                end
+            end
+            return :($(symbol)[$(indices...)])
         end
         return expression
     end
