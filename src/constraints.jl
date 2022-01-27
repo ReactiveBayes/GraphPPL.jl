@@ -44,9 +44,9 @@ function write_factorisation_spec_entry end
 function write_factorisation_merge_spec_entries end
 
 """
-    write_factorisation_node(backend, constraints, key, entries)
+    write_factorisation_spec_list(backend, constraints, key, entries)
 """
-function write_factorisation_node end
+function write_factorisation_spec_list end
 
 
 macro constraints(constraints_specification)
@@ -93,7 +93,7 @@ function generate_constraints_expression(backend, constraints_specification)
                 return rhs_expression
             end
             
-            return write_factorisation_node(backend, constraints, lhs, rhs)
+            return write_factorisation_spec_list(backend, constraints, lhs, rhs)
         end
         return expression
     end

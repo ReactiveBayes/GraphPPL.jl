@@ -188,6 +188,6 @@ function write_factorisation_merge_spec_entries(::ReactiveMPBackend, constraints
     return :(Base.merge!($left, $right))
 end
 
-function write_factorisation_node(::ReactiveMPBackend, constraints, key, rhs) 
-    return :(ReactiveMP.add_factorisation_node($constraints, $key, $(rhs)))
+function write_factorisation_spec_list(::ReactiveMPBackend, constraints, key, rhs) 
+    return :(ReactiveMP.add_factorisation_spec_list($constraints, $key, $(rhs)))
 end
