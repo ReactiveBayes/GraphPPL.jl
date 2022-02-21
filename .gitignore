@@ -46,3 +46,4 @@ Coverage.ipynb
 **/.DS_Store
 
 examples/*Compiled
+statprof
