@@ -29,3 +29,12 @@ See also: [`ishead`](@ref)
 """
 iscall(expr)       = ishead(expr, :call) && length(expr.args) >= 1
 iscall(expr, fsym) = iscall(expr) && first(expr.args) === fsym
+
+"""
+    isref(expr)
+
+Shorthand for `ishead(expr, :ref)`.
+
+See also: [`ishead`](@ref)
+"""
+isref(expr) = ishead(expr, :ref)
