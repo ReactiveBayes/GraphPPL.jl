@@ -1,7 +1,7 @@
 export @constraints
 
 """
-    write_constraints_specification(backend, factorisation, form) 
+    write_constraints_specification(backend, factorisation, marginalsform, messagesform) 
 """
 function write_constraints_specification end
 
@@ -45,15 +45,80 @@ function write_factorisation_splitted_range end
 """
 function write_factorisation_functional_index end
 
+"""
+    write_form_constraint_specification(backend, T, args, kwargs)
+"""
+function write_form_constraint_specification end
+
 macro constraints(constraints_specification)
     return generate_constraints_expression(__get_current_backend(), constraints_specification)
 end
 
-struct LHSMeta
+## Factorisation constraints
+
+struct FactorisationConstraintLHSMeta
     name :: String
     hash :: UInt
     varname :: Symbol
 end
+
+## 
+
+## Form constraints
+
+function flatten_functional_form_constraint_specification(expr) 
+    return flatten_functional_form_constraint_specification!(expr, Expr(:(call), :(::)))
+end
+
+function flatten_functional_form_constraint_specification!(symbol::Symbol, toplevel::Expr)
+    push!(toplevel.args, symbol)
+    return toplevel
+end
+
+function flatten_functional_form_constraint_specification!(expr::Expr, toplevel::Expr)
+    if ishead(expr, :(::)) && ishead(expr.args[1], :(::))
+        flatten_functional_form_constraint_specification!(expr.args[1], toplevel)
+        flatten_functional_form_constraint_specification!(expr.args[2], toplevel)
+    elseif ishead(expr, :(::))
+        push!(toplevel.args, expr.args[1])
+        push!(toplevel.args, expr.args[2])
+    else
+        push!(toplevel.args, expr)
+    end
+    return toplevel
+end
+
+function parse_form_constraint(backend, expr)
+    T, args, kwargs = if expr isa Symbol
+        expr, :(()), :((;))
+    else
+        if @capture(expr, f_(args__; kwargs__))
+            f, :(($(args...), )), :((; $(kwargs...), ))
+        elseif @capture(expr, f_(args__))
+
+            as = []
+            ks = []
+
+            for arg in args
+                if ishead(arg, :kw)
+                    push!(ks, arg)
+                else
+                    push!(as, arg)
+                end
+            end
+
+            f, :(($(as...), )), :((; $(ks...), ))
+        elseif @capture(expr, f_())
+            f, :(()), :((;))
+        else
+            error("Unssuported form constraints call specification in the expression `$(expr)`")
+        end
+    end 
+
+    return write_form_constraint_specification(backend, T, args, kwargs)
+end
+
+##
 
 function generate_constraints_expression(backend, constraints_specification)
 
@@ -69,16 +134,51 @@ function generate_constraints_expression(backend, constraints_specification)
     cs_args   = cs_args === nothing ? [] : cs_args
     cs_kwargs = cs_kwargs === nothing ? [] : cs_kwargs
     
-    lhs_dict = Dict{UInt, LHSMeta}()
+    lhs_dict = Dict{UInt, FactorisationConstraintLHSMeta}()
     
-    # We iteratively overwrite extend form constraint tuple, but we use different names for it to enable type-stability
-    form_constraints_symbol      = gensym(:form_constraint)
-    form_constraints_symbol_init = :($form_constraints_symbol = ())
+    marginals_form_constraints_symbol      = gensym(:marginals_form_constraint)
+    marginals_form_constraints_symbol_init = :($marginals_form_constraints_symbol = (;))
+
+    messages_form_constraints_symbol      = gensym(:messages_form_constraint)
+    messages_form_constraints_symbol_init = :($messages_form_constraints_symbol = (;))
     
-    # We iteratively overwrite extend factorisation constraint tuple, but we use different names for it to enable type-stability
     factorisation_constraints_symbol      = gensym(:factorisation_constraint)
     factorisation_constraints_symbol_init = :($factorisation_constraints_symbol = ())
-    
+
+    # First we modify form constraints related statements
+    cs_body = prewalk(cs_body) do expression 
+        if ishead(expression, :(::))
+            return flatten_functional_form_constraint_specification(expression)
+        end
+        return expression
+    end
+
+    cs_body = prewalk(cs_body) do expression
+        if iscall(expression, :(::))
+            if @capture(expression.args[2], q(formsym_Symbol)) 
+                specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                return quote 
+                    if haskey($marginals_form_constraints_symbol, $(QuoteNode(formsym)))
+                        error("Marginal form constraint q($(formsym)) has been redefined.")
+                    end
+                    $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = ($(specs... ),))
+                end
+            elseif @capture(expression.args[2], μ(formsym_Symbol)) 
+                specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                return quote 
+                    if haskey($messages_form_constraints_symbol, $(QuoteNode(formsym)))
+                        error("Messages form constraint μ($(formsym)) has been redefined.")
+                    end
+                    $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = ($(specs... ),))
+                end
+            else
+                error("Invalid form factorisation constraint. $(expression.args[2]) has to be in the form of q(varname) for marginal form constraint or μ(varname) for messages form constraint.")
+            end
+        end
+        return expression
+    end
+
+    # Second we modify factorisation constraints related statements
     # First we record all lhs expression's hash ids and create unique variable names for them
     # q(x, y) = q(x)q(y) -> hash(q(x, y))
     # We do allow multiple definitions in case of if statements, but we do check later overwrites, which are not allowed
@@ -128,7 +228,7 @@ function generate_constraints_expression(backend, constraints_specification)
             else
                 lhs_name = string("q(", join(names, ", "), ")")
                 lhs_varname = gensym(lhs_name)
-                lhs_meta = LHSMeta(lhs_name, lhs_hash, lhs_varname)
+                lhs_meta = FactorisationConstraintLHSMeta(lhs_name, lhs_hash, lhs_varname)
                 lhs_dict[lhs_hash] = lhs_meta
             end
             
@@ -199,11 +299,12 @@ function generate_constraints_expression(backend, constraints_specification)
         return expression
     end
     
-    return_specification = write_constraints_specification(backend, factorisation_constraints_symbol, form_constraints_symbol)
+    return_specification = write_constraints_specification(backend, factorisation_constraints_symbol, marginals_form_constraints_symbol, messages_form_constraints_symbol)
     
     res = quote
          function $cs_name($(cs_args...); $(cs_kwargs...))
-            $(form_constraints_symbol_init)
+            $(marginals_form_constraints_symbol_init)
+            $(messages_form_constraints_symbol_init)
             $(factorisation_constraints_symbol_init)
             $(cs_lhs_init_block...)
             $(cs_body)

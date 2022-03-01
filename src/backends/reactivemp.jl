@@ -168,8 +168,8 @@ end
 
 ## Factorisations constraints specification language
 
-function write_constraints_specification(::ReactiveMPBackend, factorisation, form) 
-    return :(ReactiveMP.ConstraintsSpecification($factorisation, $form))
+function write_constraints_specification(::ReactiveMPBackend, factorisation, marginalsform, messagesform) 
+    return :(ReactiveMP.ConstraintsSpecification($factorisation, $marginalsform, $messagesform))
 end
 
 function write_factorisation_constraint(::ReactiveMPBackend, names, entries) 
@@ -202,4 +202,8 @@ end
 
 function write_factorisation_functional_index(::ReactiveMPBackend, repr, fn)
     return :(ReactiveMP.FunctionalIndex{$(QuoteNode(repr))}($fn))
+end
+
+function write_form_constraint_specification(::ReactiveMPBackend, T, args, kwargs) 
+    return :(ReactiveMP.FormConstraintsSpecification($T, $args, $kwargs)) 
 end
