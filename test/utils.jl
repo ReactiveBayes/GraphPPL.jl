@@ -3,6 +3,17 @@ module UtilsTests
 using Test
 using GraphPPL
 
+@testset "issymbol tests" begin
+    import GraphPPL: issymbol
+
+    @test issymbol(:(f(1))) === false
+    @test issymbol(:(f(1))) === false
+    @test issymbol(:(if true 1 else 2 end)) === false
+    @test issymbol(:hello) === true
+    @test issymbol(:a) === true
+    @test issymbol(123) === false
+end
+
 @testset "isexpr tests" begin
     import GraphPPL: isexpr
 

@@ -1,4 +1,6 @@
 
+issymbol(::Symbol) = true
+issymbol(any)      = false
 
 isexpr(expr::Expr) = true
 isexpr(expr)       = false

@@ -207,3 +207,13 @@ end
 function write_form_constraint_specification(::ReactiveMPBackend, T, args, kwargs) 
     return :(ReactiveMP.FormConstraintsSpecification($T, $args, $kwargs)) 
 end
+
+## Meta specification language
+
+function write_meta_specification(::ReactiveMPBackend, entries) 
+    return :(ReactiveMP.MetaSpecification($entries))
+end
+
+function write_meta_specification_entry(::ReactiveMPBackend, F, N, meta) 
+    return :(ReactiveMP.MetaSpecificationEntry(Val($F), Val($N), $meta))
+end

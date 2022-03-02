@@ -56,7 +56,7 @@ end
 
 ## Factorisation constraints
 
-struct FactorisationConstraintLHSMeta
+struct FactorisationConstraintLHSInfo
     name :: String
     hash :: UInt
     varname :: Symbol
@@ -134,7 +134,7 @@ function generate_constraints_expression(backend, constraints_specification)
     cs_args   = cs_args === nothing ? [] : cs_args
     cs_kwargs = cs_kwargs === nothing ? [] : cs_kwargs
     
-    lhs_dict = Dict{UInt, FactorisationConstraintLHSMeta}()
+    lhs_dict = Dict{UInt, FactorisationConstraintLHSInfo}()
     
     marginals_form_constraints_symbol      = gensym(:marginals_form_constraint)
     marginals_form_constraints_symbol_init = :($marginals_form_constraints_symbol = (;))
@@ -223,17 +223,17 @@ function generate_constraints_expression(backend, constraints_specification)
             (lhs_names == rhs_names) || error("LHS and RHS of the $(expression) expression has different set of variables.")
             
             lhs_hash = hash(lhs)
-            lhs_meta = if haskey(lhs_dict, lhs_hash)
+            lhs_info = if haskey(lhs_dict, lhs_hash)
                 lhs_dict[ lhs_hash ]
             else
                 lhs_name = string("q(", join(names, ", "), ")")
                 lhs_varname = gensym(lhs_name)
-                lhs_meta = FactorisationConstraintLHSMeta(lhs_name, lhs_hash, lhs_varname)
-                lhs_dict[lhs_hash] = lhs_meta
+                lhs_info = FactorisationConstraintLHSInfo(lhs_name, lhs_hash, lhs_varname)
+                lhs_dict[lhs_hash] = lhs_info
             end
             
-            lhs_name = lhs_meta.name
-            lhs_varname = lhs_meta.varname
+            lhs_name = lhs_info.name
+            lhs_varname = lhs_info.varname
             
             new_factorisation_specification = write_factorisation_constraint(backend, :(Val(($(map(QuoteNode, names)...),))), :(Val($(rhs))))
             check_is_not_defined            = write_check_factorisation_is_not_defined(backend, lhs_varname)
@@ -251,9 +251,9 @@ function generate_constraints_expression(backend, constraints_specification)
     
     # This block write initial variables for factorisation specification
     cs_lhs_init_block = map(collect(lhs_dict)) do pair
-        lhs_meta = last(pair)
-        lhs_name = lhs_meta.name
-        lhs_varname = lhs_meta.varname
+        lhs_info = last(pair)
+        lhs_name = lhs_info.name
+        lhs_varname = lhs_info.varname
         lhs_symbol = Symbol(lhs_name)
         return write_init_factorisation_not_defined(backend, lhs_varname, lhs_symbol)
     end
