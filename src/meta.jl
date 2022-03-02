@@ -39,7 +39,7 @@ function generate_meta_expression(backend, meta_specification)
     meta_spec_symbol_init = :($meta_spec_symbol = ())
 
     cs_body = postwalk(cs_body) do expression 
-        if @capture(expression, f_(args__) = meta_)
+        if @capture(expression, f_(args__) -> meta_)
 
             if !issymbol(f) || any(a -> !issymbol(a), args)
                 error("Invalid meta specification $(expression)")
