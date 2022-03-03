@@ -163,3 +163,57 @@ function write_datavar_options(::ReactiveMPBackend, variable, options)
         return option
     end
 end
+
+# Constraints specification language
+
+## Factorisations constraints specification language
+
+function write_constraints_specification(::ReactiveMPBackend, factorisation, marginalsform, messagesform) 
+    return :(ReactiveMP.ConstraintsSpecification($factorisation, $marginalsform, $messagesform))
+end
+
+function write_factorisation_constraint(::ReactiveMPBackend, names, entries) 
+    return :(ReactiveMP.FactorisationConstraintsSpecification($names, $entries))
+end
+
+function write_factorisation_constraint_entry(::ReactiveMPBackend, names, entries) 
+    return :(ReactiveMP.FactorisationConstraintsEntry($names, $entries))
+end
+
+function write_init_factorisation_not_defined(::ReactiveMPBackend, spec, name) 
+    return :($spec = ReactiveMP.FactorisationSpecificationNotDefinedYet{$(QuoteNode(name))}())
+end
+
+function write_check_factorisation_is_not_defined(::ReactiveMPBackend, spec)
+    return :($spec isa ReactiveMP.FactorisationSpecificationNotDefinedYet)
+end
+
+function write_factorisation_split(::ReactiveMPBackend, left, right)
+    return :(ReactiveMP.factorisation_split($left, $right)) 
+end
+
+function write_factorisation_combined_range(::ReactiveMPBackend, left, right) 
+    return :(ReactiveMP.CombinedRange($left, $right))
+end
+
+function write_factorisation_splitted_range(::ReactiveMPBackend, left, right) 
+    return :(ReactiveMP.SplittedRange($left, $right))
+end
+
+function write_factorisation_functional_index(::ReactiveMPBackend, repr, fn)
+    return :(ReactiveMP.FunctionalIndex{$(QuoteNode(repr))}($fn))
+end
+
+function write_form_constraint_specification(::ReactiveMPBackend, T, args, kwargs) 
+    return :(ReactiveMP.FormConstraintsSpecification($T, $args, $kwargs)) 
+end
+
+## Meta specification language
+
+function write_meta_specification(::ReactiveMPBackend, entries) 
+    return :(ReactiveMP.MetaSpecification($entries))
+end
+
+function write_meta_specification_entry(::ReactiveMPBackend, F, N, meta) 
+    return :(ReactiveMP.MetaSpecificationEntry(Val($F), Val($N), $meta))
+end
