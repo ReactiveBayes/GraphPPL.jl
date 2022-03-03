@@ -131,7 +131,7 @@ function write_make_node_expression end
 function write_autovar_make_node_expression end
 
 """
-    write_node_options(backend, fform, variables, options)
+    write_node_options(backend, model, fform, variables, options)
 """
 function write_node_options end
 
@@ -150,6 +150,16 @@ function write_constvar_options end
 """
 function write_datavar_options end
 
+"""
+    write_default_model_constraints(backend)
+"""
+function write_default_model_constraints end
+
+"""
+    write_default_model_meta(backend)
+"""
+function write_default_model_meta end
+
 macro model(model_specification)
     return esc(:(@model [] $model_specification))
 end
@@ -167,7 +177,10 @@ function generate_model_expression(backend, model_options, model_specification)
         return (name, value)
     end
 
-    ms_options = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
+    ms_constraints = write_default_model_constraints(backend)
+    ms_meta        = write_default_model_meta(backend)
+    ms_options     = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
+    
 
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
         error("Model specification language requires full function definition")
@@ -296,7 +309,7 @@ function generate_model_expression(backend, model_options, model_specification)
             end
 
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
-            options   = write_node_options(backend, fform, [ varexpr, arguments... ], kwarguments)
+            options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
             
             if short_id ∈ varids
                 return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
@@ -313,19 +326,23 @@ function generate_model_expression(backend, model_options, model_specification)
     final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
     final_pass_target     = (x) -> @capture(x, return ret_)
 
+    ms_body = quote 
+        $ms_body
+        return nothing
+    end
+
     ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
         @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
 
     res = quote
 
-        function $ms_name($(ms_args...); $(ms_kwargs...), options = $(ms_options))
+        function $ms_name($(ms_args...); $(ms_kwargs...), constraints = $(ms_constraints), meta = $(ms_meta), options = $(ms_options))
             $(ms_args_checks...)
             options = merge($(ms_options), options)
-            $model = Model(options)
+            $model = Model(constraints, meta, options)
             $(ms_args_const_init_block...)
             $ms_body
-            error("'return' statement is missing")
         end     
     end
         

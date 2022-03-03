@@ -32,20 +32,32 @@ function write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, v
     return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...); $(options...)))
 end
 
-function write_node_options(::ReactiveMPBackend, fform, variables, options)
-    return map(options) do option
+function write_node_options(::ReactiveMPBackend, model, fform, variables, options)
+    is_factorisation_option_present = false
+    is_meta_option_present = false
+    is_pipeline_option_present = false
+
+    options = map(options) do option
 
         # Factorisation constraint option
         if @capture(option, q = fconstraint_)
+            !is_factorisation_option_present || error("Factorisation constraint option $(option) for $(fform) has been redefined.")
+            is_factorisation_option_present = true
             return write_fconstraint_option(fform, variables, fconstraint)
         elseif @capture(option, meta = fmeta_)
+            !is_meta_option_present || error("Meta specification option $(option) for $(fform) has been redefined.")
+            is_meta_option_present = true
             return write_meta_option(fform, fmeta)
         elseif @capture(option, pipeline = fpipeline_)
+            !is_pipeline_option_present || error("Pipeline specification option $(option) for $(fform) has been redefined.")
+            is_pipeline_option_present = true
             return write_pipeline_option(fform, fpipeline)
         end
 
         error("Unknown option '$option' for '$fform' node")
     end
+
+    return options
 end
 
 # Meta helper functions
@@ -162,6 +174,14 @@ function write_datavar_options(::ReactiveMPBackend, variable, options)
         @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
         return option
     end
+end
+
+function write_default_model_constraints(::ReactiveMPBackend)
+    return :(ReactiveMP.UnspecifiedConstraints())
+end
+
+function write_default_model_meta(::ReactiveMPBackend)
+    return :(ReactiveMP.UnspecifiedMeta())
 end
 
 # Constraints specification language
