@@ -43,7 +43,6 @@ function write_node_options(::ReactiveMPBackend, model, fform, variables, option
     pipeline_option            = :(nothing)
 
     foreach(options) do option
-
         # Factorisation constraint option
         if @capture(option, q = fconstraint_)
             !is_factorisation_option_present || error("Factorisation constraint option $(option) for $(fform) has been redefined.")
@@ -57,9 +56,9 @@ function write_node_options(::ReactiveMPBackend, model, fform, variables, option
             !is_pipeline_option_present || error("Pipeline specification option $(option) for $(fform) has been redefined.")
             is_pipeline_option_present = true
             pipeline_option = write_pipeline_option(fform, fpipeline)
+        else
+            error("Unknown option '$option' for '$fform' node")
         end
-
-        error("Unknown option '$option' for '$fform' node")
     end
 
     return :(ReactiveMP.FactorNodeCreationOptions($factorisation_option, $meta_option, $pipeline_option))
