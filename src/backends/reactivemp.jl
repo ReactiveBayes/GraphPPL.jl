@@ -25,54 +25,59 @@ function write_as_variable(::ReactiveMPBackend, model, varexpr)
 end
 
 function write_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr)
-    return :($nodeexpr = ReactiveMP.make_node($model, $fform, $varexpr, $(variables...); $(options...)))
+    return :($nodeexpr = ReactiveMP.make_node($model, $options, $fform, $varexpr, $(variables...)))
 end
 
 function write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
-    return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...); $(options...)))
+    return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $options, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...)))
 end
 
 function write_node_options(::ReactiveMPBackend, model, fform, variables, options)
     is_factorisation_option_present = false
-    is_meta_option_present = false
-    is_pipeline_option_present = false
+    factorisation_option            = :(nothing)
 
-    options = map(options) do option
+    is_meta_option_present = false
+    meta_option            = :(nothing)
+
+    is_pipeline_option_present = false
+    pipeline_option            = :(nothing)
+
+    foreach(options) do option
 
         # Factorisation constraint option
         if @capture(option, q = fconstraint_)
             !is_factorisation_option_present || error("Factorisation constraint option $(option) for $(fform) has been redefined.")
             is_factorisation_option_present = true
-            return write_fconstraint_option(fform, variables, fconstraint)
+            factorisation_option = write_fconstraint_option(fform, variables, fconstraint)
         elseif @capture(option, meta = fmeta_)
             !is_meta_option_present || error("Meta specification option $(option) for $(fform) has been redefined.")
             is_meta_option_present = true
-            return write_meta_option(fform, fmeta)
+            meta_option = write_meta_option(fform, fmeta)
         elseif @capture(option, pipeline = fpipeline_)
             !is_pipeline_option_present || error("Pipeline specification option $(option) for $(fform) has been redefined.")
             is_pipeline_option_present = true
-            return write_pipeline_option(fform, fpipeline)
+            pipeline_option = write_pipeline_option(fform, fpipeline)
         end
 
         error("Unknown option '$option' for '$fform' node")
     end
 
-    return options
+    return :(ReactiveMP.FactorNodeCreationOptions($factorisation_option, $meta_option, $pipeline_option))
 end
 
 # Meta helper functions
 
 function write_meta_option(fform, fmeta)
-    return :(meta = $fmeta)
+    return :($fmeta)
 end
 
 # Pipeline helper functions
 
 function write_pipeline_option(fform, fpipeline)
     if @capture(fpipeline, +(stages__))
-        return :(pipeline = +($(map(stage -> write_pipeline_stage(fform, stage), stages)...)))
+        return :(+($(map(stage -> write_pipeline_stage(fform, stage), stages)...)))
     else
-        return :(pipeline = $(write_pipeline_stage(fform, fpipeline)))
+        return :($(write_pipeline_stage(fform, fpipeline)))
     end
 end
 
@@ -96,7 +101,7 @@ function write_pipeline_stage(fform, stage)
         indices  = Expr(:tuple, map(s -> :(ReactiveMP.interface_get_index(Val{ $(GraphPPL.fquote(fform)) }, Val{ $(GraphPPL.fquote(first(s))) })), specs)...)
         initials = Expr(:tuple, map(s -> :($(last(s))), specs)...)
 
-        return :(RequireInboundFunctionalDependencies($indices, $initials))
+        return :(ReactiveMP.RequireInboundFunctionalDependencies($indices, $initials))
     else
         return stage
     end
@@ -143,11 +148,11 @@ function write_fconstraint_option(form, variables, fconstraint)
         factorisation = Expr(:tuple, map(f -> Expr(:tuple, f...), indexed)...)
         errorstr = """Invalid factorisation constraint: ($fconstraint). Arguments are not unique, check node's interface names and model specification variable names.""" 
 
-        return :(factorisation = GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error($errorstr))
+        return :(GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error($errorstr))
     elseif @capture(fconstraint, MeanField())
-        return :(factorisation = MeanField())
+        return :(ReactiveMP.MeanField())
     elseif @capture(fconstraint, FullFactorisation())
-        return :(factorisation = FullFactorisation())
+        return :(ReactiveMP.FullFactorisation())
     else
         error("Invalid factorisation constraint: $fconstraint")
     end
