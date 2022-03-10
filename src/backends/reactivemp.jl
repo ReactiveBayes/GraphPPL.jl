@@ -299,8 +299,12 @@ function write_factorisation_functional_index(::ReactiveMPBackend, repr, fn)
     return :(ReactiveMP.FunctionalIndex{$(QuoteNode(repr))}($fn))
 end
 
-function write_form_constraint_specification(::ReactiveMPBackend, T, args, kwargs) 
-    return :(ReactiveMP.FormConstraintsSpecification($T, $args, $kwargs)) 
+function write_form_constraint_specification_entry(::ReactiveMPBackend, T, args, kwargs) 
+    return :(ReactiveMP.make_form_constraint($T, $args...; $kwargs...)) 
+end
+
+function write_form_constraint_specification(::ReactiveMPBackend, specification)
+    return :(ReactiveMP.FormConstraintSpecification($specification))
 end
 
 ## Meta specification language

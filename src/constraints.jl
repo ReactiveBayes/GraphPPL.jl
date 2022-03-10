@@ -46,7 +46,12 @@ function write_factorisation_splitted_range end
 function write_factorisation_functional_index end
 
 """
-    write_form_constraint_specification(backend, T, args, kwargs)
+    write_form_constraint_specification_entry(backend, T, args, kwargs)
+"""
+function write_form_constraint_specification_entry end
+
+"""
+    write_form_constraint_specification(backend, specification)
 """
 function write_form_constraint_specification end
 
@@ -115,7 +120,7 @@ function parse_form_constraint(backend, expr)
         end
     end 
 
-    return write_form_constraint_specification(backend, T, args, kwargs)
+    return write_form_constraint_specification_entry(backend, T, args, kwargs)
 end
 
 ##
@@ -157,19 +162,21 @@ function generate_constraints_expression(backend, constraints_specification)
         if iscall(expression, :(::))
             if @capture(expression.args[2], q(formsym_Symbol)) 
                 specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                form  = write_form_constraint_specification(backend, :(+($(specs... ))))
                 return quote 
                     if haskey($marginals_form_constraints_symbol, $(QuoteNode(formsym)))
                         error("Marginal form constraint q($(formsym)) has been redefined.")
                     end
-                    $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = ($(specs... ),))
+                    $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = $form)
                 end
             elseif @capture(expression.args[2], μ(formsym_Symbol)) 
                 specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                form  = write_form_constraint_specification(backend, :(+($(specs... ))))
                 return quote 
                     if haskey($messages_form_constraints_symbol, $(QuoteNode(formsym)))
                         error("Messages form constraint μ($(formsym)) has been redefined.")
                     end
-                    $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = ($(specs... ),))
+                    $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = $form)
                 end
             else
                 error("Invalid form factorisation constraint. $(expression.args[2]) has to be in the form of q(varname) for marginal form constraint or μ(varname) for messages form constraint.")
