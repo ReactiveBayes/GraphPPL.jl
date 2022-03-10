@@ -161,20 +161,22 @@ function generate_constraints_expression(backend, constraints_specification)
     cs_body = prewalk(cs_body) do expression
         if iscall(expression, :(::))
             if @capture(expression.args[2], q(formsym_Symbol)) 
-                specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
-                form  = write_form_constraint_specification(backend, :(+($(specs... ))))
+                specs  = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                form   = write_form_constraint_specification(backend, :(+($(specs... ))))
+                errstr = "Marginal form constraint q($(formsym)) has been redefined."
                 return quote 
                     if haskey($marginals_form_constraints_symbol, $(QuoteNode(formsym)))
-                        error("Marginal form constraint q($(formsym)) has been redefined.")
+                        error($errstr)
                     end
                     $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = $form)
                 end
             elseif @capture(expression.args[2], μ(formsym_Symbol)) 
-                specs = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
-                form  = write_form_constraint_specification(backend, :(+($(specs... ))))
+                specs  = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
+                form   = write_form_constraint_specification(backend, :(+($(specs... ))))
+                errstr = "Messages form constraint μ($(formsym)) has been redefined."
                 return quote 
                     if haskey($messages_form_constraints_symbol, $(QuoteNode(formsym)))
-                        error("Messages form constraint μ($(formsym)) has been redefined.")
+                        error($errstr)
                     end
                     $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = $form)
                 end
