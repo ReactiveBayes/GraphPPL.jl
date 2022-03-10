@@ -13,7 +13,7 @@
 [ci-img]: https://github.com/biaslab/GraphPPL.jl/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-url]: https://github.com/biaslab/GraphPPL.jl/actions
 
-GraphPPL.jl is a probabilistic programming language focused on probabilistic graphical models. 
+GraphPPL.jl is a probabilistic programming language focused on probabilistic graphical models. This repository is aimed for advanced users, please refer to the [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl) repository for more comprehensive and self-contained documentation and usages examples.
 
 # Inference Backend
 
