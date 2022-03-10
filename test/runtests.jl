@@ -10,6 +10,8 @@ doctest(GraphPPL)
         @test length(Test.detect_ambiguities(GraphPPL)) == 0
     end
 
+    include("utils.jl")
+
 end
 
 end

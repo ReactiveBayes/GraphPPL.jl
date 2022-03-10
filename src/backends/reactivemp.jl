@@ -8,16 +8,16 @@ function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
     return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments. ConstVariables should be passed as their raw values.")
 end
 
-function write_randomvar_expression(::ReactiveMPBackend, model, varexp, arguments, kwarguments)
-    return :($varexp = ReactiveMP.randomvar($model, $(GraphPPL.fquote(varexp)), $(arguments...); $(kwarguments...)))
+function write_randomvar_expression(::ReactiveMPBackend, model, varexp, options, arguments)
+    return :($varexp = ReactiveMP.randomvar($model, $options, $(GraphPPL.fquote(varexp)), $(arguments...)))
 end
 
-function write_datavar_expression(::ReactiveMPBackend, model, varexpr, type, arguments, kwarguments)
-    return :($varexpr = ReactiveMP.datavar($model, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ GraphPPL.ensure_type($(type)) }, $(arguments...); $(kwarguments...)))
+function write_datavar_expression(::ReactiveMPBackend, model, varexpr, options, type, arguments)
+    return :($varexpr = ReactiveMP.datavar($model, $options, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ GraphPPL.ensure_type($(type)) }, $(arguments...)))
 end
 
-function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments, kwarguments)
-    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...); $(kwarguments...)))
+function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
+    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...)))
 end
 
 function write_as_variable(::ReactiveMPBackend, model, varexpr)
@@ -25,42 +25,57 @@ function write_as_variable(::ReactiveMPBackend, model, varexpr)
 end
 
 function write_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr)
-    return :($nodeexpr = ReactiveMP.make_node($model, $fform, $varexpr, $(variables...); $(options...)))
+    return :($nodeexpr = ReactiveMP.make_node($model, $options, $fform, $varexpr, $(variables...)))
 end
 
 function write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
-    return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...); $(options...)))
+    return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $options, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...)))
 end
 
-function write_node_options(::ReactiveMPBackend, fform, variables, options)
-    return map(options) do option
+function write_node_options(::ReactiveMPBackend, model, fform, variables, options)
+    is_factorisation_option_present = false
+    is_meta_option_present          = false
+    is_pipeline_option_present      = false
 
+    factorisation_option = :(nothing)
+    meta_option          = :(nothing)
+    pipeline_option      = :(nothing)
+
+    foreach(options) do option
         # Factorisation constraint option
         if @capture(option, q = fconstraint_)
-            return write_fconstraint_option(fform, variables, fconstraint)
+            !is_factorisation_option_present || error("Factorisation constraint option $(option) for $(fform) has been redefined.")
+            is_factorisation_option_present = true
+            factorisation_option = write_fconstraint_option(fform, variables, fconstraint)
         elseif @capture(option, meta = fmeta_)
-            return write_meta_option(fform, fmeta)
+            !is_meta_option_present || error("Meta specification option $(option) for $(fform) has been redefined.")
+            is_meta_option_present = true
+            meta_option = write_meta_option(fform, fmeta)
         elseif @capture(option, pipeline = fpipeline_)
-            return write_pipeline_option(fform, fpipeline)
+            !is_pipeline_option_present || error("Pipeline specification option $(option) for $(fform) has been redefined.")
+            is_pipeline_option_present = true
+            pipeline_option = write_pipeline_option(fform, fpipeline)
+        else
+            error("Unknown option '$option' for '$fform' node")
         end
-
-        error("Unknown option '$option' for '$fform' node")
     end
+
+    return :(ReactiveMP.FactorNodeCreationOptions($factorisation_option, $meta_option, $pipeline_option))
 end
 
 # Meta helper functions
 
 function write_meta_option(fform, fmeta)
-    return :(meta = $fmeta)
+    return :($fmeta)
 end
 
 # Pipeline helper functions
 
 function write_pipeline_option(fform, fpipeline)
     if @capture(fpipeline, +(stages__))
-        return :(pipeline = +($(map(stage -> write_pipeline_stage(fform, stage), stages)...)))
+        return :(+($(map(stage -> write_pipeline_stage(fform, stage), stages)...)))
     else
-        return :(pipeline = $(write_pipeline_stage(fform, fpipeline)))
+        return :($(write_pipeline_stage(fform, fpipeline)))
     end
 end
 
@@ -84,7 +99,7 @@ function write_pipeline_stage(fform, stage)
         indices  = Expr(:tuple, map(s -> :(ReactiveMP.interface_get_index(Val{ $(GraphPPL.fquote(fform)) }, Val{ $(GraphPPL.fquote(first(s))) })), specs)...)
         initials = Expr(:tuple, map(s -> :($(last(s))), specs)...)
 
-        return :(RequireInboundFunctionalDependencies($indices, $initials))
+        return :(ReactiveMP.RequireInboundFunctionalDependencies($indices, $initials))
     else
         return stage
     end
@@ -131,11 +146,11 @@ function write_fconstraint_option(form, variables, fconstraint)
         factorisation = Expr(:tuple, map(f -> Expr(:tuple, f...), indexed)...)
         errorstr = """Invalid factorisation constraint: ($fconstraint). Arguments are not unique, check node's interface names and model specification variable names.""" 
 
-        return :(factorisation = GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error($errorstr))
+        return :(GraphPPL.check_uniqueness($factorisation) ? GraphPPL.sorted_factorisation($factorisation) : error($errorstr))
     elseif @capture(fconstraint, MeanField())
-        return :(factorisation = MeanField())
+        return :(ReactiveMP.MeanField())
     elseif @capture(fconstraint, FullFactorisation())
-        return :(factorisation = FullFactorisation())
+        return :(ReactiveMP.FullFactorisation())
     else
         error("Invalid factorisation constraint: $fconstraint")
     end
@@ -144,24 +159,104 @@ end
 ## 
 
 function write_randomvar_options(::ReactiveMPBackend, variable, options)
-    return map(options) do option
-        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
-        return option
+    is_pipeline_option_present                     = false
+    is_prod_constraint_option_present              = false
+    is_prod_strategy_option_present                = false
+    is_marginal_form_constraint_option_present     = false
+    is_marginal_form_check_strategy_option_present = false
+    is_messages_form_constraint_option_present     = false
+    is_messages_form_check_strategy_option_present = false
+
+    pipeline_option                     = :(nothing)
+    prod_constraint_option              = :(nothing)
+    prod_strategy_option                = :(nothing)
+    marginal_form_constraint_option     = :(nothing)
+    marginal_form_check_strategy_option = :(nothing)
+    messages_form_constraint_option     = :(nothing)
+    messages_form_check_strategy_option = :(nothing)
+    
+    foreach(options) do option 
+        if @capture(option, pipeline = value_)
+            !is_pipeline_option_present || error("`pipeline` option $(option) for random variable $(variable) has been redefined.")
+            is_pipeline_option_present = true
+            pipeline_option = value
+        elseif @capture(option, $(:(prod_constraint)) = value_) 
+            !is_prod_constraint_option_present || error("`prod_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_prod_constraint_option_present = true
+            prod_constraint_option = value
+        elseif @capture(option, $(:(prod_strategy)) = value_) 
+            !is_prod_strategy_option_present || error("`prod_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_prod_strategy_option_present = true
+            prod_strategy_option = value
+        elseif @capture(option, $(:(marginal_form_constraint)) = value_) 
+            !is_marginal_form_constraint_option_present || error("`marginal_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_constraint_option_present = true
+            marginal_form_constraint_option = value
+        elseif @capture(option, $(:(form_constraint)) = value_) # backward compatibility
+            @warn "`form_constraint` option is deprecated. Use `marginal_form_constraint` option for variable $(variable) instead."
+            !is_marginal_form_constraint_option_present || error("`marginal_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_constraint_option_present = true
+            marginal_form_constraint_option = value
+        elseif @capture(option, $(:(marginal_form_check_strategy)) = value_) 
+            !is_marginal_form_check_strategy_option_present || error("`marginal_form_check_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_check_strategy_option_present = true
+            marginal_form_check_strategy_option = value
+        elseif @capture(option, $(:(messages_form_constraint)) = value_) 
+            !is_messages_form_constraint_option_present || error("`messages_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_messages_form_constraint_option_present = true
+            messages_form_constraint_option = value
+        elseif @capture(option, $(:(messages_form_check_strategy)) = value_) 
+            !is_messages_form_check_strategy_option_present || error("`messages_form_check_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_messages_form_check_strategy_option_present = true
+            messages_form_check_strategy_option = value
+        else
+            error("Unknown option '$option' for randomv variable '$variable'.")
+        end
     end
+
+    return :(ReactiveMP.RandomVariableCreationOptions(
+        $pipeline_option,
+        nothing, # it does not make a lot of sense to override `proxy_variables` option
+        $prod_constraint_option,
+        $prod_strategy_option,
+        $marginal_form_constraint_option,
+        $marginal_form_check_strategy_option,
+        $messages_form_constraint_option,
+        $messages_form_check_strategy_option
+    ))
 end
 
-function write_constvar_options(::ReactiveMPBackend, variable, options)
-    return map(options) do option
-        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
-        return option
+function write_datavar_options(::ReactiveMPBackend, variable, type, options)
+    is_subject_option_present       = false
+    is_allow_missing_option_present = false
+
+    # default options
+    subject_option       = :(nothing)
+    allow_missing_option = :(Val(false))
+
+    foreach(options) do option 
+        if @capture(option, subject = value_)
+            !is_subject_option_present || error("`subject` option $(option) for data variable $(variable) has been redefined.")
+            is_subject_option_present = true
+            subject_option = value
+        elseif @capture(option, $(:(allow_missing)) = value_) 
+            !is_allow_missing_option_present || error("`allow_missing` option $(option) for data variable $(variable) has been redefined.")
+            is_allow_missing_option_present = true
+            allow_missing_option = :(Val($value))
+        else
+            error("Unknown option '$option' for data variable '$variable'.")
+        end
     end
+
+    return :(ReactiveMP.DataVariableCreationOptions(ReactiveMP.PointMass{ GraphPPL.ensure_type($type) }, $subject_option, $allow_missing_option))
 end
 
-function write_datavar_options(::ReactiveMPBackend, variable, options)
-    return map(options) do option
-        @capture(option, name_Symbol = value_) || error("Invalid variable options specification: $option. Should be in a form of 'name = value'")
-        return option
-    end
+function write_default_model_constraints(::ReactiveMPBackend)
+    return :(ReactiveMP.UnspecifiedConstraints())
+end
+
+function write_default_model_meta(::ReactiveMPBackend)
+    return :(ReactiveMP.UnspecifiedMeta())
 end
 
 # Constraints specification language
@@ -204,8 +299,12 @@ function write_factorisation_functional_index(::ReactiveMPBackend, repr, fn)
     return :(ReactiveMP.FunctionalIndex{$(QuoteNode(repr))}($fn))
 end
 
-function write_form_constraint_specification(::ReactiveMPBackend, T, args, kwargs) 
-    return :(ReactiveMP.FormConstraintsSpecification($T, $args, $kwargs)) 
+function write_form_constraint_specification_entry(::ReactiveMPBackend, T, args, kwargs) 
+    return :(ReactiveMP.make_form_constraint($T, $args...; $kwargs...)) 
+end
+
+function write_form_constraint_specification(::ReactiveMPBackend, specification)
+    return :(ReactiveMP.FormConstraintSpecification($specification))
 end
 
 ## Meta specification language

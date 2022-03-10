@@ -101,17 +101,17 @@ argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
 function write_argument_guard end
 
 """
-    write_randomvar_expression(backend, model, varexpr, arguments, kwarguments)
+    write_randomvar_expression(backend, model, varexpr, options, arguments)
 """
 function write_randomvar_expression end
 
 """
-    write_datavar_expression(backend, model, varexpr, type, arguments, kwarguments)
+    write_datavar_expression(backend, model, varexpr, options, type, arguments)
 """
 function write_datavar_expression end
 
 """
-    write_constvar_expression(backend, model, varexpr, arguments, kwarguments)
+    write_constvar_expression(backend, model, varexpr, arguments)
 """
 function write_constvar_expression end
 
@@ -131,7 +131,7 @@ function write_make_node_expression end
 function write_autovar_make_node_expression end
 
 """
-    write_node_options(backend, fform, variables, options)
+    write_node_options(backend, model, fform, variables, options)
 """
 function write_node_options end
 
@@ -141,14 +141,19 @@ function write_node_options end
 function write_randomvar_options end
 
 """
-    write_constvar_options(backend, variable, options)
-"""
-function write_constvar_options end
-
-"""
-    write_datavar_options(backend, variable, options)
+    write_datavar_options(backend, variable, type, options)
 """
 function write_datavar_options end
+
+"""
+    write_default_model_constraints(backend)
+"""
+function write_default_model_constraints end
+
+"""
+    write_default_model_meta(backend)
+"""
+function write_default_model_meta end
 
 macro model(model_specification)
     return esc(:(@model [] $model_specification))
@@ -167,7 +172,10 @@ function generate_model_expression(backend, model_options, model_specification)
         return (name, value)
     end
 
-    ms_options = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
+    ms_constraints = write_default_model_constraints(backend)
+    ms_meta        = write_default_model_meta(backend)
+    ms_options     = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
+    
 
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
         error("Model specification language requires full function definition")
@@ -206,7 +214,7 @@ function generate_model_expression(backend, model_options, model_specification)
     end
 
     ms_args_const_init_block = map(ms_args_const_ids) do ms_arg_const_id
-        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ], [])
+        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ])
     end
 
     # Step 0: Check that all inputs are not AbstractVariables
@@ -231,17 +239,17 @@ function generate_model_expression(backend, model_options, model_specification)
             varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
         elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
-            return :($varexpr = randomvar($(arguments...); $(write_randomvar_options(backend, varexpr, options)...)))
+            return :($varexpr = randomvar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
-            return :($varexpr = datavar($(arguments...); $(write_datavar_options(backend, varexpr, options)...)))
+            return :($varexpr = datavar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = constvar(arguments__) where { options__ })
-            return :($varexpr = constvar($(arguments...); $(write_constvar_options(backend, varexpr, options)...)))
+            return error("Error in the expression $(expression). `constvar()` call does not support `where {  }` syntax.")
         elseif @capture(expression, varexpr_ = randomvar(arguments__))
             return :($varexpr = randomvar($(arguments...); ))
         elseif @capture(expression, varexpr_ = datavar(arguments__))
             return :($varexpr = datavar($(arguments...); ))
         elseif @capture(expression, varexpr_ = constvar(arguments__))
-            return :($varexpr = constvar($(arguments...); ))
+            return :($varexpr = constvar($(arguments...)))
         else
             return expression
         end
@@ -264,28 +272,31 @@ function generate_model_expression(backend, model_options, model_specification)
     # Step 2: Main pass
     ms_body = postwalk(ms_body) do expression
         # Step 2.1 Convert datavar calls
-        if @capture(expression, varexpr_ = datavar(arguments__; kwarguments__)) 
+        if @capture(expression, varexpr_ = datavar(arguments__; options__)) 
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
-            @assert length(arguments) >= 1 "datavar() call requires type specification as a first argument"
+            @assert length(arguments) >= 1 "Invalid datavar() creation. datavar(::Type{T}, [ dims... ]) requires type specification as a first argument, but the expression `$(expression)` has no type argument."
             
             push!(varids, varexpr)
 
             type_argument  = arguments[1]
             tail_arguments = arguments[2:end]
+            dvoptions      = write_datavar_options(backend, varexpr, type_argument, options)
 
-            return write_datavar_expression(backend, model, varexpr, type_argument, tail_arguments, kwarguments)
+            return write_datavar_expression(backend, model, varexpr, dvoptions, type_argument, tail_arguments)
         # Step 2.2 Convert randomvar calls
-        elseif @capture(expression, varexpr_ = randomvar(arguments__; kwarguments__))
+        elseif @capture(expression, varexpr_ = randomvar(arguments__; options__))
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             push!(varids, varexpr)
 
-            return write_randomvar_expression(backend, model, varexpr, arguments, kwarguments)
+            rvoptions = write_randomvar_options(backend, varexpr, options)
+
+            return write_randomvar_expression(backend, model, varexpr, rvoptions, arguments)
         # Step 2.3 Conver constvar calls 
-        elseif @capture(expression, varexpr_ = constvar(arguments__; kwarguments__))
+        elseif @capture(expression, varexpr_ = constvar(arguments__))
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
             push!(varids, varexpr)
 
-            return write_constvar_expression(backend, model, varexpr, arguments, kwarguments)
+            return write_constvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
         elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
             # println(expression)
@@ -296,7 +307,7 @@ function generate_model_expression(backend, model_options, model_specification)
             end
 
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
-            options   = write_node_options(backend, fform, [ varexpr, arguments... ], kwarguments)
+            options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
             
             if short_id ∈ varids
                 return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
@@ -313,19 +324,23 @@ function generate_model_expression(backend, model_options, model_specification)
     final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
     final_pass_target     = (x) -> @capture(x, return ret_)
 
+    ms_body = quote 
+        $ms_body
+        return nothing
+    end
+
     ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
         @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
 
     res = quote
 
-        function $ms_name($(ms_args...); $(ms_kwargs...), options = $(ms_options))
+        function $ms_name($(ms_args...); $(ms_kwargs...), constraints = $(ms_constraints), meta = $(ms_meta), options = $(ms_options))
             $(ms_args_checks...)
             options = merge($(ms_options), options)
-            $model = Model(options)
+            $model = Model(constraints, meta, options)
             $(ms_args_const_init_block...)
             $ms_body
-            error("'return' statement is missing")
         end     
     end
         
