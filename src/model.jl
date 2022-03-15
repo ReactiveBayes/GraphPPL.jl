@@ -94,6 +94,20 @@ end
 argument_write_default_value(arg, default::Nothing) = arg
 argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
 
+""" 
+    write_model_structure(backend, 
+        ms_name, 
+        ms_args_checks, 
+        ms_args_const_init_block,
+        ms_args,
+        ms_kwargs,
+        ms_constraints, 
+        ms_meta,
+        ms_options,
+        ms_body
+    )
+"""
+function write_model_structure end
 
 """
     write_argument_guard(backend, argument)
@@ -333,16 +347,18 @@ function generate_model_expression(backend, model_options, model_specification)
         @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
 
-    res = quote
-
-        function $ms_name($(ms_args...); $(ms_kwargs...), constraints = $(ms_constraints), meta = $(ms_meta), options = $(ms_options))
-            $(ms_args_checks...)
-            options = merge($(ms_options), options)
-            $model = Model(constraints, meta, options)
-            $(ms_args_const_init_block...)
-            $ms_body
-        end     
-    end
+    ms_structure = write_model_structure(backend, 
+        ms_name, 
+        model,
+        ms_args_checks, 
+        ms_args_const_init_block,
+        ms_args,
+        ms_kwargs,
+        ms_constraints, 
+        ms_meta,
+        ms_options,
+        ms_body
+    ) 
         
-    return esc(res)
+    return esc(ms_structure)
 end

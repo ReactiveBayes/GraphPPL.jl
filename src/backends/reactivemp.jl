@@ -4,6 +4,70 @@ using TupleTools
 
 struct ReactiveMPBackend end
 
+function write_model_structure(::ReactiveMPBackend, 
+    ms_name, 
+    ms_model,
+    ms_args_checks, 
+    ms_args_const_init_block,
+    ms_args,
+    ms_kwargs,
+    ms_constraints, 
+    ms_meta,
+    ms_options,
+    ms_body
+) 
+
+    constraints = gensym(Symbol(ms_name, :constraints))
+    meta        = gensym(Symbol(ms_name, :meta))
+    options     = gensym(Symbol(ms_name, :options))
+
+    return quote 
+
+        struct $ms_name <: ReactiveMP.AbstractModelSpecification 
+            $ms_name(args...; kwargs...) = ReactiveMP.create_model($ms_name, $(ms_constraints), $(ms_meta), $(ms_options), args...; kwargs...)
+
+            function $ms_name(constraints::Union{ ReactiveMP.UnspecifiedConstraints, ReactiveMP.ConstraintsSpecification }, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, constraints, $(ms_meta), $(ms_options), args...; kwargs...)
+            end
+
+            function $ms_name(meta::Union{ ReactiveMP.UnspecifiedMeta, ReactiveMP.MetaSpecification }, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, $(ms_constraints), meta, $(ms_options), args...; kwargs...)
+            end
+
+            function $ms_name(options::ReactiveMP.ModelOptions, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, $(ms_constraints), $(ms_meta), options, args...; kwargs...)
+            end
+
+            function $ms_name(constraints::Union{ ReactiveMP.UnspecifiedConstraints, ReactiveMP.ConstraintsSpecification }, meta::Union{ ReactiveMP.UnspecifiedMeta, ReactiveMP.MetaSpecification }, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, constraints, meta, $(ms_options), args...; kwargs...)
+            end
+
+            function $ms_name(constraints::Union{ ReactiveMP.UnspecifiedConstraints, ReactiveMP.ConstraintsSpecification }, options::ReactiveMP.ModelOptions, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, constraints, $(ms_meta), options, args...; kwargs...)
+            end
+
+            function $ms_name(meta::Union{ ReactiveMP.UnspecifiedMeta, ReactiveMP.MetaSpecification }, options::ReactiveMP.ModelOptions, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, $(ms_constraints), meta, options, args...; kwargs...)
+            end
+
+            function $ms_name(constraints::Union{ ReactiveMP.UnspecifiedConstraints, ReactiveMP.ConstraintsSpecification }, meta::Union{ ReactiveMP.UnspecifiedMeta, ReactiveMP.MetaSpecification }, options::ReactiveMP.ModelOptions, args...; kwargs...) 
+                return ReactiveMP.create_model($ms_name, constraints, meta, options, args...; kwargs...)
+            end
+        end
+
+        function ReactiveMP.create_model(::Type{ $ms_name }, $constraints, $meta, $options, $(ms_args...); $(ms_kwargs...))
+            $(ms_args_checks...)
+            $options = merge($(ms_options), $options)
+            $ms_model = ReactiveMP.FactorGraphModel($constraints, $meta, $options)
+            $(ms_args_const_init_block...)
+            $ms_body
+        end  
+
+        ReactiveMP.model_name(::$ms_name)         = $(QuoteNode(ms_name))
+        ReactiveMP.model_name(::Type{ $ms_name }) = $(QuoteNode(ms_name))
+    end
+end
+
 function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
     return :(@assert !($argument isa ReactiveMP.AbstractVariable) "It is not allowed to pass AbstractVariable objects to a model definition arguments. ConstVariables should be passed as their raw values.")
 end
