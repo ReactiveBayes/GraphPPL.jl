@@ -17,9 +17,13 @@ function write_model_structure(::ReactiveMPBackend,
     ms_body
 ) 
 
-    constraints = gensym(Symbol(ms_name, :constraints))
-    meta        = gensym(Symbol(ms_name, :meta))
-    options     = gensym(Symbol(ms_name, :options))
+    # We create two variables for type stability
+    constraints_in = gensym(Symbol(ms_name, :constraints_in))
+    constraints    = gensym(Symbol(ms_name, :constraints))
+    meta_in        = gensym(Symbol(ms_name, :meta_in))
+    meta           = gensym(Symbol(ms_name, :meta))
+    options_in     = gensym(Symbol(ms_name, :options_in))
+    options        = gensym(Symbol(ms_name, :options))
 
     return quote 
 
@@ -55,11 +59,17 @@ function write_model_structure(::ReactiveMPBackend,
             end
         end
 
-        function ReactiveMP.create_model(::Type{ $ms_name }, $constraints, $meta, $options, $(ms_args...); $(ms_kwargs...))
+        function ReactiveMP.create_model(::Type{ $ms_name }, $constraints_in, $meta_in, $options_in, $(ms_args...); $(ms_kwargs...))
+
             $(ms_args_checks...)
-            $options = merge($(ms_options), $options)
-            $ms_model = ReactiveMP.FactorGraphModel($constraints, $meta, $options)
+
+            $constraints = something($constraints_in, $(ms_constraints))
+            $meta        = something($meta_in, $(ms_meta))
+            $options     = merge($(ms_options), something($options_in, $(ms_options)))
+            $ms_model    = ReactiveMP.FactorGraphModel($constraints, $meta, $options)
+
             $(ms_args_const_init_block...)
+
             $ms_body
         end  
 
