@@ -85,7 +85,7 @@ function __normalize_arg(backend, model, arg)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
-        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_randomvar(backend, model, nvarexpr)); $nvarexpr)
+        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)
     else
         return arg
     end
@@ -135,9 +135,9 @@ function write_constvar_expression end
 function write_as_variable end
 
 """
-    write_anonymous_randomvar(backend, model, varexpr)
+    write_anonymous_variable(backend, model, varexpr)
 """
-function write_anonymous_randomvar end
+function write_anonymous_variable end
 
 """
     write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)

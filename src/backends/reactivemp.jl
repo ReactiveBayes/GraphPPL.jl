@@ -98,7 +98,7 @@ function write_as_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.as_variable($model, $varexpr))
 end
 
-function write_anonymous_randomvar(::ReactiveMPBackend, model, varexpr)
+function write_anonymous_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.setanonymous!($varexpr, true))
 end
 
