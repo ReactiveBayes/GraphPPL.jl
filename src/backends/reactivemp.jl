@@ -98,6 +98,10 @@ function write_as_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.as_variable($model, $varexpr))
 end
 
+function write_anonymous_randomvar(::ReactiveMPBackend, model, varexpr)
+    return :(ReactiveMP.setanonymous!($varexpr, true))
+end
+
 function write_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr)
     return :($nodeexpr = ReactiveMP.make_node($model, $options, $fform, $varexpr, $(variables...)))
 end

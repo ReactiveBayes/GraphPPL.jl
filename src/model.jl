@@ -57,24 +57,24 @@ function parse_varexpr(varexpr::Expr)
 end
 
 """
-    normalize_tilde_arguments(args)
+    normalize_tilde_arguments(backend, model, args)
 
 This function 'normalizes' every argument of a tilde expression making every inner function call to be a tilde expression as well. 
 It forces MSL to create anonymous node for any non-linear variable transformation or deterministic relationships. MSL does not check (and cannot in general) 
 if some inner function call leads to a constant expression or not (e.g. `Normal(0.0, sqrt(10.0))`). Backend API should decide whenever to create additional anonymous nodes 
 for constant non-linear transformation expressions or not by analyzing input arguments.
 """
-function normalize_tilde_arguments(args)
+function normalize_tilde_arguments(backend, model, args)
     return map(args) do arg
         if @capture(arg, id_[idx_])
-            return :($(__normalize_arg(id))[$idx])
+            return :($(__normalize_arg(backend, model, id))[$idx])
         else
-            return __normalize_arg(arg)
+            return __normalize_arg(backend, model, arg)
         end
     end
 end
 
-function __normalize_arg(arg)
+function __normalize_arg(backend, model, arg)
     if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
@@ -84,8 +84,8 @@ function __normalize_arg(arg)
         nvarexpr  = gensym(:nvar)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
-        v = normalize_tilde_arguments(v)
-        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $nvarexpr)
+        v = normalize_tilde_arguments(backend, model, v)
+        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_randomvar(backend, model, nvarexpr)); $nvarexpr)
     else
         return arg
     end
@@ -133,6 +133,11 @@ function write_constvar_expression end
     write_as_variable(backend, model, varexpr)
 """
 function write_as_variable end
+
+"""
+    write_anonymous_randomvar(backend, model, varexpr)
+"""
+function write_anonymous_randomvar end
 
 """
     write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
@@ -251,7 +256,7 @@ function generate_model_expression(backend, model_options, model_specification)
             end
 
             varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
-            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(arguments))...); $(options...)))
+            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...)))
         elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
             return :($varexpr = randomvar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
