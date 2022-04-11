@@ -341,8 +341,29 @@ end
 
 ## Factorisations constraints specification language
 
-function write_constraints_specification(::ReactiveMPBackend, factorisation, marginalsform, messagesform) 
-    return :(ReactiveMP.ConstraintsSpecification($factorisation, $marginalsform, $messagesform))
+function write_constraints_specification(::ReactiveMPBackend, factorisation, marginalsform, messagesform, options) 
+    return :(ReactiveMP.ConstraintsSpecification($factorisation, $marginalsform, $messagesform, $options))
+end
+
+function write_constraints_specification_options(::ReactiveMPBackend, options)
+    @capture(options, [ entries__ ]) || error("Invalid constraints specification options syntax. Should be `@constraints [ option1 = value1, ... ] ...`, but `$(options)` found.")
+    
+    is_warn_option_present = false
+
+    warn_option = :(true)
+
+    foreach(entries) do option 
+        if @capture(option, warn = value_)
+            !is_warn_option_present || error("`warn` option $(option) for constraints specification has been redefined.")
+            is_warn_option_present = true
+            @assert value isa Bool "`warn` option for constraints specification expects true/false value"
+            warn_option = value
+        else
+            error("Unknown option '$option' for constraints specification.")
+        end
+    end
+
+    return :(ReactiveMP.ConstraintsSpecificationOptions($warn_option))
 end
 
 function write_factorisation_constraint(::ReactiveMPBackend, names, entries) 
@@ -387,8 +408,29 @@ end
 
 ## Meta specification language
 
-function write_meta_specification(::ReactiveMPBackend, entries) 
-    return :(ReactiveMP.MetaSpecification($entries))
+function write_meta_specification(::ReactiveMPBackend, entries, options) 
+    return :(ReactiveMP.MetaSpecification($entries, $options))
+end
+
+function write_meta_specification_options(::ReactiveMPBackend, options)
+    @capture(options, [ entries__ ]) || error("Invalid meta specification options syntax. Should be `@meta [ option1 = value1, ... ] ...`, but `$(options)` found.")
+    
+    is_warn_option_present = false
+
+    warn_option = :(true)
+
+    foreach(entries) do option 
+        if @capture(option, warn = value_)
+            !is_warn_option_present || error("`warn` option $(option) for meta specification has been redefined.")
+            is_warn_option_present = true
+            @assert value isa Bool "`warn` option for meta specification expects true/false value"
+            warn_option = value
+        else
+            error("Unknown option '$option' for meta specification.")
+        end
+    end
+
+    return :(ReactiveMP.MetaSpecificationOptions($warn_option))
 end
 
 function write_meta_specification_entry(::ReactiveMPBackend, F, N, meta) 

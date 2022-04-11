@@ -1,9 +1,14 @@
 export @constraints
 
 """
-    write_constraints_specification(backend, factorisation, marginalsform, messagesform) 
+    write_constraints_specification(backend, factorisation, marginalsform, messagesform, options) 
 """
 function write_constraints_specification end
+
+"""
+    write_constraints_specification_options(backend, options)
+"""
+function write_constraints_specification_options end
 
 """
     write_factorisation_constraint(backend, names, entries)
@@ -56,7 +61,12 @@ function write_form_constraint_specification_entry end
 function write_form_constraint_specification end
 
 macro constraints(constraints_specification)
-    return generate_constraints_expression(__get_current_backend(), constraints_specification)
+    # Empty options is :([])
+    return generate_constraints_expression(__get_current_backend(), :([]), constraints_specification)
+end
+
+macro constraints(constraints_options, constraints_specification)
+    return generate_constraints_expression(__get_current_backend(), constraints_options, constraints_specification)
 end
 
 ## Factorisation constraints
@@ -125,19 +135,20 @@ end
 
 ##
 
-function generate_constraints_expression(backend, constraints_specification)
+function generate_constraints_expression(backend, constraints_options, constraints_specification)
 
     if isblock(constraints_specification)
         generatedfname = gensym(:constraints)
         generatedfbody = :(function $(generatedfname)() $constraints_specification end)
-        return :($(generate_constraints_expression(backend, generatedfbody))())
+        return :($(generate_constraints_expression(backend, constraints_options, generatedfbody))())
     end
 
     @capture(constraints_specification, (function cs_name_(cs_args__; cs_kwargs__) cs_body_ end) | (function cs_name_(cs_args__) cs_body_ end)) || 
         error("Constraints specification language requires full function definition")
     
-    cs_args   = cs_args === nothing ? [] : cs_args
-    cs_kwargs = cs_kwargs === nothing ? [] : cs_kwargs
+    cs_args    = cs_args === nothing ? [] : cs_args
+    cs_kwargs  = cs_kwargs === nothing ? [] : cs_kwargs
+    cs_options = write_constraints_specification_options(backend, constraints_options)
     
     lhs_dict = Dict{UInt, FactorisationConstraintLHSInfo}()
     
@@ -308,7 +319,13 @@ function generate_constraints_expression(backend, constraints_specification)
         return expression
     end
     
-    return_specification = write_constraints_specification(backend, factorisation_constraints_symbol, marginals_form_constraints_symbol, messages_form_constraints_symbol)
+    return_specification = write_constraints_specification(
+        backend, 
+        factorisation_constraints_symbol, 
+        marginals_form_constraints_symbol, 
+        messages_form_constraints_symbol,
+        cs_options
+    )
     
     res = quote
          function $cs_name($(cs_args...); $(cs_kwargs...))
