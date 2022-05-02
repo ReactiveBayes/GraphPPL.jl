@@ -15,12 +15,6 @@ fquote(expr::Symbol) = Expr(:quote, expr)
 fquote(expr::Int)    = expr
 fquote(expr::Expr)   = expr
 
-"""
-    ensure_type
-"""
-ensure_type(x::Type) = x
-ensure_type(x)       = error("Valid type object was expected but '$x' has been found")
-
 is_kwargs_expression(x)       = false
 is_kwargs_expression(x::Expr) = x.head === :parameters
 
@@ -293,7 +287,7 @@ function generate_model_expression(backend, model_options, model_specification)
         # Step 2.1 Convert datavar calls
         if @capture(expression, varexpr_ = datavar(arguments__; options__)) 
             @assert varexpr ∉ varids "Invalid model specification: '$varexpr' id is duplicated"
-            @assert length(arguments) >= 1 "Invalid datavar() creation. datavar(::Type{T}, [ dims... ]) requires type specification as a first argument, but the expression `$(expression)` has no type argument."
+            @assert length(arguments) >= 1 "The expression `$expression` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument."
             
             push!(varids, varexpr)
 

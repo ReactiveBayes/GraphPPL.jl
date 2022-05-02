@@ -87,7 +87,9 @@ function write_randomvar_expression(::ReactiveMPBackend, model, varexp, options,
 end
 
 function write_datavar_expression(::ReactiveMPBackend, model, varexpr, options, type, arguments)
-    return :($varexpr = ReactiveMP.datavar($model, $options, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ GraphPPL.ensure_type($(type)) }, $(arguments...)))
+    errstr    = "The expression `$varexpr = datavar($(type))` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument, but `$(type)` is not a `Type`."
+    checktype = :(GraphPPL.ensure_type($(type)) || error($errstr))
+    return :($checktype; $varexpr = ReactiveMP.datavar($model, $options, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ $type }, $(arguments...)))
 end
 
 function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
@@ -326,7 +328,7 @@ function write_datavar_options(::ReactiveMPBackend, variable, type, options)
         end
     end
 
-    return :(ReactiveMP.DataVariableCreationOptions(ReactiveMP.PointMass{ GraphPPL.ensure_type($type) }, $subject_option, $allow_missing_option))
+    return :(ReactiveMP.DataVariableCreationOptions(ReactiveMP.PointMass{ $type }, $subject_option, $allow_missing_option))
 end
 
 function write_default_model_constraints(::ReactiveMPBackend)

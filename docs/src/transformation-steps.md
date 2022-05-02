@@ -37,7 +37,8 @@ y = datavar(args...) where { options... }
 is translated to 
 
 ```
-y = datavar(var"#model", options, :y, ensure_type(args[1]), args[2:end]...)
+ensure_type(args[1]) || error(...)
+y = datavar(var"#model", options, :y, args[1], args[2:end]...)
 ```
 
 where `var"#model"` references to an hidden model variable, `ensure_type` function ensures that the first argument is a valid type object, rest of the arguments are left untouched. 

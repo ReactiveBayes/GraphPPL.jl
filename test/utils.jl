@@ -54,4 +54,13 @@ end
 
 end
 
+@testset "ensure_type tests" begin 
+    import GraphPPL: ensure_type
+
+    @test ensure_type(Int) === true
+    @test ensure_type(1) === false
+    @test ensure_type(Float64) === true
+    @test ensure_type(1.0) === false
+end
+
 end

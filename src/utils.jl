@@ -40,3 +40,11 @@ Shorthand for `ishead(expr, :ref)`.
 See also: [`ishead`](@ref)
 """
 isref(expr) = ishead(expr, :ref)
+
+"""
+    ensure_type(x)
+
+Checks if `x` is of type `Type` 
+"""
+ensure_type(x::Type) = true
+ensure_type(x)       = false
