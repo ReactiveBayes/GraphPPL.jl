@@ -42,6 +42,15 @@ See also: [`ishead`](@ref)
 isref(expr) = ishead(expr, :ref)
 
 """
+    getref(expr)
+
+Returns ref indices from `expr` in a form of a tuple.
+
+See als: [`isref`](@ref)
+"""
+getref(expr) = isref(expr) ? (view(expr.args, 2:lastindex(expr.args))...,) : ()
+
+"""
     ensure_type(x)
 
 Checks if `x` is of type `Type` 
