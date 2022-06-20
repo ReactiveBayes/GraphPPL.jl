@@ -58,7 +58,23 @@ Returns ref indices from `expr` in a form of a tuple.
 
 See als: [`isref`](@ref)
 """
-getref(expr) = isref(expr) ? (view(expr.args, 2:lastindex(expr.args))...,) : ()
+getref(expr) = isref(expr) ? Expr(:tuple, expr.args[2:end]...) : Expr(:tuple)
+
+function getref(sym, expr) # TODO
+    if !isref(expr) 
+        return Expr(:tuple)
+    else
+        return postwalk(Expr(:tuple, expr.args[2:end]...)) do iexpr
+            if iexpr === :end 
+                return :(lastindex($sym))
+            elseif iexpr === :begin 
+                return :(firstindex($sym))
+            else
+                return iexpr 
+            end
+        end
+    end
+end
 
 """
     ensure_type(x)

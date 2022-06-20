@@ -116,6 +116,10 @@ function write_broadcasted_make_node_expression(::ReactiveMPBackend, model, ffor
     return :($nodeexpr = ReactiveMP.make_node.($model, $options, $fform, $varexpr, $(variables...)))
 end
 
+function write_autovar_broadcasted_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, short_id, autovarid)
+    return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $options, $fform, ReactiveMP.AutoVarBroadcasted($(GraphPPL.fquote(short_id)), $(GraphPPL.getref(short_id, varexpr))), $(variables...)))
+end
+
 function write_node_options(::ReactiveMPBackend, model, fform, variables, options)
     is_factorisation_option_present = false
     is_meta_option_present          = false

@@ -75,6 +75,10 @@ function __normalize_arg(backend, model, arg)
             f = v[2]
             v = [ v[1] ]
         end
+        # Strip dot from function call
+        if first(string(f)) === '.' 
+            f = Symbol(string(f)[2:end])
+        end
         nvarexpr  = gensym(:nvar)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
@@ -82,7 +86,8 @@ function __normalize_arg(backend, model, arg)
         if !isbroadcastedcall(arg)
             return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)    
         else
-            error("Nested broadcasting calls are not supported. Check expression: `$(arg)`")
+            return :(($nnodeexpr, $nvarexpr) .~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)    
+            # error("Nested broadcasting calls are not supported. Check expression: `$(arg)`")
         end
     else
         return arg
@@ -151,6 +156,11 @@ function write_autovar_make_node_expression end
     write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
 """
 function write_broadcasted_make_node_expression end
+
+"""
+    write_autovar_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, short_id, autovarid)
+"""
+function write_autovar_broadcasted_make_node_expression end
 
 """
     write_node_options(backend, model, fform, variables, options)
@@ -347,7 +357,7 @@ function generate_model_expression(backend, model_options, model_specification)
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
             options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
 
-            return write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+            return write_autovar_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, short_id, full_id)
         else
             return expression
         end
