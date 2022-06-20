@@ -69,7 +69,7 @@ function normalize_tilde_arguments(backend, model, args)
 end
 
 function __normalize_arg(backend, model, arg)
-    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
+    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)) | (f_.(v__) where { options__ }) | (f_.(v__)))
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
             f = v[2]
@@ -79,7 +79,11 @@ function __normalize_arg(backend, model, arg)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
-        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)
+        if !isbroadcastedcall(arg)
+            return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)    
+        else
+            error("Nested broadcasting calls are not supported. Check expression: `$(arg)`")
+        end
     else
         return arg
     end
@@ -142,6 +146,11 @@ function write_make_node_expression end
     write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
 """
 function write_autovar_make_node_expression end
+
+"""
+    write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+"""
+function write_broadcasted_make_node_expression end
 
 """
     write_node_options(backend, model, fform, variables, options)
@@ -230,6 +239,17 @@ function generate_model_expression(backend, model_options, model_specification)
         return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ])
     end
 
+    # Helper function: filter out keywords arguments to options array
+    filter_out_arguments!(options, arguments) = begin
+        return filter(arguments) do arg
+            ifparameters = arg isa Expr && arg.head === :parameters
+            if ifparameters
+                foreach(a -> push!(options, a), arg.args)
+            end
+            return !ifparameters
+        end
+    end
+
     # Step 0: Check that all inputs are not AbstractVariables
     # It is highly recommended not to create AbstractVariables outside of the model creation macro
     # Doing so can lead to undefined behaviour
@@ -237,20 +257,18 @@ function generate_model_expression(backend, model_options, model_specification)
 
     # Step 1: Probabilistic arguments normalisation
     ms_body = prewalk(ms_body) do expression
+        # Regular tilde expression `var ~ node(...)`
         if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
             options   = options === nothing ? [] : options
-
-            # Filter out keywords arguments to options array
-            arguments = filter(arguments) do arg
-                ifparameters = arg isa Expr && arg.head === :parameters
-                if ifparameters
-                    foreach(a -> push!(options, a), arg.args)
-                end
-                return !ifparameters
-            end
-
+            arguments = filter_out_arguments!(options, arguments)
             varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
             return :($varexpr ~ $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...)))
+        # Broadcasted tilde expression `var .~ node(...)`
+        elseif @capture(expression, (varexpr_ .~ fform_(arguments__) where { options__ }) | (varexpr_ .~ fform_(arguments__)))
+            options   = options === nothing ? [] : options
+            arguments = filter_out_arguments!(options, arguments)
+            varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
+            return :($varexpr .~ $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...)))
         elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
             return :($varexpr = randomvar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
@@ -318,6 +336,18 @@ function generate_model_expression(backend, model_options, model_specification)
             else
                 return write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, full_id)
             end
+        # Step 2.2 Convert broadcasted tilde expressions
+        elseif @capture(expression, (nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__))
+            varexpr, short_id, full_id = parse_varexpr(varexpr)
+
+            if short_id ∈ bannedids
+                error("Invalid name '$(short_id)' for new random variable. '$(short_id)' has been already initialized with '=' operator.")
+            end
+
+            variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
+            options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
+
+            return write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
         else
             return expression
         end
