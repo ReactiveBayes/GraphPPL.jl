@@ -33,6 +33,24 @@ iscall(expr)       = ishead(expr, :call) && length(expr.args) >= 1
 iscall(expr, fsym) = iscall(expr) && first(expr.args) === fsym
 
 """
+    isbroadcastedcall(expr) 
+    isbroadcastedcall(expr, fsym) 
+
+Checks if expression represents a broadcast call to some function. Optionally accepts `fsym` to check for exact function name match.
+
+See also: [`iscall`](@ref)
+"""
+function isbroadcastedcall(expr) 
+    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.') || # Checks for `:(a .+ b)` syntax
+        (ishead(expr, :(.))) # Checks for `:(f.(x))` syntax
+end
+
+function isbroadcastedcall(expr, fsym) 
+    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.' && Symbol(string(first(expr.args))[2:end]) === fsym) || # Checks for `:(a .+ b)` syntax
+        (ishead(expr, :(.)) && first(expr.args) === fsym) # Checks for `:(f.(x))` syntax
+end
+
+"""
     isref(expr)
 
 Shorthand for `ishead(expr, :ref)`.

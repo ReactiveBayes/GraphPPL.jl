@@ -54,6 +54,28 @@ end
 
 end
 
+@testset "isbroadcastedcall tests" begin 
+    import GraphPPL: isbroadcastedcall
+
+    @test isbroadcastedcall(:(f(1))) === false
+    @test isbroadcastedcall(:(f(1)), :f) === false
+    @test isbroadcastedcall(:(f(1)), :g) === false
+    @test isbroadcastedcall(:(if true 1 else 2 end)) === false
+    @test isbroadcastedcall(:(begin end)) === false
+
+    @test isbroadcastedcall(:(a .+ b)) === true
+    @test isbroadcastedcall(:(a .+ b), :(+)) === true
+    @test isbroadcastedcall(:(a .+ b), :(-)) === false
+
+    @test isbroadcastedcall(:(f.(a))) === true
+    @test isbroadcastedcall(:(f.(a, b))) === true
+    @test isbroadcastedcall(:(f.(a)), :f) === true
+    @test isbroadcastedcall(:(f.(a, b)), :f) === true
+    @test isbroadcastedcall(:(f.(a)), :g) === false
+    @test isbroadcastedcall(:(f.(a, b)), :g) === false
+
+end
+
 @testset "ensure_type tests" begin 
     import GraphPPL: ensure_type
 

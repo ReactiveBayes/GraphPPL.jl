@@ -69,17 +69,44 @@ function normalize_tilde_arguments(backend, model, args)
 end
 
 function __normalize_arg(backend, model, arg)
-    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)))
+    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)) | (f_.(v__) where { options__ }) | (f_.(v__) ))
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
             f = v[2]
             v = [ v[1] ]
         end
+        if first(string(f)) === '.'
+            f = Symbol(string(f)[2:end]) # Strip dot from function call
+        end
         nvarexpr  = gensym(:nvar)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
-        return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)
+        if isbroadcastedcall(arg)
+            # broadcasting variables
+            broadcasting_locals = map((_) -> gensym(:bv), v)
+            # cast to as_variable
+            as_vars = map((v) -> write_as_variable(backend, model, v), v)
+            # args and indexing labels
+            args = gensym(:args)
+            # We manually unroll assignments here, because `GraphPPL` does not recognize multiple assingments with tuples
+            args_assignment = Expr(:block, map(((i, l),) -> Expr(:(=), l, Expr(:ref, args, i)), enumerate(broadcasting_locals))...)
+            return quote 
+                # Here we manually unroll anonymous broadcasting calls
+                # Later on GraphPPL does not distinguish between local broadcasting `~` expression and a regular `~` expression
+                begin 
+                    map(Base.broadcasted((args...) -> args, $(as_vars...))) do $args
+                        $args_assignment
+                        ($nnodeexpr, $nvarexpr) ~ $f($(broadcasting_locals...); $(options...)); 
+                        $(write_anonymous_variable(backend, model, nvarexpr)); 
+                        $nvarexpr
+                    end
+                end
+            end
+            
+        else
+            return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)
+        end
     else
         return arg
     end
@@ -139,9 +166,19 @@ function write_anonymous_variable end
 function write_make_node_expression end
 
 """
+    write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+"""
+function write_broadcasted_make_node_expression end
+
+"""
     write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
 """
 function write_autovar_make_node_expression end
+
+"""
+    write_check_variable_existence(backend, model, varid, errormsg)
+"""
+function write_check_variable_existence end
 
 """
     write_node_options(backend, model, fform, variables, options)
@@ -237,7 +274,10 @@ function generate_model_expression(backend, model_options, model_specification)
 
     # Step 1: Probabilistic arguments normalisation
     ms_body = prewalk(ms_body) do expression
-        if @capture(expression, (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)))
+        if @capture(expression, 
+            (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)) |
+            (varexpr_ .~ fform_(arguments__) where { options__ }) | (varexpr_ .~ fform_(arguments__))
+        )
             options   = options === nothing ? [] : options
 
             # Filter out keywords arguments to options array
@@ -249,8 +289,9 @@ function generate_model_expression(backend, model_options, model_specification)
                 return !ifparameters
             end
 
-            varexpr   =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
-            return :($varexpr ~ $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...)))
+            varexpr =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
+            operator = isbroadcastedcall(expression) ? Symbol(".~") : :(~)
+            return :($operator($varexpr, $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...))))
         elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
             return :($varexpr = randomvar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
@@ -299,7 +340,7 @@ function generate_model_expression(backend, model_options, model_specification)
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
-        elseif @capture(expression, (nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__))
+        elseif @capture(expression, ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) | ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__)))
             
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
@@ -310,13 +351,21 @@ function generate_model_expression(backend, model_options, model_specification)
             variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
             options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
 
-            # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
-            # Single variables like `y` can be created on the fly with the `AutoVar` marker
-            # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
-            if isref(varexpr)
-                return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+            if isbroadcastedcall(expression)
+                # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
+                return quote 
+                    $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
+                    $(write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr))
+                end
             else
-                return write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, full_id)
+                # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
+                # Single variables like `y` can be created on the fly with the `AutoVar` marker
+                # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
+                if isref(varexpr)
+                    return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+                else
+                    return write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, full_id)
+                end
             end
         else
             return expression
