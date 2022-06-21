@@ -75,14 +75,13 @@ function __normalize_arg(backend, model, arg)
             f = v[2]
             v = [ v[1] ]
         end
-        if first(string(f)) === '.'
-            f = Symbol(string(f)[2:end]) # Strip dot from function call
-        end
         nvarexpr  = gensym(:nvar)
         nnodeexpr = gensym(:nnode)
         options  = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
         if isbroadcastedcall(arg)
+            # Strip dot call from broadcasting dot operators, like `.+`
+            f = first(string(f)) === '.' ? Symbol(string(f)[2:end]) : f 
             # broadcasting variables
             broadcasting_locals = map((_) -> gensym(:bv), v)
             # cast to as_variable
@@ -352,8 +351,10 @@ function generate_model_expression(backend, model_options, model_specification)
             options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
 
             if isbroadcastedcall(expression)
-                # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
+                # Strip dot call from broadcasting dot operators, like `.+`
+                fform = first(string(fform)) === '.' ? Symbol(string(fform)[2:end]) : fform 
                 return quote 
+                    # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
                     $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
                     $(write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr))
                 end
