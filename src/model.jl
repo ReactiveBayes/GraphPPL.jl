@@ -80,22 +80,24 @@ function __normalize_arg(backend, model, arg)
         options  = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
         if isbroadcastedcall(arg)
-            # Strip dot call from broadcasting dot operators, like `.+`
-            f = first(string(f)) === '.' ? Symbol(string(f)[2:end]) : f 
+            # Strip dot call from broadcasting dot operators, like `.+` and define `BroadcastFunction` explicitly to avoid UndefVarError
+            initf, f = if first(string(f)) === '.'
+                newf = gensym(:broadcastedf)
+                initf = :($newf = Base.BroadcastFunction($(Symbol(string(f)[2:end]))))
+                initf, newf
+            else
+                :(nothing), f
+            end
             # broadcasting variables
             broadcasting_locals = map((_) -> gensym(:bv), v)
             # cast to as_variable
             as_vars = map((v) -> write_as_variable(backend, model, v), v)
-            # args and indexing labels
-            args = gensym(:args)
-            # We manually unroll assignments here, because `GraphPPL` does not recognize multiple assingments with tuples
-            args_assignment = Expr(:block, map(((i, l),) -> Expr(:(=), l, Expr(:ref, args, i)), enumerate(broadcasting_locals))...)
             return quote 
                 # Here we manually unroll anonymous broadcasting calls
                 # Later on GraphPPL does not distinguish between local broadcasting `~` expression and a regular `~` expression
                 begin 
-                    map(Base.broadcasted((args...) -> args, $(as_vars...))) do $args
-                        $args_assignment
+                    Base.broadcast($(as_vars...)) do $(broadcasting_locals...)
+                        $initf
                         ($nnodeexpr, $nvarexpr) ~ $f($(broadcasting_locals...); $(options...)); 
                         $(write_anonymous_variable(backend, model, nvarexpr)); 
                         $nvarexpr
