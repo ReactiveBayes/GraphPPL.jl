@@ -81,32 +81,28 @@ function __normalize_arg(backend, model, arg)
         v = normalize_tilde_arguments(backend, model, v)
         if isbroadcastedcall(arg)
             # Strip dot call from broadcasting dot operators, like `.+` and define `BroadcastFunction` explicitly to avoid UndefVarError
-            initf, f = if first(string(f)) === '.'
-                newf = gensym(:broadcastedf)
-                initf = :($newf = Base.BroadcastFunction($(Symbol(string(f)[2:end]))))
-                initf, newf
-            else
-                :(nothing), f
-            end
+            f = first(string(f)) === '.' ? Symbol(string(f)[2:end]) : f 
             # broadcasting variables
             broadcasting_locals = map((_) -> gensym(:bv), v)
-            # cast to as_variable
-            as_vars = map((v) -> write_as_variable(backend, model, v), v)
             return quote 
                 # Here we manually unroll anonymous broadcasting calls
                 # Later on GraphPPL does not distinguish between local broadcasting `~` expression and a regular `~` expression
                 begin 
-                    Base.broadcast($(as_vars...)) do $(broadcasting_locals...)
-                        $initf
+                    Base.broadcast($(v...)) do $(broadcasting_locals...)
+                        # $initf
                         ($nnodeexpr, $nvarexpr) ~ $f($(broadcasting_locals...); $(options...)); 
                         $(write_anonymous_variable(backend, model, nvarexpr)); 
-                        $nvarexpr
+                        $(write_undo_as_variable(backend, nvarexpr));
                     end
                 end
             end
             
         else
-            return :(($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); $(write_anonymous_variable(backend, model, nvarexpr)); $nvarexpr)
+            return quote 
+                ($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); 
+                $(write_anonymous_variable(backend, model, nvarexpr)); 
+                $(write_undo_as_variable(backend, nvarexpr));
+            end
         end
     else
         return arg
@@ -155,6 +151,11 @@ function write_constvar_expression end
     write_as_variable(backend, model, varexpr)
 """
 function write_as_variable end
+
+"""
+    write_undo_as_variable(backend, varexpr)
+"""
+function write_undo_as_variable end
 
 """
     write_anonymous_variable(backend, model, varexpr)

@@ -100,6 +100,10 @@ function write_as_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.as_variable($model, $varexpr))
 end
 
+function write_undo_as_variable(::ReactiveMPBackend, varexpr)
+    return :(ReactiveMP.undo_as_variable($varexpr))
+end
+
 function write_anonymous_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.setanonymous!($varexpr, true))
 end
