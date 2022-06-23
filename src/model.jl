@@ -69,7 +69,11 @@ function normalize_tilde_arguments(backend, model, args)
 end
 
 function __normalize_arg(backend, model, arg)
-    if @capture(arg, (f_(v__) where { options__ }) | (f_(v__)) | (f_.(v__) where { options__ }) | (f_.(v__) ))
+    if @capture(arg, constvar(arguments__))
+        return write_constvar_expression(backend, model, gensym(:anonymous_constvar), arguments)
+    elseif @capture(arg, constvar.(arguments__))
+        return error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
+    elseif @capture(arg, (f_(v__) where { options__ }) | (f_(v__)) | (f_.(v__) where { options__ }) | (f_.(v__) ))
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
             f = v[2]
@@ -306,6 +310,8 @@ function generate_model_expression(backend, model_options, model_specification)
             return :($varexpr = datavar($(arguments...); ))
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return :($varexpr = constvar($(arguments...)))
+        elseif @capture(expression, constvar.(arguments__))
+            error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
         else
             return expression
         end
@@ -338,7 +344,7 @@ function generate_model_expression(backend, model_options, model_specification)
         elseif @capture(expression, varexpr_ = randomvar(arguments__; options__))
             rvoptions = write_randomvar_options(backend, varexpr, options)
             return write_randomvar_expression(backend, model, varexpr, rvoptions, arguments)
-        # Step 2.3 Conver constvar calls 
+        # Step 2.3 Convert constvar calls 
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
         # Step 2.2 Convert tilde expressions
