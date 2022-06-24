@@ -41,11 +41,19 @@ Checks if expression represents a broadcast call to some function. Optionally ac
 See also: [`iscall`](@ref)
 """
 function isbroadcastedcall(expr) 
+    if isblock(expr) # TODO add for other functions?
+        nextexpr = findnext(isexpr, expr.args, 1)
+        return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr]) : false
+    end
     (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.') || # Checks for `:(a .+ b)` syntax
         (ishead(expr, :(.))) # Checks for `:(f.(x))` syntax
 end
 
 function isbroadcastedcall(expr, fsym) 
+    if isblock(expr) # TODO add for other functions?
+        nextexpr = findnext(isexpr, expr.args, 1)
+        return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr], fsym) : false
+    end
     (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.' && Symbol(string(first(expr.args))[2:end]) === fsym) || # Checks for `:(a .+ b)` syntax
         (ishead(expr, :(.)) && first(expr.args) === fsym) # Checks for `:(f.(x))` syntax
 end
