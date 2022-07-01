@@ -83,21 +83,25 @@ function write_argument_guard(::ReactiveMPBackend, argument::Symbol)
 end
 
 function write_randomvar_expression(::ReactiveMPBackend, model, varexp, options, arguments)
-    return :($varexp = ReactiveMP.randomvar($model, $options, $(GraphPPL.fquote(varexp)), $(arguments...)))
+    return :($varexp = ReactiveMP.randomvar($model, $options, $(GraphPPL.fquote(varexp)), $(arguments...)); $varexp)
 end
 
 function write_datavar_expression(::ReactiveMPBackend, model, varexpr, options, type, arguments)
     errstr    = "The expression `$varexpr = datavar($(type))` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument, but `$(type)` is not a `Type`."
     checktype = :(GraphPPL.ensure_type($(type)) || error($errstr))
-    return :($checktype; $varexpr = ReactiveMP.datavar($model, $options, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ $type }, $(arguments...)))
+    return :($checktype; $varexpr = ReactiveMP.datavar($model, $options, $(GraphPPL.fquote(varexpr)), ReactiveMP.PointMass{ $type }, $(arguments...)); $varexpr)
 end
 
 function write_constvar_expression(::ReactiveMPBackend, model, varexpr, arguments)
-    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...)))
+    return :($varexpr = ReactiveMP.constvar($model, $(GraphPPL.fquote(varexpr)), $(arguments...)); $varexpr)
 end
 
 function write_as_variable(::ReactiveMPBackend, model, varexpr)
     return :(ReactiveMP.as_variable($model, $varexpr))
+end
+
+function write_undo_as_variable(::ReactiveMPBackend, varexpr)
+    return :(ReactiveMP.undo_as_variable($varexpr))
 end
 
 function write_anonymous_variable(::ReactiveMPBackend, model, varexpr)
@@ -108,8 +112,16 @@ function write_make_node_expression(::ReactiveMPBackend, model, fform, variables
     return :($nodeexpr = ReactiveMP.make_node($model, $options, $fform, $varexpr, $(variables...)))
 end
 
+function write_broadcasted_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr)
+    return :($nodeexpr = ReactiveMP.make_node.($model, $options, $fform, $varexpr, $(variables...)))
+end
+
 function write_autovar_make_node_expression(::ReactiveMPBackend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
     return :(($nodeexpr, $varexpr) = ReactiveMP.make_node($model, $options, $fform, ReactiveMP.AutoVar($(GraphPPL.fquote(autovarid))), $(variables...)))
+end
+
+function write_check_variable_existence(::ReactiveMPBackend, model, varid, errormsg)
+    return :(ReactiveMP.haskey($model, $(QuoteNode(varid))) || Base.error($errormsg))
 end
 
 function write_node_options(::ReactiveMPBackend, model, fform, variables, options)

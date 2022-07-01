@@ -33,6 +33,32 @@ iscall(expr)       = ishead(expr, :call) && length(expr.args) >= 1
 iscall(expr, fsym) = iscall(expr) && first(expr.args) === fsym
 
 """
+    isbroadcastedcall(expr) 
+    isbroadcastedcall(expr, fsym) 
+
+Checks if expression represents a broadcast call to some function. Optionally accepts `fsym` to check for exact function name match.
+
+See also: [`iscall`](@ref)
+"""
+function isbroadcastedcall(expr) 
+    if isblock(expr) # TODO add for other functions?
+        nextexpr = findnext(isexpr, expr.args, 1)
+        return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr]) : false
+    end
+    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.') || # Checks for `:(a .+ b)` syntax
+        (ishead(expr, :(.))) # Checks for `:(f.(x))` syntax
+end
+
+function isbroadcastedcall(expr, fsym) 
+    if isblock(expr) # TODO add for other functions?
+        nextexpr = findnext(isexpr, expr.args, 1)
+        return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr], fsym) : false
+    end
+    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.' && Symbol(string(first(expr.args))[2:end]) === fsym) || # Checks for `:(a .+ b)` syntax
+        (ishead(expr, :(.)) && first(expr.args) === fsym) # Checks for `:(f.(x))` syntax
+end
+
+"""
     isref(expr)
 
 Shorthand for `ishead(expr, :ref)`.
@@ -40,6 +66,15 @@ Shorthand for `ishead(expr, :ref)`.
 See also: [`ishead`](@ref)
 """
 isref(expr) = ishead(expr, :ref)
+
+"""
+    getref(expr)
+
+Returns ref indices from `expr` in a form of a tuple.
+
+See als: [`isref`](@ref)
+"""
+getref(expr) = isref(expr) ? (view(expr.args, 2:lastindex(expr.args))...,) : ()
 
 """
     ensure_type(x)
