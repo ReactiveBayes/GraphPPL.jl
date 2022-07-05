@@ -176,7 +176,7 @@ function write_pipeline_stage(fform, stage)
         return :(ReactiveMP.DefaultFunctionalDependencies())
     elseif @capture(stage, RequireEverything())
         return :(ReactiveMP.RequireEverythingFunctionalDependencies())
-    elseif @capture(stage, RequireInbound(args__))
+    elseif @capture(stage, (RequireInbound(args__)) | (RequireMessage(args__)) | (RequireMarginal(args__)))
 
         specs = map(args) do arg
             if @capture(arg, name_Symbol)
@@ -184,14 +184,20 @@ function write_pipeline_stage(fform, stage)
             elseif @capture(arg, name_Symbol = dist_)
                 return (name, dist)
             else
-                error("Invalid arg specification in node's WithInbound dependencies list: $(arg). Should be either `name` or `name = initial` expression")
+                error("Invalid arg specification in node's functional dependencies list: $(arg). Should be either `name` or `name = initial` expression")
             end
         end
 
         indices  = Expr(:tuple, map(s -> :(ReactiveMP.interface_get_index(Val{ $(GraphPPL.fquote(fform)) }, Val{ $(GraphPPL.fquote(first(s))) })), specs)...)
         initials = Expr(:tuple, map(s -> :($(last(s))), specs)...)
 
-        return :(ReactiveMP.RequireInboundFunctionalDependencies($indices, $initials))
+        if @capture(stage, (RequireInbound(args__)) | (RequireMessage(args__)) )
+            return :(ReactiveMP.RequireMessageFunctionalDependencies($indices, $initials))
+        elseif @capture(stage, RequireMarginal(args__))
+            return :(ReactiveMP.RequireMarginalFunctionalDependencies($indices, $initials))
+        else
+            error("Unreacheable reached in `write_pipeline_stage`.")
+        end
     else
         return stage
     end
