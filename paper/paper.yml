@@ -1,0 +1,25 @@
+title: "GraphPPL.jl: A Julia package for probabilistic model and Bethe Free Energy optimization constraints specification"
+keywords:
+  - probabilistic programming
+  - Bayesian inference
+  - variational inference
+  - factor graphs
+  - bethe free energy
+  - graphical models
+  - optimization
+authors:
+  - name: Dmitry Bagaev
+    orcid: 0000-0003-1361-440X
+    affiliation: 1
+  - name: Ismail Senoz
+    affiliation: 1
+  - name: Albert Podusenko
+    affiliation: 1
+  - name: Bert de Vriers
+    affiliation: 1
+affiliations:
+  - name: Technical University of Eindhoven, BIASlab
+    index: 1
+date: 29 July 2022
+bibliography: ref.bib
+
