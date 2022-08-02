@@ -211,6 +211,11 @@ function write_default_model_constraints end
 """
 function write_default_model_meta end
 
+"""
+    write_inject_tilderhs_aliases(backend, model, tilderhs)
+"""
+function write_inject_tilderhs_aliases end
+
 macro model(model_specification)
     return esc(:(@model [] $model_specification))
 end
@@ -278,7 +283,16 @@ function generate_model_expression(backend, model_options, model_specification)
     # Doing so can lead to undefined behaviour
     ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_guard_ids)
 
-    # Step 1: Probabilistic arguments normalisation
+    # Step 1: Inject node's aliases 
+    ms_body = postwalk(ms_body) do expression 
+        if @capture(expression, (lhs_ ~ rhs_) | (lhs_ .~ rhs_))
+            return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)))
+        else 
+            return expression
+        end
+    end
+
+    # Step 2: Probabilistic arguments normalisation
     ms_body = prewalk(ms_body) do expression
         if @capture(expression, 
             (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)) |
@@ -329,9 +343,9 @@ function generate_model_expression(backend, model_options, model_specification)
         return expression
     end
        
-    # Step 2: Main pass
+    # Step 3: Main pass
     ms_body = postwalk(ms_body) do expression
-        # Step 2.1 Convert datavar calls
+        # Step 3.1 Convert datavar calls
         if @capture(expression, varexpr_ = datavar(arguments__; options__)) 
             @assert length(arguments) >= 1 "The expression `$expression` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument."
 
@@ -340,14 +354,14 @@ function generate_model_expression(backend, model_options, model_specification)
             dvoptions      = write_datavar_options(backend, varexpr, type_argument, options)
 
             return write_datavar_expression(backend, model, varexpr, dvoptions, type_argument, tail_arguments)
-        # Step 2.2 Convert randomvar calls
+        # Step 3.2 Convert randomvar calls
         elseif @capture(expression, varexpr_ = randomvar(arguments__; options__))
             rvoptions = write_randomvar_options(backend, varexpr, options)
             return write_randomvar_expression(backend, model, varexpr, rvoptions, arguments)
-        # Step 2.3 Convert constvar calls 
+        # Step 3.3 Convert constvar calls 
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
-        # Step 2.2 Convert tilde expressions
+        # Step 3.2 Convert tilde expressions
         elseif @capture(expression, ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) | ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__)))
             
             varexpr, short_id, full_id = parse_varexpr(varexpr)
@@ -382,7 +396,7 @@ function generate_model_expression(backend, model_options, model_specification)
         end
     end
 
-    # Step 3: Final pass
+    # Step 4: Final pass
     final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
     final_pass_target     = (x) -> @capture(x, return ret_)
 

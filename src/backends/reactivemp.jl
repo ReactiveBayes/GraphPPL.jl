@@ -456,3 +456,36 @@ end
 function write_meta_specification_entry(::ReactiveMPBackend, F, N, meta) 
     return :(ReactiveMP.MetaSpecificationEntry(Val($F), Val($N), $meta))
 end
+
+# Aliases
+
+# TODO: Add function to print all available aliases
+
+ReactiveMPNodeAliases = (
+    (expression) -> @capture(expression, a_ || b_) ? :(ReactiveMP.OR($a, $b)) : expression,
+    (expression) -> @capture(expression, a_ && b_) ? :(ReactiveMP.AND($a, $b)) : expression,
+    (expression) -> @capture(expression, a_ → b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression, # Unicode, \rightarrow
+    (expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,           # Unicode, \neg
+)
+
+function apply_alias_transformation(notanexpression, alias)
+    # We always short-circuit on non-expression
+    return (notanexpression, true)
+end
+
+function apply_alias_transformation(expression::Expr, alias)
+    _expression = alias(expression)
+    # Returns potentially modified expression and a Boolean flag, 
+    # which indicates if expression actually has been modified
+    return (_expression, _expression !== expression)
+end
+
+function write_inject_tilderhs_aliases(::ReactiveMPBackend, model, tilderhs)
+    return postwalk(tilderhs) do expression
+        # We short-circuit if `mflag` is true
+        _expression, _ = foldl(ReactiveMPNodeAliases; init = (expression, false)) do (expression, mflag), alias
+            return mflag ? (expression, true) : apply_alias_transformation(expression, alias)
+        end
+        return _expression
+    end
+end
