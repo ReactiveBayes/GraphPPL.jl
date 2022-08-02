@@ -462,8 +462,8 @@ end
 # TODO: Add function to print all available aliases
 
 ReactiveMPNodeAliases = (
-    (expression) -> @capture(expression, a_ || b_) ? :(ReactiveMP.OR($a, $b)) : expression,
-    (expression) -> @capture(expression, a_ && b_) ? :(ReactiveMP.AND($a, $b)) : expression,
+    (expression) -> @capture(expression, a_ ∨ b_) ? :(ReactiveMP.OR($a, $b)) : expression,    # Unicode, \vee
+    (expression) -> @capture(expression, a_ ∧ b_) ? :(ReactiveMP.AND($a, $b)) : expression,   # Unicode, \wedge
     (expression) -> @capture(expression, a_ → b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression, # Unicode, \rightarrow
     (expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,           # Unicode, \neg
 )
