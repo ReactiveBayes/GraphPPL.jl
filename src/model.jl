@@ -216,6 +216,26 @@ function write_default_model_meta end
 """
 function write_inject_tilderhs_aliases end
 
+"""
+    show_tilderhs_alias(backend, io)
+"""
+function show_tilderhs_alias end
+
+"""
+
+```julia
+@model [ model_options ] function model_name(model_arguments...; model_keyword_arguments...)
+    # model description
+end
+```
+
+`@model` macro generates a function that returns an equivalent graph-representation of the given probabilistic model description.
+
+## Supported alias in the model specification
+$(begin io = IOBuffer(); show_tilderhs_alias(__get_current_backend(), io); String(take!(io)) end)
+"""
+macro model end
+
 macro model(model_specification)
     return esc(:(@model [] $model_specification))
 end

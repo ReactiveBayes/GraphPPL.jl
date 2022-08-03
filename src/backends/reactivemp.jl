@@ -462,11 +462,17 @@ end
 # TODO: Add function to print all available aliases
 
 ReactiveMPNodeAliases = (
-    (expression) -> @capture(expression, a_ ∨ b_) ? :(ReactiveMP.OR($a, $b)) : expression,    # Unicode, \vee
-    (expression) -> @capture(expression, a_ ∧ b_) ? :(ReactiveMP.AND($a, $b)) : expression,   # Unicode, \wedge
-    (expression) -> @capture(expression, a_ → b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression, # Unicode, \rightarrow
-    (expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,           # Unicode, \neg
+    ((expression) -> @capture(expression, a_ ∨ b_) ? :(ReactiveMP.OR($a, $b)) : expression,     "`a ∨ b`: alias for `OR(a, b)` node (Unicode `\\vee`)"),
+    ((expression) -> @capture(expression, a_ ∧ b_) ? :(ReactiveMP.AND($a, $b)) : expression,    "`a ∧ b`: alias for `AND(a, b)` node (Unicode `\\wedge`)"), 
+    ((expression) -> @capture(expression, a_ → b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression,  "`a → b`: alias for `IMPLY(a, b)` node (Unicode `\\rightarrow`)"),
+    ((expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,            "`¬a`: alias for `NOT(a)` node (Unicode `\\neg`)")
 )
+
+function show_tilderhs_alias(::ReactiveMPBackend, io = stdout)
+    foreach(ReactiveMPNodeAliases) do alias 
+        println(io, "- ", last(alias))
+    end
+end
 
 function apply_alias_transformation(notanexpression, alias)
     # We always short-circuit on non-expression
@@ -474,7 +480,7 @@ function apply_alias_transformation(notanexpression, alias)
 end
 
 function apply_alias_transformation(expression::Expr, alias)
-    _expression = alias(expression)
+    _expression = first(alias)(expression)
     # Returns potentially modified expression and a Boolean flag, 
     # which indicates if expression actually has been modified
     return (_expression, _expression !== expression)
