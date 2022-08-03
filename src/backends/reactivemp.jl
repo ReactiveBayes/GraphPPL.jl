@@ -465,12 +465,31 @@ ReactiveMPNodeAliases = (
     ((expression) -> @capture(expression, a_ ∨ b_) ? :(ReactiveMP.OR($a, $b)) : expression,     "`a ∨ b`: alias for `OR(a, b)` node (Unicode `\\vee`)"),
     ((expression) -> @capture(expression, a_ ∧ b_) ? :(ReactiveMP.AND($a, $b)) : expression,    "`a ∧ b`: alias for `AND(a, b)` node (Unicode `\\wedge`)"), 
     ((expression) -> @capture(expression, a_ → b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression,  "`a → b`: alias for `IMPLY(a, b)` node (Unicode `\\rightarrow`)"),
-    ((expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,            "`¬a`: alias for `NOT(a)` node (Unicode `\\neg`)")
+    ((expression) -> @capture(expression, ¬a_) ? :(ReactiveMP.NOT($a)) : expression,            "`¬a`: alias for `NOT(a)` node (Unicode `\\neg`)"),
+    ((expression) -> @capture(expression, +(args__)) ? fold_linear_operator_call(expression) : expression, "`a + b + c`: alias for `(a + b) + c`"),
+    (
+        (expression) -> @capture(expression, (Normal | Gaussian)((μ = mean_) | (mean = mean_) | (m = mean_), (σ² = var_) | (τ⁻¹ = var_) | (v = var_) | (var = var_) | (variance = var_))) ? :(NormalMeanVariance($mean, $var)) : expression, 
+        "`Normal(μ|m|mean = ..., σ²|τ⁻¹|v|var|variance = ...)` alias for `NormalMeanVariance(..., ...)` node. `Gaussian` could be used instead `Normal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (Normal | Gaussian)((μ = mean_) | (mean = mean_) | (m = mean_), (τ = prec_) | (σ⁻² = prec_) | (w = prec_) | (p = prec_) | (prec = prec_) | (precision = prec_))) ? :(NormalMeanPrecision($mean, $prec)) : expression, 
+        "`Normal(μ|m|mean = ..., τ|σ⁻²|w|p|prec|precision = ...)` alias for `NormalMeanVariance(..., ...)` node. `Gaussian` could be used instead `Normal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ = mean_) | (mean = mean_) | (m = mean_), (Σ = cov_) | (V = cov_) | (Λ⁻¹ = cov_) | (cov = cov_) | (covariance = cov_))) ? :(MvNormalMeanCovariance($mean, $cov)) : expression, 
+        "`MvNormal(μ|m|mean = ..., Σ|V|Λ⁻¹|cov|covariance = ...)` alias for `MvNormalMeanCovariance(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ = mean_) | (mean = mean_) | (m = mean_), (Λ = prec_) | (W = prec_) | (Σ⁻¹ = prec_) | (prec = prec_) | (precision = prec_))) ? :(MvNormalMeanPrecision($mean, $prec)) : expression, 
+        "`MvNormal(μ|m|mean = ..., Λ|W|Σ⁻¹|prec|precision = ...)` alias for `MvNormalMeanPrecision(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
+    ),
+    ((expression) -> @capture(expression, (Normal | Gaussian)(args__)) ? :(error("Please use a specific version of a `Normal` (`Gaussian`) distribution (e.g. `NormalMeanVariance` or aliased version `Normal(mean = ..., variance = ...)`).")) : expression, missing),
+    ((expression) -> @capture(expression, (MvNormal | MvGaussian)(args__)) ? :(error("Please use a specific version of an `MvNormal` (`MvGaussian`) distribution (e.g. `MvNormalMeanCovariance` or aliased version `MvNormal(mean = ..., covariance = ...)`).")) : expression, missing)
 )
 
 function show_tilderhs_alias(::ReactiveMPBackend, io = stdout)
-    foreach(ReactiveMPNodeAliases) do alias 
-        println(io, "- ", last(alias))
+    foreach(skipmissing(map(last, ReactiveMPNodeAliases))) do alias 
+        println(io, "- ", alias)
     end
 end
 

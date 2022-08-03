@@ -83,3 +83,19 @@ Checks if `x` is of type `Type`
 """
 ensure_type(x::Type) = true
 ensure_type(x)       = false
+
+fold_linear_operator_call(any) = any
+
+fold_linear_operator_call_first_arg(::typeof(foldl), args) = args[begin + 1]
+fold_linear_operator_call_tail_args(::typeof(foldl), args) = args[begin+2:end]
+
+fold_linear_operator_call_first_arg(::typeof(foldr), args) = args[end]
+fold_linear_operator_call_tail_args(::typeof(foldr), args) = args[begin+1:end-1]
+
+function fold_linear_operator_call(expr::Expr, fold = foldl)
+    if @capture(expr, op_(args__, )) && length(args) > 2
+        return fold((res, el) -> Expr(:call, op, res, el), fold_linear_operator_call_tail_args(fold, expr.args); init = fold_linear_operator_call_first_arg(fold, expr.args))
+    else
+        return expr 
+    end
+end
