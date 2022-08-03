@@ -463,7 +463,7 @@ ReactiveMPNodeAliases = (
     ((expression) -> @capture(expression, a_ || b_) ? :(ReactiveMP.OR($a, $b)) : expression,     "`a || b`: alias for `OR(a, b)` node (operator precedence the same as in Julia)."),
     ((expression) -> @capture(expression, a_ && b_) ? :(ReactiveMP.AND($a, $b)) : expression,    "`a && b`: alias for `AND(a, b)` node (operator precedence the same as in Julia)."), 
     ((expression) -> @capture(expression, a_ -> b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression,  "`a -> b`: alias for `IMPLY(a, b)` node (operator precedence the same as in Julia)."),
-    ((expression) -> @capture(expression, (¬a_) | (!a)) ? :(ReactiveMP.NOT($a)) : expression,            "`¬a` and `!a`: alias for `NOT(a)` node (Unicode `\\neg` ,operator precedence the same as in Julia)."),
+    ((expression) -> @capture(expression, (¬a_) | (!a_)) ? :(ReactiveMP.NOT($a)) : expression,            "`¬a` and `!a`: alias for `NOT(a)` node (Unicode `\\neg` ,operator precedence the same as in Julia)."),
     ((expression) -> @capture(expression, +(args__)) ? fold_linear_operator_call(expression) : expression, "`a + b + c`: alias for `(a + b) + c`"),
     (
         (expression) -> @capture(expression, (Normal | Gaussian)((μ = mean_) | (mean = mean_) | (m = mean_), (σ² = var_) | (τ⁻¹ = var_) | (v = var_) | (var = var_) | (variance = var_))) ? :(NormalMeanVariance($mean, $var)) : expression, 
