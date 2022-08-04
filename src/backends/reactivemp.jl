@@ -501,7 +501,15 @@ ReactiveMPNodeAliases = (
         "`MvNormal(μ|m|mean = ..., Λ|W|Σ⁻¹|prec|precision = ...)` alias for `MvNormalMeanPrecision(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
     ),
     ((expression) -> @capture(expression, (Normal | Gaussian)(args__)) ? :(error("Please use a specific version of the `Normal` (`Gaussian`) distribution (e.g. `NormalMeanVariance` or aliased version `Normal(mean = ..., variance|precision = ...)`).")) : expression, missing),
-    ((expression) -> @capture(expression, (MvNormal | MvGaussian)(args__)) ? :(error("Please use a specific version of the `MvNormal` (`MvGaussian`) distribution (e.g. `MvNormalMeanCovariance` or aliased version `MvNormal(mean = ..., covariance|precision = ...)`).")) : expression, missing)
+    ((expression) -> @capture(expression, (MvNormal | MvGaussian)(args__)) ? :(error("Please use a specific version of the `MvNormal` (`MvGaussian`) distribution (e.g. `MvNormalMeanCovariance` or aliased version `MvNormal(mean = ..., covariance|precision = ...)`).")) : expression, missing),
+    (
+        (expression) -> @capture(expression, Gamma((α)|(a)|(shape) = shape_, (θ)|(β⁻¹)|(scale) = scale_) ? :(GammaShapeScale($shape, $scale)) : expression),
+        "`Gamma(α|a|shape = ..., θ|β⁻¹|scale = ...)` alias for `GammaShapeScale(..., ...) node.`"
+    ),
+    (
+        (expression) -> @capture(expression, Gamma((α)|(a)|(shape) = shape_, (β)|(θ⁻¹)|(rate) = rate_) ? :(GammaShapeRate($shape, $rate)) : expression),
+        "`Gamma(α|a|shape = ..., β|θ⁻¹|rate = ...)` alias for `GammaShapeRate(..., ...) node.`"
+    ),
 )
 
 function show_tilderhs_alias(::ReactiveMPBackend, io = stdout)
