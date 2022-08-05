@@ -456,3 +456,86 @@ end
 function write_meta_specification_entry(::ReactiveMPBackend, F, N, meta) 
     return :(ReactiveMP.MetaSpecificationEntry(Val($F), Val($N), $meta))
 end
+
+# Aliases
+
+ReactiveMPNodeAliases = (
+    (
+        (expression) -> @capture(expression, a_ || b_) ? :(ReactiveMP.OR($a, $b)) : expression,     
+        "`a || b`: alias for `OR(a, b)` node (operator precedence between `||`, `&&`, `->` and `!` is the same as in Julia)."
+    ),
+    (
+        (expression) -> @capture(expression, a_ && b_) ? :(ReactiveMP.AND($a, $b)) : expression,    
+        "`a && b`: alias for `AND(a, b)` node (operator precedence `||`, `&&`, `->` and `!` is the same as in Julia)."
+    ), 
+    (
+        (expression) -> @capture(expression, a_ -> b_) ? :(ReactiveMP.IMPLY($a, $b)) : expression,  
+        "`a -> b`: alias for `IMPLY(a, b)` node (operator precedence `||`, `&&`, `->` and `!` is the same as in Julia)."
+    ),
+    (
+        (expression) -> @capture(expression, (¬a_) | (!a_)) ? :(ReactiveMP.NOT($a)) : expression,            
+        "`¬a` and `!a`: alias for `NOT(a)` node (Unicode `\\neg`, operator precedence `||`, `&&`, `->` and `!` is the same as in Julia)."
+    ),
+    (
+        (expression) -> @capture(expression, +(args__)) ? fold_linear_operator_call(expression) : expression, 
+        "`a + b + c`: alias for `(a + b) + c`"
+    ),
+    (
+        (expression) -> @capture(expression, *(args__)) ? fold_linear_operator_call(expression) : expression, 
+        "`a * b * c`: alias for `(a * b) * c`"
+    ),
+    (
+        (expression) -> @capture(expression, (Normal | Gaussian)((μ)|(m)|(mean) = mean_, (σ²)|(τ⁻¹)|(v)|(var)|(variance) = var_)) ? :(NormalMeanVariance($mean, $var)) : expression, 
+        "`Normal(μ|m|mean = ..., σ²|τ⁻¹|v|var|variance = ...)` alias for `NormalMeanVariance(..., ...)` node. `Gaussian` could be used instead `Normal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (Normal | Gaussian)((μ)|(m)|(mean) = mean_, (τ)|(γ)|(σ⁻²)|(w)|(p)|(prec)|(precision) = prec_)) ? :(NormalMeanPrecision($mean, $prec)) : expression, 
+        "`Normal(μ|m|mean = ..., τ|γ|σ⁻²|w|p|prec|precision = ...)` alias for `NormalMeanVariance(..., ...)` node. `Gaussian` could be used instead `Normal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ)|(m)|(mean) = mean_, (Σ)|(V)|(Λ⁻¹)|(cov)|(covariance) = cov_)) ? :(MvNormalMeanCovariance($mean, $cov)) : expression, 
+        "`MvNormal(μ|m|mean = ..., Σ|V|Λ⁻¹|cov|covariance = ...)` alias for `MvNormalMeanCovariance(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
+    ),
+    (
+        (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ)|(m)|(mean) = mean_, (Λ)|(W)|(Σ⁻¹)|(prec)|(precision) = prec_)) ? :(MvNormalMeanPrecision($mean, $prec)) : expression, 
+        "`MvNormal(μ|m|mean = ..., Λ|W|Σ⁻¹|prec|precision = ...)` alias for `MvNormalMeanPrecision(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
+    ),
+    ((expression) -> @capture(expression, (Normal | Gaussian)(args__)) ? :(error("Please use a specific version of the `Normal` (`Gaussian`) distribution (e.g. `NormalMeanVariance` or aliased version `Normal(mean = ..., variance|precision = ...)`).")) : expression, missing),
+    ((expression) -> @capture(expression, (MvNormal | MvGaussian)(args__)) ? :(error("Please use a specific version of the `MvNormal` (`MvGaussian`) distribution (e.g. `MvNormalMeanCovariance` or aliased version `MvNormal(mean = ..., covariance|precision = ...)`).")) : expression, missing),
+    (
+        (expression) -> @capture(expression, Gamma((α)|(a)|(shape) = shape_, (θ)|(β⁻¹)|(scale) = scale_)) ? :(GammaShapeScale($shape, $scale)) : expression,
+        "`Gamma(α|a|shape = ..., θ|β⁻¹|scale = ...)` alias for `GammaShapeScale(..., ...) node.`"
+    ),
+    (
+        (expression) -> @capture(expression, Gamma((α)|(a)|(shape) = shape_, (β)|(θ⁻¹)|(rate) = rate_)) ? :(GammaShapeRate($shape, $rate)) : expression,
+        "`Gamma(α|a|shape = ..., β|θ⁻¹|rate = ...)` alias for `GammaShapeRate(..., ...) node.`"
+    ),
+)
+
+function show_tilderhs_alias(::ReactiveMPBackend, io = stdout)
+    foreach(skipmissing(map(last, ReactiveMPNodeAliases))) do alias 
+        println(io, "- ", alias)
+    end
+end
+
+function apply_alias_transformation(notanexpression, alias)
+    # We always short-circuit on non-expression
+    return (notanexpression, true)
+end
+
+function apply_alias_transformation(expression::Expr, alias)
+    _expression = first(alias)(expression)
+    # Returns potentially modified expression and a Boolean flag, 
+    # which indicates if expression actually has been modified
+    return (_expression, _expression !== expression)
+end
+
+function write_inject_tilderhs_aliases(::ReactiveMPBackend, model, tilderhs)
+    return postwalk(tilderhs) do expression
+        # We short-circuit if `mflag` is true
+        _expression, _ = foldl(ReactiveMPNodeAliases; init = (expression, false)) do (expression, mflag), alias
+            return mflag ? (expression, true) : apply_alias_transformation(expression, alias)
+        end
+        return _expression
+    end
+end
