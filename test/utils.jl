@@ -2,6 +2,7 @@ module UtilsTests
 
 using Test
 using GraphPPL
+using MacroTools
 
 @testset "issymbol tests" begin
     import GraphPPL: issymbol
@@ -83,6 +84,22 @@ end
     @test ensure_type(1) === false
     @test ensure_type(Float64) === true
     @test ensure_type(1.0) === false
+end
+
+@testset "fold_linear_operator_call" begin 
+    import GraphPPL: fold_linear_operator_call
+
+    @test @capture(fold_linear_operator_call(:(+a)), +a)
+    @test @capture(fold_linear_operator_call(:(a + b)), a + b)
+    @test @capture(fold_linear_operator_call(:(a + b + c)), (a + b) + c)
+    @test @capture(fold_linear_operator_call(:(a + b + c + d)), ((a + b) + c) + d)
+    @test @capture(fold_linear_operator_call(:(a + b + c + d), foldr), (a + (b + (c + d))))
+
+    @test @capture(fold_linear_operator_call(:(a * b)), a * b)
+    @test @capture(fold_linear_operator_call(:(a * b * c)), (a * b) * c)
+    @test @capture(fold_linear_operator_call(:(a * b * c * d)), ((a * b) * c) * d)
+    @test @capture(fold_linear_operator_call(:(a * b * c * d), foldr), (a * (b * (c * d))))
+
 end
 
 end
