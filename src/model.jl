@@ -305,8 +305,8 @@ function generate_model_expression(backend, model_options, model_specification)
 
     # Step 1: Inject node's aliases 
     ms_body = postwalk(ms_body) do expression 
-        if @capture(expression,  (lhs_ ~ rhs_ where { options__ }) | (lhs_ .~ rhs_ where { options__ }))
-            return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)) where { $options... })
+        if @capture(expression,  (lhs_ ~ rhs_ where { options_ }) | (lhs_ .~ rhs_ where { options_ }))
+            return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)) where { $options })
         elseif @capture(expression,  (lhs_ ~ rhs_) | (lhs_ .~ rhs_))
             return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)))
         else 
