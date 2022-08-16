@@ -2,3 +2,7 @@ paper.fdb_latexmk
 paper.fls
 paper.out
 paper.pdf
+paper.synctex.gz
+paper.blg
+paper.aux
+paper.log
