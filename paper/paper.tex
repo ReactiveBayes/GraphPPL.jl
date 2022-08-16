@@ -3,6 +3,10 @@
 \documentclass{juliacon}
 \setcounter{page}{1}
 
+\usepackage{todonotes}
+
+\newcommand{\dmitry}[2][] {\todo[inline,backgroundcolor=teal!10!white, size=\footnotesize,#1]{(dmitry) #2 }}
+
 \begin{document}
 
 \input{header}
@@ -11,10 +15,40 @@
 
 \begin{abstract}
 
-This is a guide for authors who are preparing papers for JuliaCon using the \LaTeX{} document
-preparation system and the \verb|juliacon|  class file.
+GraphPPL.jl is a Julia package for convenient probabilistic model and variational Bayesian inference constraints specification. The package includes a set of functions defining DSL for graphical model creation .... 
+
 
 \end{abstract}
+
+\section{Background}
+
+Bayesian modeling has become a popular framework for many important real-time machine learning applications, such as object-tracking, speech recognition, robot navigation, financial applications, etc. \dmitry{add references}. Many useful probabilistic time-series models often contain a large number of latent variables and complex conditional dependencies. In addition, exact inference in many models of interests is usually intractable and requires variational Bayesian methods. Thus, it is important to have an easy way for specification such large models as well as convenient way for specification of variational distribution that acts as a proxy to the exact solution.
+
+% In principle, variational Bayesian inference via minimization of a constrained Bethe Free Energy provides a solution to this computational dilemma by trading off inference accuracy with computational complexity.
+
+\section{Problem statement}
+
+% As a result, these packages do not support online inference for large models.
+
+Existing packages for automated Bayesian inference in the Julia language ecosystem, such as Turing.jl, Stan.jl, and Soss.jl, support probabilistic model specification by well-designed macro-based meta languages. These packages assume that inference is executed by black-box variational or sampling-based methods. In principle, for conjugate probabilistic time-series models, message passing-based variational inference by minimization of a constrained Bethe Free Energy yields approximate inference solutions obtained with cheaper computational costs. 
+
+% \tvdl{The contraints themselves don't balance these costs, the variational objective does.}
+
+\section{Solution proposal}
+
+In this contribution, we develop a user-friendly and comprehensive meta language for specification of both a probabilistic model and variational inference constraints that balance accuracy of inference results with computational costs. The GraphPPL.jl package implements a user-friendly specification language for both the model and the inference constraints. GraphPPL.jl exports the `@model` macro to create a probabilistic model in the form of a factor graph that is compatible with ReactiveMP.jl's \dmitry{add reference} reactive message passing-based inference engine. To enable fast and accurate inference, all message update rules default to precomputed analytical solutions. The ReactiveMP.jl package already implements a selection of precomputed rules. If an analytical solution is not available, then the GraphPPL.jl package provides ways to tweak, relax, and customize local constraints in selected parts of the factor graph. To simplify this process, the package exports the `@constraints` macro to specify extra factorization and form constraints on the variational posterior [1]. For advanced use cases, GraphPPL.jl exports the `@meta` macro that enables custom message passing inference modifications for each node in a factor graph representation of the model. This approach enables local approximation methods (e.g. sampling based) only if necessary and allows for efficient variational Bayesian inference.
+
+% Evaluation
+\section{Evaluation}
+
+Over the past two years, our probabilistic modeling ecosystem comprising GraphPPL.jl, ReactiveMP.jl, and Rocket.jl has been battle tested with many sophisticated models that led to several publications in high-ranked journals such as Entropy [1] and Frontiers [2], and conferences like MLSP-2021 [3] and ISIT-2021 [4]. The current contribution enables a user-friendly approach to very sophisticated Bayesian modeling problems. 
+
+% Conclusion
+\section{Conclusions}
+
+We believe that a user-friendly specification of efficient Bayesian inference solutions for complex models is a key factor to expedite application of Bayesian methods. We developed a complete ecosystem for running efficient, fast, and reactive variational Bayesian inference with a user-friendly specification language for the probabilistic model and variational constraints.
+
+\section{ORIGINAL DOCUMENT BELOW}
 
 \section{Introduction}
 
