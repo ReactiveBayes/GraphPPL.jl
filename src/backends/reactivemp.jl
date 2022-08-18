@@ -500,6 +500,10 @@ ReactiveMPNodeAliases = (
         (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ)|(m)|(mean) = mean_, (Λ)|(W)|(Σ⁻¹)|(prec)|(precision) = prec_)) ? :(MvNormalMeanPrecision($mean, $prec)) : expression, 
         "`MvNormal(μ|m|mean = ..., Λ|W|Σ⁻¹|prec|precision = ...)` alias for `MvNormalMeanPrecision(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
     ),
+    (
+        (expression) -> @capture(expression, (MvNormal | MvGaussian)((μ)|(m)|(mean) = mean_, (τ)|(γ)|(σ⁻²)|(scale_diag_prec)|(scale_diag_precision) = scale_)) ? :(MvNormalMeanScalePrecision($mean, $scale)) : expression, 
+        "`MvNormal(μ|m|mean = ..., τ|γ|σ⁻²|scale_diag_prec|scale_diag_precision = ...)` alias for `MvNormalMeanScalePrecision(..., ...)` node. `MvGaussian` could be used instead `MvNormal` too."
+    ),
     ((expression) -> @capture(expression, (Normal | Gaussian)(args__)) ? :(error("Please use a specific version of the `Normal` (`Gaussian`) distribution (e.g. `NormalMeanVariance` or aliased version `Normal(mean = ..., variance|precision = ...)`).")) : expression, missing),
     ((expression) -> @capture(expression, (MvNormal | MvGaussian)(args__)) ? :(error("Please use a specific version of the `MvNormal` (`MvGaussian`) distribution (e.g. `MvNormalMeanCovariance` or aliased version `MvNormal(mean = ..., covariance|precision = ...)`).")) : expression, missing),
     (
