@@ -60,6 +60,11 @@ function write_form_constraint_specification_entry end
 """
 function write_form_constraint_specification end
 
+"""
+    write_generator_form_constraint_specification(backend, specification)
+"""
+function write_generator_form_constraint_specification end
+
 macro constraints(constraints_specification)
     # Empty options is :([])
     return generate_constraints_expression(__get_current_backend(), :([]), constraints_specification)
@@ -172,9 +177,21 @@ function generate_constraints_expression(backend, constraints_options, constrain
     cs_body = prewalk(cs_body) do expression
         if iscall(expression, :(::))
             if @capture(expression.args[2], q(formsym_Symbol)) 
-                specs  = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
-                form   = write_form_constraint_specification(backend, :(+($(specs... ))))
-                errstr = "Marginal form constraint q($(formsym)) has been redefined."
+                specrhs = view(expression.args, 3:lastindex(expression.args))
+                specs   = map((e) -> parse_form_constraint(backend, e), specrhs)
+                form    = write_form_constraint_specification(backend, :(+($(specs... ))))
+                errstr  = "Marginal form constraint `q($(formsym))` has been redefined."
+                return quote 
+                    if haskey($marginals_form_constraints_symbol, $(QuoteNode(formsym)))
+                        error($errstr)
+                    end
+                    $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = $form)
+                end
+            elseif @capture(expression.args[2], q(formsym_Symbol...))
+                specrhs = view(expression.args, 3:lastindex(expression.args))
+                specs   = map((e) -> parse_form_constraint(backend, e), specrhs)
+                form    = write_generator_form_constraint_specification(backend, :(+($(specs... ))), join(map(string, specrhs), " + "))
+                errstr  = "Marginal form constraint `q($(formsym))` has been redefined."
                 return quote 
                     if haskey($marginals_form_constraints_symbol, $(QuoteNode(formsym)))
                         error($errstr)
@@ -182,9 +199,21 @@ function generate_constraints_expression(backend, constraints_options, constrain
                     $marginals_form_constraints_symbol = (; $marginals_form_constraints_symbol..., $formsym = $form)
                 end
             elseif @capture(expression.args[2], μ(formsym_Symbol)) 
-                specs  = map((e) -> parse_form_constraint(backend, e), view(expression.args, 3:lastindex(expression.args)))
-                form   = write_form_constraint_specification(backend, :(+($(specs... ))))
-                errstr = "Messages form constraint μ($(formsym)) has been redefined."
+                specrhs = view(expression.args, 3:lastindex(expression.args))
+                specs   = map((e) -> parse_form_constraint(backend, e), specrhs)
+                form    = write_form_constraint_specification(backend, :(+($(specs... ))))
+                errstr  = "Messages form constraint `μ($(formsym))` has been redefined."
+                return quote 
+                    if haskey($messages_form_constraints_symbol, $(QuoteNode(formsym)))
+                        error($errstr)
+                    end
+                    $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = $form)
+                end
+            elseif @capture(expression.args[2], μ(formsym_Symbol...)) 
+                specrhs = view(expression.args, 3:lastindex(expression.args))
+                specs   = map((e) -> parse_form_constraint(backend, e), specrhs)
+                form    = write_generator_form_constraint_specification(backend, :(+($(specs... ))), join(map(string, specrhs), " + "))
+                errstr  = "Messages form constraint `μ($(formsym))` has been redefined."
                 return quote 
                     if haskey($messages_form_constraints_symbol, $(QuoteNode(formsym)))
                         error($errstr)
@@ -192,7 +221,7 @@ function generate_constraints_expression(backend, constraints_options, constrain
                     $messages_form_constraints_symbol = (; $messages_form_constraints_symbol..., $formsym = $form)
                 end
             else
-                error("Invalid form factorisation constraint. $(expression.args[2]) has to be in the form of q(varname) for marginal form constraint or μ(varname) for messages form constraint.")
+                error("Invalid form factorisation constraint. $(expression.args[2]) has to be in the form of `q(varname)` (or `q(varname...)`) for marginal form constraint or `μ(varname)` (or `μ(varname)...`) for messages form constraint.")
             end
         end
         return expression

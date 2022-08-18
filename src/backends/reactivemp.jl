@@ -426,6 +426,11 @@ function write_form_constraint_specification(::ReactiveMPBackend, specification)
     return :(ReactiveMP.FormConstraintSpecification($specification))
 end
 
+function write_generator_form_constraint_specification(::ReactiveMPBackend, specification, specification_repr)
+    return :(ReactiveMP.FormConstraintSpecification(ReactiveMP.FormConstraintsGenerator(() -> $specification, $specification_repr)))
+end
+
+
 ## Meta specification language
 
 function write_meta_specification(::ReactiveMPBackend, entries, options) 
