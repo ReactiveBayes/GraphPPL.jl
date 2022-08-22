@@ -3,6 +3,13 @@
 \documentclass{juliacon}
 \setcounter{page}{1}
 
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{subcaption}
+
+\DeclareCaptionType{equ}[][]
+
 \usepackage{todonotes}
 
 \newcommand{\dmitry}[2][] {\todo[inline,backgroundcolor=teal!10!white, size=\footnotesize,#1]{(dmitry) #2 }}
@@ -15,14 +22,29 @@
 
 \begin{abstract}
 
-GraphPPL.jl is a Julia package for convenient probabilistic model and variational Bayesian inference constraints specification. The package includes a set of functions defining DSL for graphical model creation .... 
+GraphPPL.jl is a Julia package for probabilistic model and variational Bayesian inference constraints specification. 
+The package includes a set of functions defining DSL for graphical model creation that resembles closely to the actual equations of a generative process.
 
 
 \end{abstract}
 
 \section{Background}
 
-Bayesian modeling has become a popular framework for many important real-time machine learning applications, such as object-tracking, speech recognition, robot navigation, financial applications, etc. \dmitry{add references}. Many useful probabilistic time-series models often contain a large number of latent variables and complex conditional dependencies. In addition, exact inference in many models of interests is usually intractable and requires variational Bayesian methods. Thus, it is important to have an easy way for specification such large models as well as convenient way for specification of variational distribution that acts as a proxy to the exact solution.
+Bayesian modeling has become a popular framework for many important real-time signal processing applications, such as object-tracking, speech recognition, robot navigation, 
+financial applications, etc. \dmitry{add references}. In order to apply this framework, first, we need to specify the so-called generative process or probabilistic model - 
+our beliefs of how a data we observe might have been generated. These model often contain latent states that cannot be observed directly but are essential for understanding of the underlying signal. The inference proceeds then by marginalizing out all latent variables except of those we are interested in (see eq.~\ref{eq:background}). Many useful probabilistic time-series models, however, often contain a large number of latent variables and complex conditional dependencies between these variables. Manual derivations for such large probabilistic models is error-prone and, in many cases, is unfeasible. In addition, exact Bayesian inference in many models of interests is, usually, intractable and requires the application of variational Bayesian methods. Variational Bayesian methods proceed by minimisation of KL-divergence between exact solution and a variational distribution, which is constrained to be "simple" enough for inference to be tractable and "general" enough to be as close as possible to the exact solution.
+
+\begin{equ}[!ht]
+  \begin{equation}
+      p(s_i|y) = \iint p(s|y)\mathrm{d}s_{\\i}
+  \end{equation}
+  \caption{The $p(s)$ defines a probabilistic model with latent states $s = \{ s_i \}$ and observed variables $y$. $p(s_i|y)$ is a so-called marginal distribution. }
+  \label{eq:background}
+\end{equ}
+
+
+% Thus, it is important to have an easy way for specification such large models as well as convenient way for specification of variational distribution 
+% that acts as a proxy to the exact solution.
 
 % In principle, variational Bayesian inference via minimization of a constrained Bethe Free Energy provides a solution to this computational dilemma by trading off inference accuracy with computational complexity.
 
@@ -30,7 +52,7 @@ Bayesian modeling has become a popular framework for many important real-time ma
 
 % As a result, these packages do not support online inference for large models.
 
-Existing packages for automated Bayesian inference in the Julia language ecosystem, such as Turing.jl, Stan.jl, and Soss.jl, support probabilistic model specification by well-designed macro-based meta languages. These packages assume that inference is executed by black-box variational or sampling-based methods. In principle, for conjugate probabilistic time-series models, message passing-based variational inference by minimization of a constrained Bethe Free Energy yields approximate inference solutions obtained with cheaper computational costs. 
+Existing packages for automated Bayesian inference in the Julia language ecosystem, such as Turing.jl, Stan.jl, and Soss.jl, support probabilistic model specification by well-designed macro-based meta languages. However, these packages assume that inference is executed by black-box variational or sampling-based methods and do not provide a simple way for constrained specification of the variational distributions family that will be used for the inference. 
 
 % \tvdl{The contraints themselves don't balance these costs, the variational objective does.}
 
