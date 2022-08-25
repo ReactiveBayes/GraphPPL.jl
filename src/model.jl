@@ -1,4 +1,3 @@
-export @model
 
 import MacroTools: @capture, postwalk, prewalk, walk
 

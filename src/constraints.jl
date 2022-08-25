@@ -1,4 +1,3 @@
-export @constraints
 
 """
     write_constraints_specification(backend, factorisation, marginalsform, messagesform, options) 
@@ -59,15 +58,6 @@ function write_form_constraint_specification_entry end
     write_form_constraint_specification(backend, specification)
 """
 function write_form_constraint_specification end
-
-macro constraints(constraints_specification)
-    # Empty options is :([])
-    return generate_constraints_expression(__get_current_backend(), :([]), constraints_specification)
-end
-
-macro constraints(constraints_options, constraints_specification)
-    return generate_constraints_expression(__get_current_backend(), constraints_options, constraints_specification)
-end
 
 ## Factorisation constraints
 
