@@ -221,29 +221,6 @@ function write_inject_tilderhs_aliases end
 """
 function show_tilderhs_alias end
 
-"""
-
-```julia
-@model [ model_options ] function model_name(model_arguments...; model_keyword_arguments...)
-    # model description
-end
-```
-
-`@model` macro generates a function that returns an equivalent graph-representation of the given probabilistic model description.
-
-## Supported alias in the model specification
-$(begin io = IOBuffer(); show_tilderhs_alias(__get_current_backend(), io); String(take!(io)) end)
-"""
-macro model end
-
-macro model(model_specification)
-    return esc(:(@model [] $model_specification))
-end
-
-macro model(model_options, model_specification)
-    return GraphPPL.generate_model_expression(__get_current_backend(), model_options, model_specification)
-end
-
 function generate_model_expression(backend, model_options, model_specification)
     @capture(model_options, [ ms_options__ ]) ||
         error("Model specification options should be in a form of [ option1 = ..., option2 = ... ]")
