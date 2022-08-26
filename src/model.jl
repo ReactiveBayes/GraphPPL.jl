@@ -407,10 +407,6 @@ function generate_model_expression(backend, model_options, model_specification)
         return nothing
     end
 
-    ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
-        @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
-    end
-
     ms_structure = write_model_structure(backend, 
         ms_name, 
         model,
