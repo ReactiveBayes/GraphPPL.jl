@@ -124,7 +124,6 @@ argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
         ms_kwargs,
         ms_constraints, 
         ms_meta,
-        ms_options,
         ms_body
     )
 """
@@ -201,16 +200,6 @@ function write_randomvar_options end
 function write_datavar_options end
 
 """
-    write_default_model_constraints(backend)
-"""
-function write_default_model_constraints end
-
-"""
-    write_default_model_meta(backend)
-"""
-function write_default_model_meta end
-
-"""
     write_inject_tilderhs_aliases(backend, model, tilderhs)
 """
 function write_inject_tilderhs_aliases end
@@ -220,19 +209,7 @@ function write_inject_tilderhs_aliases end
 """
 function show_tilderhs_alias end
 
-function generate_model_expression(backend, model_options, model_specification)
-    @capture(model_options, [ ms_options__ ]) ||
-        error("Model specification options should be in a form of [ option1 = ..., option2 = ... ]")
-
-    ms_options = map(ms_options) do option
-        (@capture(option, name_ = value_) && name isa Symbol) || error("Invalid option specification: $(option). Expected: 'option_name = option_value'.")
-        return (name, value)
-    end
-
-    ms_constraints = write_default_model_constraints(backend)
-    ms_meta        = write_default_model_meta(backend)
-    ms_options     = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
-    
+function generate_model_expression(backend, model_specification)
 
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
         error("Model specification language requires full function definition")
@@ -414,9 +391,6 @@ function generate_model_expression(backend, model_options, model_specification)
         ms_args_const_init_block,
         ms_args,
         ms_kwargs,
-        ms_constraints, 
-        ms_meta,
-        ms_options,
         ms_body
     ) 
         
