@@ -221,6 +221,8 @@ function generate_model_expression(backend, model_specification)
     ms_args_const_ids = Vector{Tuple{Symbol, Symbol}}()
 
     ms_arg_expression_converter = (ms_arg) -> begin
+        arg = nothing
+        smth = nothing
         if @capture(ms_arg, arg_::ConstVariable = smth_) || @capture(ms_arg, arg_::ConstVariable)
             # rc_arg = gensym(:constvar) 
             push!(ms_args_const_ids, (arg, arg)) # backward compatibility for old behaviour with gensym
@@ -235,6 +237,11 @@ function generate_model_expression(backend, model_specification)
             push!(ms_args_guard_ids, arg)
             push!(ms_args_ids, arg)
             return argument_write_default_value(arg, smth)
+        elseif @capture(ms_arg, ::T_ = smth_) || @capture(ms_arg, ::T_)
+            arg = gensym(:ms_arg)
+            push!(ms_args_guard_ids, arg)
+            push!(ms_args_ids, arg)
+            return argument_write_default_value(:($(arg)::$(T)), smth)
         else
             error("Invalid argument specification: $(ms_arg)")
         end
