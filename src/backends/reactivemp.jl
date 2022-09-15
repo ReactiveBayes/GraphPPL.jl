@@ -86,6 +86,10 @@ function write_randomvar_expression(::ReactiveMPBackend, model, varexp, options,
     return :($varexp = ReactiveMP.randomvar($model, $options, $(GraphPPL.fquote(varexp)), $(arguments...)); $varexp)
 end
 
+function write_randomprocess_expression(::ReactiveMPBackend, model, varexp, options, arguments)
+    return :($varexp = ReactiveMP.randomprocess($model, $options, $(GraphPPL.fquote(varexp)), $(arguments...)); $varexp)
+end
+
 function write_datavar_expression(::ReactiveMPBackend, model, varexpr, options, type, arguments)
     errstr    = "The expression `$varexpr = datavar($(type))` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument, but `$(type)` is not a `Type`."
     checktype = :(GraphPPL.ensure_type($(type)) || error($errstr))
@@ -313,6 +317,74 @@ function write_randomvar_options(::ReactiveMPBackend, variable, options)
     end
 
     return :(ReactiveMP.RandomVariableCreationOptions(
+        $pipeline_option,
+        nothing, # it does not make a lot of sense to override `proxy_variables` option
+        $prod_constraint_option,
+        $prod_strategy_option,
+        $marginal_form_constraint_option,
+        $marginal_form_check_strategy_option,
+        $messages_form_constraint_option,
+        $messages_form_check_strategy_option
+    ))
+end
+
+function write_randomprocess_options(::ReactiveMPBackend, variable, options)
+    is_pipeline_option_present                     = false
+    is_prod_constraint_option_present              = false
+    is_prod_strategy_option_present                = false
+    is_marginal_form_constraint_option_present     = false
+    is_marginal_form_check_strategy_option_present = false
+    is_messages_form_constraint_option_present     = false
+    is_messages_form_check_strategy_option_present = false
+
+    pipeline_option                     = :(nothing)
+    prod_constraint_option              = :(nothing)
+    prod_strategy_option                = :(nothing)
+    marginal_form_constraint_option     = :(nothing)
+    marginal_form_check_strategy_option = :(nothing)
+    messages_form_constraint_option     = :(nothing)
+    messages_form_check_strategy_option = :(nothing)
+    
+    foreach(options) do option 
+        if @capture(option, pipeline = value_)
+            !is_pipeline_option_present || error("`pipeline` option $(option) for random variable $(variable) has been redefined.")
+            is_pipeline_option_present = true
+            pipeline_option = value
+        elseif @capture(option, $(:(prod_constraint)) = value_) 
+            !is_prod_constraint_option_present || error("`prod_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_prod_constraint_option_present = true
+            prod_constraint_option = value
+        elseif @capture(option, $(:(prod_strategy)) = value_) 
+            !is_prod_strategy_option_present || error("`prod_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_prod_strategy_option_present = true
+            prod_strategy_option = value
+        elseif @capture(option, $(:(marginal_form_constraint)) = value_) 
+            !is_marginal_form_constraint_option_present || error("`marginal_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_constraint_option_present = true
+            marginal_form_constraint_option = value
+        elseif @capture(option, $(:(form_constraint)) = value_) # backward compatibility
+            @warn "`form_constraint` option is deprecated. Use `marginal_form_constraint` option for variable $(variable) instead."
+            !is_marginal_form_constraint_option_present || error("`marginal_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_constraint_option_present = true
+            marginal_form_constraint_option = value
+        elseif @capture(option, $(:(marginal_form_check_strategy)) = value_) 
+            !is_marginal_form_check_strategy_option_present || error("`marginal_form_check_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_marginal_form_check_strategy_option_present = true
+            marginal_form_check_strategy_option = value
+        elseif @capture(option, $(:(messages_form_constraint)) = value_) 
+            !is_messages_form_constraint_option_present || error("`messages_form_constraint` option $(option) for random variable $(variable) has been redefined.")
+            is_messages_form_constraint_option_present = true
+            messages_form_constraint_option = value
+        elseif @capture(option, $(:(messages_form_check_strategy)) = value_) 
+            !is_messages_form_check_strategy_option_present || error("`messages_form_check_strategy` option $(option) for random variable $(variable) has been redefined.")
+            is_messages_form_check_strategy_option_present = true
+            messages_form_check_strategy_option = value
+        else
+            error("Unknown option '$option' for process variable '$variable'.")
+        end
+    end
+
+    return :(ReactiveMP.RandomProcessCreationOptions(
         $pipeline_option,
         nothing, # it does not make a lot of sense to override `proxy_variables` option
         $prod_constraint_option,

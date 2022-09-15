@@ -142,6 +142,11 @@ function write_argument_guard end
 function write_randomvar_expression end
 
 """
+    write_randomprocess_expression(backend, model, varexpr, options, arguments)
+"""
+function write_randomprocess_expression end
+
+"""
     write_datavar_expression(backend, model, varexpr, options, type, arguments)
 """
 function write_datavar_expression end
@@ -195,6 +200,11 @@ function write_node_options end
     write_randomvar_options(backend, variable, options)
 """
 function write_randomvar_options end
+
+"""
+    write_randomprocess_options(backend, variable, options)
+"""
+function write_randomprocess_options end
 
 """
     write_datavar_options(backend, variable, type, options)
@@ -340,12 +350,16 @@ function generate_model_expression(backend, model_options, model_specification)
             return :($operator($varexpr, $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...))))
         elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
             return :($varexpr = randomvar($(arguments...); $(options...)))
+        elseif @capture(expression, varexpr_ = randomprocess(arguments__) where { options__ })
+            return :($varexpr = randomprocess($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
             return :($varexpr = datavar($(arguments...); $(options...)))
         elseif @capture(expression, varexpr_ = constvar(arguments__) where { options__ })
             return error("Error in the expression $(expression). `constvar()` call does not support `where {  }` syntax.")
         elseif @capture(expression, varexpr_ = randomvar(arguments__))
             return :($varexpr = randomvar($(arguments...); ))
+        elseif @capture(expression, varexpr_ = randomprocess(arguments__))
+            return :($varexpr = randomprocess($(arguments...); ))
         elseif @capture(expression, varexpr_ = datavar(arguments__))
             return :($varexpr = datavar($(arguments...); ))
         elseif @capture(expression, varexpr_ = constvar(arguments__))
@@ -361,7 +375,7 @@ function generate_model_expression(backend, model_options, model_specification)
 
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, lhs_ = rhs_)
-            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__))) && !(@capture(rhs, constvar(args__)))
+            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__))) && !(@capture(rhs,randomprocess(args__))) && !(@capture(rhs, constvar(args__)))
                 varexpr, short_id, full_id = parse_varexpr(lhs)
                 push!(bannedids, short_id)
             end
@@ -384,6 +398,10 @@ function generate_model_expression(backend, model_options, model_specification)
         elseif @capture(expression, varexpr_ = randomvar(arguments__; options__))
             rvoptions = write_randomvar_options(backend, varexpr, options)
             return write_randomvar_expression(backend, model, varexpr, rvoptions, arguments)
+
+        elseif @capture(expression, varexpr_ = randomprocess(arguments__; options__))
+            rvoptions = write_randomprocess_options(backend, varexpr, options)
+            return write_randomprocess_expression(backend, model, varexpr, rvoptions, arguments)
         # Step 3.3 Convert constvar calls 
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
