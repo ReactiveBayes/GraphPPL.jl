@@ -11,11 +11,8 @@ authors:
   - name: Dmitry Bagaev
     orcid: 0000-0003-1361-440X
     affiliation: 1
-  - name: Ismail Senoz
-    affiliation: 1
-  - name: Albert Podusenko
-    affiliation: 1
-  - name: Bert de Vriers
+  - name: Bert de Vries
+    orcid: 0000-0003-0839-174X
     affiliation: 1
 affiliations:
   - name: Technical University of Eindhoven, BIASlab

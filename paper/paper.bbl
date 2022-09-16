@@ -1,9 +1,63 @@
 \begin{thebibliography}{1}
 
-\bibitem{bezanson2017julia}
-Jeff Bezanson, Alan Edelman, Stefan Karpinski, and Viral~B Shah.
-Julia: A fresh approach to numerical computing.
-{\em SIAM review}, 59(1):65--98, 2017.
-\href{http://dx.doi.org/10.1137/141000671}{doi:10.1137/141000671}.
+\bibitem{bagaev_reactivempjl_2022}
+Dmitry Bagaev, Bart van Erp, Albert Podusenko, and Bert de~Vries.
+{ReactiveMP}.jl: {A} {Julia} package for reactive variational {Bayesian}
+  inference.
+{\em Software Impacts}, 12:100299, May 2022.
+\href{http://dx.doi.org/10.1016/j.simpa.2022.100299}{doi:10.1016/j.simpa.2022.100299}.
+
+\bibitem{ge_turing_2018}
+Hong Ge, Kai Xu, and Zoubin Ghahramani.
+{Turing}: A language for flexible probabilistic inference.
+In {\em International Conference on Artificial Intelligence and Statistics},
+  pages 1682--1690, 2018.
+
+\bibitem{podusenko_message_2021}
+Albert Podusenko, Wouter~M. Kouw, and Bert de~Vries.
+Message {Passing}-{Based} {Inference} for {Time}-{Varying} {Autoregressive}
+  {Models}.
+{\em Entropy}, 23(6):683, June 2021.
+\href{http://dx.doi.org/10.3390/e23060683}{doi:10.3390/e23060683}.
+Number: 6 Publisher: Multidisciplinary Digital Publishing Institute.
+
+\bibitem{podusenko_message_2022_eusipco}
+Albert Podusenko, Bart van Erp, Dmitry Bagaev, Ismail Senoz, and Bert De~Vries.
+Message {Passing}-based {Inference} in {Switching} {Autoregressive} {Models}.
+In {\em 2022 30th {European} {Signal} {Processing} {Conference} ({EUSIPCO})},
+  page~5, Belgrade, Serbia, 2022.
+in press.
+
+\bibitem{podusenko_message_2021_mslp}
+Albert Podusenko, Bart van Erp, Dmitry Bagaev, {Şenöz, İsmail}, and Bert
+  de~Vries.
+Message {Passing}-{Based} {Inference} in the {Gamma} {Mixture} {Model}.
+In {\em 2021 {IEEE} 31st {International} {Workshop} on {Machine} {Learning} for
+  {Signal} {Processing} ({MLSP})}, pages 1--6, Gold Coast, Australia, October
+  2021. IEEE.
+\href{http://dx.doi.org/10.1109/MLSP52302.2021.9596329}{doi:10.1109/MLSP52302.2021.9596329}.
+
+\bibitem{podusenko_aida_2022}
+Albert Podusenko, Bart van Erp, Magnus Koudahl, and Bert de~Vries.
+{AIDA}: {An} {Active} {Inference}-{Based} {Design} {Agent} for {Audio}
+  {Processing} {Algorithms}.
+{\em Frontiers in Signal Processing}, 2:842477, March 2022.
+\href{http://dx.doi.org/10.3389/frsip.2022.842477}{doi:10.3389/frsip.2022.842477}.
+
+\bibitem{van_erp_bayesian_2021}
+Bart van Erp, Albert Podusenko, Tanya Ignatenko, and Bert de~Vries.
+A {Bayesian} {Modeling} {Approach} to {Situated} {Design} of {Personalized}
+  {Soundscaping} {Algorithms}.
+{\em Applied Sciences}, 11(20):9535, October 2021.
+\href{http://dx.doi.org/10.3390/app11209535}{doi:10.3390/app11209535}.
+Number: 20 Publisher: Multidisciplinary Digital Publishing Institute.
+
+\bibitem{senoz_variational_2021}
+İsmail Şenöz, Thijs van~de Laar, Dmitry Bagaev, and Bert de~Vries.
+Variational {Message} {Passing} and {Local} {Constraint} {Manipulation} in
+  {Factor} {Graphs}.
+{\em Entropy}, 23(7):807, July 2021.
+\href{http://dx.doi.org/10.3390/e23070807}{doi:10.3390/e23070807}.
+Number: 7 Publisher: Multidisciplinary Digital Publishing Institute.
 
 \end{thebibliography}
