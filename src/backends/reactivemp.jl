@@ -127,10 +127,12 @@ end
 function write_node_options(::ReactiveMPBackend, model, fform, variables, options)
     is_factorisation_option_present = false
     is_meta_option_present          = false
+    is_addons_option_present        = false
     is_pipeline_option_present      = false
 
     factorisation_option = :(nothing)
     meta_option          = :(nothing)
+    addons_option        = :(nothing)
     pipeline_option      = :(nothing)
 
     foreach(options) do option
@@ -143,6 +145,10 @@ function write_node_options(::ReactiveMPBackend, model, fform, variables, option
             !is_meta_option_present || error("Meta specification option $(option) for $(fform) has been redefined.")
             is_meta_option_present = true
             meta_option = write_meta_option(fform, fmeta)
+        elseif @capture(option, addons = faddons_)
+            !is_addons_option_present || error("Addons specification option $(option) for $(fform) has been redefined.")
+            is_addons_option_present = true
+            addons_option = write_addons_option(fform, faddons)
         elseif @capture(option, pipeline = fpipeline_)
             !is_pipeline_option_present || error("Pipeline specification option $(option) for $(fform) has been redefined.")
             is_pipeline_option_present = true
@@ -152,13 +158,18 @@ function write_node_options(::ReactiveMPBackend, model, fform, variables, option
         end
     end
 
-    return :(ReactiveMP.FactorNodeCreationOptions($factorisation_option, $meta_option, $pipeline_option))
+    return :(ReactiveMP.FactorNodeCreationOptions($factorisation_option, $meta_option, $addons_option, $pipeline_option))
 end
 
 # Meta helper functions
 
 function write_meta_option(fform, fmeta)
     return :($fmeta)
+end
+
+# Addons helper functions
+function write_addons_option(fform, faddons)
+    return :($faddons)
 end
 
 # Pipeline helper functions
