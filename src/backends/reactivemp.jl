@@ -392,7 +392,8 @@ function write_randomprocess_options(::ReactiveMPBackend, variable, options)
         $marginal_form_constraint_option,
         $marginal_form_check_strategy_option,
         $messages_form_constraint_option,
-        $messages_form_check_strategy_option
+        $messages_form_check_strategy_option,
+        nothing
     ))
 end
 
