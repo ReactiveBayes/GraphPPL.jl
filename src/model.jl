@@ -399,9 +399,9 @@ function generate_model_expression(backend, model_specification)
         end
     end
 
-    # Step 4: Main pass
-    # If there are still  unprocessed `~` expressions left we assume these are coming from the input arguments 
-    # We refer to such `~` usage as implicit
+    # Step 4: Auto nodes pass
+    # If there are still unprocessed `~` expressions left we assume these are coming from the input arguments 
+    # We refer to such `~` usage as `auto` nodes
     ms_body = postwalk(ms_body) do expression 
         if @capture(expression, lhs_ ~ rhs_ where { options__ }) || @capture(expression, lhs_ .~ rhs_ where { options__ })
             errmsg = "Implicit `~` usage in the `$expression` expression does not support `where {}` block."
