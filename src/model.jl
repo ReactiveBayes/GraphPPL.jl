@@ -170,14 +170,29 @@ function write_anonymous_variable end
 function write_make_node_expression end
 
 """
+    write_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+"""
+function write_make_auto_node_expression end
+
+"""
     write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
 """
 function write_broadcasted_make_node_expression end
 
 """
+    write_broadcasted_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+"""
+function write_broadcasted_make_auto_node_expression end
+
+"""
     write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
 """
 function write_autovar_make_node_expression end
+
+"""
+    write_autovar_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr, autovarid)
+"""
+function write_autovar_make_auto_node_expression end
 
 """
     write_check_variable_existence(backend, model, varid, errormsg)
@@ -208,6 +223,8 @@ function write_inject_tilderhs_aliases end
     show_tilderhs_alias(backend, io)
 """
 function show_tilderhs_alias end
+
+struct GraphPPLImplicitNode end
 
 function generate_model_expression(backend, model_specification)
 
@@ -382,7 +399,45 @@ function generate_model_expression(backend, model_specification)
         end
     end
 
-    # Step 4: Final pass
+    # Step 4: Main pass
+    # If there are still  unprocessed `~` expressions left we assume these are coming from the input arguments 
+    # We refer to such `~` usage as implicit
+    ms_body = postwalk(ms_body) do expression 
+        if @capture(expression, lhs_ ~ rhs_ where { options__ }) || @capture(expression, lhs_ .~ rhs_ where { options__ })
+            errmsg = "Implicit `~` usage in the `$expression` expression does not support `where {}` block."
+            return :(error($errmsg))
+        elseif @capture(expression, lhs_ ~ rhs_) || @capture(expression, lhs_ .~ rhs_)
+
+            if !@capture(lhs, (nodeexpr_, varexpr_))
+                nodeexpr = gensym(:inode)
+                varexpr  = lhs
+            end
+
+            varexpr, short_id, full_id = parse_varexpr(varexpr)
+
+            if isbroadcastedcall(expression)
+                return quote 
+                    # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
+                    $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
+                    $(write_broadcasted_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr))
+                end
+            else
+                # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
+                # Single variables like `y` can be created on the fly with the `AutoVar` marker
+                # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
+                if isref(varexpr)
+                    return write_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+                else
+                    return write_autovar_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr, full_id)
+                end
+            end
+        else
+            return expression
+        end
+    end
+
+
+    # Step 5: Final pass
     final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
     final_pass_target     = (x) -> @capture(x, return ret_)
 
