@@ -1,4 +1,3 @@
-export @model
 
 import MacroTools: @capture, postwalk, prewalk, walk
 
@@ -125,7 +124,6 @@ argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
         ms_kwargs,
         ms_constraints, 
         ms_meta,
-        ms_options,
         ms_body
     )
 """
@@ -177,14 +175,29 @@ function write_anonymous_variable end
 function write_make_node_expression end
 
 """
+    write_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+"""
+function write_make_auto_node_expression end
+
+"""
     write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
 """
 function write_broadcasted_make_node_expression end
 
 """
+    write_broadcasted_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+"""
+function write_broadcasted_make_auto_node_expression end
+
+"""
     write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, autovarid)
 """
 function write_autovar_make_node_expression end
+
+"""
+    write_autovar_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr, autovarid)
+"""
+function write_autovar_make_auto_node_expression end
 
 """
     write_check_variable_existence(backend, model, varid, errormsg)
@@ -212,16 +225,6 @@ function write_randomprocess_options end
 function write_datavar_options end
 
 """
-    write_default_model_constraints(backend)
-"""
-function write_default_model_constraints end
-
-"""
-    write_default_model_meta(backend)
-"""
-function write_default_model_meta end
-
-"""
     write_inject_tilderhs_aliases(backend, model, tilderhs)
 """
 function write_inject_tilderhs_aliases end
@@ -231,42 +234,9 @@ function write_inject_tilderhs_aliases end
 """
 function show_tilderhs_alias end
 
-"""
+struct GraphPPLImplicitNode end
 
-```julia
-@model [ model_options ] function model_name(model_arguments...; model_keyword_arguments...)
-    # model description
-end
-```
-
-`@model` macro generates a function that returns an equivalent graph-representation of the given probabilistic model description.
-
-## Supported alias in the model specification
-$(begin io = IOBuffer(); show_tilderhs_alias(__get_current_backend(), io); String(take!(io)) end)
-"""
-macro model end
-
-macro model(model_specification)
-    return esc(:(@model [] $model_specification))
-end
-
-macro model(model_options, model_specification)
-    return GraphPPL.generate_model_expression(__get_current_backend(), model_options, model_specification)
-end
-
-function generate_model_expression(backend, model_options, model_specification)
-    @capture(model_options, [ ms_options__ ]) ||
-        error("Model specification options should be in a form of [ option1 = ..., option2 = ... ]")
-
-    ms_options = map(ms_options) do option
-        (@capture(option, name_ = value_) && name isa Symbol) || error("Invalid option specification: $(option). Expected: 'option_name = option_value'.")
-        return (name, value)
-    end
-
-    ms_constraints = write_default_model_constraints(backend)
-    ms_meta        = write_default_model_meta(backend)
-    ms_options     = :(NamedTuple{ ($(tuple(map(first, ms_options)...))) }((($(tuple(map(last, ms_options)...)...)),)))
-    
+function generate_model_expression(backend, model_specification)
 
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
         error("Model specification language requires full function definition")
@@ -278,6 +248,8 @@ function generate_model_expression(backend, model_options, model_specification)
     ms_args_const_ids = Vector{Tuple{Symbol, Symbol}}()
 
     ms_arg_expression_converter = (ms_arg) -> begin
+        arg = nothing
+        smth = nothing
         if @capture(ms_arg, arg_::ConstVariable = smth_) || @capture(ms_arg, arg_::ConstVariable)
             # rc_arg = gensym(:constvar) 
             push!(ms_args_const_ids, (arg, arg)) # backward compatibility for old behaviour with gensym
@@ -292,6 +264,11 @@ function generate_model_expression(backend, model_options, model_specification)
             push!(ms_args_guard_ids, arg)
             push!(ms_args_ids, arg)
             return argument_write_default_value(arg, smth)
+        elseif @capture(ms_arg, ::T_ = smth_) || @capture(ms_arg, ::T_)
+            arg = gensym(:ms_arg)
+            push!(ms_args_guard_ids, arg)
+            push!(ms_args_ids, arg)
+            return argument_write_default_value(:($(arg)::$(T)), smth)
         else
             error("Invalid argument specification: $(ms_arg)")
         end
@@ -440,17 +417,51 @@ function generate_model_expression(backend, model_options, model_specification)
         end
     end
 
-    # Step 4: Final pass
+    # Step 4: Auto nodes pass
+    # If there are still unprocessed `~` expressions left we assume these are coming from the input arguments 
+    # We refer to such `~` usage as `auto` nodes
+    ms_body = postwalk(ms_body) do expression 
+        if @capture(expression, lhs_ ~ rhs_ where { options__ }) || @capture(expression, lhs_ .~ rhs_ where { options__ })
+            errmsg = "Implicit `~` usage in the `$expression` expression does not support `where {}` block."
+            return :(error($errmsg))
+        elseif @capture(expression, lhs_ ~ rhs_) || @capture(expression, lhs_ .~ rhs_)
+
+            if !@capture(lhs, (nodeexpr_, varexpr_))
+                nodeexpr = gensym(:inode)
+                varexpr  = lhs
+            end
+
+            varexpr, short_id, full_id = parse_varexpr(varexpr)
+
+            if isbroadcastedcall(expression)
+                return quote 
+                    # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
+                    $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
+                    $(write_broadcasted_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr))
+                end
+            else
+                # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
+                # Single variables like `y` can be created on the fly with the `AutoVar` marker
+                # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
+                if isref(varexpr)
+                    return write_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+                else
+                    return write_autovar_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr, full_id)
+                end
+            end
+        else
+            return expression
+        end
+    end
+
+
+    # Step 5: Final pass
     final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
     final_pass_target     = (x) -> @capture(x, return ret_)
 
     ms_body = quote 
         $ms_body
         return nothing
-    end
-
-    ms_body = conditioned_walk(final_pass_exceptions, final_pass_target, ms_body) do expression
-        @capture(expression, return ret_) ? quote activate!($model); return $model, ($ret) end : expression
     end
 
     ms_structure = write_model_structure(backend, 
@@ -460,9 +471,6 @@ function generate_model_expression(backend, model_options, model_specification)
         ms_args_const_init_block,
         ms_args,
         ms_kwargs,
-        ms_constraints, 
-        ms_meta,
-        ms_options,
         ms_body
     ) 
         

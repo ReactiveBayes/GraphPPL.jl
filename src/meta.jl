@@ -1,4 +1,3 @@
-export @meta
 
 """
     write_meta_specification(backend, entries, options)
@@ -14,16 +13,6 @@ function write_meta_specification_options end
     write_meta_specification_entry(backend, F, N, meta)
 """
 function write_meta_specification_entry end
-
-
-macro meta(meta_specification)
-    # Empty options `:([])`
-    return generate_meta_expression(__get_current_backend(), :([]), meta_specification)
-end
-
-macro meta(meta_options, meta_specification)
-    return generate_meta_expression(__get_current_backend(), meta_options, meta_specification)
-end
 
 struct MetaSpecificationLHSInfo
     hash      :: UInt
