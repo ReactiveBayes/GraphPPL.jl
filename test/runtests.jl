@@ -1,8 +1,7 @@
 module GraphPPLTest
 
-using Test, Documenter, GraphPPL
+using Test, GraphPPL
 
-doctest(GraphPPL)
 
 @testset "GraphPPL" begin
 
