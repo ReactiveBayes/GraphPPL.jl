@@ -6,5 +6,6 @@ include("utils.jl")
 include("model.jl")
 include("constraints.jl")
 include("meta.jl")
+include("context_graphs.jl")
 
 end # module
