@@ -1,9 +1,9 @@
 
 issymbol(::Symbol) = true
-issymbol(any)      = false
+issymbol(any) = false
 
 isexpr(expr::Expr) = true
-isexpr(expr)       = false
+isexpr(expr) = false
 
 """
     ishead(expr, head)
@@ -29,7 +29,7 @@ Shorthand for `ishead(expr, :call)` and arguments length check. If an extra `fsy
 
 See also: [`ishead`](@ref)
 """
-iscall(expr)       = ishead(expr, :call) && length(expr.args) >= 1
+iscall(expr) = ishead(expr, :call) && length(expr.args) >= 1
 iscall(expr, fsym) = iscall(expr) && first(expr.args) === fsym
 
 """
@@ -40,7 +40,7 @@ Checks if expression represents a broadcast call to some function. Optionally ac
 
 See also: [`iscall`](@ref)
 """
-function isbroadcastedcall(expr) 
+function isbroadcastedcall(expr)
     if isblock(expr) # TODO add for other functions?
         nextexpr = findnext(isexpr, expr.args, 1)
         return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr]) : false
@@ -49,12 +49,17 @@ function isbroadcastedcall(expr)
         (ishead(expr, :(.))) # Checks for `:(f.(x))` syntax
 end
 
-function isbroadcastedcall(expr, fsym) 
+function isbroadcastedcall(expr, fsym)
     if isblock(expr) # TODO add for other functions?
         nextexpr = findnext(isexpr, expr.args, 1)
         return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr], fsym) : false
     end
-    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.' && Symbol(string(first(expr.args))[2:end]) === fsym) || # Checks for `:(a .+ b)` syntax
+    (
+        iscall(expr) &&
+        length(expr.args) >= 1 &&
+        first(string(first(expr.args))) === '.' &&
+        Symbol(string(first(expr.args))[2:end]) === fsym
+    ) || # Checks for `:(a .+ b)` syntax
         (ishead(expr, :(.)) && first(expr.args) === fsym) # Checks for `:(f.(x))` syntax
 end
 
@@ -82,20 +87,24 @@ getref(expr) = isref(expr) ? (view(expr.args, 2:lastindex(expr.args))...,) : ()
 Checks if `x` is of type `Type` 
 """
 ensure_type(x::Type) = true
-ensure_type(x)       = false
+ensure_type(x) = false
 
 fold_linear_operator_call(any) = any
 
-fold_linear_operator_call_first_arg(::typeof(foldl), args) = args[begin + 1]
+fold_linear_operator_call_first_arg(::typeof(foldl), args) = args[begin+1]
 fold_linear_operator_call_tail_args(::typeof(foldl), args) = args[begin+2:end]
 
 fold_linear_operator_call_first_arg(::typeof(foldr), args) = args[end]
 fold_linear_operator_call_tail_args(::typeof(foldr), args) = args[begin+1:end-1]
 
 function fold_linear_operator_call(expr::Expr, fold = foldl)
-    if @capture(expr, op_(args__, )) && length(args) > 2
-        return fold((res, el) -> Expr(:call, op, res, el), fold_linear_operator_call_tail_args(fold, expr.args); init = fold_linear_operator_call_first_arg(fold, expr.args))
+    if @capture(expr, op_(args__)) && length(args) > 2
+        return fold(
+            (res, el) -> Expr(:call, op, res, el),
+            fold_linear_operator_call_tail_args(fold, expr.args);
+            init = fold_linear_operator_call_first_arg(fold, expr.args),
+        )
     else
-        return expr 
+        return expr
     end
 end
