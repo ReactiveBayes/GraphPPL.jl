@@ -18,7 +18,7 @@ function missing_interfaces(node_type, val::Val, known_interfaces)
     return missing_interfaces
 end
 
-function generate_get_or_create_expression(variables::AbstractArray)
+function generate_get_or_create_expression(variables::Union{AbstractArray,NamedTuple})
     expressions = map(variables) do name
         GraphPPL.generate_get_or_create_expression(name)
     end
@@ -55,12 +55,24 @@ function convert_tilde_expression(lhs::Symbol, fform, rhs::NamedTuple, val::Val)
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
+convert_interfaces_tuple(name::Symbol, interface) = :($name = $interface)
+
+function convert_interfaces_tuple(field::Symbol, interfaces::NamedTuple)
+    values = map(iterator(interfaces)) do (name, interface)
+        return convert_interfaces_tuple(name, interface)
+    end
+    return :($field = ($(values...),)) #($(values...),) syntax is used here, which creates a NamedTuple (hence the ,) out of (the Vector of Expr objects) values
+end
+
 function generate_make_node_call(fform, interfaces::NamedTuple)
     getorcreate_expressions = map(interfaces) do interface
         return GraphPPL.generate_get_or_create_expression(interface)
     end
     interfaces_tuple = map(iterator(interfaces)) do (name, interface)
-        return :($name = $interface)
+        return convert_interfaces_tuple(name, interface)
+    end
+    if length(interfaces_tuple) == 0
+        interfaces_tuple = NamedTuple()
     end
     result = quote
         $(getorcreate_expressions...)
@@ -74,6 +86,22 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     keys = [expr.args[1] for expr in keywords]
     values = [expr.args[2] for expr in keywords]
     return (; zip(keys, values)...)
+end
+
+function is_kwargs_expression(e::Expr)
+    return e.head == :kw
+end
+
+function is_kwargs_expression(e::Vector)
+    if length(e) > 0
+        return sum([is_kwargs_expression(elem) for elem in e]) == length(e)
+    else
+        return false
+    end
+end
+
+function is_kwargs_expression(e::Symbol)
+    return false
 end
 
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
@@ -95,6 +123,25 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     end
 end
 
+extend(ms_args::AbstractArray, new_interface::Symbol) = vcat(ms_args, new_interface)
+extend(ms_args::AbstractArray, new_interface::Expr) = vcat(ms_args, new_interface.args)
+
+function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
+    prewalk(ms_body) do (expression)
+        if @capture(expression, return)
+            return expression
+        elseif @capture(expression, return output_interfaces_)
+            ms_args = extend(ms_args, output_interfaces)
+            return expression
+        else
+            return expression
+        end
+    end
+    return ms_args
+end
+
+
+
 macro new_model(model_specification)
     @capture(
         model_specification,
@@ -105,6 +152,7 @@ macro new_model(model_specification)
         end)
     ) || error("Model specification language requires full function definition")
 
+    ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)
 
     boilerplate_functions =
@@ -128,8 +176,21 @@ macro new_model(model_specification)
         else
             return expression
         end
-
     end
+
+    ms_body = postwalk(ms_body) do expression
+        if @capture(expression, (lhs_ ~ fform_(args__)))
+            if is_kwargs_expression(args)
+                return :($lhs ~ $fform(; $(args...)))
+            else
+                return expression
+            end
+        else
+            return expression
+        end
+    end
+
+    println(ms_body)
 
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, (lhs_ ~ fform_(; args__)))
@@ -141,7 +202,6 @@ macro new_model(model_specification)
                 Val(length(args) + 1),
             )
         elseif @capture(expression, (lhs_ ~ fform_(args__)))
-            println(GraphPPL.is_kwargs_expression(args))
             return GraphPPL.convert_tilde_expression(lhs, fform, args)
         else
             return expression

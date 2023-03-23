@@ -21,9 +21,6 @@ fquote(expr::Symbol) = Expr(:quote, expr)
 fquote(expr::Int) = expr
 fquote(expr::Expr) = expr
 
-is_kwargs_expression(x) = false
-is_kwargs_expression(x::Expr) = x.head === :parameters
-
 """
     parse_varexpr(varexpr)
 
