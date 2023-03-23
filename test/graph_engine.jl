@@ -364,6 +364,18 @@ using TestSetExtensions
         make_node!(model, f, (in1 = θ, in2 = τ, out = μ))
         @test nv(model) == 5 && ne(model) == 3
 
+        model = create_model()
+        make_node!(model, sum, NamedTuple())
+        @test nv(model) == 1
+
+        #Test nested model
+        model = create_model()
+        x = getorcreate!(model, :x)
+        y = getorcreate!(model, :y)
+        z = getorcreate!(model, :z)
+        make_node!(model, sum, (inputs = (in1 = x, in2 = y), output = z))
+        @test nv(model) == 4 && ne(model) == 3
+
 
     end
 
