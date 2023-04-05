@@ -119,7 +119,11 @@ gensym(model::Model, name::Symbol, index::Nothing) = gensym(model, name, UInt8(1
 gensym(model::Model, name::Symbol, index::Int64) = gensym(model, name, UInt8(2), index)
 gensym(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
     gensym(model, name, UInt8(3), index)
-gensym(model::Model, name::Symbol, index::Tuple) = throw(ArgumentError("Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))"))
+gensym(model::Model, name::Symbol, index::Tuple) = throw(
+    ArgumentError(
+        "Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))",
+    ),
+)
 
 gensym(model::Model, name, index = nothing) = gensym(model::Model, Symbol(name), index)
 
@@ -267,7 +271,9 @@ getorcreate!(model, context, :x)
 function getorcreate!(model::Model, context::Context, name::Symbol, index::Nothing)
     # check that the variable does not exist in other categories
     if haskey(context.vector_variables, name) || haskey(context.tensor_variables, name)
-        error("Variable $name already exists in the model either as vector or as tensor variable and can hence not be defined as individual variable.")
+        error(
+            "Variable $name already exists in the model either as vector or as tensor variable and can hence not be defined as individual variable.",
+        )
     end
     # Simply return a variable and create a new one if it does not exist
     return get(
@@ -280,7 +286,9 @@ end
 function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     # check that the variable does not exist in other categories
     if haskey(context.individual_variables, name) || haskey(context.tensor_variables, name)
-        error("Variable $name already exists in the model either as individual or as tensor variable and can hence not be defined as vector variable.")
+        error(
+            "Variable $name already exists in the model either as individual or as tensor variable and can hence not be defined as vector variable.",
+        )
     end
     return get(
         () -> add_variable_node!(model, context, name, index),
@@ -289,10 +297,17 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     )
 end
 
-function getorcreate!(model::Model, context::Context, name::Symbol, index::NTuple{N,Int64}) where {N}
+function getorcreate!(
+    model::Model,
+    context::Context,
+    name::Symbol,
+    index::NTuple{N,Int64},
+) where {N}
     # check that the variable does not exist in other categories
     if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
-        error("Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $N-dimensional tensor variable.")
+        error(
+            "Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $N-dimensional tensor variable.",
+        )
     end
     # Simply return a variable and create a new one if it does not exist
     if !haskey(context.tensor_variables, name)
@@ -327,7 +342,7 @@ function add_variable_node!(
     model::Model,
     context::Context,
     variable_id::Symbol,
-    index=nothing,
+    index = nothing,
 )
     variable_symbol = gensym(model, variable_id, index)
     context[variable_id, index] = variable_symbol

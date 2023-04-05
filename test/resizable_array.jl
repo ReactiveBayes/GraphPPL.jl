@@ -8,7 +8,7 @@ using Test
     @test ResizableArray(Float64, Val(2)) isa
           ResizableArray{Float64,Vector{Vector{Float64}},2}
 
-    @test occursin( "[]", repr(ResizableArray(Float64)))
+    @test occursin("[]", repr(ResizableArray(Float64)))
 
     @test size(ResizableArray(Float64)) === (0,)
 
@@ -94,7 +94,7 @@ using Test
 
         @test_throws ArgumentError v["a"]
         @test_throws ArgumentError v[3, 2, "a"]
-        
+
     end
 
 
