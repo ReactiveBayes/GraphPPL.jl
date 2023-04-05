@@ -110,7 +110,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         function $ms_name()
-            model = GraphPPL.create_model(($ms_args)...)
+            model = GraphPPL.create_model()
             arguments = []
             for argument in $ms_args
                 argument = GraphPPL.getorcreate!(model, argument)
@@ -222,7 +222,7 @@ macro new_model(model_specification)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
             $ms_body
             node_id = GraphPPL.gensym(model, $ms_name)
-            Base.put!(parent_context, node_id, context)
+            GraphPPL.add_composite_factor_node!(model, context, parent_context, $ms_name)
         end
         nothing
     end
