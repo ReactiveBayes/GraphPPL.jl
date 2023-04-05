@@ -190,7 +190,6 @@ macro new_model(model_specification)
         end
     end
 
-    println(ms_body)
 
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, (lhs_ ~ fform_(; args__)))

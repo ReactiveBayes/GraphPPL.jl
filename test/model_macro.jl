@@ -157,6 +157,7 @@ using MacroTools
         end
         @test_expression_generating(generate_make_node_call(input...), output)
 
+
         interfaces = (in1 = :x, in2 = :y, in3 = :test, in4 = :a)
         input = (sum, (inputs = interfaces, output = :z))
         output = quote
