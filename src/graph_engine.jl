@@ -1,12 +1,22 @@
 using Graphs
 using MetaGraphsNext
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!
+import Base:
+    put!,
+    haskey,
+    gensym,
+    getindex,
+    getproperty,
+    setproperty!,
+    setindex!,
+    length,
+    size,
+    resize!
 using GraphPlot, Compose
 import Cairo
 
 """
 The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
-The counter is implemented because it allows for an efficient `gensym`` implementation
+The counter is implemented because it allows for an efficient `gensym` implementation
 """
 struct Model
     graph::MetaGraph
@@ -16,7 +26,16 @@ end
 struct NodeLabel
     name::Symbol
     index::Int64
+    variable_type::UInt8
+    variable_index::Union{Int64,NTuple{N,Int64} where N}
 end
+
+NodeLabel(
+    name::Symbol,
+    index::Int64,
+    variable_type::Int64,
+    variable_index::Union{Int64,NTuple{N,Int64} where N},
+) = NodeLabel(name, index, UInt8(variable_type), variable_index)
 
 struct NodeData
     is_variable::Bool
@@ -80,58 +99,92 @@ number of nodes already in the model.
 Arguments:
 - `model`: A `Model` object representing the probabilistic graphical model.
 - `name`: A symbol representing the name of the node.
+- `variable_type`: A UInt8 representing the type of the variable. 0 = factor, 1 = individual variable, 2 = vector variable, 3 = tensor variable
+- `index`: An integer or tuple of integers representing the index of the variable.
 
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function gensym(model::Model, name::Symbol)
+function gensym(
+    model::Model,
+    name::Symbol,
+    variable_type::UInt8 = UInt8(0),
+    index::Union{Int64,NTuple{N,Int64} where N} = 0,
+)
     increase_count(model)
-    return NodeLabel(name, model.counter)
+    return NodeLabel(name, model.counter, variable_type, index)
 end
 
-gensym(model::Model, name) = gensym(model::Model, Symbol(name))
+gensym(model::Model, name::Symbol, index::Nothing) = gensym(model, name, UInt8(1), 0)
+gensym(model::Model, name::Symbol, index::Int64) = gensym(model, name, UInt8(2), index)
+gensym(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
+    gensym(model, name, UInt8(3), index)
+gensym(model::Model, name::Symbol, index::Tuple) = throw(ArgumentError("Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))"))
+
+gensym(model::Model, name, index = nothing) = gensym(model::Model, Symbol(name), index)
 
 to_symbol(id::NodeLabel) = Symbol(String(id.name) * "_" * string(id.index))
 
+
 struct Context
     prefix::String
-    contents::Dict{Symbol,Union{NodeLabel,Context}}
+    individual_variables::Dict{Symbol,NodeLabel}
+    vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
+    tensor_variables::Dict{Symbol,ResizableArray}
+    factor_nodes::Dict{NodeLabel,Union{NodeLabel,Context}}
 end
 
 
 name(f::Function) = String(Symbol(f))
 
-Context(prefix::String) = Context(prefix, Dict())
+Context(prefix::String) = Context(prefix, Dict(), Dict(), Dict(), Dict())
 Context(parent::Context, model_name::String) = Context(parent.prefix * model_name * "_")
 Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
 Context() = Context("")
 
-haskey(context::Context, key::Symbol) = haskey(context.contents, key)
+haskey(context::Context, key::Symbol) =
+    haskey(context.individual_variables, key) ||
+    haskey(context.vector_variables, key) ||
+    haskey(context.tensor_variables, key) ||
+    haskey(context.factor_nodes, key)
 
-getindex(c::Context, key::Symbol) = c.contents[key]
+function Base.getindex(c::Context, key::Symbol)
+    if haskey(c.individual_variables, key)
+        return c.individual_variables[key]
+    elseif haskey(c.vector_variables, key)
+        return c.vector_variables[key]
+    elseif haskey(c.tensor_variables, key)
+        return c.tensor_variables[key]
+    end
+    throw(KeyError("Variable " * String(key) * " not found in Context " * c.prefix))
+end
+
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
+    return c.individual_variables[key] = val
+end
+
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
+    if !haskey(c.vector_variables, key)
+        c.vector_variables[key] = ResizableArray(NodeLabel)
+    end
+    return c.vector_variables[key][index] = val
+end
+
+function Base.setindex!(
+    c::Context,
+    val::NodeLabel,
+    key::Symbol,
+    index::NTuple{N,Int64},
+) where {N}
+    if !haskey(c.tensor_variables, key)
+        c.tensor_variables[key] = ResizableArray(NodeLabel, Val(N))
+    end
+    return c.tensor_variables[key][index...] = val
+end
+
+
 
 context(model::Model) = model.graph[]
-
-
-function pprint(str::String, indent::Int)
-    print("   "^indent * str)
-end
-
-function pprint(context::Context, indent = 0)
-    println("Context " * context.prefix * "{")
-    for pair in context.contents
-        pprint(pair, indent + 1)
-    end
-    pprint("} \n", indent + 1)
-end
-
-function pprint(pair::Pair{Symbol,Union{NodeLabel,Context}}, indent = 0)
-    pprint(String(pair[1]) * " : ", indent)
-    pprint(pair[2], indent)
-end
-
-pprint(symbol::NodeLabel) = println(String(symbol.name))
-
 
 abstract type NodeType end
 
@@ -142,39 +195,16 @@ struct Atomic <: NodeType end
 NodeType(::Type) = Atomic()
 NodeType(::Function) = Atomic()
 
-function Base.put!(context::Context, name::Symbol, variable::Union{NodeLabel,Context})
-    if haskey(context, name)
-        throw(
-            ErrorException(
-                "Variable " *
-                String(name) *
-                " in Context " *
-                context.prefix *
-                " is duplicate.",
-            ),
-        )
-    end
-    context.contents[name] = variable
-end
-
-Base.put!(context::Context, name::NodeLabel, variable::Union{NodeLabel,Context}) =
-    Base.put!(context, to_symbol(name), variable)
-
-
 
 """
-create_model(interfaces...)
+create_model()
 
-Create a new probabilistic graphical model with the specified interfaces. Each interface is
-represented as a variable node in the factor graph.
-
-Arguments:
-- `interfaces`: A variable number of symbols representing the names of the interface variables.
+Create a new empty probabilistic graphical model.
 
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(interfaces...)
+function create_model()
     model = MetaGraph(
         Graph(),
         Label = NodeLabel,
@@ -183,43 +213,101 @@ function create_model(interfaces...)
         EdgeData = EdgeLabel,
     )
     model = Model(model)
-    for interface in interfaces
-        add_variable_node!(model, context(model), interface)
-    end
     return model
 end
 
+"""
+copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
+
+Copy the variables in the Markov blanket of a parent context to a child context, using a mapping specified by a named tuple.
+
+The Markov blanket of a node or model in a Factor Graph is defined as the set of its outgoing interfaces. This function copies the variables in the Markov blanket of the parent context specified by the named tuple `interfaces` to the child context `child_context`, by setting each child variable in `child_context.individual_variables` to its corresponding parent variable in `interfaces`.
+
+# Arguments
+- `child_context::Context`: The child context to which to copy the Markov blanket variables.
+- `interfaces::NamedTuple`: A named tuple that maps child variable names to parent variable names.
+"""
 function copy_markov_blanket_to_child_context(
     child_context::Context,
     interfaces::NamedTuple,
 )
     for (child_name, parent_name) in iterator(interfaces)
-        put!(child_context, child_name, parent_name)
+        child_context.individual_variables[child_name] = parent_name
     end
 end
 
-getorcreate!(model::Model, context::Context, edge) = edge
-getorcreate!(model::Model, something) = getorcreate!(model, context(model), something)
-"""
-    Creates a variable node for the given `edge` in the `model` under the given `context`. 
-    If a variable node for the `edge` already exists, returns it. Otherwise, creates a new 
-    variable node and adds it to the `model` and the `context`. Returns the variable node.
-"""
+#getorcreate!(model::Model, context::Context, edge, index) = edge
+getorcreate!(model::Model, something) =
+    getorcreate!(model, context(model), something, nothing)
 getorcreate!(model::Model, context::Context, edge::Symbol) =
-    get!(() -> add_variable_node!(model, context, edge), context.contents, edge)
+    getorcreate!(model, context, edge, nothing)
+getorcreate!(model::Model, context::Context, variables::Union{Tuple,AbstractArray}, index) =
+    map((edge) -> getorcreate!(model, context, edge, index), variables)
 
 """
-    Creates variable nodes for each element in the `edges` collection in the `model` under the given `context`. 
-    If a variable node for an element already exists, returns it. Otherwise, creates a new variable node for 
-    that element and adds it to the `model` and the `context`. Returns a collection of variable nodes,
-    either a tuple or a vector, depending on the type of the input `edges`.
-"""
-getorcreate!(model::Model, context::Context, edges::Union{Tuple,AbstractArray}) =
-    map((edge) -> getorcreate!(model, context, edge), edges)
+getorcreate!(model::Model, context::Context, edge, index)
 
+Get or create a variable (edge) from a factor graph model and context, using an index if provided.
+
+This function searches for a variable (edge) in the factor graph model and context specified by the arguments `model` and `context`. If the variable exists, it returns it. Otherwise, it creates a new variable and returns it.
+
+# Arguments
+- `model::Model`: The factor graph model to search for or create the variable in.
+- `context::Context`: The context to search for or create the variable in.
+- `edge`: The variable (edge) to search for or create. Can be a symbol, a tuple of symbols, or an array of symbols.
+- `index`: Optional index for the variable. Can be an integer, a tuple of integers, or `nothing`.
+
+# Returns
+The variable (edge) found or created in the factor graph model and context.
+
+# Examples
+Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
+getorcreate!(model, context, :x)
+"""
+function getorcreate!(model::Model, context::Context, name::Symbol, index::Nothing)
+    # check that the variable does not exist in other categories
+    if haskey(context.vector_variables, name) || haskey(context.tensor_variables, name)
+        error("Variable $name already exists in the model either as vector or as tensor variable and can hence not be defined as individual variable.")
+    end
+    # Simply return a variable and create a new one if it does not exist
+    return get(
+        () -> add_variable_node!(model, context, name, index),
+        context.individual_variables,
+        name,
+    )
+end
+
+function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
+    # check that the variable does not exist in other categories
+    if haskey(context.individual_variables, name) || haskey(context.tensor_variables, name)
+        error("Variable $name already exists in the model either as individual or as tensor variable and can hence not be defined as vector variable.")
+    end
+    return get(
+        () -> add_variable_node!(model, context, name, index),
+        context.individual_variables,
+        name,
+    )
+end
+
+function getorcreate!(model::Model, context::Context, name::Symbol, index::NTuple{N,Int64}) where {N}
+    # check that the variable does not exist in other categories
+    if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
+        error("Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $N-dimensional tensor variable.")
+    end
+    # Simply return a variable and create a new one if it does not exist
+    if !haskey(context.tensor_variables, name)
+        return add_variable_node!(model, context, name, index)
+    else
+        return get(
+            () -> add_variable_node!(model, context, name, index),
+            context.tensor_variables[name],
+            index,
+        )
+    end
+end
 
 """
-Add a variable node to the model with the given ID.
+Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
 
 The function generates a new symbol for the variable and puts it in the
 context with the given ID. It then adds a node to the model with the generated
@@ -230,13 +318,19 @@ Args:
     - `model::Model`: The model to which the node is added.
     - `context::Context`: The context to which the symbol is added.
     - `variable_id::Symbol`: The ID of the variable.
+    - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
 
 Returns:
     - The generated symbol for the variable.
 """
-function add_variable_node!(model::Model, context::Context, variable_id::Symbol)
-    variable_symbol = gensym(model, variable_id)
-    put!(context, variable_id, variable_symbol)
+function add_variable_node!(
+    model::Model,
+    context::Context,
+    variable_id::Symbol,
+    index=nothing,
+)
+    variable_symbol = gensym(model, variable_id, index)
+    context[variable_id, index] = variable_symbol
     model[variable_symbol] = NodeData(true, variable_id)
     return variable_symbol
 end
@@ -257,9 +351,9 @@ Returns:
     - The generated symbol for the node.
 """
 function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
-    node_id = gensym(model, Symbol(node_name))
+    node_id = gensym(model, Symbol(node_name), UInt8(0))
     model[node_id] = NodeData(false, node_name)
-    put!(context, node_id, node_id)
+    context.factor_nodes[node_id] = node_id
     return node_id
 end
 
@@ -268,14 +362,31 @@ add_atomic_factor_node!(model::Model, context::Context, node_name::Real) =
 add_atomic_factor_node!(model::Model, context::Context, node_name) =
     add_atomic_factor_node!(model, context, Symbol(node_name))
 
+"""
+Add a composite factor node to the model with the given name.
+
+The function generates a new symbol for the node and adds it to the model with
+the generated symbol as the key and a `NodeData` struct with `is_variable` set to
+`false` and `node_name` set to the given name.
+
+Args:
+    - `model::Model`: The model to which the node is added.
+    - `parent_context::Context`: The context to which the symbol is added.
+    - `context::Context`: The context of the composite factor node.
+    - `node_name::Symbol`: The name of the node.
+
+Returns:
+    - The generated symbol for the node.
+"""
 function add_composite_factor_node!(
     model::Model,
     parent_context::Context,
     context::Context,
     node_name::Symbol,
 )
+    #TODO reimplement this
     node_id = gensym(model, node_name)
-    put!(parent_context, node_id, context)
+    parent_context.factor_nodes[node_id] = context
     return node_id
 end
 
@@ -395,14 +506,16 @@ function make_node!(
     )
 
     node_id = gensym(model, node_name)
-    put!(parent_context, node_id, context)
+    parent_context.factor_nodes[node_id] = context
 
 end
 
 function plot_graph(g::MetaGraph; name = "tmp.png")
     node_labels =
         [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
-    draw(PNG(name, 16cm, 16cm), gplot(g, nodelabel = node_labels))
+    plt = gplot(g, nodelabel = node_labels, layout = spectral_layout)
+    draw(PNG(name, 16cm, 16cm), plt)
+    return plt
 end
 
 plot_graph(g::Model; name = "tmp.png") = plot_graph(g.graph; name = name)
@@ -420,7 +533,7 @@ function terminate_at_neighbors!(model::Model, vertex)
         edge_data = model.graph[label, label_for(model.graph, neighbor)]
         model.graph[label_for(model.graph, neighbor), new_label] = edge_data
         new_vertices[to_symbol(new_label)] = new_label
-        put!(context(model), new_label, new_label)
+        context(model).individual_variables[to_symbol(new_label)] = new_label
     end
     rem_vertex!(model.graph, vertex)
     interfaces = NamedTuple{Tuple(keys(new_vertices))}(values(new_vertices))
