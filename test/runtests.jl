@@ -13,6 +13,7 @@ using Test, GraphPPL
     include("model_macro.jl")
     include("graph_engine.jl")
     include("resizable_array.jl")
+    include("iterable_interface_extensions.jl")
 
 end
 

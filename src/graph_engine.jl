@@ -37,14 +37,25 @@ NodeLabel(
     variable_index::Union{Int64,NTuple{N,Int64} where N},
 ) = NodeLabel(name, index, UInt8(variable_type), variable_index)
 
+name(label::NodeLabel) = label.name
+
 struct NodeData
     is_variable::Bool
     name::Any
+    value::Any
 end
+
+NodeData(is_variable::Bool, name::Any) = NodeData(is_variable, name, nothing)
 
 struct EdgeLabel
     name::Symbol
 end
+
+struct UndefinedVariable 
+    name::Symbol
+end
+
+name(var::UndefinedVariable) = var.name
 
 """
     Model(graph::MetaGraph)
@@ -203,7 +214,7 @@ NodeType(::Function) = Atomic()
 """
 create_model()
 
-Create a new empty probabilistic graphical model.
+Create a new empty probabilistic graphical model. 
 
 Returns:
 A `Model` object representing the probabilistic graphical model.
@@ -240,7 +251,6 @@ function copy_markov_blanket_to_child_context(
     end
 end
 
-#getorcreate!(model::Model, context::Context, edge, index) = edge
 getorcreate!(model::Model, something) =
     getorcreate!(model, context(model), something, nothing)
 getorcreate!(model::Model, context::Context, edge::Symbol) =
@@ -290,10 +300,13 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
             "Variable $name already exists in the model either as individual or as tensor variable and can hence not be defined as vector variable.",
         )
     end
+    if !haskey(context.vector_variables, name)
+        return add_variable_node!(model, context, name, index)
+    end
     return get(
         () -> add_variable_node!(model, context, name, index),
-        context.individual_variables,
-        name,
+        context.vector_variables[name],
+        index,
     )
 end
 
@@ -301,8 +314,8 @@ function getorcreate!(
     model::Model,
     context::Context,
     name::Symbol,
-    index::NTuple{N,Int64},
-) where {N}
+    index...
+) 
     # check that the variable does not exist in other categories
     if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
         error(
@@ -320,6 +333,20 @@ function getorcreate!(
         )
     end
 end
+
+getifcreated(model::Model, context:: Context, variable, index=nothing) = getifcreated(is_iterable(variable), model, context, variable, index)
+
+getifcreated(::NotIterable, model::Model, context:: Context, variable::NodeLabel, index::Nothing) = variable
+getifcreated(::NotIterable, model::Model, context:: Context, variable::UndefinedVariable, index=nothing) = add_variable_node!(model, context, variable.name, index, nothing)
+getifcreated(::NotIterable, model::Model, context::Context, variable, index) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
+
+getifcreated(::Iterable, model::Model, context::Context, variable, index) = getifcreated(Iterable(), eltype(variable), model, context, variable, index)
+
+getifcreated(::Iterable, ::Type{NodeLabel}, model::Model, context::Context, variable, index::Nothing) = variable
+getifcreated(::Iterable, ::Type{NodeLabel}, model::Model, context::Context, variable, index) = variable[index]
+getifcreated(::Iterable, ::Type{UndefinedVariable}, model::Model, context::Context, variables, index) = map((var) -> add_variable_node!(model, context, name(var), index, nothing), variables)
+getifcreated(::Iterable, ::Type{<:Number}, model::Model, context::Context, variable, index) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
+getifcreated(::Iterable, T::Type{Any}, ::Model, ::Context, ::Any, ::Nothing) = throw(error("Cannot create variable from iterable of type $T"))
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -343,10 +370,11 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol,
     index = nothing,
+    value = nothing
 )
     variable_symbol = gensym(model, variable_id, index)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = NodeData(true, variable_id)
+    model[variable_symbol] = NodeData(true, variable_id, value)
     return variable_symbol
 end
 
@@ -399,7 +427,6 @@ function add_composite_factor_node!(
     context::Context,
     node_name::Symbol,
 )
-    #TODO reimplement this
     node_id = gensym(model, node_name)
     parent_context.factor_nodes[node_id] = context
     return node_id
@@ -415,7 +442,10 @@ add_composite_factor_node!(
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 
-
+function add_edge(model::Model, factor_node_id::NodeLabel, variable_node_id::Real)
+    add_variable_node!(model, model.context, variable_node_id)
+    model.graph[variable_node_id, factor_node_id] = EdgeLabel()
+end
 
 function add_edge!(
     model::Model,
@@ -465,8 +495,6 @@ make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTu
         node_name,
         interfaces,
     )
-make_node!(model::Model, node_name, interfaces::NamedTuple) =
-    make_node!(model, context(model), node_name, interfaces)
 
 
 function equality_node end
@@ -528,7 +556,7 @@ end
 function plot_graph(g::MetaGraph; name = "tmp.png")
     node_labels =
         [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
-    plt = gplot(g, nodelabel = node_labels, layout = spectral_layout)
+    plt = gplot(g, nodelabel = node_labels)
     draw(PNG(name, 16cm, 16cm), plt)
     return plt
 end

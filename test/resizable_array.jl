@@ -3,6 +3,7 @@ using Test
 @testset "ResizableArray.jl" begin
     # Write your tests here.
     import GraphPPL: ResizableArray
+    
     @test ResizableArray(Float64) isa ResizableArray{Float64}
     @test ResizableArray(Float64, Val(1)) isa ResizableArray{Float64,Vector{Float64},1}
     @test ResizableArray(Float64, Val(2)) isa
@@ -55,6 +56,7 @@ using Test
 
         @test_throws Exception (v[10] = 1.0)
     end
+    
 
     let v = ResizableArray(Float64, Val(3))
         @test size(v) === (0, 0, 0)
@@ -74,13 +76,14 @@ using Test
         v[10, 10, 10] = 1.0
 
         @test size(v) === (10, 10, 10)
+        v[10, 10, 10]
 
         @test_throws Exception (v[1] = 1.0)
         @test_throws Exception (v[1, 1] = 1.0)
         @test_throws Exception (v[1, 1, 1, 1] = 1.0)
     end
 
-
+    
     let v = ResizableArray(Float64, Val(3))
         @test size(v) === (0, 0, 0)
 
@@ -96,7 +99,6 @@ using Test
         @test_throws ArgumentError v[3, 2, "a"]
 
     end
-
-
+    
 
 end

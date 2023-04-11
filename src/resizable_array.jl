@@ -1,4 +1,4 @@
-import Base: size, setindex!, getindex
+import Base: size, setindex!, getindex, show
 
 struct ResizableArray{T,V<:AbstractVector,N} <: AbstractArray{T,N}
     data::V
@@ -72,7 +72,7 @@ function recursive_setindex!(
 end
 
 function getindex(array::ResizableArray{T,V,N}, index...) where {T,V,N}
-    @assert N >= length(index) "Invalid index $(index) for $(array)"
+    @assert N >= length(index) "Invalid index $(index) for $(array) of shape $(size(array)))"
     return recursive_getindex(Val(length(index)), array.data, index...)
 end
 
@@ -82,4 +82,10 @@ end
 
 function recursive_getindex(::Val{N}, array::Vector{V}, findex, index...) where {N,V}
     return recursive_getindex(Val(N - 1), array[findex], index...)
+end
+
+function Base.show(io::IO, array::ResizableArray{T,V,N}) where {T,V,N}
+    print(io, "ResizableArray{$T,$N}(")
+    show(io, array.data)
+    print(io, ")")
 end

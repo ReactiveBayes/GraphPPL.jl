@@ -1,7 +1,8 @@
 export @new_model, @test_expression_generating
 import MacroTools: postwalk, @capture
 
-
+__guard_f(f, e::Expr) = f(e)
+__guard_f(f, x) = x
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -9,6 +10,132 @@ macro test_expression_generating(lhs, rhs)
     end)
 end
 
+function apply_pipeline(e::Expr, pipeline_function::Function) 
+    return postwalk(x -> __guard_f(pipeline_function, x), e)
+end
+
+function warn_datavar_constvar_randomvar(e::Expr)
+    if @capture(e, ((lhs_ = datavar(args__)) |  (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__))))
+        @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
+        return 
+    end
+    return e
+end
+
+
+function save_expression_in_tilde(e::Expr)
+    if @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
+        options = options === nothing ? [] : options
+        return :($lhs ~ $rhs where {$(options...), created_by = $e})
+    elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
+        options = options === nothing ? [] : options
+        return :($lhs .~ $rhs where {$(options...), created_by = $e})
+    elseif @capture(e, (lhs_ := rhs_ where {options__}) | (lhs_ := rhs_))
+        options = options === nothing ? [] : options
+        return :($lhs := $rhs where {$(options...), created_by = $e})
+    else
+        return e
+    end
+end
+
+function convert_deterministic_statement(e::Expr)
+    if @capture(e, (lhs_ := rhs_ where {options__}))
+        return :($lhs ~ $rhs where {$(options...), is_deterministic = true})
+    else
+        return e
+    end
+end
+
+function convert_local_statement(e::Expr)
+    if @capture(e, (local lhs_ ~ rhs_ where {options__}))
+        return quote
+            $lhs = GraphPPL.add_variable_node!(model, context, gensym($(QuoteNode(lhs))))
+            $lhs ~ $rhs where {$(options...)}
+        end
+    else
+        return e
+    end
+end
+
+function convert_to_kwargs_expression(e::Expr)
+    if @capture(e, (lhs_ ~ f_(args__) where {options__}) )
+        if is_kwargs_expression(args)
+            return :($lhs ~ $f(;$(args...)) where {$(options...)})
+        else
+            return e
+        end
+    elseif @capture(e, (lhs_ .~ f_(args__) where {options__}))
+        if is_kwargs_expression(args)
+            return :($lhs .~ $f(;$(args...)) where {$(options...)})
+        else
+            return e
+        end
+    elseif @capture(e, (lhs_ := f_(args__) where {options__}))
+        if is_kwargs_expression(args)
+            return :($lhs := $f(;$(args...)) where {$(options...)})
+        else
+            return e
+        end
+    else
+        return e
+    end
+end
+
+function convert_indexed_statement(e::Expr)
+    if @capture(e, (lhs_ ~ rhs_ where {options__}))
+        if @capture(lhs, var_[index__])
+            return quote
+                $var = @isdefined($var) ? $var : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val($(length(index))))
+                $e
+            end
+        end
+    end
+    return e
+end
+
+function add_get_or_create_expression(e::Expr)
+    if @capture(e, (lhs_ ~ rhs_ where {options__}))
+        if @capture(lhs, var_[index_])
+            return quote 
+                $(generate_get_or_create(var, index))
+                $e
+            end
+        elseif @capture(lhs, var_[index__])
+            return quote
+                $(generate_get_or_create(var, index))
+                $e
+            end
+        else
+            return quote
+                $(generate_get_or_create(lhs))
+                $e
+            end
+        end
+    end
+    return e
+end
+
+function generate_get_or_create(s::Symbol)
+    return :($s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s))))
+end
+
+function generate_get_or_create(s::Symbol, index)
+    return :($s[$(index...)] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
+end
+
+function convert_arithmetic_operations(e::Expr)
+    if e.head == :call && e.args[1] == :*
+        return :(prod($(e.args[2:end]...)))
+    elseif e.head == :call && e.args[1] == :/
+        return :(div($(e.args[2:end]...)))
+    elseif e.head == :call && e.args[1] == :+
+        return :(sum($(e.args[2:end]...)))
+    elseif e.head == :call && e.args[1] == :-
+        return :(sub($(e.args[2:end]...)))
+    else
+        return e
+    end
+end
 
 function interfaces end
 
@@ -18,35 +145,10 @@ function missing_interfaces(node_type, val::Val, known_interfaces)
     return missing_interfaces
 end
 
-function generate_get_or_create_expression(variables::Union{AbstractArray,NamedTuple})
-    expressions = map(variables) do name
-        GraphPPL.generate_get_or_create_expression(name)
-    end
-    return quote
-        $(expressions...)
-    end
-end
-
-function generate_get_or_create_expression(variables::Expr)
-    expressions = map(variables.args) do name
-        GraphPPL.generate_get_or_create_expression(name)
-    end
-    return quote
-        $(expressions...)
-    end
-end
-
-function generate_get_or_create_expression(name::Symbol)
-    return quote
-        $name =
-            (@isdefined($name)) ? $name :
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(name)))
-    end
-end
 
 function convert_tilde_expression(lhs::Symbol, fform, rhs::AbstractArray)
     interfaces = (in = Expr(:tuple, rhs...), out = lhs)
-    return generate_make_node_call(fform, interfaces)
+    return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
 function convert_tilde_expression(lhs::Symbol, fform, rhs::NamedTuple, val::Val)
@@ -55,7 +157,7 @@ function convert_tilde_expression(lhs::Symbol, fform, rhs::NamedTuple, val::Val)
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
-convert_interfaces_tuple(name::Symbol, interface) = :($name = $interface)
+convert_interfaces_tuple(name::Symbol, interface) = :($name = GraphPPL.getifcreated(model, context, $interface))
 
 function convert_interfaces_tuple(field::Symbol, interfaces::NamedTuple)
     values = map(iterator(interfaces)) do (name, interface)
@@ -65,9 +167,6 @@ function convert_interfaces_tuple(field::Symbol, interfaces::NamedTuple)
 end
 
 function generate_make_node_call(fform, interfaces::NamedTuple)
-    getorcreate_expressions = map(interfaces) do interface
-        return GraphPPL.generate_get_or_create_expression(interface)
-    end
     interfaces_tuple = map(iterator(interfaces)) do (name, interface)
         return convert_interfaces_tuple(name, interface)
     end
@@ -75,7 +174,6 @@ function generate_make_node_call(fform, interfaces::NamedTuple)
         interfaces_tuple = NamedTuple()
     end
     result = quote
-        $(getorcreate_expressions...)
         interfaces_tuple = ($(interfaces_tuple...),)
         GraphPPL.make_node!(model, context, $fform, interfaces_tuple)
     end
@@ -100,9 +198,8 @@ function is_kwargs_expression(e::Vector)
     end
 end
 
-function is_kwargs_expression(e::Symbol)
-    return false
-end
+is_kwargs_expression(e) = false
+
 
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     return quote
@@ -117,7 +214,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
                 push!(arguments, argument)
             end
             args = (; zip($ms_args, arguments)...)
-            GraphPPL.make_node!(model, $ms_name, args)
+            GraphPPL.make_node!(model, GraphPPL.context(model), $ms_name, args)
             return model
         end
     end
@@ -154,45 +251,21 @@ macro new_model(model_specification)
 
     ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)
-
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+    
+    ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
+    ms_body = apply_pipeline(ms_body, save_expression_in_tilde) 
+    ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
+    ms_body = apply_pipeline(ms_body, convert_local_statement)
+    ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
+    ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
+    ms_body = apply_pipeline(ms_body, convert_indexed_statement)
+    ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
+    
 
     ms_body = postwalk(ms_body) do expression
-        if @capture(expression, (lhs_ := rhs_))
-            return :($lhs ~ $rhs)
-        else
-            return expression
-        end
-    end
-
-    ms_body = postwalk(ms_body) do expression
-        if @capture(expression, (local lhs_ ~ rhs_))
-            return quote
-                $lhs = GraphPPL.add_variable_node!(model, context, gensym($(QuoteNode(lhs))))
-                $lhs ~ $rhs
-            end
-            return :($lhs ~ $rhs)
-        else
-            return expression
-        end
-    end
-
-    ms_body = postwalk(ms_body) do expression
-        if @capture(expression, (lhs_ ~ fform_(args__)))
-            if is_kwargs_expression(args)
-                return :($lhs ~ $fform(; $(args...)))
-            else
-                return expression
-            end
-        else
-            return expression
-        end
-    end
-
-
-    ms_body = postwalk(ms_body) do expression
-        if @capture(expression, (lhs_ ~ fform_(; args__)))
+        if @capture(expression, (lhs_ ~ fform_(; args__) where {options__}))
             args = GraphPPL.keyword_expressions_to_named_tuple(args)
             return GraphPPL.convert_tilde_expression(
                 lhs,
@@ -200,12 +273,14 @@ macro new_model(model_specification)
                 args,
                 Val(length(args) + 1),
             )
-        elseif @capture(expression, (lhs_ ~ fform_(args__)))
+        elseif @capture(expression, (lhs_ ~ fform_(args__) where {options__}))
             return GraphPPL.convert_tilde_expression(lhs, fform, args)
         else
             return expression
         end
     end
+
+    
 
     result = quote
 
@@ -217,7 +292,10 @@ macro new_model(model_specification)
             parent_context,
             ::typeof($ms_name),
             interfaces,
-        )
+        )   
+            for (name, interface) in pairs(interfaces)
+                eval(:($name = $interface))
+            end
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
             $ms_body
