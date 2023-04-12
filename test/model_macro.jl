@@ -12,91 +12,107 @@ using MacroTools
         import GraphPPL: save_expression_in_tilde, apply_pipeline
 
         input = :(x ~ Normal(0, 1))
-        output = :(x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))})
+        output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
         input = quote
             x ~ Normal(0, 1)
             y ~ Normal(0, 1)
         end
-        
+
         output = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
-        
+
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
         input = :(x .~ Normal(0, 1))
-        output = :(x .~ Normal(0, 1) where {created_by = (x .~ Normal(0, 1))})
+        output = :(x .~ Normal(0, 1) where {created_by=(x.~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
         input = quote
             x .~ Normal(0, 1)
             y .~ Normal(0, 1)
         end
-        
+
         output = quote
-            x .~ Normal(0, 1) where {created_by = (x .~ Normal(0, 1))}
-            y .~ Normal(0, 1) where {created_by = (y .~ Normal(0, 1))}
+            x .~ Normal(0, 1) where {created_by=(x.~Normal(0, 1))}
+            y .~ Normal(0, 1) where {created_by=(y.~Normal(0, 1))}
         end
-        
+
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
 
         input = :(x := Normal(0, 1))
-        output = :(x := Normal(0, 1) where {created_by = (x := Normal(0, 1))})
+        output = :(x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
         input = quote
             x := Normal(0, 1)
             y := Normal(0, 1)
         end
-        
+
         output = quote
-            x := Normal(0, 1) where {created_by = (x := Normal(0, 1))}
-            y := Normal(0, 1) where {created_by = (y := Normal(0, 1))}
+            x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))}
+            y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
         end
-        
+
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
 
         input = quote
-            x ~ Normal(0, 1) where { q = MeanField() }
-            y ~ Normal(0, 1) where { q = MeanField() }
+            x ~ Normal(0, 1) where {q=MeanField()}
+            y ~ Normal(0, 1) where {q=MeanField()}
         end
-        
+
         output = quote
-            x ~ Normal(0, 1) where {q = MeanField(), created_by = (x ~ Normal(0, 1) where { q = MeanField() })}
-            y ~ Normal(0, 1) where {q = MeanField(), created_by = (y ~ Normal(0, 1) where { q = MeanField() })}
+            x ~ Normal(
+                0,
+                1,
+            ) where {q=MeanField(),created_by=(x~Normal(0, 1) where {q=MeanField()})}
+            y ~ Normal(
+                0,
+                1,
+            ) where {q=MeanField(),created_by=(y~Normal(0, 1) where {q=MeanField()})}
         end
-        
+
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
         # Test with different variable names
         input = :(y ~ Normal(0, 1))
-        output = :(y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))})
+        output = :(y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
         input = :(z ~ Normal(0, 1))
-        output = :(z ~ Normal(0, 1) where {created_by = (z ~ Normal(0, 1))})
+        output = :(z ~ Normal(0, 1) where {created_by=(z~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
         # Test with different parameter options
-        input = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})
-        output = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5, created_by = (x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})})
+        input = :(x ~ Normal(0, 1) where {mu=2.0,sigma=0.5})
+        output = :(
+            x ~ Normal(
+                0,
+                1,
+            ) where {
+                mu=2.0,
+                sigma=0.5,
+                created_by=(x~Normal(0, 1) where {mu=2.0,sigma=0.5}),
+            }
+        )
         @test save_expression_in_tilde(input) == output
 
-        input = :(y ~ Normal(0, 1) where {mu = 1.0})
-        output = :(y ~ Normal(0, 1) where {mu = 1.0, created_by = (y ~ Normal(0, 1) where {mu = 1.0})})
+        input = :(y ~ Normal(0, 1) where {mu=1.0})
+        output =
+            :(y ~ Normal(0, 1) where {mu=1.0,created_by=(y~Normal(0, 1) where {mu=1.0})})
         @test save_expression_in_tilde(input) == output
 
         # Test with no parameter options
         input = :(x ~ Normal(0, 1) where {})
-        output = :(x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {})})
+        output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1) where {})})
 
         input = quote
-            for i in 1:10
+            for i = 1:10
                 println(i)
                 call_some_weird_function()
                 x = i
@@ -105,13 +121,13 @@ using MacroTools
         @test_expression_generating save_expression_in_tilde(input) input
 
         input = quote
-            for i in 1:10
+            for i = 1:10
                 x[i] ~ Normal(0, 1)
             end
         end
         output = quote
-            for i in 1:10
-                x[i] ~ Normal(0, 1) where {created_by = (x[i] ~ Normal(0, 1))}
+            for i = 1:10
+                x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
             end
         end
         @test_expression_generating save_expression_in_tilde(input) input
@@ -121,45 +137,46 @@ using MacroTools
             local x ~ Normal(0, 1)
             local y ~ Normal(0, 1)
         end
-        
+
         output = quote
-            local x ~ Normal(0, 1) where {created_by = (local x ~ Normal(0, 1))}
-            local y ~ Normal(0, 1) where {created_by = (local y ~ Normal(0, 1))}
+            local x ~ Normal(0, 1) where {created_by=(local x ~ Normal(0, 1))}
+            local y ~ Normal(0, 1) where {created_by=(local y ~ Normal(0, 1))}
         end
-        
-        @test_broken prettify(apply_pipeline(input, save_expression_in_tilde)) == prettify(output)
+
+        @test_broken prettify(apply_pipeline(input, save_expression_in_tilde)) ==
+                     prettify(output)
     end
 
     @testset "convert_deterministic_statement" begin
         import GraphPPL: convert_deterministic_statement, apply_pipeline
 
         input = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) input
 
         input = quote
-            x := Normal(0, 1) where {created_by = (x := Normal(0, 1))}
-            y := Normal(0, 1) where {created_by = (y := Normal(0, 1))}
+            x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))}
+            y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
         end
         output = quote
-            x ~ Normal(0, 1) where {created_by = (x := Normal(0, 1)), is_deterministic = true}
-            y ~ Normal(0, 1) where {created_by = (y := Normal(0, 1)), is_deterministic = true}
+            x ~ Normal(0, 1) where {created_by=(x:=Normal(0, 1)),is_deterministic=true}
+            y ~ Normal(0, 1) where {created_by=(y:=Normal(0, 1)),is_deterministic=true}
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
         # Test case 4: Input expression with multiple matching patterns
         input = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            y := Normal(0, 1) where {created_by = (y := Normal(0, 1))}
-            z ~ Bernoulli(0.5) where {created_by = (z := Bernoulli(0.5))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
+            z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
         end
         # Expected output: Modified expressions with added `is_deterministic = true` option
         output = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            y ~ Normal(0, 1) where {created_by = (y := Normal(0, 1)), is_deterministic = true}
-            z ~ Bernoulli(0.5) where {created_by = (z := Bernoulli(0.5))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y:=Normal(0, 1)),is_deterministic=true}
+            z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
@@ -169,35 +186,35 @@ using MacroTools
         import GraphPPL: convert_local_statement, apply_pipeline
 
         input = quote
-            local x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
             x = GraphPPL.add_variable_node!(model, context, gensym(:x))
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
-    
+
 
         input = quote
-            local x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            local y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         output = quote
             x = GraphPPL.add_variable_node!(model, context, gensym(:x))
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y = GraphPPL.add_variable_node!(model, context, gensym(:y))
-            y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
 
         input = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
-            local y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         output = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y = GraphPPL.add_variable_node!(model, context, gensym(:y))
-            y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
     end
@@ -206,40 +223,40 @@ using MacroTools
         import GraphPPL: convert_to_kwargs_expression, apply_pipeline
         #Test 1: Input expression with no matching patterns
         input = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         #Test 2: Input expression with one matching pattern
         input = quote
-            x ~ Normal(μ = y, σ = z) where {created_by = (x ~ Normal(μ = y, σ = z))} 
+            x ~ Normal(μ = y, σ = z) where {created_by=(x~Normal(μ = y, σ = z))}
         end
         output = quote
-            x ~ Normal(; μ = y, σ = z) where {created_by = (x ~ Normal(μ = y, σ = z))}
+            x ~ Normal(; μ = y, σ = z) where {created_by=(x~Normal(μ = y, σ = z))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         #Test 3: Input expression with no matching pattern
         input = quote
-            x .~ f(a, b; c = 1, d = 2) where {created_by = (x .~ f(a, b; c = 1, d = 2))}
+            x .~ f(a, b; c = 1, d = 2) where {created_by=(x.~f(a, b; c = 1, d = 2))}
         end
         output = quote
-            x .~ f(a, b; c = 1, d = 2) where {created_by = (x .~ f(a, b; c = 1, d = 2))}
+            x .~ f(a, b; c = 1, d = 2) where {created_by=(x.~f(a, b; c = 1, d = 2))}
         end
         @test_expression_generating convert_to_kwargs_expression(input) output
 
         #Test 4: Input expression with multiple matching patterns
         input = quote
-            x ~ Normal(μ = y, σ = z) where {created_by = (x ~ Normal(μ = y, σ = z))}
-            y ~ Normal(μ = x, σ = z) where {created_by = (y ~ Normal(μ = x, σ = z))}
+            x ~ Normal(μ = y, σ = z) where {created_by=(x~Normal(μ = y, σ = z))}
+            y ~ Normal(μ = x, σ = z) where {created_by=(y~Normal(μ = x, σ = z))}
         end
 
         output = quote
-            x ~ Normal(; μ = y, σ = z) where {created_by = (x ~ Normal(μ = y, σ = z))}
-            y ~ Normal(; μ = x, σ = z) where {created_by = (y ~ Normal(μ = x, σ = z))}
+            x ~ Normal(; μ = y, σ = z) where {created_by=(x~Normal(μ = y, σ = z))}
+            y ~ Normal(; μ = x, σ = z) where {created_by=(y~Normal(μ = x, σ = z))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
@@ -250,43 +267,43 @@ using MacroTools
 
         #Test 1: Input expression with a single vector definition
         input = quote
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(1))
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1)
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
 
         #Test 2: Input expression with a single tensor definition
         input = quote
-            x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
+            x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(2))
-            x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
 
         #Test 3: Input expression with a single vector definition and a single tensor definition
         input = quote
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
-            y[1, 2] ~ Normal(0, 1) where {created_by = (y[1, 2] ~ Normal(0, 1))}
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
+            y[1, 2] ~ Normal(0, 1) where {created_by=(y[1, 2]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(1))
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
-            y = @isdefined(y) ? y : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(2))
-            y[1, 2] ~ Normal(0, 1) where {created_by = (y[1, 2] ~ Normal(0, 1))}
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1)
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
+            y = @isdefined(y) ? y : GraphPPL.getorcreate!(model, context, :y, 1, 2)
+            y[1, 2] ~ Normal(0, 1) where {created_by=(y[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
 
         #Test 4: Make sure right-hand-side indexing expressions are not converted
         input = quote
-            x ~ Normal(μ[1], σ[1]) where {created_by = (x ~ Normal(μ[1], σ[1]))}
+            x ~ Normal(μ[1], σ[1]) where {created_by=(x~Normal(μ[1], σ[1]))}
         end
         output = quote
-            x ~ Normal(μ[1], σ[1]) where {created_by = (x ~ Normal(μ[1], σ[1]))}
+            x ~ Normal(μ[1], σ[1]) where {created_by=(x~Normal(μ[1], σ[1]))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
     end
@@ -312,32 +329,32 @@ using MacroTools
     @testset "add_get_or_create_expression" begin
         import GraphPPL: add_get_or_create_expression, apply_pipeline
         #Test 1: test scalar variable
-        input = quote 
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+        input = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
         #Test 2: test vector variable 
-        input = quote 
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
+        input = quote
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         output = quote
-            x[1] = GraphPPL.getorcreate!(model, context, :x, 1) 
-            x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
+            GraphPPL.getorcreate!(model, context, :x, 1)
+            x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
         #Test 3: test matrix variable
-        input = quote 
-            x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
+        input = quote
+            x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         output = quote
-            x[1, 2] = GraphPPL.getorcreate!(model, context, :x, 1, 2) 
-            x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
+            GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
     end
@@ -354,31 +371,31 @@ using MacroTools
         #Test 2: test vector variable
         output = generate_get_or_create(:x, 1)
         desired_result = quote
-            x[1] = GraphPPL.getorcreate!(model, context, :x, 1)
+            GraphPPL.getorcreate!(model, context, :x, 1)
         end
         @test_expression_generating output desired_result
 
         #Test 3: test matrix variable
         output = generate_get_or_create(:x, (1, 2))
         desired_result = quote
-            x[1, 2] = GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            GraphPPL.getorcreate!(model, context, :x, 1, 2)
         end
         @test_expression_generating output desired_result
 
         #Test 4: test symbol-indexed variable
         output = generate_get_or_create(:x, :i)
         desired_result = quote
-            x[i] = GraphPPL.getorcreate!(model, context, :x, i)
+            GraphPPL.getorcreate!(model, context, :x, i)
         end
         @test_expression_generating output desired_result
 
         #Test 5: test symbol-indexed variable
         output = generate_get_or_create(:x, (:i, :j))
         desired_result = quote
-            x[i, j] = GraphPPL.getorcreate!(model, context, :x, i, j)
+            GraphPPL.getorcreate!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
-        
+
     end
 
     @testset "convert_arithmetic_operations" begin
@@ -398,7 +415,7 @@ using MacroTools
             sub(a, b)
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-        
+
         #Test 2: Test input with one operator with 3 arguments
         input = quote
             a + b + c
@@ -416,7 +433,7 @@ using MacroTools
             sin(sum(a, b))
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-        
+
         #Test 4: Test input with nested calls 
         input = quote
             sin(a + b) + cos(a + b)
@@ -425,7 +442,7 @@ using MacroTools
             sum(sin(sum(a, b)), cos(sum(a, b)))
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-   
+
         #Test 5: Test input with call on rhs
         input = quote
             x = a + b
@@ -443,7 +460,7 @@ using MacroTools
             sum(a, prod(b, c))
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-    
+
         #Test 7: Test input with mixed operators but different order
         input = quote
             a * b + c
@@ -465,9 +482,10 @@ using MacroTools
         #Test 9: Test input with indexed operation on the right hand side
         input = quote
             x[i] ~ Normal(x[i-1], 1)
-        end        
+        end
         output = input
-        @test_broken prettify(apply_pipeline(input, convert_arithmetic_operations))  == prettify(output)
+        @test_broken prettify(apply_pipeline(input, convert_arithmetic_operations)) ==
+                     prettify(output)
     end
 
     @testset "is_kwargs_expression(::AbstractArray)" begin
@@ -509,30 +527,40 @@ using MacroTools
         using Distributions
 
         input = quote
-            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            interfaces_tuple = (in = GraphPPL.getifcreated(model, context, (0,1)), out = GraphPPL.getifcreated(model, context, x))
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, (0, 1)),
+                out = GraphPPL.getifcreated(model, context, x),
+            )
             GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-  
+
         GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:μ, :σ, :out)
 
         input = quote
-            x ~ sum(;μ = 0, σ = 1) where {created_by = (x ~ sum(μ = 0, σ = 1))}
+            x ~ sum(; μ = 0, σ = 1) where {created_by=(x~sum(μ = 0, σ = 1))}
         end
         output = quote
-            interfaces_tuple = (μ = GraphPPL.getifcreated(model, context, 0), σ = GraphPPL.getifcreated(model, context, 1), out = GraphPPL.getifcreated(model, context, x))
+            interfaces_tuple = (
+                μ = GraphPPL.getifcreated(model, context, 0),
+                σ = GraphPPL.getifcreated(model, context, 1),
+                out = GraphPPL.getifcreated(model, context, x),
+            )
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         input = quote
-            x[i] ~ Normal(μ[i], σ[i]) where {created_by = (x[i] ~ Normal(μ[i], σ[i]))}
+            x[i] ~ Normal(μ[i], σ[i]) where {created_by=(x[i]~Normal(μ[i], σ[i]))}
         end
         output = quote
-            interfaces_tuple = (in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])), out = GraphPPL.getifcreated(model, context, x[i]))
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])),
+                out = GraphPPL.getifcreated(model, context, x[i]),
+            )
             GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -570,7 +598,7 @@ using MacroTools
 
 
     end
-    
+
 end
 
 end

@@ -10,14 +10,17 @@ macro test_expression_generating(lhs, rhs)
     end)
 end
 
-function apply_pipeline(e::Expr, pipeline_function::Function) 
+function apply_pipeline(e::Expr, pipeline_function::Function)
     return postwalk(x -> __guard_f(pipeline_function, x), e)
 end
 
 function warn_datavar_constvar_randomvar(e::Expr)
-    if @capture(e, ((lhs_ = datavar(args__)) |  (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__))))
+    if @capture(
+        e,
+        ((lhs_ = datavar(args__)) | (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__)))
+    )
         @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-        return 
+        return
     end
     return e
 end
@@ -26,13 +29,13 @@ end
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs ~ $rhs where {$(options...), created_by = $e})
+        return :($lhs ~ $rhs where {$(options...),created_by=$e})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs .~ $rhs where {$(options...), created_by = $e})
+        return :($lhs .~ $rhs where {$(options...),created_by=$e})
     elseif @capture(e, (lhs_ := rhs_ where {options__}) | (lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :($lhs := $rhs where {$(options...), created_by = $e})
+        return :($lhs := $rhs where {$(options...),created_by=$e})
     else
         return e
     end
@@ -40,7 +43,7 @@ end
 
 function convert_deterministic_statement(e::Expr)
     if @capture(e, (lhs_ := rhs_ where {options__}))
-        return :($lhs ~ $rhs where {$(options...), is_deterministic = true})
+        return :($lhs ~ $rhs where {$(options...),is_deterministic=true})
     else
         return e
     end
@@ -58,21 +61,21 @@ function convert_local_statement(e::Expr)
 end
 
 function convert_to_kwargs_expression(e::Expr)
-    if @capture(e, (lhs_ ~ f_(args__) where {options__}) )
+    if @capture(e, (lhs_ ~ f_(args__) where {options__}))
         if is_kwargs_expression(args)
-            return :($lhs ~ $f(;$(args...)) where {$(options...)})
+            return :($lhs ~ $f(; $(args...)) where {$(options...)})
         else
             return e
         end
     elseif @capture(e, (lhs_ .~ f_(args__) where {options__}))
         if is_kwargs_expression(args)
-            return :($lhs .~ $f(;$(args...)) where {$(options...)})
+            return :($lhs .~ $f(; $(args...)) where {$(options...)})
         else
             return e
         end
     elseif @capture(e, (lhs_ := f_(args__) where {options__}))
         if is_kwargs_expression(args)
-            return :($lhs := $f(;$(args...)) where {$(options...)})
+            return :($lhs := $f(; $(args...)) where {$(options...)})
         else
             return e
         end
@@ -85,7 +88,9 @@ function convert_indexed_statement(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         if @capture(lhs, var_[index__])
             return quote
-                $var = @isdefined($var) ? $var : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val($(length(index))))
+                $var =
+                    @isdefined($var) ? $var :
+                    GraphPPL.getorcreate!(model, context, $(QuoteNode(var)), $(index...))
                 $e
             end
         end
@@ -96,7 +101,7 @@ end
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         if @capture(lhs, var_[index_])
-            return  quote
+            return quote
                 $(generate_get_or_create(var, index))
                 $e
             end
@@ -116,15 +121,17 @@ function add_get_or_create_expression(e::Expr)
 end
 
 function generate_get_or_create(s::Symbol)
-    return :($s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s))))
+    return :(
+        $s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s)))
+    )
 end
 
 function generate_get_or_create(s::Symbol, index::Symbol)
-    return :($s[$index] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
+    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
 end
 
 function generate_get_or_create(s::Symbol, index)
-    return :($s[$(index...)] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
+    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
 function convert_arithmetic_operations(e::Expr)
@@ -144,12 +151,7 @@ end
 function convert_tilde_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
         args = GraphPPL.keyword_expressions_to_named_tuple(args)
-        return GraphPPL.__convert_tilde_expression(
-            lhs,
-            fform,
-            args,
-            Val(length(args) + 1),
-        )
+        return GraphPPL.__convert_tilde_expression(lhs, fform, args, Val(length(args) + 1))
     elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
         return GraphPPL.__convert_tilde_expression(lhs, fform, args)
     else
@@ -177,7 +179,8 @@ function __convert_tilde_expression(lhs, fform, rhs::NamedTuple, val::Val)
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
-convert_interfaces_tuple(name::Symbol, interface) = :($name = GraphPPL.getifcreated(model, context, $interface))
+convert_interfaces_tuple(name::Symbol, interface) =
+    :($name = GraphPPL.getifcreated(model, context, $interface))
 
 function convert_interfaces_tuple(field::Symbol, interfaces::NamedTuple)
     values = map(iterator(interfaces)) do (name, interface)
@@ -273,16 +276,16 @@ macro new_model(model_specification)
     num_interfaces = Base.length(ms_args)
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
-    
+
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
-    ms_body = apply_pipeline(ms_body, save_expression_in_tilde) 
+    ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
     ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
     ms_body = apply_pipeline(ms_body, convert_indexed_statement)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
-    ms_body = apply_pipeline(ms_body, convert_tilde_expression)   
+    ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
     result = quote
 
@@ -294,7 +297,7 @@ macro new_model(model_specification)
             parent_context,
             ::typeof($ms_name),
             interfaces,
-        )   
+        )
             for (name, interface) in pairs(interfaces)
                 eval(:($name = $interface))
             end
