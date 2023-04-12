@@ -328,6 +328,9 @@ function getorcreate!(
     if !haskey(context.tensor_variables, name)
         add_variable_node!(model, context, name, index)
         return context.tensor_variables[name]
+    elseif !isassigned(context.tensor_variables[name], index...)
+        add_variable_node!(model, context, name, index)
+        return context.tensor_variables[name]
     else
         get(
             () -> add_variable_node!(model, context, name, index),
@@ -337,7 +340,6 @@ function getorcreate!(
         return context.tensor_variables[name]
     end
 end
-
 
 getifcreated(model::Model, context:: Context, variable, index=nothing) = getifcreated(is_iterable(variable), model, context, variable, index)
 

@@ -83,6 +83,17 @@ using Test
         @test_throws Exception (v[1, 1, 1, 1] = 1.0)
     end
 
+    let v = ResizableArray(Float64, Val(2))
+        v[1, 1] = 1.0
+        v[1, 2] = 2.0
+        v[1, 3] = 3.0
+        v[1, 4] = 4.0
+        v[2, 1] = 5.0
+        v[2, 2] = 6.0
+        v[2, 3] = 7.0
+         @test size(v) === (2, 4)
+    end
+
     
     let v = ResizableArray(Float64, Val(3))
         @test size(v) === (0, 0, 0)
