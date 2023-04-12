@@ -96,7 +96,7 @@ end
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         if @capture(lhs, var_[index_])
-            return quote 
+            return  quote
                 $(generate_get_or_create(var, index))
                 $e
             end
@@ -119,6 +119,10 @@ function generate_get_or_create(s::Symbol)
     return :($s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s))))
 end
 
+function generate_get_or_create(s::Symbol, index::Symbol)
+    return :($s[$index] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
+end
+
 function generate_get_or_create(s::Symbol, index)
     return :($s[$(index...)] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
@@ -137,6 +141,22 @@ function convert_arithmetic_operations(e::Expr)
     end
 end
 
+function convert_tilde_expression(e::Expr)
+    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
+        args = GraphPPL.keyword_expressions_to_named_tuple(args)
+        return GraphPPL.__convert_tilde_expression(
+            lhs,
+            fform,
+            args,
+            Val(length(args) + 1),
+        )
+    elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+        return GraphPPL.__convert_tilde_expression(lhs, fform, args)
+    else
+        return e
+    end
+end
+
 function interfaces end
 
 function missing_interfaces(node_type, val::Val, known_interfaces)
@@ -146,12 +166,12 @@ function missing_interfaces(node_type, val::Val, known_interfaces)
 end
 
 
-function convert_tilde_expression(lhs::Symbol, fform, rhs::AbstractArray)
+function __convert_tilde_expression(lhs, fform, rhs::AbstractArray)
     interfaces = (in = Expr(:tuple, rhs...), out = lhs)
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
-function convert_tilde_expression(lhs::Symbol, fform, rhs::NamedTuple, val::Val)
+function __convert_tilde_expression(lhs, fform, rhs::NamedTuple, val::Val)
     missing_interface = GraphPPL.missing_interfaces(getfield(Main, fform), val, rhs)[1]
     interfaces = NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
     return GraphPPL.generate_make_node_call(fform, interfaces)
@@ -262,25 +282,7 @@ macro new_model(model_specification)
     ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
     ms_body = apply_pipeline(ms_body, convert_indexed_statement)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
-    
-
-    ms_body = postwalk(ms_body) do expression
-        if @capture(expression, (lhs_ ~ fform_(; args__) where {options__}))
-            args = GraphPPL.keyword_expressions_to_named_tuple(args)
-            return GraphPPL.convert_tilde_expression(
-                lhs,
-                fform,
-                args,
-                Val(length(args) + 1),
-            )
-        elseif @capture(expression, (lhs_ ~ fform_(args__) where {options__}))
-            return GraphPPL.convert_tilde_expression(lhs, fform, args)
-        else
-            return expression
-        end
-    end
-
-    
+    ms_body = apply_pipeline(ms_body, convert_tilde_expression)   
 
     result = quote
 

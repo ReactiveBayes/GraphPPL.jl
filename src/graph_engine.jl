@@ -334,6 +334,22 @@ function getorcreate!(
     end
 end
 
+function getorcreate_context_entry(context, name, index)
+    if len(index) == 1
+        return get(
+            () -> ResizableArray(NodeLabel, 1),
+            context.vector_variables,
+            name,
+        )
+    else
+        return get(
+            () -> ResizableArray(NodeLabel, length(index)),
+            context.tensor_variables,
+            name,
+        )
+    end
+end
+
 getifcreated(model::Model, context:: Context, variable, index=nothing) = getifcreated(is_iterable(variable), model, context, variable, index)
 
 getifcreated(::NotIterable, model::Model, context:: Context, variable::NodeLabel, index::Nothing) = variable

@@ -342,6 +342,45 @@ using MacroTools
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
     end
 
+    @testset "generate_get_or_create" begin
+        import GraphPPL: generate_get_or_create, apply_pipeline
+        #Test 1: test scalar variable
+        output = generate_get_or_create(:x)
+        desired_result = quote
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+        end
+        @test_expression_generating output desired_result
+
+        #Test 2: test vector variable
+        output = generate_get_or_create(:x, 1)
+        desired_result = quote
+            x[1] = GraphPPL.getorcreate!(model, context, :x, 1)
+        end
+        @test_expression_generating output desired_result
+
+        #Test 3: test matrix variable
+        output = generate_get_or_create(:x, (1, 2))
+        desired_result = quote
+            x[1, 2] = GraphPPL.getorcreate!(model, context, :x, 1, 2)
+        end
+        @test_expression_generating output desired_result
+
+        #Test 4: test symbol-indexed variable
+        output = generate_get_or_create(:x, :i)
+        desired_result = quote
+            x[i] = GraphPPL.getorcreate!(model, context, :x, i)
+        end
+        @test_expression_generating output desired_result
+
+        #Test 5: test symbol-indexed variable
+        output = generate_get_or_create(:x, (:i, :j))
+        desired_result = quote
+            x[i, j] = GraphPPL.getorcreate!(model, context, :x, i, j)
+        end
+        @test_expression_generating output desired_result
+        
+    end
+
     @testset "convert_arithmetic_operations" begin
         import GraphPPL: convert_arithmetic_operations, apply_pipeline
 
@@ -422,6 +461,13 @@ using MacroTools
             prod(a, sum(b, c))
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+
+        #Test 9: Test input with indexed operation on the right hand side
+        input = quote
+            x[i] ~ Normal(x[i-1], 1)
+        end        
+        output = input
+        @test_broken prettify(apply_pipeline(input, convert_arithmetic_operations))  == prettify(output)
     end
 
     @testset "is_kwargs_expression(::AbstractArray)" begin
@@ -457,84 +503,40 @@ using MacroTools
         expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
         @test keyword_expressions_to_named_tuple(expr) == (; zip((:in1, :in2), (:y, :z))...)
     end
-    """
-    @testset "generate_make_node_call(::Any, NamedTuple)" begin
-        import GraphPPL: create_model, generate_make_node_call
 
-        #test default functionality
-        input = (sum, (in = :x, out = :y))
+    @testset "convert_tilde_expression" begin
+        import GraphPPL: convert_tilde_expression, apply_pipeline
+        using Distributions
+
+        input = quote
+            x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+        end
         output = quote
-            x = (@isdefined(x)) ? x : GraphPPL.getorcreate!(model, context, :x)
-            y = (@isdefined(y)) ? y : GraphPPL.getorcreate!(model, context, :y)
-            interfaces_tuple = (in = x, out = y)
+            interfaces_tuple = (in = GraphPPL.getifcreated(model, context, (0,1)), out = GraphPPL.getifcreated(model, context, x))
+            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+  
+        GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:μ, :σ, :out)
+
+        input = quote
+            x ~ sum(;μ = 0, σ = 1) where {created_by = (x ~ sum(μ = 0, σ = 1))}
+        end
+        output = quote
+            interfaces_tuple = (μ = GraphPPL.getifcreated(model, context, 0), σ = GraphPPL.getifcreated(model, context, 1), out = GraphPPL.getifcreated(model, context, x))
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        @test_expression_generating(generate_make_node_call(input...), output)
-
-        #test expression functionality
-        input = (sum, (in = :([x]), out = :y))
-        output = quote
-            x = (@isdefined(x)) ? x : GraphPPL.getorcreate!(model, context, :x)
-            y = (@isdefined(y)) ? y : GraphPPL.getorcreate!(model, context, :y)
-            interfaces_tuple = (in = [x], out = y)
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+        input = quote
+            x[i] ~ Normal(μ[i], σ[i]) where {created_by = (x[i] ~ Normal(μ[i], σ[i]))}
         end
-
-        @test_expression_generating(generate_make_node_call(input...), output)
-
-        #test vector functionality
-        input = (sum, (in = :([x, z]), out = :y))
         output = quote
-            x = (@isdefined(x)) ? x : GraphPPL.getorcreate!(model, context, :x)
-            z = (@isdefined(z)) ? z : GraphPPL.getorcreate!(model, context, :z)
-            y = (@isdefined(y)) ? y : GraphPPL.getorcreate!(model, context, :y)
-            interfaces_tuple = (in = [x, z], out = y)
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            interfaces_tuple = (in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])), out = GraphPPL.getifcreated(model, context, x[i]))
+            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
         end
-
-        @test_expression_generating(generate_make_node_call(input...), output)
-
-        #Test empty interfaces
-        input = (sum, NamedTuple())
-        output = quote
-            interfaces_tuple = ()
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
-        end
-        @test_expression_generating(generate_make_node_call(input...), output)
-
-        #test illegal interfaces
-        input = (sum, (in = :x, out = :(1 + 2)))
-        @test_throws MethodError generate_make_node_call(input...)
-
-        #test with nested interfaces
-        input = (sum, (inputs = (in1 = :x, in2 = :y), output = :z))
-        output = quote
-            x = (@isdefined(x)) ? x : GraphPPL.getorcreate!(model, context, :x)
-            y = (@isdefined(y)) ? y : GraphPPL.getorcreate!(model, context, :y)
-            z = (@isdefined(z)) ? z : GraphPPL.getorcreate!(model, context, :z)
-            interfaces_tuple = (inputs = (in1 = x, in2 = y), output = z)
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
-        end
-        @test_expression_generating(generate_make_node_call(input...), output)
-
-
-        interfaces = (in1 = :x, in2 = :y, in3 = :test, in4 = :a)
-        input = (sum, (inputs = interfaces, output = :z))
-        output = quote
-            x = (@isdefined(x)) ? x : GraphPPL.getorcreate!(model, context, :x)
-            y = (@isdefined(y)) ? y : GraphPPL.getorcreate!(model, context, :y)
-            test =
-                (@isdefined(test)) ? test : GraphPPL.getorcreate!(model, context, :test)
-            a = (@isdefined(a)) ? a : GraphPPL.getorcreate!(model, context, :a)
-            z = (@isdefined(z)) ? z : GraphPPL.getorcreate!(model, context, :z)
-            interfaces_tuple =
-                (inputs = (in1 = x, in2 = y, in3 = test, in4 = a), output = z)
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
-        end
-        @test_expression_generating(generate_make_node_call(input...), output)
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
     end
-    """
 
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
         import GraphPPL: extract_interfaces
