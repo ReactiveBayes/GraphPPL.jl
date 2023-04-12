@@ -85,7 +85,7 @@ function convert_indexed_statement(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         if @capture(lhs, var_[index__])
             return quote
-                $var = @isdefined($var) ? $var : GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val($(length(index))))
+                $var = @isdefined($var) ? $var : GraphPPL.getorcreate!(model, context, $(QuoteNode(var)), $(index...))
                 $e
             end
         end
@@ -120,11 +120,11 @@ function generate_get_or_create(s::Symbol)
 end
 
 function generate_get_or_create(s::Symbol, index::Symbol)
-    return :($s[$index] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
+    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
 end
 
 function generate_get_or_create(s::Symbol, index)
-    return :($s[$(index...)] = GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
+    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
 function convert_arithmetic_operations(e::Expr)

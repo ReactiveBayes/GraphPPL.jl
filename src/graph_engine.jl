@@ -301,13 +301,15 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
         )
     end
     if !haskey(context.vector_variables, name)
-        return add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name, index)
+        return context.vector_variables[name]
     end
-    return get(
+    get(
         () -> add_variable_node!(model, context, name, index),
         context.vector_variables[name],
         index,
     )
+    return context.vector_variables[name]
 end
 
 function getorcreate!(
@@ -324,31 +326,18 @@ function getorcreate!(
     end
     # Simply return a variable and create a new one if it does not exist
     if !haskey(context.tensor_variables, name)
-        return add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name, index)
+        return context.tensor_variables[name]
     else
-        return get(
+        get(
             () -> add_variable_node!(model, context, name, index),
             context.tensor_variables[name],
             index,
         )
+        return context.tensor_variables[name]
     end
 end
 
-function getorcreate_context_entry(context, name, index)
-    if len(index) == 1
-        return get(
-            () -> ResizableArray(NodeLabel, 1),
-            context.vector_variables,
-            name,
-        )
-    else
-        return get(
-            () -> ResizableArray(NodeLabel, length(index)),
-            context.tensor_variables,
-            name,
-        )
-    end
-end
 
 getifcreated(model::Model, context:: Context, variable, index=nothing) = getifcreated(is_iterable(variable), model, context, variable, index)
 
