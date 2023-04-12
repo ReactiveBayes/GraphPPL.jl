@@ -51,7 +51,7 @@ struct EdgeLabel
     name::Symbol
 end
 
-struct UndefinedVariable 
+struct UndefinedVariable
     name::Symbol
 end
 
@@ -301,10 +301,9 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
         )
     end
     if !haskey(context.vector_variables, name)
-        return add_variable_node!(model, context, name, index)
-        return context.vector_variables[name]
+        context.vector_variables[name] = ResizableArray(NodeLabel)
     end
-    return get(
+    get(
         () -> add_variable_node!(model, context, name, index),
         context.vector_variables[name],
         index,
@@ -312,12 +311,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     return context.vector_variables[name]
 end
 
-function getorcreate!(
-    model::Model,
-    context::Context,
-    name::Symbol,
-    index...
-) 
+function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     # check that the variable does not exist in other categories
     if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
         error(
@@ -326,31 +320,77 @@ function getorcreate!(
     end
     # Simply return a variable and create a new one if it does not exist
     if !haskey(context.tensor_variables, name)
-        return add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name, index)
+
     elseif !isassigned(context.tensor_variables[name], index...)
-        return add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name, index)
     else
-        return get(
+        get(
             () -> add_variable_node!(model, context, name, index),
             context.tensor_variables[name],
             index,
         )
     end
+    return context.tensor_variables[name]
 end
 
-getifcreated(model::Model, context:: Context, variable, index=nothing) = getifcreated(is_iterable(variable), model, context, variable, index)
+getifcreated(model::Model, context::Context, variable, index = nothing) =
+    getifcreated(is_iterable(variable), model, context, variable, index)
 
-getifcreated(::NotIterable, model::Model, context:: Context, variable::NodeLabel, index::Nothing) = variable
-getifcreated(::NotIterable, model::Model, context:: Context, variable::UndefinedVariable, index=nothing) = add_variable_node!(model, context, variable.name, index, nothing)
-getifcreated(::NotIterable, model::Model, context::Context, variable, index) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
+getifcreated(
+    ::NotIterable,
+    model::Model,
+    context::Context,
+    variable::NodeLabel,
+    index::Nothing,
+) = variable
+getifcreated(
+    ::NotIterable,
+    model::Model,
+    context::Context,
+    variable::UndefinedVariable,
+    index = nothing,
+) = add_variable_node!(model, context, variable.name, index, nothing)
+getifcreated(::NotIterable, model::Model, context::Context, variable, index) =
+    add_variable_node!(model, context, gensym(:constvar), nothing, variable)
 
-getifcreated(::Iterable, model::Model, context::Context, variable, index) = getifcreated(Iterable(), eltype(variable), model, context, variable, index)
+getifcreated(::Iterable, model::Model, context::Context, variable, index) =
+    getifcreated(Iterable(), eltype(variable), model, context, variable, index)
 
-getifcreated(::Iterable, ::Type{NodeLabel}, model::Model, context::Context, variable, index::Nothing) = variable
-getifcreated(::Iterable, ::Type{NodeLabel}, model::Model, context::Context, variable, index) = variable[index]
-getifcreated(::Iterable, ::Type{UndefinedVariable}, model::Model, context::Context, variables, index) = map((var) -> add_variable_node!(model, context, name(var), index, nothing), variables)
-getifcreated(::Iterable, ::Type{<:Number}, model::Model, context::Context, variable, index) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
-getifcreated(::Iterable, T::Type{Any}, ::Model, ::Context, ::Any, ::Nothing) = throw(error("Cannot create variable from iterable of type $T"))
+getifcreated(
+    ::Iterable,
+    ::Type{NodeLabel},
+    model::Model,
+    context::Context,
+    variable,
+    index::Nothing,
+) = variable
+getifcreated(
+    ::Iterable,
+    ::Type{NodeLabel},
+    model::Model,
+    context::Context,
+    variable,
+    index,
+) = variable[index]
+getifcreated(
+    ::Iterable,
+    ::Type{UndefinedVariable},
+    model::Model,
+    context::Context,
+    variables,
+    index,
+) = map((var) -> add_variable_node!(model, context, name(var), index, nothing), variables)
+getifcreated(
+    ::Iterable,
+    ::Type{<:Number},
+    model::Model,
+    context::Context,
+    variable,
+    index,
+) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
+getifcreated(::Iterable, T::Type{Any}, ::Model, ::Context, ::Any, ::Nothing) =
+    throw(error("Cannot create variable from iterable of type $T"))
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -374,7 +414,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol,
     index = nothing,
-    value = nothing
+    value = nothing,
 )
     variable_symbol = gensym(model, variable_id, index)
     context[variable_id, index] = variable_symbol
