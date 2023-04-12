@@ -309,6 +309,14 @@ using TestSetExtensions
         z = x
         @test nv(model) == 1 && z[2] == ctx.vector_variables[:x][2]
 
+        model = create_model()
+        ctx = context(model)
+        for i in 1:10
+            for j in 1:10
+                getorcreate!(model, ctx, :x, i, j)
+            end
+        end
+        @test nv(model) == 100
 
     end
 

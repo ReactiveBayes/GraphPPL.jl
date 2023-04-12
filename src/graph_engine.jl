@@ -325,27 +325,13 @@ function getorcreate!(
     # Simply return a variable and create a new one if it does not exist
     if !haskey(context.tensor_variables, name)
         return add_variable_node!(model, context, name, index)
+    elseif !isassigned(context.tensor_variables[name], index...)
+        return add_variable_node!(model, context, name, index)
     else
         return get(
             () -> add_variable_node!(model, context, name, index),
             context.tensor_variables[name],
             index,
-        )
-    end
-end
-
-function getorcreate_context_entry(context, name, index)
-    if len(index) == 1
-        return get(
-            () -> ResizableArray(NodeLabel, 1),
-            context.vector_variables,
-            name,
-        )
-    else
-        return get(
-            () -> ResizableArray(NodeLabel, length(index)),
-            context.tensor_variables,
-            name,
         )
     end
 end
