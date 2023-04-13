@@ -8,6 +8,72 @@ using MacroTools
 
 @testset "model_macro" begin
 
+    @testset "guarded_walk" begin
+        import GraphPPL: guarded_walk
+
+        #Test 1: walk with indexing operation as guard
+        g_walk = guarded_walk((x) -> x isa Expr && x.head == :ref)
+
+        input = quote
+            x[i + 1] + 1
+        end
+
+        output = quote 
+            sum(x[i + 1], 1)
+        end
+
+        result = g_walk(input) do x
+            if @capture(x, (a_ + b_))
+                return :(sum($a, $b))
+            else
+                return x
+            end
+        end
+
+        @test_expression_generating result output
+
+        #Test 2: walk with complexer guard function
+        custom_guard(x) = x isa Expr && (x.head == :ref || x.head == :call)
+
+        g_walk = guarded_walk(custom_guard)
+
+        input = quote
+            x[i + 1] * y[j - 1] + z[k + 2]()
+        end
+
+        output = quote
+            sum(x[i + 1] * y[j - 1], z[k + 2]())
+        end
+
+        result = g_walk(input) do x
+            if @capture(x, (a_ + b_))
+                return :(sum($a, $b))
+            else
+                return x
+            end
+        end
+
+        @test_expression_generating result output
+
+        #Test 3: walk with guard function that always returns true
+        g_walk = guarded_walk((x) -> true)
+
+        input = quote
+            x[i + 1] + 1
+        end
+
+        result = g_walk(input) do x
+            if @capture(x, (a_ + b_))
+                return :(sum($a, $b))
+            else
+                return x
+            end
+        end
+
+        @test_expression_generating result input
+        
+    end
+
     @testset "save_expression_in_tilde" begin
         import GraphPPL: save_expression_in_tilde, apply_pipeline
 
@@ -484,8 +550,14 @@ using MacroTools
             x[i] ~ Normal(x[i-1], 1)
         end
         output = input
-        @test_broken prettify(apply_pipeline(input, convert_arithmetic_operations)) ==
-                     prettify(output)
+        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+
+        #Test 10: Test input with indexed operation on the right hand side
+        input = quote
+            x[1] ~ (Normal(x[i + 1], σ) where (created_by = (x[1] ~ Normal(x[i + 1], σ))))
+        end
+        output = input
+        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
     end
 
     @testset "is_kwargs_expression(::AbstractArray)" begin
