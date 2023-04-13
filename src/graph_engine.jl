@@ -45,17 +45,13 @@ struct NodeData
     value::Any
 end
 
+value(node::NodeData) = node.value
 NodeData(is_variable::Bool, name::Any) = NodeData(is_variable, name, nothing)
 
 struct EdgeLabel
     name::Symbol
 end
 
-struct UndefinedVariable
-    name::Symbol
-end
-
-name(var::UndefinedVariable) = var.name
 
 """
     Model(graph::MetaGraph)
@@ -334,63 +330,10 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     return context.tensor_variables[name]
 end
 
-getifcreated(model::Model, context::Context, variable, index = nothing) =
-    getifcreated(is_iterable(variable), model, context, variable, index)
-
-getifcreated(
-    ::NotIterable,
-    model::Model,
-    context::Context,
-    variable::NodeLabel,
-    index::Nothing,
-) = variable
-getifcreated(
-    ::NotIterable,
-    model::Model,
-    context::Context,
-    variable::UndefinedVariable,
-    index = nothing,
-) = add_variable_node!(model, context, variable.name, index, nothing)
-getifcreated(::NotIterable, model::Model, context::Context, variable, index) =
-    add_variable_node!(model, context, gensym(:constvar), nothing, variable)
-
-getifcreated(::Iterable, model::Model, context::Context, variable, index) =
-    getifcreated(Iterable(), eltype(variable), model, context, variable, index)
-
-getifcreated(
-    ::Iterable,
-    ::Type{NodeLabel},
-    model::Model,
-    context::Context,
-    variable,
-    index::Nothing,
-) = variable
-getifcreated(
-    ::Iterable,
-    ::Type{NodeLabel},
-    model::Model,
-    context::Context,
-    variable,
-    index,
-) = variable[index]
-getifcreated(
-    ::Iterable,
-    ::Type{UndefinedVariable},
-    model::Model,
-    context::Context,
-    variables,
-    index,
-) = map((var) -> add_variable_node!(model, context, name(var), index, nothing), variables)
-getifcreated(
-    ::Iterable,
-    ::Type{<:Number},
-    model::Model,
-    context::Context,
-    variable,
-    index,
-) = add_variable_node!(model, context, gensym(:constvar), nothing, variable)
-getifcreated(::Iterable, T::Type{Any}, ::Model, ::Context, ::Any, ::Nothing) =
-    throw(error("Cannot create variable from iterable of type $T"))
+getifcreated(model::Model, context::Context, var::NodeLabel) = var
+getifcreated(model::Model, context::Context, var::Union{Real, AbstractVector}) = add_variable_node!(model, context, gensym(:constvar), nothing, var)
+getifcreated(model::Model, context::Context, var::Tuple) = map((v) -> getifcreated(model, context, v), var)
+getifcreated(model::Model, context::Context, var::Symbol) = haskey(context, var) ? context[var] : nothing
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 

@@ -10,8 +10,9 @@ macro test_expression_generating(lhs, rhs)
     end)
 end
 
-function apply_pipeline(e::Expr, pipeline_function::Function)
-    return postwalk(x -> __guard_f(pipeline_function, x), e)
+function apply_pipeline(e::Expr, pipeline)
+    walk = what_walk(pipeline)
+    return walk(x -> __guard_f(pipeline, x), e)
 end
 
 function warn_datavar_constvar_randomvar(e::Expr)
@@ -25,6 +26,32 @@ function warn_datavar_constvar_randomvar(e::Expr)
     return e
 end
 
+what_walk(::Function) = postwalk
+what_walk(anything) = postwalk
+
+
+# REMOVE THIS
+# struct MyCustomPipeline
+#     created_by_expr::Expr
+# end
+# function (pipeline::MyCustomPipeline)(expr::Expr)
+#     @show pipeline.created_by_expr
+#     return expr
+# end
+
+# pipeline = MyCustomPipeline(:(x ~ Normal()))
+
+# # pipeline(e)
+
+# struct Pipeline1
+#     cached::Int
+# end 
+
+# (structure::myfunction)(x::Int) = x + structure.cached
+
+# const g = myfunction(2)
+
+# @show g(1)
 
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
@@ -287,10 +314,18 @@ macro new_model(model_specification)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
-    result = quote
+    # TODO (bvdmitri): prettify
+    init_input_arguments = map(ms_args) do arg
+        error_msg = "Missing interface $(arg)"
+        return quote 
+            if !haskey(interfaces, $(QuoteNode(arg)))
+                error($error_msg)
+            end
+            $arg = interfaces[$(QuoteNode(arg))]
+        end
+    end
 
-        $boilerplate_functions
-
+    make_node_function = quote 
         function GraphPPL.make_node!(
             model,
             ::GraphPPL.Composite,
@@ -298,17 +333,23 @@ macro new_model(model_specification)
             ::typeof($ms_name),
             interfaces,
         )
-            for (name, interface) in pairs(interfaces)
-                eval(:($name = $interface))
-            end
+            $(init_input_arguments...)
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
             $ms_body
             node_id = GraphPPL.gensym(model, $ms_name)
             GraphPPL.add_composite_factor_node!(model, context, parent_context, $ms_name)
         end
+    end
+
+    result = quote
+
+        $boilerplate_functions
+        $make_node_function
+        
         nothing
     end
+    @show prettify(make_node_function)
     return esc(result)
 
 

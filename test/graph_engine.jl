@@ -22,12 +22,6 @@ using TestSetExtensions
         @test_throws MethodError Model()
     end
 
-    @testset "UndefinedVariable" begin
-        import GraphPPL: UndefinedVariable
-
-        @test UndefinedVariable(:x).name == :x
-        @test_throws MethodError UndefinedVariable()
-    end
 
     @testset "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
         import GraphPPL: create_model, NodeLabel, NodeData
@@ -312,41 +306,52 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
 
-        # Test case 1: Test that getifcreated returns the same variable as getorcreate!
+        #Test case 1: check that getifcreated  the variable created by getorcreate
         x = getorcreate!(model, ctx, :x)
         @test getifcreated(model, ctx, x) == x
 
-        # Test case 2: Test for an integer variable
-        constvar = getifcreated(model, ctx, 1)
-        @test constvar isa NodeLabel && model[constvar] isa NodeData
+        #Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
+        y = getorcreate!(model, ctx, :y, 1)
+        @test getifcreated(model, ctx, y[1]) == y[1]
 
-        # Test case 3: Test that creating a second integer variable with the same value creates a new node
-        @test nv(model) == 2
-        constvar = getifcreated(model, ctx, 1)
-        @test nv(model) == 3 && model[constvar].value == 1
+        #Test case 3: check that getifcreated returns a new variable node when called with integer input
+        c = getifcreated(model, ctx, 1)
+        @test GraphPPL.value(model[c]) == 1
 
-        # Test case 4: Test for a symbol variable
-        symvar = getifcreated(model, ctx, :x)
-        @test nv(model) == 4 && model[symvar].value == :x
+        #Test case 4: check that getifcreated returns a new variable node when called with a vector input
+        c = getifcreated(model, ctx, [1, 2])
+        @test GraphPPL.value(model[c]) == [1, 2]
 
-        # Test case 5: Test for a vector variable
-        vecvar = getifcreated(model, ctx, [1, 2, 3])
-        @test nv(model) == 5 && model[vecvar].value == [1, 2, 3]
+        #Test case 5: check that getifcreated returns a tuple of variable nodes when called with a tuple of NodeData
+        output = getifcreated(model, ctx, (x, y[1]))
+        @test output == (x, y[1])
 
-        # Test case 6: Test for an undiefined variable
+        #Test case 6: check that getifcreated returns a tuple of new variable nodes when called with a tuple of integers
+        output = getifcreated(model, ctx, (1, 2))
+        @show output
+        @test GraphPPL.value(model[output[1]]) == 1
+        @test GraphPPL.value(model[output[2]]) == 2
+
+        #Test case 7: check that getifcreated returns a tuple of variable nodes when called with a tuple of mixed input
+        output = getifcreated(model, ctx, (x, 1))
+        @test output[1] == x && GraphPPL.value(model[output[2]]) == 1
+
+        #Test case 8: check that getifcreated returns nothing when called with a variable that doesn't exist
+        z = getifcreated(model, ctx, :z)
+        @test z == nothing
+
+        #Test case 9: check that getifcreated returns the variable node if we create a variable and call it by symbol
+        z = getorcreate!(model, ctx, :z)
+        z_fetched = getifcreated(model, ctx, :z)
+        @test z == z_fetched
+
+        #Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
         model = create_model()
-        x = UndefinedVariable(:x)
-        @test name(getifcreated(model, context(model), x)) == :x
+        ctx = context(model)
+        z = getorcreate!(model, ctx, :z, 1)
+        z_fetched = getifcreated(model, ctx, :z)
+        @test z_fetched == ctx.vector_variables[:z]
 
-        # Test case 7: Test for a tuple of undefined variables
-        model = create_model()
-        x = [UndefinedVariable(:x), UndefinedVariable(:y)]
-        result = getifcreated(model, context(model), x)
-        @test name(result[1]) == :x && name(result[2]) == :y
-
-        model = create_model()
-        x = [UndefinedVariable(:x), getorcreate!(model, :y)]
-        @test_throws ErrorException getifcreated(model, context(model), x)
 
     end
 
@@ -500,7 +505,6 @@ using TestSetExtensions
             make_node!,
             plot_graph,
             getorcreate!,
-            UndefinedVariable,
             getifcreated
 
         model = create_model()
@@ -562,40 +566,6 @@ using TestSetExtensions
 
 
         model = create_model()
-        x = UndefinedVariable(:x)
-        y = UndefinedVariable(:y)
-        z = getorcreate!(model, :z)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, context(model), x),
-                in2 = getifcreated(model, context(model), y),
-                out = getifcreated(model, context(model), z),
-            ),
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        model = create_model()
-        x = UndefinedVariable(:x)
-        y = UndefinedVariable(:y)
-        z = getorcreate!(model, :z)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, context(model), x, (1, 2)),
-                in2 = getifcreated(model, context(model), y),
-                out = getifcreated(model, context(model), z),
-            ),
-        )
-        @test nv(model) == 4 &&
-              ne(model) == 3 &&
-              haskey(context(model).tensor_variables, :x)
-
-        model = create_model()
         z = getorcreate!(model, :z)
         make_node!(
             model,
@@ -604,20 +574,6 @@ using TestSetExtensions
             (
                 in1 = getifcreated(model, context(model), 1),
                 in2 = getifcreated(model, context(model), 2),
-                out = getifcreated(model, context(model), z),
-            ),
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        model = create_model()
-        vec = [UndefinedVariable(:x), UndefinedVariable(:x)]
-        z = getorcreate!(model, :z)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, context(model), vec),
                 out = getifcreated(model, context(model), z),
             ),
         )
