@@ -33,7 +33,7 @@ struct guarded_walk
 end
 
 function (w::guarded_walk)(f, x)
-    return  w.guard(x) ? x : walk(x, x -> guarded_walk(w.guard)(f, x), f)
+    return w.guard(x) ? x : walk(x, x -> guarded_walk(w.guard)(f, x), f)
 end
 
 
@@ -164,7 +164,8 @@ function convert_arithmetic_operations(e::Expr)
     end
 end
 
-what_walk(::typeof(convert_arithmetic_operations)) = guarded_walk((x) -> (x isa Expr && x.head == :ref))
+what_walk(::typeof(convert_arithmetic_operations)) =
+    guarded_walk((x) -> (x isa Expr && x.head == :ref))
 
 function convert_tilde_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
@@ -308,7 +309,7 @@ macro new_model(model_specification)
     # TODO (bvdmitri): prettify
     init_input_arguments = map(ms_args) do arg
         error_msg = "Missing interface $(arg)"
-        return quote 
+        return quote
             if !haskey(interfaces, $(QuoteNode(arg)))
                 error($error_msg)
             end
@@ -316,7 +317,7 @@ macro new_model(model_specification)
         end
     end
 
-    make_node_function = quote 
+    make_node_function = quote
         function GraphPPL.make_node!(
             model,
             ::GraphPPL.Composite,
@@ -337,7 +338,7 @@ macro new_model(model_specification)
 
         $boilerplate_functions
         $make_node_function
-        
+
         nothing
     end
     return esc(result)

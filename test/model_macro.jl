@@ -15,11 +15,11 @@ using MacroTools
         g_walk = guarded_walk((x) -> x isa Expr && x.head == :ref)
 
         input = quote
-            x[i + 1] + 1
+            x[i+1] + 1
         end
 
-        output = quote 
-            sum(x[i + 1], 1)
+        output = quote
+            sum(x[i+1], 1)
         end
 
         result = g_walk(input) do x
@@ -38,11 +38,11 @@ using MacroTools
         g_walk = guarded_walk(custom_guard)
 
         input = quote
-            x[i + 1] * y[j - 1] + z[k + 2]()
+            x[i+1] * y[j-1] + z[k+2]()
         end
 
         output = quote
-            sum(x[i + 1] * y[j - 1], z[k + 2]())
+            sum(x[i+1] * y[j-1], z[k+2]())
         end
 
         result = g_walk(input) do x
@@ -59,7 +59,7 @@ using MacroTools
         g_walk = guarded_walk((x) -> true)
 
         input = quote
-            x[i + 1] + 1
+            x[i+1] + 1
         end
 
         result = g_walk(input) do x
@@ -71,7 +71,7 @@ using MacroTools
         end
 
         @test_expression_generating result input
-        
+
     end
 
     @testset "save_expression_in_tilde" begin
@@ -554,7 +554,7 @@ using MacroTools
 
         #Test 10: Test input with indexed operation on the right hand side
         input = quote
-            x[1] ~ (Normal(x[i + 1], σ) where (created_by = (x[1] ~ Normal(x[i + 1], σ))))
+            x[1] ~ (Normal(x[i+1], σ) where {(created_by = (x[1] ~ Normal(x[i+1], σ)))})
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output

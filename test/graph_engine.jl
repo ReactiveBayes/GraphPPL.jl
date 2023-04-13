@@ -500,12 +500,7 @@ using TestSetExtensions
 
 
     @testset "make_node!(::Atomic)" begin
-        import GraphPPL:
-            create_model,
-            make_node!,
-            plot_graph,
-            getorcreate!,
-            getifcreated
+        import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated
 
         model = create_model()
 
