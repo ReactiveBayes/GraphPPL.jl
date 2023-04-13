@@ -1,8 +1,10 @@
 export @new_model, @test_expression_generating
-import MacroTools: postwalk, @capture
+import MacroTools: postwalk, @capture, walk
 
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
+
+#guarded_walk(f, x, guard) = walk(x, guard(x) ? x -> guarded_walk(f, x, guard) : identity, f)
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -26,32 +28,19 @@ function warn_datavar_constvar_randomvar(e::Expr)
     return e
 end
 
+struct guarded_walk
+    guard::Function
+end
+
+function (w::guarded_walk)(f, x)
+    return w.guard(x) ? x : walk(x, x -> guarded_walk(w.guard)(f, x), f)
+end
+
+
+
 what_walk(::Function) = postwalk
 what_walk(anything) = postwalk
 
-
-# REMOVE THIS
-# struct MyCustomPipeline
-#     created_by_expr::Expr
-# end
-# function (pipeline::MyCustomPipeline)(expr::Expr)
-#     @show pipeline.created_by_expr
-#     return expr
-# end
-
-# pipeline = MyCustomPipeline(:(x ~ Normal()))
-
-# # pipeline(e)
-
-# struct Pipeline1
-#     cached::Int
-# end 
-
-# (structure::myfunction)(x::Int) = x + structure.cached
-
-# const g = myfunction(2)
-
-# @show g(1)
 
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
@@ -174,6 +163,9 @@ function convert_arithmetic_operations(e::Expr)
         return e
     end
 end
+
+what_walk(::typeof(convert_arithmetic_operations)) =
+    guarded_walk((x) -> (x isa Expr && x.head == :ref))
 
 function convert_tilde_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
@@ -317,7 +309,7 @@ macro new_model(model_specification)
     # TODO (bvdmitri): prettify
     init_input_arguments = map(ms_args) do arg
         error_msg = "Missing interface $(arg)"
-        return quote 
+        return quote
             if !haskey(interfaces, $(QuoteNode(arg)))
                 error($error_msg)
             end
@@ -325,7 +317,7 @@ macro new_model(model_specification)
         end
     end
 
-    make_node_function = quote 
+    make_node_function = quote
         function GraphPPL.make_node!(
             model,
             ::GraphPPL.Composite,
@@ -346,10 +338,9 @@ macro new_model(model_specification)
 
         $boilerplate_functions
         $make_node_function
-        
+
         nothing
     end
-    @show prettify(make_node_function)
     return esc(result)
 
 
