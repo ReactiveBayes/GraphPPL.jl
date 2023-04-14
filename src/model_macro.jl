@@ -4,8 +4,6 @@ import MacroTools: postwalk, @capture, walk
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
 
-#guarded_walk(f, x, guard) = walk(x, guard(x) ? x -> guarded_walk(f, x, guard) : identity, f)
-
 macro test_expression_generating(lhs, rhs)
     return esc(quote
         @test prettify($lhs) == prettify($rhs)
@@ -54,6 +52,16 @@ function save_expression_in_tilde(e::Expr)
         return :($lhs := $rhs where {$(options...),created_by=$e})
     else
         return e
+    end
+end
+
+function get_created_by(options::AbstractArray)
+    for option in options
+        if @capture(option, (name_ = expr_))
+            if name == :created_by
+                return expr
+            end
+        end
     end
 end
 
@@ -114,14 +122,37 @@ function convert_indexed_statement(e::Expr)
     return e
 end
 
+function convert_to_anonymous(e::Expr, created_by)
+    if @capture(e, f_(args__))
+        sym = gensym(:tmp)
+        return quote
+            begin
+                $sym ~ $f($(args...)) where {anonymous=true, created_by=$created_by}
+                $sym
+            end
+        end
+    end
+    return e
+end
+
+convert_to_anonymous(e, created_by) = e
+
+function convert_function_argument_in_rhs(e::Expr)
+    if @capture(e, (lhs_ ~ fform_(nargs__) where {options__}))
+        created_by = get_created_by(options)
+        for (i, narg) in enumerate(nargs)
+            nargs[i] = convert_to_anonymous(narg, created_by)
+        end
+        return :($lhs ~ $fform($(nargs...)) where {$(options...)})
+    end
+    return e
+end
+
+what_walk(::typeof(convert_function_argument_in_rhs)) = guarded_walk((x) -> x isa Expr && :created_by ∈ x.args)
+
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
-        if @capture(lhs, var_[index_])
-            return quote
-                $(generate_get_or_create(var, index))
-                $e
-            end
-        elseif @capture(lhs, var_[index__])
+        if @capture(lhs, var_[index__])
             return quote
                 $(generate_get_or_create(var, index))
                 $e
@@ -142,11 +173,8 @@ function generate_get_or_create(s::Symbol)
     )
 end
 
-function generate_get_or_create(s::Symbol, index::Symbol)
-    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $index))
-end
 
-function generate_get_or_create(s::Symbol, index)
+function generate_get_or_create(s::Symbol, index::Union{Tuple, AbstractArray, Int})
     return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
@@ -167,16 +195,7 @@ end
 what_walk(::typeof(convert_arithmetic_operations)) =
     guarded_walk((x) -> (x isa Expr && x.head == :ref))
 
-function convert_tilde_expression(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
-        args = GraphPPL.keyword_expressions_to_named_tuple(args)
-        return GraphPPL.__convert_tilde_expression(lhs, fform, args, Val(length(args) + 1))
-    elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
-        return GraphPPL.__convert_tilde_expression(lhs, fform, args)
-    else
-        return e
-    end
-end
+
 
 function interfaces end
 
@@ -185,7 +204,6 @@ function missing_interfaces(node_type, val::Val, known_interfaces)
     missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
     return missing_interfaces
 end
-
 
 function __convert_tilde_expression(lhs, fform, rhs::AbstractArray)
     interfaces = (in = Expr(:tuple, rhs...), out = lhs)
@@ -197,6 +215,18 @@ function __convert_tilde_expression(lhs, fform, rhs::NamedTuple, val::Val)
     interfaces = NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
+
+function convert_tilde_expression(e::Expr)
+    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
+        args = GraphPPL.keyword_expressions_to_named_tuple(args)
+        return GraphPPL.__convert_tilde_expression(lhs, fform, args, Val(length(args) + 1))
+    elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+        return GraphPPL.__convert_tilde_expression(lhs, fform, args)
+    else
+        return e
+    end
+end
+
 
 convert_interfaces_tuple(name::Symbol, interface) =
     :($name = GraphPPL.getifcreated(model, context, $interface))
@@ -303,6 +333,7 @@ macro new_model(model_specification)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
     ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
     ms_body = apply_pipeline(ms_body, convert_indexed_statement)
+    ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
