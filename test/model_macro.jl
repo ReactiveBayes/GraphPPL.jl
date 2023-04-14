@@ -72,6 +72,26 @@ using MacroTools
 
         @test_expression_generating result input
 
+        #Test 4: walk with guard function that should not go into body if created_by is key
+        g_walk = guarded_walk((x) -> x isa Expr && :created_by ∈ x.args)
+        input = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+        end
+        output = quote
+            sum(x, Normal(0, 1) where {created_by=(x~Normal(0, 1))})
+            sum(y, Normal(0, 1) where {created_by=(y~Normal(0, 1))})
+        end
+        result = g_walk(input) do x
+            if @capture(x, (a_ ~ b_))
+                return :(sum($a, $b))
+            else
+                return x
+            end
+        end
+        @test_expression_generating result output
+
+
     end
 
     @testset "save_expression_in_tilde" begin
@@ -374,22 +394,165 @@ using MacroTools
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
     end
 
-    @testset "missing_interfaces" begin
-        import GraphPPL: missing_interfaces, interfaces
-        GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:in1, :in2, :out)
+    @testset "convert_function_argument_in_rhs" begin
+        import GraphPPL: convert_function_argument_in_rhs, apply_pipeline
 
-        @test missing_interfaces(sum, Val(3), (in1 = :x, in2 = :y)) == [:out]
-        @test missing_interfaces(sum, Val(3), (out = :y,)) == [:in1, :in2]
-        @test missing_interfaces(sum, Val(3), Dict()) == [:in1, :in2, :out]
+        #Test 1: Input expression with a function call in rhs arguments
+        input = quote
+            x ~ Normal(Normal(0, 1), 1) where {created_by=(x ~ Normal(Normal(0, 1), 1))}
+        end
+        sym = gensym(:tmp)
+        output = quote
+            x ~ Normal(
+                begin
+                    $sym ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
+                    $sym
+                end,
+                1,
+            ) where {created_by=(x~Normal(Normal(0, 1), 1))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
-        GraphPPL.interfaces(::typeof(prod), ::Val{0}) = []
-        @test missing_interfaces(prod, Val(0), (in1 = :x, in2 = :y)) == []
+        #Test 2: Input expression without pattern matching
+        input = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+        end
+        output = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
-        GraphPPL.interfaces(::typeof(sin), ::Val{2}) = (:a, :b)
-        @test missing_interfaces(sin, Val(2), (a = 1, b = 2)) == []
+        #Test 3: Input expression with a function call as kwargs
+        input = quote
+            x ~ Normal(;
+                μ = Normal(0, 1),
+                σ = 1,
+            ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
+        end
+        sym = gensym(:tmp)
+        output = quote
+            x ~ Normal(;
+                μ = begin
+                    $sym ~ Normal(
+                        0,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(; μ = Normal(0, 1), σ = 1),
+                    }
+                    $sym
+                end,
+                σ = 1,
+            ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
+        end
+        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
 
-        GraphPPL.interfaces(::typeof(div), ::Val{2}) = (:in1, :in2, :out)
-        @test missing_interfaces(div, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+        #Test 4: Input expression without pattern matching and kwargs
+        input = quote
+            x ~ Normal(; μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
+        end
+        output = quote
+            x ~ Normal(; μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+
+        #Test 5: Input expression with multiple function calls in rhs arguments
+        input = quote
+            x ~ Normal(Normal(0, 1), Normal(0, 1)) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
+        end
+        sym1 = gensym(:tmp)
+        sym2 = gensym(:tmp)
+        output = quote
+            x ~ Normal(
+                begin
+                    $sym1 ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), Normal(0, 1))}
+                    $sym1
+                end,
+                begin
+                    $sym2 ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), Normal(0, 1))}
+                    $sym2
+                end,
+            ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+
+        #Test 6: Input expression with multiple function calls in rhs arguments and kwargs
+        input = quote
+            x ~ Normal(;
+                μ = Normal(0, 1),
+                σ = Normal(0, 1)
+            ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
+        end
+        sym1 = gensym(:tmp)
+        sym2 = gensym(:tmp)
+        output = quote
+            x ~ Normal(;
+                μ = begin
+                    $sym1 ~ Normal(
+                        0,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)),
+                    }
+                    $sym1
+                end,
+                σ = begin
+                    $sym2 ~ Normal(
+                        0,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)),
+                    }
+                    $sym2
+                end,
+            ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
+        end
+        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
+        
+        #Test 7: Input expression with nested function call in rhs arguments
+        input = quote
+            x ~ Normal(Normal(Normal(0, 1), 1), 1) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
+        end
+        sym1 = gensym(:tmp)
+        sym2 = gensym(:tmp)
+        output = quote
+            x ~ Normal(
+                begin
+                    $sym1 ~ Normal(
+                        begin
+                            $sym2 ~ Normal(
+                                0,
+                                1,
+                            ) where {
+                                anonymous=true,
+                                created_by=x~Normal(Normal(Normal(0, 1), 1), 1),
+                            }
+                            $sym2
+                        end,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(Normal(Normal(0, 1), 1), 1),
+                    }
+                    $sym1
+                end,
+                1,
+            ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
+        end
+
+        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
+
     end
 
     @testset "add_get_or_create_expression" begin
@@ -423,45 +586,108 @@ using MacroTools
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
+        #Test 4: test vector variable with variable as index
+        input = quote
+            x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
+        end
+        output = quote
+            GraphPPL.getorcreate!(model, context, :x, i)
+            x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
+        end
+        @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
+        #Test 5: test matrix variable with symbol as index
+        input = quote
+            x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
+        end
+        output = quote
+            GraphPPL.getorcreate!(model, context, :x, i, j)
+            x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
+        end
+        @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
+        #Test 4: test function call  in parameters on rhs
+        sym = gensym(:tmp)
+        input = quote
+            x ~ Normal(
+                begin
+                    $sym ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
+                    $sym
+                end,
+                1,
+            ) where {created_by=(x~Normal(Normal(0, 1), 1))}
+        end
+        output = quote
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            x ~ Normal(
+                begin
+                    $sym = @isdefined($sym) ? $sym : GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)))
+                    $sym ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
+                    $sym
+                end,
+                1,
+            ) where {created_by=(x~Normal(Normal(0, 1), 1))}
+        end  
+        @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
     end
 
     @testset "generate_get_or_create" begin
         import GraphPPL: generate_get_or_create, apply_pipeline
-        #Test 1: test scalar variable
+        # Test 1: test scalar variable
         output = generate_get_or_create(:x)
         desired_result = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
         end
         @test_expression_generating output desired_result
 
-        #Test 2: test vector variable
+        # Test 2: test vector variable
         output = generate_get_or_create(:x, 1)
         desired_result = quote
             GraphPPL.getorcreate!(model, context, :x, 1)
         end
         @test_expression_generating output desired_result
 
-        #Test 3: test matrix variable
+        # Test 3: test matrix variable
         output = generate_get_or_create(:x, (1, 2))
         desired_result = quote
             GraphPPL.getorcreate!(model, context, :x, 1, 2)
         end
         @test_expression_generating output desired_result
 
-        #Test 4: test symbol-indexed variable
-        output = generate_get_or_create(:x, :i)
-        desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, i)
-        end
-        @test_expression_generating output desired_result
-
-        #Test 5: test symbol-indexed variable
+        # Test 5: test symbol-indexed variable
         output = generate_get_or_create(:x, (:i, :j))
         desired_result = quote
             GraphPPL.getorcreate!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
 
+        # Test 6: test vector of single symbol
+        output = generate_get_or_create(:x, [:i])
+        desired_result = quote
+            GraphPPL.getorcreate!(model, context, :x, i)
+        end
+        @test_expression_generating output desired_result
+
+        # Test 7: test vector of symbols
+        output = generate_get_or_create(:x, [:i, :j])
+        desired_result = quote
+            GraphPPL.getorcreate!(model, context, :x, i, j)
+        end
+        @test_expression_generating output desired_result
+
+        # Test 8: test error if un-unrollable index
+        @test_throws MethodError generate_get_or_create(:x, 1, 2)
+
+        # Test 9: test error if un-unrollable index
+        @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
     end
 
     @testset "convert_arithmetic_operations" begin
@@ -560,6 +786,24 @@ using MacroTools
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
     end
 
+    @testset "missing_interfaces" begin
+        import GraphPPL: missing_interfaces, interfaces
+        GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:in1, :in2, :out)
+
+        @test missing_interfaces(sum, Val(3), (in1 = :x, in2 = :y)) == [:out]
+        @test missing_interfaces(sum, Val(3), (out = :y,)) == [:in1, :in2]
+        @test missing_interfaces(sum, Val(3), Dict()) == [:in1, :in2, :out]
+
+        GraphPPL.interfaces(::typeof(prod), ::Val{0}) = []
+        @test missing_interfaces(prod, Val(0), (in1 = :x, in2 = :y)) == []
+
+        GraphPPL.interfaces(::typeof(sin), ::Val{2}) = (:a, :b)
+        @test missing_interfaces(sin, Val(2), (a = 1, b = 2)) == []
+
+        GraphPPL.interfaces(::typeof(div), ::Val{2}) = (:in1, :in2, :out)
+        @test missing_interfaces(div, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+    end
+
     @testset "is_kwargs_expression(::AbstractArray)" begin
         import GraphPPL: is_kwargs_expression
 
@@ -632,6 +876,34 @@ using MacroTools
             interfaces_tuple = (
                 in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])),
                 out = GraphPPL.getifcreated(model, context, x[i]),
+            )
+            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        input = quote
+            x ~ Normal(
+                begin
+                    tmp_1 ~ Normal(
+                        0,
+                        1,
+                    ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
+                    tmp_1
+                end,
+                0,
+            ) where {created_by=(x~Normal(Normal(0, 1), 0))}
+        end
+        output = quote
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, (begin
+                    interfaces_tuple = (
+                        in = GraphPPL.getifcreated(model, context, (0, 1)),
+                        out = GraphPPL.getifcreated(model, context, tmp_1),
+                    )
+                    GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+                    tmp_1
+                end, 0)),
+                out = GraphPPL.getifcreated(model, context, x),
             )
             GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
         end

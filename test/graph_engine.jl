@@ -328,7 +328,6 @@ using TestSetExtensions
 
         #Test case 6: check that getifcreated returns a tuple of new variable nodes when called with a tuple of integers
         output = getifcreated(model, ctx, (1, 2))
-        @show output
         @test GraphPPL.value(model[output[1]]) == 1
         @test GraphPPL.value(model[output[2]]) == 2
 
