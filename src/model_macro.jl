@@ -3,6 +3,7 @@ import MacroTools: postwalk, @capture, walk
 
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
+  
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -34,6 +35,13 @@ function (w::guarded_walk)(f, x)
     return w.guard(x) ? x : walk(x, x -> w(f, x), f)
 end
 
+struct walk_until_occurrence
+    pattern::Expr
+end
+
+function (w::walk_until_occurrence)(f, x)
+    return walk(x, z -> @capture(x, $(w.pattern)) ? z : w(f, z), f)
+end
 
 
 what_walk(::Function) = postwalk
@@ -54,6 +62,8 @@ function save_expression_in_tilde(e::Expr)
         return e
     end
 end
+
+
 
 function get_created_by(options::AbstractArray)
     for option in options
@@ -141,14 +151,16 @@ function convert_function_argument_in_rhs(e::Expr)
     if @capture(e, (lhs_ ~ fform_(nargs__) where {options__}))
         created_by = get_created_by(options)
         for (i, narg) in enumerate(nargs)
-            nargs[i] = convert_to_anonymous(narg, created_by)
+            nargs[i] = postwalk(narg) do argument
+                convert_to_anonymous(argument, created_by)
+            end
         end
         return :($lhs ~ $fform($(nargs...)) where {$(options...)})
     end
     return e
 end
 
-what_walk(::typeof(convert_function_argument_in_rhs)) = guarded_walk((x) -> x isa Expr && :created_by ∈ x.args)
+what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
 
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
