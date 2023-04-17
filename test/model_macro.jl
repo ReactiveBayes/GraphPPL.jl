@@ -90,6 +90,59 @@ using MacroTools
             end
         end
         @test_expression_generating result output
+    end
+
+    @testset "walk_until_occurrence" begin
+        import GraphPPL: walk_until_occurrence
+
+        #Test 1: walk until occurrence of a specific node
+        w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+        input = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+        end
+        output = quote
+            sum(x, Normal(0, 1) where {created_by=(x~Normal(0, 1))})
+            sum(y, Normal(0, 1) where {created_by=(y~Normal(0, 1))})
+        end
+
+        result = w_u_o(input) do x
+            if @capture(x, (a_ ~ b_))
+                return :(sum($a, $b))
+            else
+                return x
+            end
+        end
+        @test_expression_generating result output
+
+        #Test 2: walk with nested pattern where we pattern match only once
+        w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+        input = quote
+            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+        end
+        local counter = 0
+        result = w_u_o(input) do x
+            if @capture(x, lhs_ ~ fform_(rhs__) where {options__})
+                counter += 1
+            end
+            return x
+        end
+        @test counter == 1
+
+        #Test 3: multi line walk with 
+        w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+        input = quote
+            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+        end
+        local counter = 0
+        result = w_u_o(input) do x
+            if @capture(x, lhs_ ~ fform_(rhs__) where {options__})
+                counter += 1
+            end
+            return x
+        end
+        @test counter == 2
 
 
     end
@@ -448,7 +501,7 @@ using MacroTools
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
         end
-        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
         #Test 4: Input expression without pattern matching and kwargs
         input = quote
@@ -518,7 +571,7 @@ using MacroTools
                 end,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
-        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
         
         #Test 7: Input expression with nested function call in rhs arguments
         input = quote
@@ -551,7 +604,7 @@ using MacroTools
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
 
-        @test_broken prettify(apply_pipeline(input, convert_function_argument_in_rhs)) ==  prettify(output)
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
     end
 
