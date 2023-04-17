@@ -31,7 +31,7 @@ struct guarded_walk
 end
 
 function (w::guarded_walk)(f, x)
-    return w.guard(x) ? x : walk(x, x -> guarded_walk(w.guard)(f, x), f)
+    return w.guard(x) ? x : walk(x, x -> w(f, x), f)
 end
 
 
