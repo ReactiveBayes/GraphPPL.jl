@@ -331,12 +331,10 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
-getifcreated(model::Model, context::Context, var::Union{Real,AbstractVector}) =
-    add_variable_node!(model, context, gensym(:constvar), nothing, var)
 getifcreated(model::Model, context::Context, var::Tuple) =
     map((v) -> getifcreated(model, context, v), var)
-getifcreated(model::Model, context::Context, var::Symbol) =
-    haskey(context, var) ? context[var] : nothing
+getifcreated(model::Model, context::Context, var) =
+    add_variable_node!(model, context, gensym(:constvar), nothing, var)
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
