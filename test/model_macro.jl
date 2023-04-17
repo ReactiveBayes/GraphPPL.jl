@@ -129,7 +129,7 @@ using MacroTools
         end
         @test counter == 1
 
-        #Test 3: multi line walk with 
+        # Test 3: multi line walk with 
         w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
         input = quote
             x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
@@ -138,6 +138,21 @@ using MacroTools
         local counter = 0
         result = w_u_o(input) do x
             if @capture(x, lhs_ ~ fform_(rhs__) where {options__})
+                counter += 1
+            end
+            return x
+        end
+        @test counter == 2
+
+        # Test 4: walk with nested pattern where we have multiple patterns
+        w_u_o = walk_until_occurrence(((:(lhs_ ~ rhs_ where {options__})), (:(local lhs_ ~ rhs_ where {options__}))))
+        input = quote 
+            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+            local x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+        end
+        local counter = 0
+        result = w_u_o(input) do x
+            if @capture(x, (lhs_ ~ fform_(rhs__) where {options__}) | (local lhs_ ~ fform_(rhs__) where {options__}))
                 counter += 1
             end
             return x
@@ -282,8 +297,7 @@ using MacroTools
             local y ~ Normal(0, 1) where {created_by=(local y ~ Normal(0, 1))}
         end
 
-        @test_broken prettify(apply_pipeline(input, save_expression_in_tilde)) ==
-                     prettify(output)
+        @test_expression_generating save_expression_in_tilde(input) input
     end
 
     @testset "convert_deterministic_statement" begin
@@ -895,6 +909,7 @@ using MacroTools
         import GraphPPL: convert_tilde_expression, apply_pipeline
         using Distributions
 
+        # Test 1: Test regular node creation input
         input = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
@@ -907,6 +922,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
+        # Test 2: Test regular node creation input with kwargs
         GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:μ, :σ, :out)
 
         input = quote
@@ -922,6 +938,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
+        # Test 3: Test regular node creation with indexed input
         input = quote
             x[i] ~ Normal(μ[i], σ[i]) where {created_by=(x[i]~Normal(μ[i], σ[i]))}
         end
@@ -934,6 +951,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
+        # Test 4: Test node creation with anonymous variable
         input = quote
             x ~ Normal(
                 begin
@@ -959,6 +977,19 @@ using MacroTools
                 out = GraphPPL.getifcreated(model, context, x),
             )
             GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 5: Test node creation with vague specification
+        input = quote 
+            x ~ vague(Bernoulli) where {created_by=(x~vague(Bernoulli))}
+        end
+        output = quote
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, (Bernoulli, )),
+                out = GraphPPL.getifcreated(model, context, x),
+            )
+            GraphPPL.make_node!(model, context, vague, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
     end

@@ -302,55 +302,52 @@ using TestSetExtensions
     end
 
     @testset "getifcreated" begin
-        import GraphPPL: create_model, getifcreated, getorcreate!, context, name
+        import GraphPPL: create_model, getifcreated, getorcreate!, context, name, value
         model = create_model()
         ctx = context(model)
 
-        #Test case 1: check that getifcreated  the variable created by getorcreate
+        # Test case 1: check that getifcreated  the variable created by getorcreate
         x = getorcreate!(model, ctx, :x)
         @test getifcreated(model, ctx, x) == x
 
-        #Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
+        # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
         y = getorcreate!(model, ctx, :y, 1)
         @test getifcreated(model, ctx, y[1]) == y[1]
 
-        #Test case 3: check that getifcreated returns a new variable node when called with integer input
+        # Test case 3: check that getifcreated returns a new variable node when called with integer input
         c = getifcreated(model, ctx, 1)
         @test GraphPPL.value(model[c]) == 1
 
-        #Test case 4: check that getifcreated returns a new variable node when called with a vector input
+        # Test case 4: check that getifcreated returns a new variable node when called with a vector input
         c = getifcreated(model, ctx, [1, 2])
         @test GraphPPL.value(model[c]) == [1, 2]
 
-        #Test case 5: check that getifcreated returns a tuple of variable nodes when called with a tuple of NodeData
+        # Test case 5: check that getifcreated returns a tuple of variable nodes when called with a tuple of NodeData
         output = getifcreated(model, ctx, (x, y[1]))
         @test output == (x, y[1])
 
-        #Test case 6: check that getifcreated returns a tuple of new variable nodes when called with a tuple of integers
+        # Test case 6: check that getifcreated returns a tuple of new variable nodes when called with a tuple of integers
         output = getifcreated(model, ctx, (1, 2))
         @test GraphPPL.value(model[output[1]]) == 1
         @test GraphPPL.value(model[output[2]]) == 2
 
-        #Test case 7: check that getifcreated returns a tuple of variable nodes when called with a tuple of mixed input
+        # Test case 7: check that getifcreated returns a tuple of variable nodes when called with a tuple of mixed input
         output = getifcreated(model, ctx, (x, 1))
         @test output[1] == x && GraphPPL.value(model[output[2]]) == 1
 
-        #Test case 8: check that getifcreated returns nothing when called with a variable that doesn't exist
-        z = getifcreated(model, ctx, :z)
-        @test z == nothing
-
-        #Test case 9: check that getifcreated returns the variable node if we create a variable and call it by symbol
-        z = getorcreate!(model, ctx, :z)
-        z_fetched = getifcreated(model, ctx, :z)
-        @test z == z_fetched
-
-        #Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
+        # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
         model = create_model()
         ctx = context(model)
         z = getorcreate!(model, ctx, :z, 1)
-        z_fetched = getifcreated(model, ctx, :z)
-        @test z_fetched == ctx.vector_variables[:z]
+        z_fetched = getifcreated(model, ctx, z[1])
+        @test z_fetched == z[1]
 
+
+        # Test case 11: Test that getifcreated returns a constant node when we call it with a symbol
+        model = create_model()
+        ctx = context(model)
+        z = getifcreated(model, ctx, :Bernoulli)
+        @test value(model[z]) == :Bernoulli
 
     end
 

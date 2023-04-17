@@ -35,12 +35,16 @@ function (w::guarded_walk)(f, x)
     return w.guard(x) ? x : walk(x, x -> w(f, x), f)
 end
 
-struct walk_until_occurrence
-    pattern::Expr
+struct walk_until_occurrence{E}
+    patterns::E
 end
 
-function (w::walk_until_occurrence)(f, x)
-    return walk(x, z -> @capture(x, $(w.pattern)) ? z : w(f, z), f)
+function (w::walk_until_occurrence{E})(f, x) where { E <: Tuple }
+    return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
+end
+
+function (w::walk_until_occurrence{E})(f, x) where { E <: Expr }
+    return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
 end
 
 
@@ -49,7 +53,16 @@ what_walk(anything) = postwalk
 
 
 function save_expression_in_tilde(e::Expr)
-    if @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
+    if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
+        options = options === nothing ? [] : options
+        return :(local $lhs ~ $rhs where {$(options...),created_by=$e})
+    elseif @capture(e, (local lhs_ .~ rhs_ where {options__}) | (local lhs_ .~ rhs_))
+        options = options === nothing ? [] : options
+        return :(local $lhs .~ $rhs where {$(options...),created_by=$e})
+    elseif @capture(e, (local lhs_ := rhs_ where {options__}) | (local lhs_ := rhs_))
+        options = options === nothing ? [] : options
+        return :(local $lhs := $rhs where {$(options...),created_by=$e})
+    elseif @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
         return :($lhs ~ $rhs where {$(options...),created_by=$e})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
@@ -63,7 +76,7 @@ function save_expression_in_tilde(e::Expr)
     end
 end
 
-
+what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((:(lhs_ ~ rhs_), :(local lhs_ ~ rhs_), :(lhs_ .~ rhs_), :(local lhs_ .~ rhs_), :(lhs_ := rhs_), :(local lhs_ := rhs_)))
 
 function get_created_by(options::AbstractArray)
     for option in options
@@ -206,8 +219,6 @@ end
 
 what_walk(::typeof(convert_arithmetic_operations)) =
     guarded_walk((x) -> (x isa Expr && x.head == :ref))
-
-
 
 function interfaces end
 
