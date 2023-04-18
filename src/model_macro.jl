@@ -1,4 +1,4 @@
-export @new_model, @test_expression_generating
+export @model, @test_expression_generating
 import MacroTools: postwalk, @capture, walk
 
 __guard_f(f, e::Expr) = f(e)
@@ -108,9 +108,26 @@ function convert_local_statement(e::Expr)
 end
 
 function convert_to_kwargs_expression(e::Expr)
-    if @capture(e, (lhs_ ~ f_(args__) where {options__}))
+    # Logic for ~ operator
+    if @capture(e, (lhs_ ~ f_(args__ ; kwargs__) where {options__}))
+        if length(args) > 0
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs ~ $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
+        else
+            return e
+        end
+    elseif @capture(e, (lhs_ ~ f_(args__) where {options__}))
         if is_kwargs_expression(args)
             return :($lhs ~ $f(; $(args...)) where {$(options...)})
+        else
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs ~ $f(; in = $tuple_expr) where {$(options...)})
+        end
+    # Logic for .~ operator
+    elseif @capture(e, (lhs_ .~ f_(args__ ; kwargs__) where {options__}))
+        if length(args) > 0
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs .~ $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
         else
             return e
         end
@@ -118,18 +135,54 @@ function convert_to_kwargs_expression(e::Expr)
         if is_kwargs_expression(args)
             return :($lhs .~ $f(; $(args...)) where {$(options...)})
         else
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs .~ $f(; in = $tuple_expr) where {$(options...)})
+        end
+    # Logic for := operator
+    elseif @capture(e, (lhs_ := f_(args__ ; kwargs__) where {options__}))
+        if length(args) > 0
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs := $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
+        else
             return e
         end
     elseif @capture(e, (lhs_ := f_(args__) where {options__}))
         if is_kwargs_expression(args)
             return :($lhs := $f(; $(args...)) where {$(options...)})
         else
-            return e
+            tuple_expr = Expr(:tuple, args...)
+            return :($lhs := $f(; in = $tuple_expr) where {$(options...)})
         end
     else
         return e
     end
 end
+
+# what_walk(::typeof(convert_to_kwargs_expression)) = walk_until_occurrence((:(lhs_ ~ f_(args__; kwargs_) where {options_}), :(lhs_ ~ f_(args_) where {options_})))
+
+# function convert_to_kwargs_expression(e::Expr)
+#     if @capture(e, (lhs_ ~ f_(args__) where {options__}))
+#         if is_kwargs_expression(args)
+#             return :($lhs ~ $f(; $(args...)) where {$(options...)})
+#         else
+#             return  e
+#         end
+#     elseif @capture(e, (lhs_ .~ f_(args__) where {options__}))
+#         if is_kwargs_expression(args)
+#             return :($lhs .~ $f(; $(args...)) where {$(options...)})
+#         else
+#             return  e
+#         end
+#     elseif @capture(e, (lhs_ := f_(args__) where {options__}))
+#         if is_kwargs_expression(args)
+#             return :($lhs := $f(; $(args...)) where {$(options...)})
+#         else
+#             return e
+#         end
+#     else
+#         return e
+#     end
+# end
 
 function convert_indexed_statement(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
@@ -250,6 +303,31 @@ function convert_tilde_expression(e::Expr)
     end
 end
 
+function convert_unnamed_argument_to_kwargs(e::Expr)
+    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
+        return e
+    elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+        return :($lhs ~ $fform(; in = $(tuple(args...))) where {$(options...)})
+    else
+        return e
+    end
+end
+
+# function make_node_call(::GraphPPL.Composite, lhs, fform, args) 
+#     missing_interface = GraphPPL.missing_interfaces(getfield(Main, fform), val, rhs)[1]
+#     interfaces = NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
+#     return GraphPPL.generate_make_node_call(fform, interfaces)
+# end
+
+# make_node_call(lhs, fform, args) = make_node_call(GraphPPL.NodeType(fform), lhs, fform, args)
+
+# function convert_tilde_expression(e::Expr)
+#     if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+#         return GraphPPL.generate_make_node_call(lhs, getfield(Main, fform), args)
+#     else
+#         return e
+#     end
+# end
 
 convert_interfaces_tuple(name::Symbol, interface) =
     :($name = GraphPPL.getifcreated(model, context, $interface))
@@ -282,8 +360,9 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
 end
 
 function is_kwargs_expression(e::Expr)
-    return e.head == :kw
+    return e.head == :kw || e.head == :parameters
 end
+
 
 function is_kwargs_expression(e::Vector)
     if length(e) > 0
@@ -334,7 +413,7 @@ end
 
 
 
-macro new_model(model_specification)
+macro model(model_specification)
     @capture(
         model_specification,
         (function ms_name_(ms_args__; ms_kwargs__)
