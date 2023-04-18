@@ -1177,19 +1177,6 @@ using MacroTools
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
     end
 
-    @testset "convert_unnamed_argument_to_kwargs" begin
-        import GraphPPL: convert_unnamed_argument_to_kwargs, apply_pipeline
-
-        # Test 1: Test unnamed argument
-        input = quote
-            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
-        end
-        output = quote
-            x ~ Normal(; in = $(0, 1)) where {created_by=(x~Normal(0, 1))}
-        end
-        @test_expression_generating apply_pipeline(input, convert_unnamed_argument_to_kwargs) output
-    end
-
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
         import GraphPPL: extract_interfaces
 

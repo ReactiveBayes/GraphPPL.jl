@@ -303,15 +303,6 @@ function convert_tilde_expression(e::Expr)
     end
 end
 
-function convert_unnamed_argument_to_kwargs(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
-        return e
-    elseif @capture(e, (lhs_ ~ fform_(args__) where {options__}))
-        return :($lhs ~ $fform(; in = $(tuple(args...))) where {$(options...)})
-    else
-        return e
-    end
-end
 
 # function make_node_call(::GraphPPL.Composite, lhs, fform, args) 
 #     missing_interface = GraphPPL.missing_interfaces(getfield(Main, fform), val, rhs)[1]
