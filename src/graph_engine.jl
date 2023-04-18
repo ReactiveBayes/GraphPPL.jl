@@ -218,10 +218,10 @@ A `Model` object representing the probabilistic graphical model.
 function create_model()
     model = MetaGraph(
         Graph(),
-        Label = NodeLabel,
-        VertexData = NodeData,
+        label_type = NodeLabel,
+        vertex_data_type = NodeData,
         graph_data = Context(),
-        EdgeData = EdgeLabel,
+        edge_data_type = EdgeLabel,
     )
     model = Model(model)
     return model

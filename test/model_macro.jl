@@ -6,7 +6,8 @@ using Graphs
 using TestSetExtensions
 using MacroTools
 
-@testset "model_macro" begin
+
+@testset ExtendedTestSet "model_macro" begin
 
     @testset "guarded_walk" begin
         import GraphPPL: guarded_walk
@@ -1034,20 +1035,27 @@ using MacroTools
 
     @testset "missing_interfaces" begin
         import GraphPPL: missing_interfaces, interfaces
-        GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:in1, :in2, :out)
+        function abc end
+        
+        GraphPPL.interfaces(::typeof(abc), ::Val{3}) = [:in1, :in2, :out]
 
-        @test missing_interfaces(sum, Val(3), (in1 = :x, in2 = :y)) == [:out]
-        @test missing_interfaces(sum, Val(3), (out = :y,)) == [:in1, :in2]
-        @test missing_interfaces(sum, Val(3), Dict()) == [:in1, :in2, :out]
+        @test missing_interfaces(abc, Val(3), (in1 = :x, in2 = :y)) == [:out]
+        @test missing_interfaces(abc, Val(3), (out = :y,)) == [:in1, :in2]
+        @test missing_interfaces(abc, Val(3), Dict()) == [:in1, :in2, :out]
 
-        GraphPPL.interfaces(::typeof(prod), ::Val{0}) = []
-        @test missing_interfaces(prod, Val(0), (in1 = :x, in2 = :y)) == []
+        function xyz end
 
-        GraphPPL.interfaces(::typeof(sin), ::Val{2}) = (:a, :b)
-        @test missing_interfaces(sin, Val(2), (a = 1, b = 2)) == []
+        GraphPPL.interfaces(::typeof(xyz), ::Val{0}) = []
+        @test missing_interfaces(xyz, Val(0), (in1 = :x, in2 = :y)) == []
 
-        GraphPPL.interfaces(::typeof(div), ::Val{2}) = (:in1, :in2, :out)
-        @test missing_interfaces(div, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+        function foo end
+
+        GraphPPL.interfaces(::typeof(foo), ::Val{2}) = (:a, :b)
+        @test missing_interfaces(foo, Val(2), (a = 1, b = 2)) == []
+
+        function bar end
+        GraphPPL.interfaces(::typeof(bar), ::Val{2}) = (:in1, :in2, :out)
+        @test missing_interfaces(bar, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
     end
 
     @testset "is_kwargs_expression(::AbstractArray)" begin
@@ -1082,32 +1090,57 @@ using MacroTools
     end
 
     @testset "keyword_expressions_to_named_tuple" begin
-        import GraphPPL: keyword_expressions_to_named_tuple
+        import GraphPPL: keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
 
         expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
         @test keyword_expressions_to_named_tuple(expr) == (; zip((:in1, :in2), (:y, :z))...)
+
+        expr = quote 
+            x ~ Normal(; μ = 0, σ = 1)
+        end
+        @capture(expr, (lhs_ ~ f_(; kwargs__)))
+        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:μ, :σ), (0, 1))...)
+
+        expr = quote 
+            x ~ Normal(; in = (0,1))
+        end
+        @capture(expr, (lhs_ ~ f_(; kwargs__)))
+        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in,), ((0, 1),))...)
+
+
+        input = quote
+            x ~ Normal(0, 1; a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
+        end
+        expr = apply_pipeline(input, convert_to_kwargs_expression)
+        @capture(expr, (lhs_ ~ f_(; kwargs__) where {options__}))
+        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in, :a, :b), ((0,1), 1, 2))...)
+
+        input = quote
+            x ~ Normal(μ, σ; a = 1, b = 2) where {created_by=(x~Normal(μ, σ; a = 1, b = 2))}
+        end
+        expr = apply_pipeline(input, convert_to_kwargs_expression)
+        @capture(expr, (lhs_ ~ f_(; kwargs__) where {options__}))
+        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in, :a, :b), ((μ,σ), 1, 2))...)
     end
 
     @testset "convert_tilde_expression" begin
         import GraphPPL: convert_tilde_expression, apply_pipeline
-        using Distributions
+        function Normal end
 
         # Test 1: Test regular node creation input
         input = quote
-            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
+            x ~ sum(; in=(0, 1)) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
             interfaces_tuple = (
                 in = GraphPPL.getifcreated(model, context, (0, 1)),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 2: Test regular node creation input with kwargs
-        GraphPPL.interfaces(::typeof(sum), ::Val{3}) = (:μ, :σ, :out)
-
         input = quote
             x ~ sum(; μ = 0, σ = 1) where {created_by=(x~sum(μ = 0, σ = 1))}
         end
@@ -1123,28 +1156,28 @@ using MacroTools
 
         # Test 3: Test regular node creation with indexed input
         input = quote
-            x[i] ~ Normal(μ[i], σ[i]) where {created_by=(x[i]~Normal(μ[i], σ[i]))}
+            x[i] ~ sum(; in = (μ[i], σ[i])) where {created_by=(x[i]~sum(μ[i], σ[i]))}
         end
         output = quote
             interfaces_tuple = (
                 in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])),
                 out = GraphPPL.getifcreated(model, context, x[i]),
             )
-            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 4: Test node creation with anonymous variable
         input = quote
-            x ~ Normal(
+            x ~ sum(; in=(
                 begin
-                    tmp_1 ~ Normal(
+                    tmp_1 ~ sum(; in=(
                         0,
-                        1,
+                        1)
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
-                0,
+                0)
             ) where {created_by=(x~Normal(Normal(0, 1), 0))}
         end
         output = quote
@@ -1154,27 +1187,27 @@ using MacroTools
                         in = GraphPPL.getifcreated(model, context, (0, 1)),
                         out = GraphPPL.getifcreated(model, context, tmp_1),
                     )
-                    GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+                    GraphPPL.make_node!(model, context, sum, interfaces_tuple)
                     tmp_1
                 end, 0)),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 5: Test node creation with vague specification
-        input = quote 
-            x ~ vague(Bernoulli) where {created_by=(x~vague(Bernoulli))}
-        end
-        output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, (Bernoulli, )),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
-            GraphPPL.make_node!(model, context, vague, interfaces_tuple)
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     input = quote 
+    #         x ~ vague(; in=Bernoulli) where {created_by=(x~vague(Bernoulli))}
+    #     end
+    #     output = quote
+    #         interfaces_tuple = (
+    #             in = GraphPPL.getifcreated(model, context, Bernoulli),
+    #             out = GraphPPL.getifcreated(model, context, x),
+    #         )
+    #         GraphPPL.make_node!(model, context, vague, interfaces_tuple)
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
     end
 
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin

@@ -8,15 +8,16 @@ using TestSetExtensions
 
 @testset "graph_engine" begin
     @testset "model constructor" begin
-        import GraphPPL: Model, NodeLabel, NodeData, Context
+        import GraphPPL: Model, NodeLabel, NodeData, Context, EdgeLabel
 
         g = MetaGraph(
             Graph(),
-            Label = NodeLabel,
-            VertexData = NodeData,
+            label_type = NodeLabel,
+            vertex_data_type = NodeData,
             graph_data = Context(),
-            EdgeData = Symbol,
+            edge_data_type = EdgeLabel,
         )
+        
         @test typeof(Model(g)) == Model
 
         @test_throws MethodError Model()
