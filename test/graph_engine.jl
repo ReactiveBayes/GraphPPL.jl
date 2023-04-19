@@ -17,7 +17,7 @@ using TestSetExtensions
             graph_data = Context(),
             edge_data_type = EdgeLabel,
         )
-        
+
         @test typeof(Model(g)) == Model
 
         @test_throws MethodError Model()
