@@ -109,49 +109,31 @@ end
 
 function convert_to_kwargs_expression(e::Expr)
     # Logic for ~ operator
-    if @capture(e, (lhs_ ~ f_(args__ ; kwargs__) where {options__}))
-        if length(args) > 0
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs ~ $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
-        else
-            return e
-        end
+    if @capture(e, (lhs_ ~ f_(; kwargs__) where {options__}))
+        return e
     elseif @capture(e, (lhs_ ~ f_(args__) where {options__}))
-        if is_kwargs_expression(args)
+        if GraphPPL.is_kwargs_expression(args)
             return :($lhs ~ $f(; $(args...)) where {$(options...)})
         else
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs ~ $f(; in = $tuple_expr) where {$(options...)})
+            return e
         end
     # Logic for .~ operator
-    elseif @capture(e, (lhs_ .~ f_(args__ ; kwargs__) where {options__}))
-        if length(args) > 0
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs .~ $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
-        else
-            return e
-        end
+    elseif @capture(e, (lhs_ .~ f_(; kwargs__) where {options__}))
+        return e
     elseif @capture(e, (lhs_ .~ f_(args__) where {options__}))
-        if is_kwargs_expression(args)
+        if GraphPPL.is_kwargs_expression(args)
             return :($lhs .~ $f(; $(args...)) where {$(options...)})
         else
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs .~ $f(; in = $tuple_expr) where {$(options...)})
-        end
-    # Logic for := operator
-    elseif @capture(e, (lhs_ := f_(args__ ; kwargs__) where {options__}))
-        if length(args) > 0
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs := $f(; in = $tuple_expr, $(kwargs...)) where {$(options...)})
-        else
             return e
         end
+    # Logic for := operator
+    elseif @capture(e, (lhs_ := f_(; kwargs__) where {options__}))
+        return e
     elseif @capture(e, (lhs_ := f_(args__) where {options__}))
-        if is_kwargs_expression(args)
+        if GraphPPL.is_kwargs_expression(args)
             return :($lhs := $f(; $(args...)) where {$(options...)})
         else
-            tuple_expr = Expr(:tuple, args...)
-            return :($lhs := $f(; in = $tuple_expr) where {$(options...)})
+            return e
         end
     else
         return e
@@ -255,26 +237,32 @@ function missing_interfaces(node_type, val::Val, known_interfaces)
     return missing_interfaces
 end
 
-function __convert_tilde_expression(::GraphPPL.Atomic, lhs, fform, rhs::NamedTuple)
+function prepare_interfaces(::GraphPPL.Atomic, lhs, fform, rhs::NamedTuple)
     interfaces = (rhs..., out = lhs)
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
-__convert_tilde_expression(lhs, fform, rhs::NamedTuple) = __convert_tilde_expression(GraphPPL.NodeType(fform), lhs, fform, rhs)
-
-function __convert_tilde_expression(::GraphPPL.Composite, lhs, fform, rhs::NamedTuple)
-    if length(rhs) == 1 && keys(rhs)[1] == :in
-        error("$fform is a composite node and should therefore be initialized with a named tuple of interfaces.")
-    end
+function prepare_interfaces(::GraphPPL.Composite, lhs, fform, rhs::NamedTuple)
     missing_interface = GraphPPL.missing_interfaces(fform, Val(length(rhs) + 1), rhs)[1]
     interfaces = NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
     return GraphPPL.generate_make_node_call(fform, interfaces)
 end
 
+function prepare_interfaces(::GraphPPL.Atomic, lhs, fform, rhs::AbstractArray)
+    interfaces = (in = Expr(:tuple, rhs...), out = lhs)
+    return GraphPPL.generate_make_node_call(fform, interfaces)
+end
+
+prepare_interfaces(::GraphPPL.Composite, lhs, fform, rhs::AbstractArray) = throw(DomainError(rhs, "Composite nodes should be initialized with keyword arguments"))
+
+prepare_interfaces(lhs, fform, rhs) = prepare_interfaces(GraphPPL.NodeType(fform), lhs, fform, rhs)
+
 function convert_tilde_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
         args = GraphPPL.keyword_expressions_to_named_tuple(args)
-        return GraphPPL.__convert_tilde_expression(lhs, getfield(Main, fform), args)
+        return GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
+    elseif @capture(e, lhs_ ~ fform_(args__) where {options__})
+        return GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
     else
         return e
     end
@@ -378,9 +366,6 @@ macro model(model_specification)
     ) || error("Model specification language requires full function definition")
 
     ms_args = extract_interfaces(ms_args, ms_body)
-    if ms_args == [:in]
-        @error("Interface name `in` is reserved. Please use a different interface name")
-    end
     num_interfaces = Base.length(ms_args)
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
