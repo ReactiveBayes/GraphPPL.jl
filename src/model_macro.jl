@@ -1,16 +1,29 @@
 export @model, @test_expression_generating
 import MacroTools: postwalk, @capture, walk
 
-__guard_f(f, e::Expr) = f(e)
-__guard_f(f, x) = x
-  
-
 macro test_expression_generating(lhs, rhs)
     return esc(quote
         @test prettify($lhs) == prettify($rhs)
     end)
 end
 
+__guard_f(f, e::Expr) = f(e)
+__guard_f(f, x) = x
+
+"""
+    apply_pipeline(e::Expr, pipeline)
+
+Apply a pipeline function to an expression.
+
+The `apply_pipeline` function takes an expression `e` and a `pipeline` function and applies the function in the pipeline to `e` when walking over it. The walk utilized can be specified by implementing `what_walk` for a pipeline funciton.
+
+# Arguments
+- `e::Expr`: An expression to apply the pipeline to.
+- `pipeline`: A function to apply to the expressions in `e`.
+
+# Returns
+The result of applying the pipeline function to `e`.
+"""
 function apply_pipeline(e::Expr, pipeline)
     walk = what_walk(pipeline)
     return walk(x -> __guard_f(pipeline, x), e)
@@ -39,16 +52,19 @@ struct walk_until_occurrence{E}
     patterns::E
 end
 
-function (w::walk_until_occurrence{E})(f, x) where { E <: Tuple }
-    return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
+function (w::walk_until_occurrence{E})(f, x) where {E<:Tuple}
+    return walk(
+        x,
+        z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z),
+        f,
+    )
 end
 
-function (w::walk_until_occurrence{E})(f, x) where { E <: Expr }
+function (w::walk_until_occurrence{E})(f, x) where {E<:Expr}
     return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
 end
 
 
-what_walk(::Function) = postwalk
 what_walk(anything) = postwalk
 
 
@@ -76,7 +92,14 @@ function save_expression_in_tilde(e::Expr)
     end
 end
 
-what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((:(lhs_ ~ rhs_), :(local lhs_ ~ rhs_), :(lhs_ .~ rhs_), :(local lhs_ .~ rhs_), :(lhs_ := rhs_), :(local lhs_ := rhs_)))
+what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((
+    :(lhs_ ~ rhs_),
+    :(local lhs_ ~ rhs_),
+    :(lhs_ .~ rhs_),
+    :(local lhs_ .~ rhs_),
+    :(lhs_ := rhs_),
+    :(local lhs_ := rhs_),
+))
 
 function get_created_by(options::AbstractArray)
     for option in options
@@ -86,6 +109,7 @@ function get_created_by(options::AbstractArray)
             end
         end
     end
+    error("Contains no `created_by` option.")
 end
 
 function convert_deterministic_statement(e::Expr)
@@ -107,6 +131,21 @@ function convert_local_statement(e::Expr)
     end
 end
 
+function is_kwargs_expression(e::Expr)
+    return e.head == :kw || e.head == :parameters
+end
+
+
+function is_kwargs_expression(e::Vector)
+    if length(e) > 0
+        return sum([is_kwargs_expression(elem) for elem in e]) == length(e)
+    else
+        return false
+    end
+end
+
+is_kwargs_expression(e) = false
+
 function convert_to_kwargs_expression(e::Expr)
     # Logic for ~ operator
     if @capture(e, (lhs_ ~ f_(; kwargs__) where {options__}))
@@ -117,7 +156,7 @@ function convert_to_kwargs_expression(e::Expr)
         else
             return e
         end
-    # Logic for .~ operator
+        # Logic for .~ operator
     elseif @capture(e, (lhs_ .~ f_(; kwargs__) where {options__}))
         return e
     elseif @capture(e, (lhs_ .~ f_(args__) where {options__}))
@@ -126,7 +165,7 @@ function convert_to_kwargs_expression(e::Expr)
         else
             return e
         end
-    # Logic for := operator
+        # Logic for := operator
     elseif @capture(e, (lhs_ := f_(; kwargs__) where {options__}))
         return e
     elseif @capture(e, (lhs_ := f_(args__) where {options__}))
@@ -159,7 +198,7 @@ function convert_to_anonymous(e::Expr, created_by)
         sym = gensym(:tmp)
         return quote
             begin
-                $sym ~ $f($(args...)) where {anonymous=true, created_by=$created_by}
+                $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
                 $sym
             end
         end
@@ -182,7 +221,8 @@ function convert_function_argument_in_rhs(e::Expr)
     return e
 end
 
-what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+what_walk(::typeof(convert_function_argument_in_rhs)) =
+    walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
 
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
@@ -208,10 +248,15 @@ function generate_get_or_create(s::Symbol)
 end
 
 
-function generate_get_or_create(s::Symbol, index::Union{Tuple, AbstractArray, Int})
+function generate_get_or_create(s::Symbol, index::Union{Tuple,AbstractArray,Int})
     return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
+"""
+    convert_arithmetic_operations(e::Expr)
+
+Converts all arithmetic operations to a function call. For example, `x * y` is converted to `prod(x, y)`.
+"""
 function convert_arithmetic_operations(e::Expr)
     if e.head == :call && e.args[1] == :*
         return :(prod($(e.args[2:end]...)))
@@ -226,59 +271,127 @@ function convert_arithmetic_operations(e::Expr)
     end
 end
 
+"""
+    what_walk(::typeof(convert_arithmetic_operations))
+
+Guarded walk that makes sure that the arithmetic operations are never converted in indexed expressions (e.g. x[i + 1] is not converted to x[sum(i, 1)]
+"""
 what_walk(::typeof(convert_arithmetic_operations)) =
     guarded_walk((x) -> (x isa Expr && x.head == :ref))
 
+"""
+Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
+"""
 function interfaces end
 
+"""
+    missing_interfaces(node_type, val, known_interfaces)
+
+Returns the interfaces that are missing for a node. This is used when inferring the interfaces for a node that is composite.
+
+# Arguments
+- `node_type`: The type of the node as a Function object.
+- `val`: The value of the amount of interfaces the node is supposed to have. This is a `Val` object.
+- `known_interfaces`: The known interfaces for the node.
+
+# Returns
+- `missing_interfaces`: A `Vector` of the missing interfaces.
+"""
 function missing_interfaces(node_type, val::Val, known_interfaces)
     all_interfaces = GraphPPL.interfaces(node_type, val)
     missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
     return missing_interfaces
 end
 
-function prepare_interfaces(::GraphPPL.Atomic, lhs, fform, rhs::NamedTuple)
-    interfaces = (rhs..., out = lhs)
-    return GraphPPL.generate_make_node_call(fform, interfaces)
+"""
+    prepare_interfaces(lhs, fform, rhs)
+
+Generate the NamedTuple of interfaces for a node. Calls `missing_interfaces` if the node is composite and infers 
+    the missing interface from the number of arguments and the known interfaces.
+
+# Arguments
+- `lhs`: The left-hand side of the node. This can be either a symbol (e.g. `:x`) or an expression (e.g. `:(x[1])`).
+- `fform`: The node type, the object representing the node "function".
+- `rhs`: The right-hand side of the node. This can be either a `NamedTuple` (in case of named arguments) or an `AbstractArray` (in case of unnamed arguments).
+
+# Returns
+- `NamedTuple`: The NamedTuple of interfaces for the node.
+"""
+function prepare_interfaces(
+    ::GraphPPL.Atomic,
+    lhs::Union{Symbol,Expr},
+    fform,
+    rhs::NamedTuple,
+)
+    return (rhs..., out = lhs)
 end
 
-function prepare_interfaces(::GraphPPL.Composite, lhs, fform, rhs::NamedTuple)
+function prepare_interfaces(
+    ::GraphPPL.Composite,
+    lhs::Union{Symbol,Expr},
+    fform,
+    rhs::NamedTuple,
+)
     missing_interface = GraphPPL.missing_interfaces(fform, Val(length(rhs) + 1), rhs)[1]
-    interfaces = NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
-    return GraphPPL.generate_make_node_call(fform, interfaces)
+    return NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
 end
 
-function prepare_interfaces(::GraphPPL.Atomic, lhs, fform, rhs::AbstractArray)
-    interfaces = (in = Expr(:tuple, rhs...), out = lhs)
-    return GraphPPL.generate_make_node_call(fform, interfaces)
+function prepare_interfaces(
+    ::GraphPPL.Atomic,
+    lhs::Union{Symbol,Expr},
+    fform,
+    rhs::AbstractArray,
+)
+    return (in = Expr(:tuple, rhs...), out = lhs)
 end
 
-prepare_interfaces(::GraphPPL.Composite, lhs, fform, rhs::AbstractArray) = throw(DomainError(rhs, "Composite nodes should be initialized with keyword arguments"))
-
-prepare_interfaces(lhs, fform, rhs) = prepare_interfaces(GraphPPL.NodeType(fform), lhs, fform, rhs)
-
-function convert_tilde_expression(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(; args__) where {options__}))
-        args = GraphPPL.keyword_expressions_to_named_tuple(args)
-        return GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
-    elseif @capture(e, lhs_ ~ fform_(args__) where {options__})
-        return GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
-    else
-        return e
-    end
+function prepare_interfaces(
+    ::GraphPPL.Composite,
+    lhs::Union{Symbol,Expr},
+    fform,
+    rhs::AbstractArray,
+)
+    error("Composite nodes can only be invoked with keyword arguments.")
 end
 
+prepare_interfaces(lhs::Union{Symbol,Expr}, fform, rhs) =
+    prepare_interfaces(GraphPPL.NodeType(fform), lhs, fform, rhs)
 
+"""
+    convert_interfaces_tuple(field::Symbol, interfaces)
+
+Converts the `interfaces` to a NamedTuple expression with calls to getifcreated.
+
+# Arguments
+- `field::Symbol`: The name of the field.
+- `interfaces`: The interfaces.
+
+# Returns
+- `Expr`: The NamedTuple expression.
+
+# Example
+```julia
+julia> convert_interfaces_tuple(:interfaces, :y))
+:(interfaces = GraphPPL.getifcreated(model, context, y))
+```
+ß
+"""
 convert_interfaces_tuple(name::Symbol, interface) =
     :($name = GraphPPL.getifcreated(model, context, $interface))
 
-function convert_interfaces_tuple(field::Symbol, interfaces::NamedTuple)
-    values = map(iterator(interfaces)) do (name, interface)
-        return convert_interfaces_tuple(name, interface)
-    end
-    return :($field = ($(values...),)) #($(values...),) syntax is used here, which creates a NamedTuple (hence the ,) out of (the Vector of Expr objects) values
-end
 
+"""
+    generate_make_node_call(fform, interfaces::NamedTuple)
+
+Generates the expression for calling `make_node!` with the given `fform` and `interfaces`.
+
+# Arguments
+- `fform::Function`: The function form.
+- `interfaces::NamedTuple`: The interfaces.
+
+# Returns
+- `Expr`: The expression for calling `make_node!`.
+"""
 function generate_make_node_call(fform, interfaces::NamedTuple)
     interfaces_tuple = map(iterator(interfaces)) do (name, interface)
         return convert_interfaces_tuple(name, interface)
@@ -293,28 +406,66 @@ function generate_make_node_call(fform, interfaces::NamedTuple)
     return result
 end
 
-function keyword_expressions_to_named_tuple(keywords::Vector)
+"""
+    keyword_expressions_to_named_tuple(keywords::Vector)
 
+Converts a vector of keyword expressions to a named tuple.
+
+# Arguments
+- `keywords::Vector`: The vector of keyword expressions.
+
+# Returns
+- `NamedTuple`: The named tuple.
+
+# Examples
+
+```julia
+julia> keyword_expressions_to_named_tuple([:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))])
+(in1 = y, in2 = z)
+```
+"""
+function keyword_expressions_to_named_tuple(keywords::Vector)
     keys = [expr.args[1] for expr in keywords]
     values = [expr.args[2] for expr in keywords]
     return (; zip(keys, values)...)
 end
 
+"""
+    convert_tilde_expression(e::Expr)
 
-function is_kwargs_expression(e::Expr)
-    return e.head == :kw || e.head == :parameters
+Converts a tilde expression to a `make_node!` call.
+
+# Arguments
+- `e::Expr`: The expression to convert.
+
+# Returns
+- `Expr`: The converted expression.
+
+# Examples
+
+```julia
+julia> convert_tilde_expression(:(x ~ Normal(0, 1)))
+quote
+    interfaces_tuple = (
+        in = GraphPPL.getifcreated(model, context, (0, 1)),
+        out = GraphPPL.getifcreated(model, context, x),
+    )
+    GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
 end
-
-
-function is_kwargs_expression(e::Vector)
-    if length(e) > 0
-        return sum([is_kwargs_expression(elem) for elem in e]) == length(e)
+```
+"""
+function convert_tilde_expression(e::Expr)
+    if @capture(e, lhs_ ~ fform_(args__) where {options__})
+        if @capture(e, (f_ ~ x_(fargs__; kwargs__) where {o__}))
+            args = GraphPPL.keyword_expressions_to_named_tuple(kwargs)
+        end
+        interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
+        return GraphPPL.generate_make_node_call(fform, interfaces)
     else
-        return false
+        return e
     end
 end
 
-is_kwargs_expression(e) = false
 
 
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)

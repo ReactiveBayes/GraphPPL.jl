@@ -43,21 +43,30 @@ using MacroTools
             x = datavar(Float64)
             x ~ Normal(0, 1)
         end
-        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+        @test_logs (
+            :warn,
+            "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.",
+        ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
         # Test 2: test that constvar throws a warning
         input = quote
             x = constvar(1.0)
             x ~ Normal(0, 1)
         end
-        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+        @test_logs (
+            :warn,
+            "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.",
+        ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
         # Test 3: test that randomvar throws a warning
         input = quote
             x = randomvar(Normal(0, 1))
             x ~ Normal(0, 1)
         end
-        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+        @test_logs (
+            :warn,
+            "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.",
+        ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
         # Test 4: test that tilde syntax does not throw a warning
         input = quote
@@ -176,7 +185,12 @@ using MacroTools
         #Test 2: walk with nested pattern where we pattern match only once
         w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
         input = quote
-            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+            x ~ Normal(
+                begin
+                    y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+                end,
+                1,
+            ) where {created_by=(x~Normal(0, 1))}
         end
         local counter = 0
         result = w_u_o(input) do x
@@ -190,8 +204,18 @@ using MacroTools
         # Test 3: multi line walk with 
         w_u_o = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
         input = quote
-            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
-            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+            x ~ Normal(
+                begin
+                    y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+                end,
+                1,
+            ) where {created_by=(x~Normal(0, 1))}
+            x ~ Normal(
+                begin
+                    y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+                end,
+                1,
+            ) where {created_by=(x~Normal(0, 1))}
         end
         local counter = 0
         result = w_u_o(input) do x
@@ -203,14 +227,31 @@ using MacroTools
         @test counter == 2
 
         # Test 4: walk with nested pattern where we have multiple patterns
-        w_u_o = walk_until_occurrence(((:(lhs_ ~ rhs_ where {options__})), (:(local lhs_ ~ rhs_ where {options__}))))
-        input = quote 
-            x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
-            local x ~ Normal(begin y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))} end, 1) where {created_by=(x~Normal(0, 1))}
+        w_u_o = walk_until_occurrence((
+            (:(lhs_ ~ rhs_ where {options__})),
+            (:(local lhs_ ~ rhs_ where {options__})),
+        ))
+        input = quote
+            x ~ Normal(
+                begin
+                    y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+                end,
+                1,
+            ) where {created_by=(x~Normal(0, 1))}
+            local x ~ Normal(
+                begin
+                    y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+                end,
+                1,
+            ) where {created_by=(x~Normal(0, 1))}
         end
         local counter = 0
         result = w_u_o(input) do x
-            if @capture(x, (lhs_ ~ fform_(rhs__) where {options__}) | (local lhs_ ~ fform_(rhs__) where {options__}))
+            if @capture(
+                x,
+                (lhs_ ~ fform_(rhs__) where {options__}) |
+                (local lhs_ ~ fform_(rhs__) where {options__})
+            )
                 counter += 1
             end
             return x
@@ -361,20 +402,36 @@ using MacroTools
     @testset "get_created_by" begin
         import GraphPPL.get_created_by
 
-        # input = :([created_by=(x~Normal(0, 1))])
-        # @test get_created_by(input) == :(x~Normal(0, 1))
+        # Test 1: only created by
+        input = [:(created_by = (x ~ Normal(0, 1)))]
+        @test get_created_by(input) == :(x ~ Normal(0, 1))
+
+        # Test 2: created by and other parameters
+        input = [:(created_by = (x ~ Normal(0, 1))), :(q = MeanField())]
+        @test get_created_by(input) == :(x ~ Normal(0, 1))
+
+        # Test 3: created by and other parameters
+        input =
+            [:(created_by = (x ~ Normal(0, 1) where {q} = MeanField())), :(q = MeanField())]
+        @test_expression_generating get_created_by(input) :(
+            x ~ Normal(0, 1) where {q} = MeanField()
+        )
+
+        @test_throws ErrorException get_created_by([:(q = MeanField())])
 
     end
 
     @testset "convert_deterministic_statement" begin
         import GraphPPL: convert_deterministic_statement, apply_pipeline
 
+        # Test 1: no deterministic statement
         input = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) input
 
+        # Test 2: deterministic statement
         input = quote
             x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))}
             y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
@@ -385,7 +442,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
-        # Test case 4: Input expression with multiple matching patterns
+        # Test case 3: Input expression with multiple matching patterns
         input = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
@@ -404,6 +461,7 @@ using MacroTools
     @testset "convert_local_statement" begin
         import GraphPPL: convert_local_statement, apply_pipeline
 
+        # Test 1: one local statement
         input = quote
             local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
@@ -413,7 +471,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
 
-
+        # Test 2: two local statements
         input = quote
             local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
@@ -426,6 +484,7 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
 
+        # Test 3: mixed local and non-local statements
         input = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
@@ -436,6 +495,41 @@ using MacroTools
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    end
+
+    @testset "is_kwargs_expression(::AbstractArray)" begin
+        import GraphPPL: is_kwargs_expression
+
+        func_def = :(foo(a, b))
+        @capture(func_def, (f_(args__)))
+        @test !is_kwargs_expression(args)
+
+        func_def = :(foo(a = a, b = b))
+        @capture(func_def, (f_(args__)))
+        @test is_kwargs_expression(args)
+
+        empty_args = Expr(:tuple)
+        @test !is_kwargs_expression(empty_args)
+
+        empty_args = :(foo())
+        @capture(empty_args, (f_(args__)))
+        @test !is_kwargs_expression(args)
+
+        mixed_args = :(foo(a, b, c = c))
+        @capture(mixed_args, (f_(args__)))
+        @test !is_kwargs_expression(args)
+
+        nested_args = :(foo(a = a, b = b, c = (d = d)))
+        @capture(nested_args, (f_(args__)))
+        @test is_kwargs_expression(args)
+
+        kwargs = :(foo(; a = a, b = b))
+        @capture(kwargs, (f_(args__)))
+        @test is_kwargs_expression(args)
+
+        mixed_args = :(foo(a, b; c = c))
+        @capture(mixed_args, (f_(args__)))
+        @test !is_kwargs_expression(args)
     end
 
     @testset "convert_to_kwargs_expression" begin
@@ -450,7 +544,7 @@ using MacroTools
 
         # Test 2: Input expression with ~ expression and args and kwargs expressions with symbols
         input = quote
-            x ~ Normal(μ, σ; a = τ, b=θ) where {created_by=(x~Normal(μ, σ; a = τ, b=θ))}
+            x ~ Normal(μ, σ; a = τ, b = θ) where {created_by=(x~Normal(μ, σ; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -464,7 +558,7 @@ using MacroTools
 
         # Test 4: Input expression with ~ expression and only kwargs expression with symbols
         input = quote
-            x ~ Normal(; a = τ, b=θ) where {created_by=(x~Normal(; a = τ, b=θ))}
+            x ~ Normal(; a = τ, b = θ) where {created_by=(x~Normal(; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -485,19 +579,19 @@ using MacroTools
 
         # Test 7: Input expression with ~ expression and named args expression
         input = quote
-            x ~ Normal(μ=0, σ=1) where {created_by=(x~Normal(μ=0, σ=1))}
+            x ~ Normal(μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
         end
         output = quote
-            x ~ Normal(; μ=0, σ=1) where {created_by=(x~Normal(μ=0, σ=1))}
+            x ~ Normal(; μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 8: Input expression with ~ expression and named args expression with symbols
         input = quote
-            x ~ Normal(μ=μ, σ=σ) where {created_by=(x~Normal(μ=μ, σ=σ))}
+            x ~ Normal(μ = μ, σ = σ) where {created_by=(x~Normal(μ = μ, σ = σ))}
         end
         output = quote
-            x ~ Normal(; μ=μ, σ=σ) where {created_by=(x~Normal(μ=μ, σ=σ))}
+            x ~ Normal(; μ = μ, σ = σ) where {created_by=(x~Normal(μ = μ, σ = σ))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
@@ -511,7 +605,7 @@ using MacroTools
 
         # Test 10: Input expression with .~ expression and args and kwargs expressions with symbols
         input = quote
-            x .~ Normal(μ, σ; a = τ, b=θ) where {created_by=(x.~Normal(μ, σ; a = τ, b=θ))}
+            x .~ Normal(μ, σ; a = τ, b = θ) where {created_by=(x.~Normal(μ, σ; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -525,7 +619,7 @@ using MacroTools
 
         # Test 12: Input expression with .~ expression and only kwargs expression with symbols
         input = quote
-            x .~ Normal(; a = τ, b=θ) where {created_by=(x.~Normal(; a = τ, b=θ))}
+            x .~ Normal(; a = τ, b = θ) where {created_by=(x.~Normal(; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -546,19 +640,19 @@ using MacroTools
 
         # Test 15: Input expression with .~ expression and named args expression
         input = quote
-            x .~ Normal(μ=0, σ=1) where {created_by=(x.~Normal(μ=0, σ=1))}
+            x .~ Normal(μ = 0, σ = 1) where {created_by=(x.~Normal(μ = 0, σ = 1))}
         end
         output = quote
-            x .~ Normal(; μ=0, σ=1) where {created_by=(x.~Normal(μ=0, σ=1))}
+            x .~ Normal(; μ = 0, σ = 1) where {created_by=(x.~Normal(μ = 0, σ = 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 16: Input expression with .~ expression and named args expression with symbols
         input = quote
-            x .~ Normal(μ=μ, σ=σ) where {created_by=(x.~Normal(μ=μ, σ=σ))}
+            x .~ Normal(μ = μ, σ = σ) where {created_by=(x.~Normal(μ = μ, σ = σ))}
         end
         output = quote
-            x .~ Normal(; μ=μ, σ=σ) where {created_by=(x.~Normal(μ=μ, σ=σ))}
+            x .~ Normal(; μ = μ, σ = σ) where {created_by=(x.~Normal(μ = μ, σ = σ))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
@@ -571,7 +665,7 @@ using MacroTools
 
         # Test 18: Input expression with := expression and args and kwargs expressions with symbols
         input = quote
-            x := Normal(μ, σ; a = τ, b=θ) where {created_by=(x:=Normal(μ, σ; a = τ, b=θ))}
+            x := Normal(μ, σ; a = τ, b = θ) where {created_by=(x:=Normal(μ, σ; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -585,7 +679,7 @@ using MacroTools
 
         # Test 20: Input expression with := expression and only kwargs expression with symbols
         input = quote
-            x := Normal(; a = τ, b=θ) where {created_by=(x:=Normal(; a = τ, b=θ))}
+            x := Normal(; a = τ, b = θ) where {created_by=(x:=Normal(; a = τ, b = θ))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -606,32 +700,35 @@ using MacroTools
 
         # Test 23: Input expression with := expression and named args as args expression
         input = quote
-            x := Normal(μ=0, σ=1) where {created_by=(x:=Normal(μ=0, σ=1))}
+            x := Normal(μ = 0, σ = 1) where {created_by=(x:=Normal(μ = 0, σ = 1))}
         end
         output = quote
-            x := Normal(; μ=0, σ=1) where {created_by=(x:=Normal(μ=0, σ=1))}
+            x := Normal(; μ = 0, σ = 1) where {created_by=(x:=Normal(μ = 0, σ = 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 24: Input expression with := expression and named args as args expression with symbols
         input = quote
-            x := Normal(μ=μ, σ=σ) where {created_by=(x:=Normal(μ=μ, σ=σ))}
+            x := Normal(μ = μ, σ = σ) where {created_by=(x:=Normal(μ = μ, σ = σ))}
         end
         output = quote
-            x := Normal(; μ=μ, σ=σ) where {created_by=(x:=Normal(μ=μ, σ=σ))}
+            x := Normal(; μ = μ, σ = σ) where {created_by=(x:=Normal(μ = μ, σ = σ))}
         end
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 25: Input expression with ~ expression and additional arguments in where clause
         input = quote
-            x ~ Normal(0, 1) where {q = MeanField(), created_by=(x~Normal(0, 1)) where q=MeanField()}
+            x ~ Normal(
+                0,
+                1,
+            ) where {q=MeanField(),created_by=(x ~ Normal(0, 1)) where {q}=MeanField()}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 26: Input expression with nested call in rhs
         input = quote
-            x ~ Normal(Normal(0,1)) where {created_by=(x~Normal(Normal(0,1)))}
+            x ~ Normal(Normal(0, 1)) where {created_by=(x~Normal(Normal(0, 1)))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
@@ -684,12 +781,46 @@ using MacroTools
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
     end
 
+    @testset "convert_to_anonymous" begin
+        import GraphPPL: convert_to_anonymous, apply_pipeline
+
+        # Test 1: convert function to anonymous function
+        input = quote
+            Normal(0, 1)
+        end
+        created_by = :(x ~ Normal(0, 1))
+        anon = gensym(:tmp)
+        output = quote
+            begin
+                $anon ~ Normal(0, 1) where {anonymous=true,created_by=x~Normal(0, 1)}
+                $anon
+            end
+        end
+        @test_expression_generating convert_to_anonymous(input, created_by) output
+
+        # Test 2: leave number expression
+        input = quote
+            1
+        end
+        created_by = :(x ~ Normal(0, 1))
+        output = input
+        @test_expression_generating convert_to_anonymous(input, created_by) output
+
+        # Test 3: leave symbol expression
+        input = quote
+            :x
+        end
+        created_by = :(x ~ Normal(0, 1))
+        output = input
+        @test_expression_generating convert_to_anonymous(input, created_by) output
+    end
+
     @testset "convert_function_argument_in_rhs" begin
         import GraphPPL: convert_function_argument_in_rhs, apply_pipeline
 
         #Test 1: Input expression with a function call in rhs arguments
         input = quote
-            x ~ Normal(Normal(0, 1), 1) where {created_by=(x ~ Normal(Normal(0, 1), 1))}
+            x ~ Normal(Normal(0, 1), 1) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
         sym = gensym(:tmp)
         output = quote
@@ -751,7 +882,10 @@ using MacroTools
 
         #Test 5: Input expression with multiple function calls in rhs arguments
         input = quote
-            x ~ Normal(Normal(0, 1), Normal(0, 1)) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
+            x ~ Normal(
+                Normal(0, 1),
+                Normal(0, 1),
+            ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
         sym1 = gensym(:tmp)
         sym2 = gensym(:tmp)
@@ -761,14 +895,20 @@ using MacroTools
                     $sym1 ~ Normal(
                         0,
                         1,
-                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), Normal(0, 1))}
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(Normal(0, 1), Normal(0, 1)),
+                    }
                     $sym1
                 end,
                 begin
                     $sym2 ~ Normal(
                         0,
                         1,
-                    ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), Normal(0, 1))}
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(Normal(0, 1), Normal(0, 1)),
+                    }
                     $sym2
                 end,
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
@@ -779,7 +919,7 @@ using MacroTools
         input = quote
             x ~ Normal(;
                 μ = Normal(0, 1),
-                σ = Normal(0, 1)
+                σ = Normal(0, 1),
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
         sym1 = gensym(:tmp)
@@ -809,10 +949,13 @@ using MacroTools
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
-        
+
         #Test 7: Input expression with nested function call in rhs arguments
         input = quote
-            x ~ Normal(Normal(Normal(0, 1), 1), 1) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
+            x ~ Normal(
+                Normal(Normal(0, 1), 1),
+                1,
+            ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
         sym1 = gensym(:tmp)
         sym2 = gensym(:tmp)
@@ -837,7 +980,7 @@ using MacroTools
                     }
                     $sym1
                 end,
-                1
+                1,
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
 
@@ -845,7 +988,50 @@ using MacroTools
 
         #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
         input = quote
+            x ~ Normal(
+                Normal(Normal(0, 1), 1),
+                1,
+            ) where {
+                q=MeanField(),
+                created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
+            }
         end
+        sym1 = gensym(:tmp)
+        sym2 = gensym(:tmp)
+        output = quote
+            x ~ Normal(
+                begin
+                    $sym1 ~ Normal(
+                        begin
+                            $sym2 ~ Normal(
+                                0,
+                                1,
+                            ) where {
+                                anonymous=true,
+                                created_by=x~Normal(
+                                    Normal(Normal(0, 1), 1),
+                                    1,
+                                ) where {q=MeanField()},
+                            }
+                            $sym2
+                        end,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(
+                            Normal(Normal(0, 1), 1),
+                            1,
+                        ) where {q=MeanField()},
+                    }
+                    $sym1
+                end,
+                1,
+            ) where {
+                q=MeanField(),
+                created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
+            }
+        end
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
     end
 
@@ -919,7 +1105,9 @@ using MacroTools
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
             x ~ Normal(
                 begin
-                    $sym = @isdefined($sym) ? $sym : GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)))
+                    $sym =
+                        @isdefined($sym) ? $sym :
+                        GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)))
                     $sym ~ Normal(
                         0,
                         1,
@@ -928,7 +1116,7 @@ using MacroTools
                 end,
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
-        end  
+        end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     end
@@ -1083,7 +1271,7 @@ using MacroTools
     @testset "missing_interfaces" begin
         import GraphPPL: missing_interfaces, interfaces
         function abc end
-        
+
         GraphPPL.interfaces(::typeof(abc), ::Val{3}) = [:in1, :in2, :out]
 
         @test missing_interfaces(abc, Val(3), (in1 = :x, in2 = :y)) == [:out]
@@ -1105,48 +1293,77 @@ using MacroTools
         @test missing_interfaces(bar, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
     end
 
-    @testset "is_kwargs_expression(::AbstractArray)" begin
-        import GraphPPL: is_kwargs_expression
+    @testset "prepare_interfaces" begin
+        import GraphPPL: prepare_interfaces, interfaces
 
-        func_def = :(foo(a, b))
-        @capture(func_def, (f_(args__)))
-        @test !is_kwargs_expression(args)
+        function dummy end
 
-        func_def = :(foo(a = a, b = b))
-        @capture(func_def, (f_(args__)))
-        @test is_kwargs_expression(args)
+        GraphPPL.NodeType(::typeof(dummy)) = GraphPPL.Composite()
+        GraphPPL.interfaces(::typeof(dummy), ::Val{2}) = (:a, :b)
 
-        empty_args = Expr(:tuple)
-        @test !is_kwargs_expression(empty_args)
+        # Test 1: Test regular input for composite node
+        lhs = :x
+        fform = dummy
+        rhs = (a = :y,)
+        @test prepare_interfaces(lhs, fform, rhs) == (a = :y, b = :x)
 
-        empty_args = :(foo())
-        @capture(empty_args, (f_(args__)))
-        @test !is_kwargs_expression(args)
+        # Test 2: Test illegal input for composite node
+        @test_throws ErrorException prepare_interfaces(lhs, dummy, [:y])
 
-        mixed_args = :(foo(a, b, c = c))
-        @capture(mixed_args, (f_(args__)))
-        @test !is_kwargs_expression(args)
+        # Test 3: Test regular input for atomic node
+        lhs = :x
+        fform = sum
+        rhs = [:y, :z]
+        @test prepare_interfaces(lhs, fform, rhs) == (in = :((y, z)), out = :x)
 
-        nested_args = :(foo(a = a, b = b, c = (d = d)))
-        @capture(nested_args, (f_(args__)))
-        @test is_kwargs_expression(args)
+        # Test 4: Test kwarg input for atomic node
+        lhs = :x
+        fform = sum
+        rhs = (a = :y, z = :z)
+        @test prepare_interfaces(lhs, fform, rhs) == (a = :y, z = :z, out = :x)
 
-        kwargs = :(foo(; a = a, b = b))
-        @capture(kwargs, (f_(args__)))
-        @test is_kwargs_expression(args)
+        # Test 5: Test composite node with Expr rhs
+        lhs = :(x[i])
+        fform = dummy
+        rhs = (a = :(y[i]),)
+        @test prepare_interfaces(lhs, fform, rhs) == (a = :(y[i]), b = :(x[i]))
 
-        mixed_args = :(foo(a, b; c = c))
-        @capture(mixed_args, (f_(args__)))
-        @test !is_kwargs_expression(args)
+    end
+
+    @testset "convert_interfaces_tuple" begin
+        import GraphPPL: convert_interfaces_tuple, interfaces
+
+        # Test 1: Test regular input
+        @test convert_interfaces_tuple(:a, :y) ==
+              :((a = GraphPPL.getifcreated(model, context, y)))
+
+        # Test 2: Test tuple input
+        @test convert_interfaces_tuple(:in, :((0, 1))) ==
+              :((in = GraphPPL.getifcreated(model, context, (0, 1))))
+
+        # Test 3: Test input with multiple interfaces
+        @test_expression_generating convert_interfaces_tuple(:b, (:x, :y, :z)) :((
+            b = GraphPPL.getifcreated(model, context, $(:x, :y, :z))
+        ))
+
+        # Test 4: Test tuple input with symbols
+        @test convert_interfaces_tuple(:in, :((y, z))) ==
+              :((in = GraphPPL.getifcreated(model, context, (y, z))))
+
+        # Test 5: Test input with a nested tuple
+        @test convert_interfaces_tuple(:d, :((0, (1, 2), 3))) ==
+              :((d = GraphPPL.getifcreated(model, context, (0, (1, 2), 3))))
+
     end
 
     @testset "keyword_expressions_to_named_tuple" begin
-        import GraphPPL: keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
+        import GraphPPL:
+            keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
 
         expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
         @test keyword_expressions_to_named_tuple(expr) == (; zip((:in1, :in2), (:y, :z))...)
 
-        expr = quote 
+        expr = quote
             x ~ Normal(; μ = 0, σ = 1)
         end
         @capture(expr, (lhs_ ~ f_(; kwargs__)))
@@ -1155,16 +1372,14 @@ using MacroTools
         input = quote
             x ~ Normal(0, 1; a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
         end
-        expr = apply_pipeline(input, convert_to_kwargs_expression)
-        @capture(expr, (lhs_ ~ f_(; kwargs__) where {options__}))
-        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in, :a, :b), ((0,1), 1, 2))...)
+        @capture(input, (lhs_ ~ f_(args__; kwargs__) where {options__}))
+        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:a, :b), (1, 2))...)
 
         input = quote
             x ~ Normal(μ, σ; a = 1, b = 2) where {created_by=(x~Normal(μ, σ; a = 1, b = 2))}
         end
-        expr = apply_pipeline(input, convert_to_kwargs_expression)
-        @capture(expr, (lhs_ ~ f_(; kwargs__) where {options__}))
-        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in, :a, :b), ((μ,σ), 1, 2))...)
+        @capture(input, (lhs_ ~ f_(args__; kwargs__) where {options__}))
+        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:a, :b), (1, 2))...)
     end
 
     @testset "convert_tilde_expression" begin
@@ -1173,7 +1388,7 @@ using MacroTools
 
         # Test 1: Test regular node creation input
         input = quote
-            x ~ sum(; in=(0, 1)) where {created_by=(x~Normal(0, 1))}
+            x ~ sum(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
             interfaces_tuple = (
@@ -1215,25 +1430,31 @@ using MacroTools
         input = quote
             x ~ sum(
                 begin
-                    tmp_1 ~ sum(; in=(
-                        0,
-                        1)
+                    tmp_1 ~ sum(;
+                        in = (0, 1),
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
-                0
+                0,
             ) where {created_by=(x~Normal(Normal(0, 1), 0))}
         end
         output = quote
             interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, (begin
-                    interfaces_tuple = (
-                        in = GraphPPL.getifcreated(model, context, (0, 1)),
-                        out = GraphPPL.getifcreated(model, context, tmp_1),
-                    )
-                    GraphPPL.make_node!(model, context, sum, interfaces_tuple)
-                    tmp_1
-                end, 0)),
+                in = GraphPPL.getifcreated(
+                    model,
+                    context,
+                    (
+                        begin
+                            interfaces_tuple = (
+                                in = GraphPPL.getifcreated(model, context, (0, 1)),
+                                out = GraphPPL.getifcreated(model, context, tmp_1),
+                            )
+                            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+                            tmp_1
+                        end,
+                        0,
+                    ),
+                ),
                 out = GraphPPL.getifcreated(model, context, x),
             )
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
