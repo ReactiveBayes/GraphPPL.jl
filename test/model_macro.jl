@@ -9,6 +9,63 @@ using MacroTools
 
 @testset ExtendedTestSet "model_macro" begin
 
+    @testset "__guard_f" begin
+        import GraphPPL.__guard_f
+
+        f(e::Expr) = 10
+        @test __guard_f(f, 1) == 1
+        @test __guard_f(f, :(1 + 1)) == 10
+    end
+
+    @testset "apply_pipeline" begin
+        import GraphPPL: apply_pipeline
+        function pipeline(e::Expr)
+            if e.head == :call
+                return Expr(:call, e.args[1], e.args[2], e.args[3] + 1)
+            else
+                return e
+            end
+        end
+        input = quote
+            x + 1
+        end
+        output = quote
+            x + 2
+        end
+        @test_expression_generating apply_pipeline(input, pipeline) output
+    end
+
+    @testset "warn_datavar_constvar_randomvar" begin
+        import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
+
+        # Test 1: test that datavar throws a warning
+        input = quote
+            x = datavar(Float64)
+            x ~ Normal(0, 1)
+        end
+        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+
+        # Test 2: test that constvar throws a warning
+        input = quote
+            x = constvar(1.0)
+            x ~ Normal(0, 1)
+        end
+        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+
+        # Test 3: test that randomvar throws a warning
+        input = quote
+            x = randomvar(Normal(0, 1))
+            x ~ Normal(0, 1)
+        end
+        @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(input, warn_datavar_constvar_randomvar)
+
+        # Test 4: test that tilde syntax does not throw a warning
+        input = quote
+            x ~ Normal(0, 1)
+        end
+        @test apply_pipeline(input, warn_datavar_constvar_randomvar) == input
+    end
+
     @testset "guarded_walk" begin
         import GraphPPL: guarded_walk
 
@@ -301,6 +358,14 @@ using MacroTools
         @test_expression_generating save_expression_in_tilde(input) input
     end
 
+    @testset "get_created_by" begin
+        import GraphPPL.get_created_by
+
+        # input = :([created_by=(x~Normal(0, 1))])
+        # @test get_created_by(input) == :(x~Normal(0, 1))
+
+    end
+
     @testset "convert_deterministic_statement" begin
         import GraphPPL: convert_deterministic_statement, apply_pipeline
 
@@ -380,54 +445,42 @@ using MacroTools
         input = quote
             x ~ Normal(0, 1; a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
         end
-        output = quote
-            x ~ Normal(; in=(0, 1), a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 2: Input expression with ~ expression and args and kwargs expressions with symbols
         input = quote
             x ~ Normal(μ, σ; a = τ, b=θ) where {created_by=(x~Normal(μ, σ; a = τ, b=θ))}
         end
-        output = quote 
-            x ~ Normal(; in=(μ, σ), a = τ, b=θ) where {created_by=(x~Normal(μ, σ; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 3: Input expression with ~ expression and only kwargs expression
         input = quote
             x ~ Normal(; a = 1, b = 2) where {created_by=(x~Normal(; a = 1, b = 2))}
         end
-        output = quote
-            x ~ Normal(; a = 1, b = 2) where {created_by=(x~Normal(; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 4: Input expression with ~ expression and only kwargs expression with symbols
         input = quote
             x ~ Normal(; a = τ, b=θ) where {created_by=(x~Normal(; a = τ, b=θ))}
         end
-        output = quote
-            x ~ Normal(; a = τ, b=θ) where {created_by=(x~Normal(; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 5: Input expression with ~ expression and only args expression
         input = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
-        output = quote
-            x ~ Normal(; in=(0, 1)) where {created_by=(x~Normal(0, 1))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 6: Input expression with ~ expression and only args expression with symbols
         input = quote
             x ~ Normal(μ, σ) where {created_by=(x~Normal(μ, σ))}
         end
-        output = quote
-            x ~ Normal(; in=(μ, σ)) where {created_by=(x~Normal(μ, σ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 7: Input expression with ~ expression and named args expression
@@ -453,54 +506,42 @@ using MacroTools
         input = quote
             x .~ Normal(0, 1; a = 1, b = 2) where {created_by=(x.~Normal(0, 1; a = 1, b = 2))}
         end
-        output = quote
-            x .~ Normal(; in=(0, 1), a = 1, b = 2) where {created_by=(x.~Normal(0, 1; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 10: Input expression with .~ expression and args and kwargs expressions with symbols
         input = quote
             x .~ Normal(μ, σ; a = τ, b=θ) where {created_by=(x.~Normal(μ, σ; a = τ, b=θ))}
         end
-        output = quote 
-            x .~ Normal(; in=(μ, σ), a = τ, b=θ) where {created_by=(x.~Normal(μ, σ; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 11: Input expression with .~ expression and only kwargs expression
         input = quote
             x .~ Normal(; a = 1, b = 2) where {created_by=(x.~Normal(; a = 1, b = 2))}
         end
-        output = quote
-            x .~ Normal(; a = 1, b = 2) where {created_by=(x.~Normal(; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 12: Input expression with .~ expression and only kwargs expression with symbols
         input = quote
             x .~ Normal(; a = τ, b=θ) where {created_by=(x.~Normal(; a = τ, b=θ))}
         end
-        output = quote
-            x .~ Normal(; a = τ, b=θ) where {created_by=(x.~Normal(; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 13: Input expression with .~ expression and only args expression
         input = quote
             x .~ Normal(0, 1) where {created_by=(x.~Normal(0, 1))}
         end
-        output = quote
-            x .~ Normal(; in=(0, 1)) where {created_by=(x.~Normal(0, 1))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 14: Input expression with .~ expression and only args expression with symbols
         input = quote
             x .~ Normal(μ, σ) where {created_by=(x.~Normal(μ, σ))}
         end
-        output = quote
-            x .~ Normal(; in=(μ, σ)) where {created_by=(x.~Normal(μ, σ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 15: Input expression with .~ expression and named args expression
@@ -525,54 +566,42 @@ using MacroTools
         input = quote
             x := Normal(0, 1; a = 1, b = 2) where {created_by=(x:=Normal(0, 1; a = 1, b = 2))}
         end
-        output = quote
-            x := Normal(; in=(0, 1), a = 1, b = 2) where {created_by=(x:=Normal(0, 1; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 18: Input expression with := expression and args and kwargs expressions with symbols
         input = quote
             x := Normal(μ, σ; a = τ, b=θ) where {created_by=(x:=Normal(μ, σ; a = τ, b=θ))}
         end
-        output = quote 
-            x := Normal(; in=(μ, σ), a = τ, b=θ) where {created_by=(x:=Normal(μ, σ; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 19: Input expression with := expression and only kwargs expression
         input = quote
             x := Normal(; a = 1, b = 2) where {created_by=(x:=Normal(; a = 1, b = 2))}
         end
-        output = quote
-            x := Normal(; a = 1, b = 2) where {created_by=(x:=Normal(; a = 1, b = 2))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 20: Input expression with := expression and only kwargs expression with symbols
         input = quote
             x := Normal(; a = τ, b=θ) where {created_by=(x:=Normal(; a = τ, b=θ))}
         end
-        output = quote
-            x := Normal(; a = τ, b=θ) where {created_by=(x:=Normal(; a = τ, b=θ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 21: Input expression with := expression and only args expression
         input = quote
             x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))}
         end
-        output = quote
-            x := Normal(; in=(0, 1)) where {created_by=(x:=Normal(0, 1))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 22: Input expression with := expression and only args expression with symbols
         input = quote
             x := Normal(μ, σ) where {created_by=(x:=Normal(μ, σ))}
         end
-        output = quote
-            x := Normal(; in=(μ, σ)) where {created_by=(x:=Normal(μ, σ))}
-        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
         # Test 23: Input expression with := expression and named args as args expression
@@ -591,6 +620,20 @@ using MacroTools
         output = quote
             x := Normal(; μ=μ, σ=σ) where {created_by=(x:=Normal(μ=μ, σ=σ))}
         end
+        @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+        # Test 25: Input expression with ~ expression and additional arguments in where clause
+        input = quote
+            x ~ Normal(0, 1) where {q = MeanField(), created_by=(x~Normal(0, 1)) where q=MeanField()}
+        end
+        output = input
+        @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+        # Test 26: Input expression with nested call in rhs
+        input = quote
+            x ~ Normal(Normal(0,1)) where {created_by=(x~Normal(Normal(0,1)))}
+        end
+        output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     end
@@ -794,11 +837,15 @@ using MacroTools
                     }
                     $sym1
                 end,
-                1,
+                1
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
 
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+
+        #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
+        input = quote
+        end
 
     end
 
@@ -1087,6 +1134,10 @@ using MacroTools
         kwargs = :(foo(; a = a, b = b))
         @capture(kwargs, (f_(args__)))
         @test is_kwargs_expression(args)
+
+        mixed_args = :(foo(a, b; c = c))
+        @capture(mixed_args, (f_(args__)))
+        @test !is_kwargs_expression(args)
     end
 
     @testset "keyword_expressions_to_named_tuple" begin
@@ -1100,13 +1151,6 @@ using MacroTools
         end
         @capture(expr, (lhs_ ~ f_(; kwargs__)))
         @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:μ, :σ), (0, 1))...)
-
-        expr = quote 
-            x ~ Normal(; in = (0,1))
-        end
-        @capture(expr, (lhs_ ~ f_(; kwargs__)))
-        @test_broken keyword_expressions_to_named_tuple(kwargs) == (; zip((:in,), ((0, 1),))...)
-
 
         input = quote
             x ~ Normal(0, 1; a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
@@ -1156,7 +1200,7 @@ using MacroTools
 
         # Test 3: Test regular node creation with indexed input
         input = quote
-            x[i] ~ sum(; in = (μ[i], σ[i])) where {created_by=(x[i]~sum(μ[i], σ[i]))}
+            x[i] ~ sum(μ[i], σ[i]) where {created_by=(x[i]~sum(μ[i], σ[i]))}
         end
         output = quote
             interfaces_tuple = (
@@ -1169,7 +1213,7 @@ using MacroTools
 
         # Test 4: Test node creation with anonymous variable
         input = quote
-            x ~ sum(; in=(
+            x ~ sum(
                 begin
                     tmp_1 ~ sum(; in=(
                         0,
@@ -1177,7 +1221,7 @@ using MacroTools
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
-                0)
+                0
             ) where {created_by=(x~Normal(Normal(0, 1), 0))}
         end
         output = quote
@@ -1195,19 +1239,6 @@ using MacroTools
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-
-        # Test 5: Test node creation with vague specification
-    #     input = quote 
-    #         x ~ vague(; in=Bernoulli) where {created_by=(x~vague(Bernoulli))}
-    #     end
-    #     output = quote
-    #         interfaces_tuple = (
-    #             in = GraphPPL.getifcreated(model, context, Bernoulli),
-    #             out = GraphPPL.getifcreated(model, context, x),
-    #         )
-    #         GraphPPL.make_node!(model, context, vague, interfaces_tuple)
-    #     end
-    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
     end
 
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
