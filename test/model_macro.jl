@@ -466,7 +466,7 @@ using MacroTools
             local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            x = GraphPPL.add_variable_node!(model, context, gensym(:x))
+            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
@@ -477,9 +477,9 @@ using MacroTools
             local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         output = quote
-            x = GraphPPL.add_variable_node!(model, context, gensym(:x))
+            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
-            y = GraphPPL.add_variable_node!(model, context, gensym(:y))
+            y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
@@ -491,7 +491,7 @@ using MacroTools
         end
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
-            y = GraphPPL.add_variable_node!(model, context, gensym(:y))
+            y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output

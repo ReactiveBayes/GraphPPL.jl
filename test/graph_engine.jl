@@ -93,37 +93,37 @@ using TestSetExtensions
         @test ne(model) == 1
     end
 
-    @testset "gensym(::Model, ::Symbol)" begin
-        import GraphPPL: create_model, gensym, NodeLabel
+    @testset "generate_nodelabel(::Model, ::Symbol)" begin
+        import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 
         model = create_model()
-        first_sym = gensym(model, :x)
+        first_sym = generate_nodelabel(model, :x)
         @test typeof(first_sym) == NodeLabel
 
-        second_sym = gensym(model, :x)
+        second_sym = generate_nodelabel(model, :x)
         @test first_sym != second_sym && first_sym.name == second_sym.name
 
-        id = gensym(model, :c)
+        id = generate_nodelabel(model, :c)
         @test id.name == :c && id.index == 3
 
 
-        id = gensym(model, "d")
+        id = generate_nodelabel(model, "d")
         @test id.name == :d && id.index == 4 && id.variable_type == 1
 
 
-        id = gensym(model, :d, 3)
+        id = generate_nodelabel(model, :d, 3)
         @test id.name == :d && id.index == 5 && id.variable_type == 2
 
-        id = gensym(model, :d, (2, 1))
+        id = generate_nodelabel(model, :d, (2, 1))
         @test id.name == :d && id.index == 6 && id.variable_type == 3
 
-        id = gensym(model, "d", (2, 1))
+        id = generate_nodelabel(model, "d", (2, 1))
         @test id.name == :d && id.index == 7 && id.variable_type == 3
 
-        id = gensym(model, "d", 2)
+        id = generate_nodelabel(model, "d", 2)
         @test id.name == :d && id.index == 8 && id.variable_type == 2
 
-        @test_throws ArgumentError gensym(model, :d, (2, "a"))
+        @test_throws ArgumentError generate_nodelabel(model, :d, (2, "a"))
 
     end
 
@@ -460,7 +460,7 @@ using TestSetExtensions
 
     @testset "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
         import GraphPPL:
-            create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!
+            create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel
 
         model = create_model()
         x = getorcreate!(model, :x)
@@ -474,8 +474,8 @@ using TestSetExtensions
 
         @test_throws KeyError add_edge!(
             model,
-            gensym(model, :factor_node),
-            gensym(model, :factor_node2),
+            generate_nodelabel(model, :factor_node),
+            generate_nodelabel(model, :factor_node2),
             :interface,
         )
 

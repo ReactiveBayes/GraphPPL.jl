@@ -98,7 +98,7 @@ Graphs.ne(model::Model) = Graphs.ne(model.graph)
 
 
 """
-    gensym(model::Model, name::Symbol)
+    generate_nodelabel(model::Model, name::Symbol)
 
 Generate a new `NodeLabel` object with a unique identifier based on the specified name and the
 number of nodes already in the model.
@@ -112,7 +112,7 @@ Arguments:
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function gensym(
+function generate_nodelabel(
     model::Model,
     name::Symbol,
     variable_type::UInt8 = UInt8(0),
@@ -122,17 +122,22 @@ function gensym(
     return NodeLabel(name, model.counter, variable_type, index)
 end
 
-gensym(model::Model, name::Symbol, index::Nothing) = gensym(model, name, UInt8(1), 0)
-gensym(model::Model, name::Symbol, index::Int64) = gensym(model, name, UInt8(2), index)
-gensym(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
-    gensym(model, name, UInt8(3), index)
-gensym(model::Model, name::Symbol, index::Tuple) = throw(
+generate_nodelabel(model::Model, name::Symbol, index::Nothing) = generate_nodelabel(model, name, UInt8(1), 0)
+generate_nodelabel(model::Model, name::Symbol, index::Int64) = generate_nodelabel(model, name, UInt8(2), index)
+generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
+    generate_nodelabel(model, name, UInt8(3), index)
+generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
     ArgumentError(
         "Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))",
     ),
 )
 
-gensym(model::Model, name, index = nothing) = gensym(model::Model, Symbol(name), index)
+generate_nodelabel(model::Model, name, index = nothing) = generate_nodelabel(model::Model, Symbol(name), index)
+
+function Base.gensym(model::Model, name::Symbol)
+    increase_count
+    return Symbol(String(name) * "_" * string(model.counter))
+end
 
 to_symbol(id::NodeLabel) = Symbol(String(id.name) * "_" * string(id.index))
 
@@ -334,7 +339,7 @@ getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::Tuple) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(:constvar), nothing, var)
+    add_variable_node!(model, context, gensym(model, :constvar), nothing, var)
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -360,7 +365,7 @@ function add_variable_node!(
     index = nothing,
     value = nothing,
 )
-    variable_symbol = gensym(model, variable_id, index)
+    variable_symbol = generate_nodelabel(model, variable_id, index)
     context[variable_id, index] = variable_symbol
     model[variable_symbol] = NodeData(true, variable_id, value)
     return variable_symbol
@@ -382,7 +387,7 @@ Returns:
     - The generated symbol for the node.
 """
 function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
-    node_id = gensym(model, Symbol(node_name), UInt8(0))
+    node_id = generate_nodelabel(model, Symbol(node_name), UInt8(0))
     model[node_id] = NodeData(false, node_name)
     context.factor_nodes[node_id] = node_id
     return node_id
@@ -415,7 +420,7 @@ function add_composite_factor_node!(
     context::Context,
     node_name::Symbol,
 )
-    node_id = gensym(model, node_name)
+    node_id = generate_nodelabel(model, node_name)
     parent_context.factor_nodes[node_id] = context
     return node_id
 end
@@ -536,7 +541,7 @@ function make_node!(
         (in1 = current_terminal, in2 = second_to_last_input, in3 = last_input),
     )
 
-    node_id = gensym(model, node_name)
+    node_id = generate_nodelabel(model, node_name)
     parent_context.factor_nodes[node_id] = context
 
 end
@@ -559,7 +564,7 @@ function terminate_at_neighbors!(model::Model, vertex)
     name = model[label].name
     new_vertices = Dict()
     for neighbor in neighbors(model.graph, vertex)
-        new_label = gensym(model, name)
+        new_label = generate_nodelabel(model, name)
         model[new_label] = NodeData(true, name)
         edge_data = model.graph[label, label_for(model.graph, neighbor)]
         model.graph[label_for(model.graph, neighbor), new_label] = edge_data
