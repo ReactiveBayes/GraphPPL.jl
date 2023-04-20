@@ -247,10 +247,20 @@ function copy_markov_blanket_to_child_context(
     child_context::Context,
     interfaces::NamedTuple,
 )
-    for (child_name, parent_name) in iterator(interfaces)
-        child_context.individual_variables[child_name] = parent_name
+    for (name_in_child, object_in_parent) in iterator(interfaces)
+        add_to_child_context(child_context, name_in_child, object_in_parent)
     end
 end
+
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::NodeLabel) = child_context.individual_variables[name_in_child] = object_in_parent
+function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel})
+    if length(size(object_in_parent)) == 1
+        child_context.vector_variables[name_in_child] = object_in_parent
+    else
+        child_context.tensor_variables[name_in_child] = object_in_parent
+    end
+end
+
 
 getorcreate!(model::Model, something) =
     getorcreate!(model, context(model), something, nothing)
@@ -317,7 +327,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     # check that the variable does not exist in other categories
     if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
         error(
-            "Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $N-dimensional tensor variable.",
+            "Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $(length(index))-dimensional tensor variable.",
         )
     end
     # Simply return a variable and create a new one if it does not exist
@@ -336,6 +346,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
+getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Tuple) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
