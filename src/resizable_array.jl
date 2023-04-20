@@ -89,3 +89,7 @@ function Base.show(io::IO, array::ResizableArray{T,V,N}) where {T,V,N}
     show(io, array.data)
     print(io, ")")
 end
+
+function Base.iterate(array::ResizableArray{T,V,N}) where {T,V,N}
+    return iterate(array.data)
+end

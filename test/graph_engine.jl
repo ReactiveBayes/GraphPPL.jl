@@ -221,13 +221,35 @@ using TestSetExtensions
         import GraphPPL:
             create_model, copy_markov_blanket_to_child_context, Context, getorcreate!
 
+        # Test 1: Copy individual variables
         model = create_model()
+        ctx = context(model)
         child_context = Context(context(model), "child")
-        x = getorcreate!(model, :x)
-        y = getorcreate!(model, :y)
-        z = getorcreate!(model, :z)
+        x = getorcreate!(model,ctx, :x)
+        y = getorcreate!(model, ctx, :y)
+        z = getorcreate!(model, ctx, :z)
         copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
         @test child_context[:in1].name == :x
+
+        # Test 2: Copy vector variables
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, 1)
+        getorcreate!(model, ctx, :x, 2)
+        child_context = Context(context(model), "child")
+        copy_markov_blanket_to_child_context(child_context, (in1 = x,))
+        @test child_context[:in1] == x
+
+        # Test 3: Copy tensor variables
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, 1, 1)
+        getorcreate!(model, ctx, :x, 1, 2)
+        getorcreate!(model, ctx, :x, 2, 1)
+        getorcreate!(model, ctx, :x, 2, 2)
+        child_context = Context(context(model), "child")
+        copy_markov_blanket_to_child_context(child_context, (in1 = x,))
+        @test child_context[:in1] == x
     end
 
 
