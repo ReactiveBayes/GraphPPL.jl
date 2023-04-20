@@ -123,7 +123,7 @@ end
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
         return quote
-            $lhs = GraphPPL.add_variable_node!(model, context, gensym($(QuoteNode(lhs))))
+            $lhs = GraphPPL.add_variable_node!(model, context, gensym(model, $(QuoteNode(lhs))))
             $lhs ~ $rhs where {$(options...)}
         end
     else
@@ -555,7 +555,7 @@ macro model(model_specification)
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
             $ms_body
-            node_id = GraphPPL.gensym(model, $ms_name)
+            node_id = GraphPPL.generate_nodelabel(model, $ms_name)
             GraphPPL.add_composite_factor_node!(model, context, parent_context, $ms_name)
         end
     end
