@@ -766,7 +766,8 @@ using MacroTools
         output = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreatearray!(model, context, :x, Val(1))
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
-            y = @isdefined(y) ? y : GraphPPL.getorcreatearray!(model, context, :y, Val(2))
+            y =
+                @isdefined(y) ? y : GraphPPL.getorcreatearray!(model, context, :y, Val(2))
             y[1, 2] ~ Normal(0, 1) where {created_by=(y[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output

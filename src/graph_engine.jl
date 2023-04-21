@@ -122,8 +122,10 @@ function generate_nodelabel(
     return NodeLabel(name, model.counter, variable_type, index)
 end
 
-generate_nodelabel(model::Model, name::Symbol, index::Nothing) = generate_nodelabel(model, name, UInt8(1), 0)
-generate_nodelabel(model::Model, name::Symbol, index::Int64) = generate_nodelabel(model, name, UInt8(2), index)
+generate_nodelabel(model::Model, name::Symbol, index::Nothing) =
+    generate_nodelabel(model, name, UInt8(1), 0)
+generate_nodelabel(model::Model, name::Symbol, index::Int64) =
+    generate_nodelabel(model, name, UInt8(2), index)
 generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
     generate_nodelabel(model, name, UInt8(3), index)
 generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
@@ -132,7 +134,8 @@ generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
     ),
 )
 
-generate_nodelabel(model::Model, name, index = nothing) = generate_nodelabel(model::Model, Symbol(name), index)
+generate_nodelabel(model::Model, name, index = nothing) =
+    generate_nodelabel(model::Model, Symbol(name), index)
 
 function Base.gensym(model::Model, name::Symbol)
     increase_count
@@ -246,8 +249,16 @@ function copy_markov_blanket_to_child_context(
     end
 end
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::NodeLabel) = child_context.individual_variables[name_in_child] = object_in_parent
-function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel})
+add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::NodeLabel,
+) = child_context.individual_variables[name_in_child] = object_in_parent
+function add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::ResizableArray{NodeLabel},
+)
     # Using if-statement here instead of dispatching is approx 4x faster
     if length(size(object_in_parent)) == 1
         child_context.vector_variables[name_in_child] = object_in_parent
@@ -256,9 +267,15 @@ function add_to_child_context(child_context::Context, name_in_child::Symbol, obj
     end
 end
 
-check_if_individual_variable(context :: Context, name :: Symbol) = haskey(context.individual_variables, name) ?  error("Variable $name is already an individual variable in the model") : nothing
-check_if_vector_variable(context :: Context, name :: Symbol) = haskey(context.vector_variables, name) ?  error("Variable $name is already a vector variable in the model") : nothing
-check_if_tensor_variable(context :: Context, name :: Symbol) = haskey(context.tensor_variables, name) ?  error("Variable $name is already a tensor variable in the model") : nothing
+check_if_individual_variable(context::Context, name::Symbol) =
+    haskey(context.individual_variables, name) ?
+    error("Variable $name is already an individual variable in the model") : nothing
+check_if_vector_variable(context::Context, name::Symbol) =
+    haskey(context.vector_variables, name) ?
+    error("Variable $name is already a vector variable in the model") : nothing
+check_if_tensor_variable(context::Context, name::Symbol) =
+    haskey(context.tensor_variables, name) ?
+    error("Variable $name is already a tensor variable in the model") : nothing
 
 """
     getorcreate!(model::Model, context::Context, edge, index)
@@ -308,7 +325,12 @@ function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Va
     return context.vector_variables[name]
 end
 
-function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Val{N}) where {N}
+function getorcreatearray!(
+    model::Model,
+    context::Context,
+    name::Symbol,
+    dim::Val{N},
+) where {N}
     # check that the variable does not exist in other categories
     check_if_individual_variable(context, name)
     check_if_vector_variable(context, name)
@@ -331,7 +353,7 @@ end
 
 function createifnotexists!(model::Model, context::Context, name::Symbol, index...)
     # check that the variable exists in the current context
-    @assert haskey(context.tensor_variables, name) 
+    @assert haskey(context.tensor_variables, name)
     # Simply return a variable and create a new one if it does not exist
     if !isassigned(context.tensor_variables[name], index...)
         add_variable_node!(model, context, name, index)
@@ -503,4 +525,3 @@ function plot_graph(g::MetaGraph; name = "tmp.png")
 end
 
 plot_graph(g::Model; name = "tmp.png") = plot_graph(g.graph; name = name)
-

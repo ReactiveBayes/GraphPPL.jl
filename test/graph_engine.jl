@@ -219,13 +219,18 @@ using TestSetExtensions
 
     @testset "copy_markov_blanket_to_child_context" begin
         import GraphPPL:
-            create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, getorcreatearray!, createifnotexists!
+            create_model,
+            copy_markov_blanket_to_child_context,
+            Context,
+            getorcreate!,
+            getorcreatearray!,
+            createifnotexists!
 
         # Test 1: Copy individual variables
         model = create_model()
         ctx = context(model)
         child_context = Context(context(model), "child")
-        x = getorcreate!(model,ctx, :x)
+        x = getorcreate!(model, ctx, :x)
         y = getorcreate!(model, ctx, :y)
         z = getorcreate!(model, ctx, :z)
         copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
@@ -284,7 +289,7 @@ using TestSetExtensions
         copy_markov_blanket_to_child_context(child_context, (in = x, out = y))
         @test getorcreate!(model, child_context, :in) == getorcreate!(model, ctx, :x)
 
-    end 
+    end
 
     @testset "getorcreatearray!" begin
         import GraphPPL: create_model, getorcreatearray!, context
@@ -304,7 +309,8 @@ using TestSetExtensions
     end
 
     @testset "createifnotexists!" begin
-        import GraphPPL: create_model, getorcreatearray!, getorcreate!, createifnotexists!, context
+        import GraphPPL:
+            create_model, getorcreatearray!, getorcreate!, createifnotexists!, context
 
         # Test case 1: test that iteratively creates new variables and should dynamically grow the array
         model = create_model()
@@ -336,7 +342,15 @@ using TestSetExtensions
     end
 
     @testset "getifcreated" begin
-        import GraphPPL: create_model, getifcreated, getorcreate!, context, name, value, getorcreatearray!, createifnotexists!
+        import GraphPPL:
+            create_model,
+            getifcreated,
+            getorcreate!,
+            context,
+            name,
+            value,
+            getorcreatearray!,
+            createifnotexists!
         model = create_model()
         ctx = context(model)
 
@@ -501,7 +515,15 @@ using TestSetExtensions
 
     @testset "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
         import GraphPPL:
-            create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel
+            create_model,
+            nv,
+            ne,
+            NodeData,
+            NodeLabel,
+            EdgeLabel,
+            add_edge!,
+            getorcreate!,
+            generate_nodelabel
 
         model = create_model()
         ctx = context(model)

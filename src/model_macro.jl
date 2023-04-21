@@ -123,7 +123,11 @@ end
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
         return quote
-            $lhs = GraphPPL.add_variable_node!(model, context, gensym(model, $(QuoteNode(lhs))))
+            $lhs = GraphPPL.add_variable_node!(
+                model,
+                context,
+                gensym(model, $(QuoteNode(lhs))),
+            )
             $lhs ~ $rhs where {$(options...)}
         end
     else
@@ -185,7 +189,12 @@ function convert_indexed_statement(e::Expr)
             return quote
                 $var =
                     @isdefined($var) ? $var :
-                    GraphPPL.getorcreatearray!(model, context, $(QuoteNode(var)), Val($(length(index))))
+                    GraphPPL.getorcreatearray!(
+                        model,
+                        context,
+                        $(QuoteNode(var)),
+                        Val($(length(index))),
+                    )
                 $e
             end
         end

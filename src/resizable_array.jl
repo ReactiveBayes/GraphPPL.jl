@@ -59,7 +59,7 @@ function recursive_setindex!(
     value::T,
     findex,
     index...,
-) where {N,V <: Vector,T}
+) where {N,V<:Vector,T}
     if findex > length(array)
         oldlength = length(array)
         resize!(array, findex)
