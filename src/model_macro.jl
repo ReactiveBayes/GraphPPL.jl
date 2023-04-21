@@ -52,6 +52,8 @@ struct walk_until_occurrence{E}
     patterns::E
 end
 
+not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref))
+
 function (w::walk_until_occurrence{E})(f, x) where {E<:Tuple}
     return walk(
         x,
@@ -221,7 +223,7 @@ function convert_function_argument_in_rhs(e::Expr)
     if @capture(e, (lhs_ ~ fform_(nargs__) where {options__}))
         created_by = get_created_by(options)
         for (i, narg) in enumerate(nargs)
-            nargs[i] = postwalk(narg) do argument
+            nargs[i] = GraphPPL.not_enter_indexed_walk(narg) do argument
                 convert_to_anonymous(argument, created_by)
             end
         end
@@ -285,8 +287,7 @@ end
 
 Guarded walk that makes sure that the arithmetic operations are never converted in indexed expressions (e.g. x[i + 1] is not converted to x[sum(i, 1)]
 """
-what_walk(::typeof(convert_arithmetic_operations)) =
-    guarded_walk((x) -> (x isa Expr && x.head == :ref))
+what_walk(::typeof(convert_arithmetic_operations)) = not_enter_indexed_walk
 
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
@@ -541,6 +542,8 @@ macro model(model_specification)
     ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
+
+
 
     # TODO (bvdmitri): prettify
     init_input_arguments = map(ms_args) do arg

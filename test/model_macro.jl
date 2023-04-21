@@ -1034,6 +1034,13 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
+        # Test 9: Input expression with arithmetic indexed call on rhs
+        input = quote
+            x ~ Normal(x[i - 1], 1) where {created_by=(x~Normal(y[i - 1], 1))}
+        end
+        output = input
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+
     end
 
     @testset "add_get_or_create_expression" begin
@@ -1267,6 +1274,7 @@ using MacroTools
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+
     end
 
     @testset "missing_interfaces" begin
@@ -1328,6 +1336,7 @@ using MacroTools
         fform = dummy
         rhs = (a = :(y[i]),)
         @test prepare_interfaces(lhs, fform, rhs) == (a = :(y[i]), b = :(x[i]))
+
 
     end
 
