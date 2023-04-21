@@ -185,7 +185,7 @@ function convert_indexed_statement(e::Expr)
             return quote
                 $var =
                     @isdefined($var) ? $var :
-                    GraphPPL.getorcreate!(model, context, $(QuoteNode(var)), $(index...))
+                    GraphPPL.getorcreatearray!(model, context, $(QuoteNode(var)), Val($(length(index))))
                 $e
             end
         end
@@ -249,7 +249,7 @@ end
 
 
 function generate_get_or_create(s::Symbol, index::Union{Tuple,AbstractArray,Int})
-    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
+    return :(GraphPPL.createifnotexists!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
 """
@@ -475,9 +475,10 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         function $ms_name()
             model = GraphPPL.create_model()
+            context = GraphPPL.context(model)
             arguments = []
             for argument in $ms_args
-                argument = GraphPPL.getorcreate!(model, argument)
+                argument = GraphPPL.getorcreate!(model, context, argument)
                 push!(arguments, argument)
             end
             args = (; zip($ms_args, arguments)...)
