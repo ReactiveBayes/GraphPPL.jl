@@ -743,7 +743,7 @@ using MacroTools
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1)
+            x = @isdefined(x) ? x : GraphPPL.getorcreatearray!(model, context, :x, Val(1))
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
@@ -753,7 +753,7 @@ using MacroTools
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            x = @isdefined(x) ? x : GraphPPL.getorcreatearray!(model, context, :x, Val(2))
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
@@ -764,9 +764,10 @@ using MacroTools
             y[1, 2] ~ Normal(0, 1) where {created_by=(y[1, 2]~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x, 1)
+            x = @isdefined(x) ? x : GraphPPL.getorcreatearray!(model, context, :x, Val(1))
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
-            y = @isdefined(y) ? y : GraphPPL.getorcreate!(model, context, :y, 1, 2)
+            y =
+                @isdefined(y) ? y : GraphPPL.getorcreatearray!(model, context, :y, Val(2))
             y[1, 2] ~ Normal(0, 1) where {created_by=(y[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_indexed_statement) output
@@ -1052,7 +1053,7 @@ using MacroTools
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.getorcreate!(model, context, :x, 1)
+            GraphPPL.createifnotexists!(model, context, :x, 1)
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1062,7 +1063,7 @@ using MacroTools
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            GraphPPL.createifnotexists!(model, context, :x, 1, 2)
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1072,7 +1073,7 @@ using MacroTools
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.getorcreate!(model, context, :x, i)
+            GraphPPL.createifnotexists!(model, context, :x, i)
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1082,7 +1083,7 @@ using MacroTools
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.getorcreate!(model, context, :x, i, j)
+            GraphPPL.createifnotexists!(model, context, :x, i, j)
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1133,35 +1134,35 @@ using MacroTools
         # Test 2: test vector variable
         output = generate_get_or_create(:x, 1)
         desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, 1)
+            GraphPPL.createifnotexists!(model, context, :x, 1)
         end
         @test_expression_generating output desired_result
 
         # Test 3: test matrix variable
         output = generate_get_or_create(:x, (1, 2))
         desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, 1, 2)
+            GraphPPL.createifnotexists!(model, context, :x, 1, 2)
         end
         @test_expression_generating output desired_result
 
         # Test 5: test symbol-indexed variable
         output = generate_get_or_create(:x, (:i, :j))
         desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, i, j)
+            GraphPPL.createifnotexists!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
 
         # Test 6: test vector of single symbol
         output = generate_get_or_create(:x, [:i])
         desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, i)
+            GraphPPL.createifnotexists!(model, context, :x, i)
         end
         @test_expression_generating output desired_result
 
         # Test 7: test vector of symbols
         output = generate_get_or_create(:x, [:i, :j])
         desired_result = quote
-            GraphPPL.getorcreate!(model, context, :x, i, j)
+            GraphPPL.createifnotexists!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
 

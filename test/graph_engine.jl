@@ -219,13 +219,18 @@ using TestSetExtensions
 
     @testset "copy_markov_blanket_to_child_context" begin
         import GraphPPL:
-            create_model, copy_markov_blanket_to_child_context, Context, getorcreate!
+            create_model,
+            copy_markov_blanket_to_child_context,
+            Context,
+            getorcreate!,
+            getorcreatearray!,
+            createifnotexists!
 
         # Test 1: Copy individual variables
         model = create_model()
         ctx = context(model)
         child_context = Context(context(model), "child")
-        x = getorcreate!(model,ctx, :x)
+        x = getorcreate!(model, ctx, :x)
         y = getorcreate!(model, ctx, :y)
         z = getorcreate!(model, ctx, :z)
         copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
@@ -234,8 +239,9 @@ using TestSetExtensions
         # Test 2: Copy vector variables
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x, 1)
-        getorcreate!(model, ctx, :x, 2)
+        x = getorcreatearray!(model, ctx, :x, Val(1))
+        createifnotexists!(model, ctx, :x, 1)
+        createifnotexists!(model, ctx, :x, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in1 = x,))
         @test child_context[:in1] == x
@@ -243,10 +249,11 @@ using TestSetExtensions
         # Test 3: Copy tensor variables
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x, 1, 1)
-        getorcreate!(model, ctx, :x, 1, 2)
-        getorcreate!(model, ctx, :x, 2, 1)
-        getorcreate!(model, ctx, :x, 2, 2)
+        x = getorcreatearray!(model, ctx, :x, Val(2))
+        createifnotexists!(model, ctx, :x, 1, 1)
+        createifnotexists!(model, ctx, :x, 2, 1)
+        createifnotexists!(model, ctx, :x, 1, 2)
+        createifnotexists!(model, ctx, :x, 2, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in1 = x,))
         @test child_context[:in1] == x
@@ -258,66 +265,76 @@ using TestSetExtensions
 
         #Test case 1: create a new variable
         model = create_model()
-        getorcreate!(model, :x)
+        ctx = context(model)
+        getorcreate!(model, ctx, :x)
         @test nv(model) == 1
 
         #Test case 2: check that getorcreate contains the same variable
-        x = getorcreate!(model, :x)
-        @test nv(model) == 1 && x == getorcreate!(model, context(model), :x)
+        x = getorcreate!(model, ctx, :x)
+        @test nv(model) == 1 && x == getorcreate!(model, ctx, :x)
 
         #Test case 3: create a new variable
-        y = getorcreate!(model, :y)
+        y = getorcreate!(model, ctx, :y)
         @test nv(model) == 2
 
         #Test case 4: create a tuple of variables
-        (in1, in2) = getorcreate!(model, [:in_1, :in2])
+        (in1, in2) = getorcreate!(model, ctx, [:in_1, :in2])
         @test nv(model) == 4
 
         #Test case 5: test that you cannot create integer variables
-        @test_throws MethodError getorcreate!(model, 1)
+        @test_throws MethodError getorcreate!(model, ctx, 1)
 
         #Test case 6: test that two variables in two different contexts from the same markov blanket are the same variables in the model
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in = x, out = y))
-        @test getorcreate!(model, child_context, :in) == getorcreate!(model, :x)
+        @test getorcreate!(model, child_context, :in) == getorcreate!(model, ctx, :x)
 
-        #Test case 7: test creation of a vector variable
-        model = create_model()
-        v = getorcreate!(model, context(model), :v, 1)
-        @test nv(model) == 1
-        @test context(model)[:v][1] == v[1]
-        @test getorcreate!(model, context(model), :v, 1)[1] == v[1]
+    end
 
-        # Test case 8: test creation of a tensor variable
-        mv = getorcreate!(model, context(model), :mv, 2, 3)
-        @test haskey(context(model).tensor_variables, :mv)
-        @test nv(model) == 2
-        @test context(model)[:mv][2, 3] == mv[2, 3]
-        @test getorcreate!(model, context(model), :mv, 2, 3)[2, 3] == mv[2, 3]
+    @testset "getorcreatearray!" begin
+        import GraphPPL: create_model, getorcreatearray!, context
 
-        # Test case 9: test that creation of individual variable if it is already a vector variable throws an error
-        @test_throws ErrorException getorcreate!(model, context(model), :mv)
-
-        # Test case 10: test that iteratively creates new variables and should dynamically grow the array
+        #Test case 1: test creation of a vector variable
         model = create_model()
         ctx = context(model)
+        v = getorcreatearray!(model, ctx, :v, Val(1))
+        @test haskey(context(model).vector_variables, :v)
+
+        # Test case 2: test creation of a tensor variable
+        mv = getorcreatearray!(model, context(model), :mv, Val(2))
+        @test haskey(context(model).tensor_variables, :mv)
+
+        # Test case 3: test that creation of individual variable if it is already a vector variable throws an error
+        @test_throws ErrorException getorcreate!(model, context(model), :mv)
+    end
+
+    @testset "createifnotexists!" begin
+        import GraphPPL:
+            create_model, getorcreatearray!, getorcreate!, createifnotexists!, context
+
+        # Test case 1: test that iteratively creates new variables and should dynamically grow the array
+        model = create_model()
+        ctx = context(model)
+        mv = getorcreatearray!(model, ctx, :mv, Val(2))
         c = 0
         for i = 1:10
             for j = 1:3
                 c += 1
-                getorcreate!(model, ctx, :x, i, j)
+                createifnotexists!(model, ctx, :mv, i, j)
                 @test nv(model) == c
             end
         end
 
         # Test case 11: test that getting an out-of-bounds tensor variable resizes the tensor
         model = create_model()
-        getorcreate!(model, context(model), :mv, 2, 3)
-        getorcreate!(model, context(model), :mv, 2, 1)
+        ctx = context(model)
+        mv = getorcreatearray!(model, ctx, :mv, Val(2))
+        createifnotexists!(model, context(model), :mv, 2, 3)
+        createifnotexists!(model, context(model), :mv, 2, 1)
         @test size(context(model)[:mv]) == (2, 3)
         @test haskey(context(model).tensor_variables, :mv)
         @test nv(model) == 2
-        mv = getorcreate!(model, context(model), :mv, 2, 4)
+        createifnotexists!(model, context(model), :mv, 2, 4)
         @test nv(model) == 3
         @test context(model)[:mv][2, 4] == mv[2, 4]
         @test size(context(model)[:mv]) == (2, 4)
@@ -325,7 +342,15 @@ using TestSetExtensions
     end
 
     @testset "getifcreated" begin
-        import GraphPPL: create_model, getifcreated, getorcreate!, context, name, value
+        import GraphPPL:
+            create_model,
+            getifcreated,
+            getorcreate!,
+            context,
+            name,
+            value,
+            getorcreatearray!,
+            createifnotexists!
         model = create_model()
         ctx = context(model)
 
@@ -334,7 +359,8 @@ using TestSetExtensions
         @test getifcreated(model, ctx, x) == x
 
         # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
-        y = getorcreate!(model, ctx, :y, 1)
+        y = getorcreatearray!(model, ctx, :y, Val(1))
+        createifnotexists!(model, ctx, :y, 1)
         @test getifcreated(model, ctx, y[1]) == y[1]
 
         # Test case 3: check that getifcreated returns a new variable node when called with integer input
@@ -361,7 +387,8 @@ using TestSetExtensions
         # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
         model = create_model()
         ctx = context(model)
-        z = getorcreate!(model, ctx, :z, 1)
+        z = getorcreatearray!(model, ctx, :z, Val(1))
+        createifnotexists!(model, ctx, :z, 1)
         z_fetched = getifcreated(model, ctx, z[1])
         @test z_fetched == z[1]
 
@@ -375,7 +402,7 @@ using TestSetExtensions
     end
 
     @testset "add_variable_node!" begin
-        import GraphPPL: create_model, add_variable_node!, context
+        import GraphPPL: create_model, add_variable_node!, context, getorcreatearray!
 
         #simple add variable to model
         model = create_model()
@@ -395,6 +422,7 @@ using TestSetExtensions
         #add a vector variable to the model
         model = create_model()
         ctx = context(model)
+        getorcreatearray!(model, ctx, :x, Val(1))
         node_id = add_variable_node!(model, ctx, :x, 2)
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
@@ -411,6 +439,7 @@ using TestSetExtensions
         #add a tensor variable to the model
         model = create_model()
         ctx = context(model)
+        getorcreatearray!(model, ctx, :x, Val(2))
         node_id = add_variable_node!(model, ctx, :x, (2, 3))
         @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2, 3] == node_id
 
@@ -421,14 +450,17 @@ using TestSetExtensions
         # Attempt to add a variable with an existing index
         model = create_model()
         ctx = context(model)
+        getorcreatearray!(model, ctx, :y, Val(1))
         node_id = add_variable_node!(model, ctx, :y, 1)
         node_id = add_variable_node!(model, ctx, :y, 1)
 
 
         # Add a variable with a non-integer index
+        getorcreatearray!(model, ctx, :z, Val(2))
         @test_throws ArgumentError add_variable_node!(model, ctx, :z, (1, "a"))
 
         # Add a variable with a negative index
+        getorcreatearray!(model, ctx, :w, Val(1))
         @test_throws BoundsError add_variable_node!(model, ctx, :w, -1)
 
     end
@@ -437,7 +469,8 @@ using TestSetExtensions
         import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!
 
         model = create_model()
-        getorcreate!(model, :x)
+        ctx = context(model)
+        getorcreate!(model, ctx, :x)
         node_id = add_atomic_factor_node!(model, model[], sum)
 
         @test nv(model) == 2 && occursin("sum", String(label_for(model.graph, 2).name))
@@ -482,11 +515,20 @@ using TestSetExtensions
 
     @testset "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
         import GraphPPL:
-            create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel
+            create_model,
+            nv,
+            ne,
+            NodeData,
+            NodeLabel,
+            EdgeLabel,
+            add_edge!,
+            getorcreate!,
+            generate_nodelabel
 
         model = create_model()
-        x = getorcreate!(model, :x)
-        y = getorcreate!(model, :y)
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        y = getorcreate!(model, ctx, :y)
         add_edge!(model, x, y, :interface)
 
 
@@ -504,14 +546,15 @@ using TestSetExtensions
 
     end
 
-    @testset "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
+    @testset "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
         import GraphPPL:
             create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!
         model = create_model()
-        x = getorcreate!(model, :x)
-        y = getorcreate!(model, :y)
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        y = getorcreate!(model, ctx, :y)
 
-        variable_nodes = [getorcreate!(model, i) for i in [:a, :b, :c]]
+        variable_nodes = [getorcreate!(model, ctx, i) for i in [:a, :b, :c]]
         add_edge!(model, y, variable_nodes, :interface)
 
         @test ne(model) == 3
@@ -522,10 +565,11 @@ using TestSetExtensions
         import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated
 
         model = create_model()
+        ctx = context(model)
 
-        θ = getorcreate!(model, :x)
-        τ = getorcreate!(model, :y)
-        μ = getorcreate!(model, :w)
+        θ = getorcreate!(model, ctx, :x)
+        τ = getorcreate!(model, ctx, :y)
+        μ = getorcreate!(model, ctx, :w)
         make_node!(
             model,
             context(model),
@@ -540,9 +584,9 @@ using TestSetExtensions
 
 
 
-        w = getorcreate!(model, :w)
-        y = getorcreate!(model, :y)
-        z = getorcreate!(model, :z)
+        w = getorcreate!(model, ctx, :w)
+        y = getorcreate!(model, ctx, :y)
+        z = getorcreate!(model, ctx, :z)
         make_node!(
             model,
             context(model),
@@ -558,10 +602,11 @@ using TestSetExtensions
 
 
         model = create_model()
+        ctx = context(model)
         f = sum
-        θ = getorcreate!(model, :x)
-        τ = getorcreate!(model, :y)
-        μ = getorcreate!(model, :w)
+        θ = getorcreate!(model, ctx, :x)
+        τ = getorcreate!(model, ctx, :y)
+        μ = getorcreate!(model, ctx, :w)
         make_node!(
             model,
             context(model),
@@ -580,7 +625,7 @@ using TestSetExtensions
 
 
         model = create_model()
-        z = getorcreate!(model, :z)
+        z = getorcreate!(model, ctx, :z)
         make_node!(
             model,
             context(model),
@@ -592,110 +637,6 @@ using TestSetExtensions
             ),
         )
         @test nv(model) == 4 && ne(model) == 3
-
-    end
-
-    @testset "make_node!(::Equality)" begin
-        import GraphPPL: create_model, make_node!, NodeType, equality_block, plot_graph
-        model = create_model()
-
-
-        x = getorcreate!(model, :x)
-        y = getorcreate!(model, :y)
-        z = getorcreate!(model, :z)
-        a = getorcreate!(model, :a)
-        b = getorcreate!(model, :b)
-        c = getorcreate!(model, :c)
-        make_node!(
-            model,
-            context(model),
-            equality_block,
-            (in1 = x, in2 = y, in3 = z, in4 = a, in5 = b, in6 = c),
-        )
-
-        @test nv(model) == 13 && ne(model) == 12
-
-        model = create_model()
-        x = getorcreate!(model, :x)
-        y = getorcreate!(model, :y)
-        z = getorcreate!(model, :z)
-        make_node!(model, context(model), equality_block, (in1 = x, in2 = y, in3 = z))
-
-        @test nv(model) == 4 && ne(model) == 3
-    end
-
-    @testset "terminate_node!(::Equality)" begin
-        import GraphPPL:
-            create_model, make_node!, NodeType, equality_block, terminate_at_neighbors!
-        model = create_model()
-        x = getorcreate!(model, :x)
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-
-        terminate_at_neighbors!(model, 1)
-
-        @test nv(model) == 6 && ne(model) == 3
-
-    end
-
-    @testset "construct_equality_block!(::Equality)" begin
-        import GraphPPL:
-            create_model, make_node!, NodeType, equality_block, terminate_at_neighbors!
-        model = create_model()
-
-        x = getorcreate!(model, :x)
-
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-
-        interfaces = terminate_at_neighbors!(model, 1)
-        make_node!(model, model[], equality_block, interfaces)
-
-        @test nv(model) == 7 && ne(model) == 6
-
-        model = create_model()
-
-        x = getorcreate!(model, :x)
-
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-
-        interfaces = terminate_at_neighbors!(model, 1)
-        make_node!(model, context(model), equality_block, interfaces)
-
-        @test nv(model) == 11 && ne(model) == 10
-
-    end
-
-    @testset "convert_to_ffg!(::Equality)" begin
-        import GraphPPL:
-            create_model, make_node!, NodeType, equality_block, convert_to_ffg, plot_graph
-        model = create_model()
-        x = getorcreate!(model, :x)
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-
-        model = convert_to_ffg(model)
-
-        @test nv(model) == 4 && ne(model) == 3
-
-        model = create_model()
-        x = getorcreate!(model, :x)
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-        make_node!(model, context(model), sum, (in1 = x,))
-
-        model = convert_to_ffg(model)
-
-
-
-        @test nv(model) == 6 && ne(model) == 5
 
     end
 

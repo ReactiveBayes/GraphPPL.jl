@@ -114,7 +114,7 @@ using Test
     let v = ResizableArray(Float64, Val(1))
         @test size(v) === (0,)
 
-        for i in 1:10
+        for i = 1:10
             @test_throws MethodError v[i] = i
         end
     end

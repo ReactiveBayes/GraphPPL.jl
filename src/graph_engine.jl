@@ -122,8 +122,10 @@ function generate_nodelabel(
     return NodeLabel(name, model.counter, variable_type, index)
 end
 
-generate_nodelabel(model::Model, name::Symbol, index::Nothing) = generate_nodelabel(model, name, UInt8(1), 0)
-generate_nodelabel(model::Model, name::Symbol, index::Int64) = generate_nodelabel(model, name, UInt8(2), index)
+generate_nodelabel(model::Model, name::Symbol, index::Nothing) =
+    generate_nodelabel(model, name, UInt8(1), 0)
+generate_nodelabel(model::Model, name::Symbol, index::Int64) =
+    generate_nodelabel(model, name, UInt8(2), index)
 generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
     generate_nodelabel(model, name, UInt8(3), index)
 generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
@@ -132,7 +134,8 @@ generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
     ),
 )
 
-generate_nodelabel(model::Model, name, index = nothing) = generate_nodelabel(model::Model, Symbol(name), index)
+generate_nodelabel(model::Model, name, index = nothing) =
+    generate_nodelabel(model::Model, Symbol(name), index)
 
 function Base.gensym(model::Model, name::Symbol)
     increase_count
@@ -180,9 +183,6 @@ function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
 end
 
 function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
-    if !haskey(c.vector_variables, key)
-        c.vector_variables[key] = ResizableArray(NodeLabel)
-    end
     return c.vector_variables[key][index] = val
 end
 
@@ -192,9 +192,6 @@ function Base.setindex!(
     key::Symbol,
     index::NTuple{N,Int64},
 ) where {N}
-    if !haskey(c.tensor_variables, key)
-        c.tensor_variables[key] = ResizableArray(NodeLabel, Val(N))
-    end
     return c.tensor_variables[key][index...] = val
 end
 
@@ -252,8 +249,17 @@ function copy_markov_blanket_to_child_context(
     end
 end
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::NodeLabel) = child_context.individual_variables[name_in_child] = object_in_parent
-function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel})
+add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::NodeLabel,
+) = child_context.individual_variables[name_in_child] = object_in_parent
+function add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::ResizableArray{NodeLabel},
+)
+    # Using if-statement here instead of dispatching is approx 4x faster
     if length(size(object_in_parent)) == 1
         child_context.vector_variables[name_in_child] = object_in_parent
     else
@@ -261,16 +267,18 @@ function add_to_child_context(child_context::Context, name_in_child::Symbol, obj
     end
 end
 
-
-getorcreate!(model::Model, something) =
-    getorcreate!(model, context(model), something, nothing)
-getorcreate!(model::Model, context::Context, edge::Symbol) =
-    getorcreate!(model, context, edge, nothing)
-getorcreate!(model::Model, context::Context, variables::Union{Tuple,AbstractArray}, index) =
-    map((edge) -> getorcreate!(model, context, edge, index), variables)
+check_if_individual_variable(context::Context, name::Symbol) =
+    haskey(context.individual_variables, name) ?
+    error("Variable $name is already an individual variable in the model") : nothing
+check_if_vector_variable(context::Context, name::Symbol) =
+    haskey(context.vector_variables, name) ?
+    error("Variable $name is already a vector variable in the model") : nothing
+check_if_tensor_variable(context::Context, name::Symbol) =
+    haskey(context.tensor_variables, name) ?
+    error("Variable $name is already a tensor variable in the model") : nothing
 
 """
-getorcreate!(model::Model, context::Context, edge, index)
+    getorcreate!(model::Model, context::Context, edge, index)
 
 Get or create a variable (edge) from a factor graph model and context, using an index if provided.
 
@@ -289,60 +297,68 @@ The variable (edge) found or created in the factor graph model and context.
 Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
 getorcreate!(model, context, :x)
 """
-function getorcreate!(model::Model, context::Context, name::Symbol, index::Nothing)
+function getorcreate!(model::Model, context::Context, name::Symbol)
     # check that the variable does not exist in other categories
-    if haskey(context.vector_variables, name) || haskey(context.tensor_variables, name)
-        error(
-            "Variable $name already exists in the model either as vector or as tensor variable and can hence not be defined as individual variable.",
-        )
-    end
+    check_if_vector_variable(context, name)
+    check_if_tensor_variable(context, name)
     # Simply return a variable and create a new one if it does not exist
     return get(
-        () -> add_variable_node!(model, context, name, index),
+        () -> add_variable_node!(model, context, name, nothing),
         context.individual_variables,
         name,
     )
 end
 
-function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
+
+getorcreate!(model::Model, context::Context, variables::Union{Tuple,AbstractArray}) =
+    map((edge) -> getorcreate!(model, context, edge), variables)
+
+
+
+function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Val{1})
     # check that the variable does not exist in other categories
-    if haskey(context.individual_variables, name) || haskey(context.tensor_variables, name)
-        error(
-            "Variable $name already exists in the model either as individual or as tensor variable and can hence not be defined as vector variable.",
-        )
-    end
+    check_if_individual_variable(context, name)
+    check_if_tensor_variable(context, name)
     if !haskey(context.vector_variables, name)
-        add_variable_node!(model, context, name, index)
-    else
-        get(
-            () -> add_variable_node!(model, context, name, index),
-            context.vector_variables[name],
-            index,
-        )
+        context.vector_variables[name] = ResizableArray(NodeLabel)
     end
     return context.vector_variables[name]
 end
 
-function getorcreate!(model::Model, context::Context, name::Symbol, index...)
+function getorcreatearray!(
+    model::Model,
+    context::Context,
+    name::Symbol,
+    dim::Val{N},
+) where {N}
     # check that the variable does not exist in other categories
-    if haskey(context.individual_variables, name) || haskey(context.vector_variables, name)
-        error(
-            "Variable $name already exists in the model either as individual or as vector variable and can hence not be defined as $(length(index))-dimensional tensor variable.",
-        )
-    end
+    check_if_individual_variable(context, name)
+    check_if_vector_variable(context, name)
     # Simply return a variable and create a new one if it does not exist
     if !haskey(context.tensor_variables, name)
-        add_variable_node!(model, context, name, index)
-    elseif !isassigned(context.tensor_variables[name], index...)
-        add_variable_node!(model, context, name, index)
-    else
-        get(
-            () -> add_variable_node!(model, context, name, index),
-            context.tensor_variables[name],
-            index,
-        )
+        context.tensor_variables[name] = ResizableArray(NodeLabel, dim)
     end
     return context.tensor_variables[name]
+end
+
+function createifnotexists!(model::Model, context::Context, name::Symbol, index::Int)
+    # check that the variable exists in the current context
+    @assert haskey(context.vector_variables, name)
+    return get(
+        () -> add_variable_node!(model, context, name, index),
+        context.vector_variables[name],
+        index,
+    )
+end
+
+function createifnotexists!(model::Model, context::Context, name::Symbol, index...)
+    # check that the variable exists in the current context
+    @assert haskey(context.tensor_variables, name)
+    # Simply return a variable and create a new one if it does not exist
+    if !isassigned(context.tensor_variables[name], index...)
+        add_variable_node!(model, context, name, index)
+    end
+    return context.tensor_variables[name][index...]
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
@@ -500,63 +516,6 @@ make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTu
         interfaces,
     )
 
-
-function equality_node end
-
-function equality_block end
-
-NodeType(::typeof(equality_block)) = Composite()
-
-function make_node!(
-    model::Model,
-    ::Composite,
-    parent_context::Context,
-    node_name::typeof(equality_block),
-    interfaces,
-)
-    if length(interfaces) == 3
-        make_node!(model, parent_context, equality_node, interfaces)
-        return
-    end
-
-    context = Context(parent_context, node_name)
-    copy_markov_blanket_to_child_context(context, interfaces)
-
-
-    first_input = context[keys(interfaces)[1]]
-    second_input = context[keys(interfaces)[2]]
-    current_terminal = add_variable_node!(model, context, first_input.name)
-    make_node!(
-        model,
-        context,
-        equality_node,
-        (in1 = first_input, in2 = second_input, in3 = current_terminal),
-    )
-    for i in range(3, length(interfaces) - 2)
-        new_terminal = add_variable_node!(model, context, gensym(first_input.name))
-        current_input = context[keys(interfaces)[i]]
-        make_node!(
-            model,
-            context,
-            equality_node,
-            (in1 = current_terminal, in2 = current_input, in3 = new_terminal),
-        )
-        current_terminal = new_terminal
-    end
-    second_to_last_input = context[keys(interfaces)[length(interfaces)-1]]
-    last_input = context[keys(interfaces)[length(interfaces)]]
-    make_node!(
-        model,
-        context,
-        equality_node,
-        (in1 = current_terminal, in2 = second_to_last_input, in3 = last_input),
-    )
-
-    node_id = generate_nodelabel(model, node_name)
-    parent_context.factor_nodes[node_id] = context
-
-end
-
 function plot_graph(g::MetaGraph; name = "tmp.png")
     node_labels =
         [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
@@ -566,55 +525,3 @@ function plot_graph(g::MetaGraph; name = "tmp.png")
 end
 
 plot_graph(g::Model; name = "tmp.png") = plot_graph(g.graph; name = name)
-
-is_variable_node(model::MetaGraph, vertex::Int) =
-    model[label_for(model, vertex)].is_variable
-
-function terminate_at_neighbors!(model::Model, vertex)
-    label = label_for(model.graph, vertex)
-    name = model[label].name
-    new_vertices = Dict()
-    for neighbor in neighbors(model.graph, vertex)
-        new_label = generate_nodelabel(model, name)
-        model[new_label] = NodeData(true, name)
-        edge_data = model.graph[label, label_for(model.graph, neighbor)]
-        model.graph[label_for(model.graph, neighbor), new_label] = edge_data
-        new_vertices[to_symbol(new_label)] = new_label
-        context(model).individual_variables[to_symbol(new_label)] = new_label
-    end
-    rem_vertex!(model.graph, vertex)
-    interfaces = NamedTuple{Tuple(keys(new_vertices))}(values(new_vertices))
-    return interfaces
-end
-
-function replace_with_edge!(model::Model, vertex::Int)
-    g = model.graph
-    src, dst = neighbors(g, vertex)
-    edge_name = model[label_for(g, vertex)].name
-    add_edge!(model, label_for(g, src), label_for(g, dst), Symbol(edge_name))
-    return vertex
-end
-
-function convert_to_ffg(model::Model)
-    ffg_model = deepcopy(model)
-    for vertex in vertices(ffg_model.graph)
-        if is_variable_node(ffg_model.graph, vertex)
-            if outdegree(ffg_model.graph, vertex) > 2
-                interfaces = terminate_at_neighbors!(ffg_model, vertex)
-                make_node!(ffg_model, ffg_model[], equality_block, interfaces)
-            end
-        end
-    end
-    to_delete = []
-    for (vertex, label) in ffg_model.graph.vertex_labels
-        if is_variable_node(ffg_model.graph, vertex) &&
-           outdegree(ffg_model.graph, vertex) == 2
-            replace_with_edge!(ffg_model, vertex)
-            push!(to_delete, vertex)
-        end
-    end
-    for vertex in reverse(sort(to_delete))
-        rem_vertex!(ffg_model.graph, vertex)
-    end
-    return ffg_model
-end
