@@ -236,7 +236,7 @@ what_walk(::typeof(convert_function_argument_in_rhs)) =
     walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
 
 function add_get_or_create_expression(e::Expr)
-    if @capture(e, (lhs_ ~ rhs_ where {options__}))
+    if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
         if @capture(lhs, var_[index__])
             return quote
                 $(generate_get_or_create(var, index))
@@ -260,7 +260,7 @@ end
 
 
 function generate_get_or_create(s::Symbol, index::Union{Tuple,AbstractArray,Int})
-    return :(GraphPPL.createifnotexists!(model, context, $(QuoteNode(s)), $(index...)))
+    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
 end
 
 """
@@ -471,6 +471,12 @@ function convert_tilde_expression(e::Expr)
         end
         interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
         return GraphPPL.generate_make_node_call(fform, interfaces)
+    elseif @capture(e, lhs_ ~ rhs_ where {options__})
+        if @capture(lhs, var_[index__])
+            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(var)), $(index...)))
+        else
+            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(lhs))))
+        end
     else
         return e
     end
@@ -492,7 +498,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
                 push!(arguments, argument)
             end
             args = (; zip($ms_args, arguments)...)
-            GraphPPL.make_node!(model, GraphPPL.context(model), $ms_name, args)
+            GraphPPL.make_node!(model, context, $ms_name, args)
             return model
         end
     end
@@ -515,9 +521,7 @@ function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     return ms_args
 end
 
-
-
-macro model(model_specification)
+function model_macro_interior(model_specification)
     @capture(
         model_specification,
         (function ms_name_(ms_args__; ms_kwargs__)
@@ -580,7 +584,9 @@ macro model(model_specification)
 
         nothing
     end
-    return esc(result)
+    return result
+end
 
-
+macro model(model_specification)
+    return esc(GraphPPL.model_macro_interior(model_specification))
 end

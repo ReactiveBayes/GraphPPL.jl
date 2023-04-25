@@ -223,8 +223,8 @@ using TestSetExtensions
             copy_markov_blanket_to_child_context,
             Context,
             getorcreate!,
-            getorcreatearray!,
-            createifnotexists!
+            getorcreatearray!
+   
 
         # Test 1: Copy individual variables
         model = create_model()
@@ -240,8 +240,8 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreatearray!(model, ctx, :x, Val(1))
-        createifnotexists!(model, ctx, :x, 1)
-        createifnotexists!(model, ctx, :x, 2)
+        getorcreate!(model, ctx, :x, 1)
+        getorcreate!(model, ctx, :x, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in1 = x,))
         @test child_context[:in1] == x
@@ -250,10 +250,10 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreatearray!(model, ctx, :x, Val(2))
-        createifnotexists!(model, ctx, :x, 1, 1)
-        createifnotexists!(model, ctx, :x, 2, 1)
-        createifnotexists!(model, ctx, :x, 1, 2)
-        createifnotexists!(model, ctx, :x, 2, 2)
+        getorcreate!(model, ctx, :x, 1, 1)
+        getorcreate!(model, ctx, :x, 2, 1)
+        getorcreate!(model, ctx, :x, 1, 2)
+        getorcreate!(model, ctx, :x, 2, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in1 = x,))
         @test child_context[:in1] == x
@@ -308,9 +308,9 @@ using TestSetExtensions
         @test_throws ErrorException getorcreate!(model, context(model), :mv)
     end
 
-    @testset "createifnotexists!" begin
+    @testset "getorcreate!" begin
         import GraphPPL:
-            create_model, getorcreatearray!, getorcreate!, createifnotexists!, context
+            create_model, getorcreatearray!, getorcreate!, getorcreate!, context
 
         # Test case 1: test that iteratively creates new variables and should dynamically grow the array
         model = create_model()
@@ -320,7 +320,7 @@ using TestSetExtensions
         for i = 1:10
             for j = 1:3
                 c += 1
-                createifnotexists!(model, ctx, :mv, i, j)
+                getorcreate!(model, ctx, :mv, i, j)
                 @test nv(model) == c
             end
         end
@@ -329,12 +329,12 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         mv = getorcreatearray!(model, ctx, :mv, Val(2))
-        createifnotexists!(model, context(model), :mv, 2, 3)
-        createifnotexists!(model, context(model), :mv, 2, 1)
+        getorcreate!(model, context(model), :mv, 2, 3)
+        getorcreate!(model, context(model), :mv, 2, 1)
         @test size(context(model)[:mv]) == (2, 3)
         @test haskey(context(model).tensor_variables, :mv)
         @test nv(model) == 2
-        createifnotexists!(model, context(model), :mv, 2, 4)
+        getorcreate!(model, context(model), :mv, 2, 4)
         @test nv(model) == 3
         @test context(model)[:mv][2, 4] == mv[2, 4]
         @test size(context(model)[:mv]) == (2, 4)
@@ -350,7 +350,7 @@ using TestSetExtensions
             name,
             value,
             getorcreatearray!,
-            createifnotexists!
+            getorcreate!
         model = create_model()
         ctx = context(model)
 
@@ -360,7 +360,7 @@ using TestSetExtensions
 
         # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
         y = getorcreatearray!(model, ctx, :y, Val(1))
-        createifnotexists!(model, ctx, :y, 1)
+        getorcreate!(model, ctx, :y, 1)
         @test getifcreated(model, ctx, y[1]) == y[1]
 
         # Test case 3: check that getifcreated returns a new variable node when called with integer input
@@ -388,7 +388,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         z = getorcreatearray!(model, ctx, :z, Val(1))
-        createifnotexists!(model, ctx, :z, 1)
+        getorcreate!(model, ctx, :z, 1)
         z_fetched = getifcreated(model, ctx, z[1])
         @test z_fetched == z[1]
 
@@ -638,6 +638,48 @@ using TestSetExtensions
         )
         @test nv(model) == 4 && ne(model) == 3
 
+    end
+
+    @testset "make_node_from_object" begin
+        import GraphPPL: create_model, getorcreate!, make_node_from_object!, context
+        struct Normal
+            μ::Real
+            σ::Real
+        end
+
+        # Test 1: make_node_from_object with a variable node
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        y = make_node_from_object!(model, ctx, x, :y)
+        @test x == y && nv(model) == 1
+
+        # Test 2: make_node_from_object with a distribution
+
+        model = create_model()
+        ctx = context(model)
+        x = Normal(0, 1)
+        y = make_node_from_object!(model, ctx, x, :y)
+        @test nv(model) == 4 && y isa NodeLabel
+
+        # Test 3: make_node_from_object with an indexed node
+
+        model = create_model()
+        ctx = context(model)
+        x = Normal(0, 1)
+        y = getorcreatearray!(model, ctx, :y, Val(1))
+        y[1] = make_node_from_object!(model, ctx, x, :y, 1)
+        @test nv(model) == 4 && y[1] isa NodeLabel
+
+        # Test 4: make_node_from_object with indexed statement on the left and label right
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        y = getorcreatearray!(model, ctx, :y, Val(1))
+        y[1] = make_node_from_object!(model, ctx, x, :y, 1)
+        @test nv(model) == 1 && y[1] isa NodeLabel
     end
 
 end
