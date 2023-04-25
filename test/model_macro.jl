@@ -1060,7 +1060,7 @@ using MacroTools
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.createifnotexists!(model, context, :x, 1)
+            GraphPPL.getorcreate!(model, context, :x, 1)
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1070,7 +1070,7 @@ using MacroTools
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.createifnotexists!(model, context, :x, 1, 2)
+            GraphPPL.getorcreate!(model, context, :x, 1, 2)
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1080,7 +1080,7 @@ using MacroTools
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.createifnotexists!(model, context, :x, i)
+            GraphPPL.getorcreate!(model, context, :x, i)
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1090,7 +1090,7 @@ using MacroTools
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
         output = quote
-            GraphPPL.createifnotexists!(model, context, :x, i, j)
+            GraphPPL.getorcreate!(model, context, :x, i, j)
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1127,6 +1127,15 @@ using MacroTools
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
+        # Test 5: Input expression with NodeLabel on rhs
+        input = quote
+            y ~ x where {created_by=(y:=x), is_deterministic=true}
+        end
+        output = quote
+            y ~ x where {created_by=(y:=x), is_deterministic=true}
+        end
+        @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
     end
 
     @testset "generate_get_or_create" begin
@@ -1141,35 +1150,35 @@ using MacroTools
         # Test 2: test vector variable
         output = generate_get_or_create(:x, 1)
         desired_result = quote
-            GraphPPL.createifnotexists!(model, context, :x, 1)
+            GraphPPL.getorcreate!(model, context, :x, 1)
         end
         @test_expression_generating output desired_result
 
         # Test 3: test matrix variable
         output = generate_get_or_create(:x, (1, 2))
         desired_result = quote
-            GraphPPL.createifnotexists!(model, context, :x, 1, 2)
+            GraphPPL.getorcreate!(model, context, :x, 1, 2)
         end
         @test_expression_generating output desired_result
 
         # Test 5: test symbol-indexed variable
         output = generate_get_or_create(:x, (:i, :j))
         desired_result = quote
-            GraphPPL.createifnotexists!(model, context, :x, i, j)
+            GraphPPL.getorcreate!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
 
         # Test 6: test vector of single symbol
         output = generate_get_or_create(:x, [:i])
         desired_result = quote
-            GraphPPL.createifnotexists!(model, context, :x, i)
+            GraphPPL.getorcreate!(model, context, :x, i)
         end
         @test_expression_generating output desired_result
 
         # Test 7: test vector of symbols
         output = generate_get_or_create(:x, [:i, :j])
         desired_result = quote
-            GraphPPL.createifnotexists!(model, context, :x, i, j)
+            GraphPPL.getorcreate!(model, context, :x, i, j)
         end
         @test_expression_generating output desired_result
 
@@ -1470,6 +1479,37 @@ using MacroTools
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 5: Test node creation with non-function on rhs
+
+        input = quote
+            x ~ y where {created_by=(x:=y), is_deterministic = true}
+        end
+        output = quote
+            x = GraphPPL.make_node_from_object!(model, context, y, :x)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 6: Test node creation with non-function on rhs with indexed statement
+
+        input = quote
+            x[i] ~ y where {created_by=(x[i]:=y), is_deterministic = true}
+        end
+        output = quote
+            x[i] = GraphPPL.make_node_from_object!(model, context, y, :x, i)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 7: Test node creation with non-function on rhs with multidimensional array
+
+        input = quote
+            x[i, j] ~ y where {created_by=(x[i, j]:=y), is_deterministic = true}
+        end
+        output = quote
+            x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, i, j)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
     end
 
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
@@ -1505,6 +1545,34 @@ using MacroTools
 
     end
 
+    @testset "model_macro_interior" begin
+        import GraphPPL: model_macro_interior
+
+        # Test 1: Test regular node creation input
+        input = quote
+            function test_model(μ, σ)
+                y[i] := μ
+                x ~ sum(μ, σ)
+            end
+        end
+        output = quote
+            function test_model end
+            GraphPPL.interfaces(::typeof(test_model)) = (:μ, :σ)
+            GraphPPL.NodeType(::typeof(test_model)) = GraphPPL.Composite()
+            function test_model(μ, σ)
+                model = GraphPPL.create_model()
+                context = GraphPPL.create_context()
+                arguments = []
+                for argument in (:μ, :σ)
+                    argument = GraphPPL.getorcreate!(model, context, argument)
+                    push!(arguments, argument)
+                end
+                args = (; zip((:μ, :σ), arguments)...)
+                GraphPPL.make_node!(model, context, test_model, args)
+            end
+        end
+        # @test_expression_generating model_macro_interior(input) output
+    end
 end
 
 end

@@ -277,6 +277,33 @@ check_if_tensor_variable(context::Context, name::Symbol) =
     haskey(context.tensor_variables, name) ?
     error("Variable $name is already a tensor variable in the model") : nothing
 
+
+function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Val{1})
+    # check that the variable does not exist in other categories
+    check_if_individual_variable(context, name)
+    check_if_tensor_variable(context, name)
+    if !haskey(context.vector_variables, name)
+        context.vector_variables[name] = ResizableArray(NodeLabel)
+    end
+    return context.vector_variables[name]
+end
+
+function getorcreatearray!(
+    model::Model,
+    context::Context,
+    name::Symbol,
+    dim::Val{N},
+) where {N}
+    # check that the variable does not exist in other categories
+    check_if_individual_variable(context, name)
+    check_if_vector_variable(context, name)
+    # Simply return a variable and create a new one if it does not exist
+    if !haskey(context.tensor_variables, name)
+        context.tensor_variables[name] = ResizableArray(NodeLabel, dim)
+    end
+    return context.tensor_variables[name]
+end
+
 """
     getorcreate!(model::Model, context::Context, edge, index)
 
@@ -315,33 +342,7 @@ getorcreate!(model::Model, context::Context, variables::Union{Tuple,AbstractArra
 
 
 
-function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Val{1})
-    # check that the variable does not exist in other categories
-    check_if_individual_variable(context, name)
-    check_if_tensor_variable(context, name)
-    if !haskey(context.vector_variables, name)
-        context.vector_variables[name] = ResizableArray(NodeLabel)
-    end
-    return context.vector_variables[name]
-end
-
-function getorcreatearray!(
-    model::Model,
-    context::Context,
-    name::Symbol,
-    dim::Val{N},
-) where {N}
-    # check that the variable does not exist in other categories
-    check_if_individual_variable(context, name)
-    check_if_vector_variable(context, name)
-    # Simply return a variable and create a new one if it does not exist
-    if !haskey(context.tensor_variables, name)
-        context.tensor_variables[name] = ResizableArray(NodeLabel, dim)
-    end
-    return context.tensor_variables[name]
-end
-
-function createifnotexists!(model::Model, context::Context, name::Symbol, index::Int)
+function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     # check that the variable exists in the current context
     @assert haskey(context.vector_variables, name)
     return get(
@@ -351,7 +352,7 @@ function createifnotexists!(model::Model, context::Context, name::Symbol, index:
     )
 end
 
-function createifnotexists!(model::Model, context::Context, name::Symbol, index...)
+function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     # check that the variable exists in the current context
     @assert haskey(context.tensor_variables, name)
     # Simply return a variable and create a new one if it does not exist
@@ -515,6 +516,23 @@ make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTu
         node_name,
         interfaces,
     )
+
+make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, index...) = node
+
+function make_node_from_object!(model::Model, context::Context, distribution, lhs, index...)
+    node_name = typeof(distribution)
+    interfaces = fieldnames(node_name)
+    values = [GraphPPL.getifcreated(model, context, getfield(distribution, field)) for field in interfaces]
+    interfaces = (interfaces..., :out)
+    if length(index) == 0
+        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs)
+    else
+        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, index...)
+    end
+    values = (values..., new_interface_variable)
+    GraphPPL.make_node!(model, context, node_name, NamedTuple{interfaces}(values))
+    return new_interface_variable
+end
 
 function plot_graph(g::MetaGraph; name = "tmp.png")
     node_labels =
