@@ -468,6 +468,9 @@ function convert_tilde_expression(e::Expr)
     if @capture(e, lhs_ ~ fform_(args__) where {options__})
         if @capture(e, (f_ ~ x_(fargs__; kwargs__) where {o__}))
             args = GraphPPL.keyword_expressions_to_named_tuple(kwargs)
+            if length(fargs) > 0
+                args = (in = Tuple(fargs), args...)
+            end
         end
         interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
         return GraphPPL.generate_make_node_call(fform, interfaces)
