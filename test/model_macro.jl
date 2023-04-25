@@ -1449,8 +1449,8 @@ using MacroTools
         input = quote
             x ~ sum(
                 begin
-                    tmp_1 ~ sum(;
-                        in = (0, 1),
+                    tmp_1 ~ sum(
+                        0, 1
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
@@ -1509,6 +1509,22 @@ using MacroTools
             x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, i, j)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 8: Test node creation with mixed args and kwargs on rhs
+        input = quote
+            x ~ sum(1, 2; σ= 1, μ = 2) where {created_by=(x~sum(1, 2; σ= 1, μ = 2))}
+        end
+        output = quote
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, $(1, 2)),
+                σ = GraphPPL.getifcreated(model, context, 1),
+                μ = GraphPPL.getifcreated(model, context, 2),
+                out = GraphPPL.getifcreated(model, context, x),
+            )
+            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    
 
     end
 
