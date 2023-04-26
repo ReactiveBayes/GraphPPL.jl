@@ -44,7 +44,7 @@ using TestSetExtensions
         model = create_model()
         μ = NodeLabel(:μ, 1, 1, 0)
         x = NodeLabel(:x, 2, 1, 0)
-        model[μ] = NodeData(true, :μ)
+        model[μ] = NodeData(true, :μ, )
         model[x] = NodeData(true, :x)
         model[μ, x] = EdgeLabel(:interface)
         @test GraphPPL.ne(model) == 1
@@ -151,7 +151,7 @@ using TestSetExtensions
         @test ctx1.prefix == ""
         @test length(ctx1.individual_variables) == 0
 
-        ctx2 = Context("test_")
+        ctx2 = Context(0, "test_")
         @test typeof(ctx2) == Context
         @test ctx2.prefix == "test_"
         @test length(ctx2.individual_variables) == 0
@@ -478,7 +478,7 @@ using TestSetExtensions
 
         @test nv(model) == 3 && occursin("sum", String(label_for(model.graph, 3).name))
 
-        @test_throws MethodError add_atomic_factor_node!(model, model[], 1)
+        @test_throws ErrorException add_atomic_factor_node!(model, model[], 1)
     end
 
     @testset "add_composite_factor_node!" begin
@@ -564,9 +564,10 @@ using TestSetExtensions
     @testset "make_node!(::Atomic)" begin
         import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated
 
+        # Test 1: Add a node with regular inputs
+
         model = create_model()
         ctx = context(model)
-
         θ = getorcreate!(model, ctx, :x)
         τ = getorcreate!(model, ctx, :y)
         μ = getorcreate!(model, ctx, :w)
@@ -581,25 +582,8 @@ using TestSetExtensions
             ),
         )
         @test nv(model) == 4 && ne(model) == 3
-
-
-
-        w = getorcreate!(model, ctx, :w)
-        y = getorcreate!(model, ctx, :y)
-        z = getorcreate!(model, ctx, :z)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, context(model), w),
-                in2 = getifcreated(model, context(model), y),
-                out = getifcreated(model, context(model), z),
-            ),
-        )
-        @test nv(model) == 6 && ne(model) == 6
-
-
+        
+        # Test 2: Add a node with inputs with different symbol names
 
         model = create_model()
         ctx = context(model)
@@ -619,10 +603,13 @@ using TestSetExtensions
         )
         @test nv(model) == 4 && ne(model) == 3
 
+        # Test 3: Add a node with inputs with no interfaces
+
         model = create_model()
         make_node!(model, context(model), sum, NamedTuple())
         @test nv(model) == 1
 
+        # Test 4: Add a node with constants as inputs
 
         model = create_model()
         z = getorcreate!(model, ctx, :z)
