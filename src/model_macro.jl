@@ -575,8 +575,8 @@ function model_macro_interior(model_specification)
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
             $ms_body
-            node_id = GraphPPL.generate_nodelabel(model, $ms_name)
-            GraphPPL.add_composite_factor_node!(model, context, parent_context, $ms_name)
+            # node_id = GraphPPL.generate_nodelabel(model, $ms_name)
+            GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
         end
     end
 

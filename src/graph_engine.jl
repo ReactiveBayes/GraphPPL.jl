@@ -146,6 +146,7 @@ to_symbol(id::NodeLabel) = Symbol(String(id.name) * "_" * string(id.index))
 
 
 struct Context
+    depth::Int64
     prefix::String
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
@@ -153,13 +154,36 @@ struct Context
     factor_nodes::Dict{NodeLabel,Union{NodeLabel,Context}}
 end
 
+function Base.show(io::IO, context::Context)
+    println(io, "$("    " ^ context.depth)Context: $(context.prefix)")
+    println(io, "$("    " ^ (context.depth + 1))Individual variables:")
+    for (variable_name, variable_label) in context.individual_variables
+        println(io, "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))")
+    end
+    println(io, "$("    " ^ (context.depth + 1))Vector variables:")
+    for (variable_name, variable_labels) in context.vector_variables
+        println(io, "$("    " ^ (context.depth + 2))$(variable_name)")
+    end
+    println(io, "$("    " ^ (context.depth + 1))Tensor variables: ")
+    for (variable_name, variable_labels) in context.tensor_variables
+        println(io, "$("    " ^ (context.depth + 2))$(variable_name)")
+    end
+    println(io, "$("    " ^ (context.depth + 1))Factor nodes: ")
+    for (factor_label, factor_context) in context.factor_nodes
+        if isa(factor_context, Context)
+            show(io, factor_context)
+        else
+            println(io, "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))")
+        end
+    end
+end
 
 name(f::Function) = String(Symbol(f))
 
-Context(prefix::String) = Context(prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_name::String) = Context(parent.prefix * model_name * "_")
+Context(depth :: Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_name::String) = Context(parent.depth + 1, parent.prefix * model_name * "_")
 Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
-Context() = Context("")
+Context() = Context(0, "")
 
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
@@ -259,7 +283,7 @@ function add_to_child_context(
     name_in_child::Symbol,
     object_in_parent::ResizableArray{NodeLabel},
 )
-    # Using if-statement here instead of dispatching is approx 4x faster
+    # Using if-statement here instead of dispatching is approx. 4x faster
     if length(size(object_in_parent)) == 1
         child_context.vector_variables[name_in_child] = object_in_parent
     else
@@ -416,13 +440,13 @@ Returns:
 """
 function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
     node_id = generate_nodelabel(model, Symbol(node_name), UInt8(0))
-    model[node_id] = NodeData(false, node_name)
+    model[node_id] = NodeData(false, node_name, nothing)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
 add_atomic_factor_node!(model::Model, context::Context, node_name::Real) =
-    throw(MethodError("Cannot create factor node with Real argument"))
+    error("Cannot create factor node with Real argument")
 add_atomic_factor_node!(model::Model, context::Context, node_name) =
     add_atomic_factor_node!(model, context, Symbol(node_name))
 
