@@ -1,4 +1,4 @@
-module test_modular_graphs
+module test_graph_engine
 
 using Test
 using GraphPPL
@@ -44,7 +44,7 @@ using TestSetExtensions
         model = create_model()
         μ = NodeLabel(:μ, 1, 1, 0)
         x = NodeLabel(:x, 2, 1, 0)
-        model[μ] = NodeData(true, :μ, )
+        model[μ] = NodeData(true, :μ)
         model[x] = NodeData(true, :x)
         model[μ, x] = EdgeLabel(:interface)
         @test GraphPPL.ne(model) == 1
@@ -147,26 +147,36 @@ using TestSetExtensions
         import GraphPPL: Context
 
         ctx1 = Context()
-        @test typeof(ctx1) == Context
-        @test ctx1.prefix == ""
-        @test length(ctx1.individual_variables) == 0
+        @test typeof(ctx1) == Context &&
+              ctx1.prefix == "" &&
+              length(ctx1.individual_variables) == 0 &&
+              ctx1.depth == 0
 
         ctx2 = Context(0, "test_")
-        @test typeof(ctx2) == Context
-        @test ctx2.prefix == "test_"
-        @test length(ctx2.individual_variables) == 0
+        @test typeof(ctx2) == Context &&
+              ctx2.prefix == "test_" &&
+              length(ctx2.individual_variables) == 0 &&
+              ctx2.depth == 0
 
         ctx3 = Context(ctx2, "model")
-        @test typeof(ctx3) == Context
-        @test ctx3.prefix == "test_model_"
-        @test length(ctx3.individual_variables) == 0
+        @test typeof(ctx3) == Context &&
+              ctx3.prefix == "test_model_" &&
+              length(ctx3.individual_variables) == 0 &&
+              ctx3.depth == 1
 
         @test_throws MethodError Context(ctx2, :my_model)
 
         ctx5 = Context(ctx2, "layer")
-        @test typeof(ctx5) == Context
-        @test ctx5.prefix == "test_layer_"
-        @test length(ctx5.individual_variables) == 0
+        @test typeof(ctx5) == Context &&
+              ctx5.prefix == "test_layer_" &&
+              length(ctx5.individual_variables) == 0 &&
+              ctx5.depth == 1
+
+        ctx6 = Context(ctx5, "model")
+        @test typeof(ctx6) == Context &&
+              ctx6.prefix == "test_layer_model_" &&
+              length(ctx6.individual_variables) == 0 &&
+              ctx6.depth == 2
     end
 
     @testset "haskey(::Context)" begin
@@ -224,7 +234,7 @@ using TestSetExtensions
             Context,
             getorcreate!,
             getorcreatearray!
-   
+
 
         # Test 1: Copy individual variables
         model = create_model()
@@ -398,6 +408,14 @@ using TestSetExtensions
         ctx = context(model)
         z = getifcreated(model, ctx, :Bernoulli)
         @test value(model[z]) == :Bernoulli
+
+        # Test case 12: Test that getifcreated returns a vector of NodeLabels if called with a vector of NodeLabels
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        y = getorcreate!(model, ctx, :y)
+        z = getifcreated(model, ctx, [x, y])
+        @test z == [x, y]
 
     end
 
@@ -582,7 +600,7 @@ using TestSetExtensions
             ),
         )
         @test nv(model) == 4 && ne(model) == 3
-        
+
         # Test 2: Add a node with inputs with different symbol names
 
         model = create_model()

@@ -158,7 +158,10 @@ function Base.show(io::IO, context::Context)
     println(io, "$("    " ^ context.depth)Context: $(context.prefix)")
     println(io, "$("    " ^ (context.depth + 1))Individual variables:")
     for (variable_name, variable_label) in context.individual_variables
-        println(io, "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))")
+        println(
+            io,
+            "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))",
+        )
     end
     println(io, "$("    " ^ (context.depth + 1))Vector variables:")
     for (variable_name, variable_labels) in context.vector_variables
@@ -173,15 +176,19 @@ function Base.show(io::IO, context::Context)
         if isa(factor_context, Context)
             show(io, factor_context)
         else
-            println(io, "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))")
+            println(
+                io,
+                "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))",
+            )
         end
     end
 end
 
 name(f::Function) = String(Symbol(f))
 
-Context(depth :: Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_name::String) = Context(parent.depth + 1, parent.prefix * model_name * "_")
+Context(depth::Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_name::String) =
+    Context(parent.depth + 1, parent.prefix * model_name * "_")
 Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
 Context() = Context(0, "")
 
@@ -388,7 +395,7 @@ end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Tuple) =
+getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, gensym(model, :constvar), nothing, var)
@@ -541,12 +548,16 @@ make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTu
         interfaces,
     )
 
-make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, index...) = node
+make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, index...) =
+    node
 
 function make_node_from_object!(model::Model, context::Context, distribution, lhs, index...)
     node_name = typeof(distribution)
     interfaces = fieldnames(node_name)
-    values = [GraphPPL.getifcreated(model, context, getfield(distribution, field)) for field in interfaces]
+    values = [
+        GraphPPL.getifcreated(model, context, getfield(distribution, field)) for
+        field in interfaces
+    ]
     interfaces = (interfaces..., :out)
     if length(index) == 0
         new_interface_variable = GraphPPL.getorcreate!(model, context, lhs)

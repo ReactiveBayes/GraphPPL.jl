@@ -1036,7 +1036,7 @@ using MacroTools
 
         # Test 9: Input expression with arithmetic indexed call on rhs
         input = quote
-            x ~ Normal(x[i - 1], 1) where {created_by=(x~Normal(y[i - 1], 1))}
+            x ~ Normal(x[i-1], 1) where {created_by=(x~Normal(y[i-1], 1))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
@@ -1129,10 +1129,10 @@ using MacroTools
 
         # Test 5: Input expression with NodeLabel on rhs
         input = quote
-            y ~ x where {created_by=(y:=x), is_deterministic=true}
+            y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
         output = quote
-            y ~ x where {created_by=(y:=x), is_deterministic=true}
+            y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
@@ -1450,7 +1450,8 @@ using MacroTools
             x ~ sum(
                 begin
                     tmp_1 ~ sum(
-                        0, 1
+                        0,
+                        1,
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
@@ -1483,7 +1484,7 @@ using MacroTools
         # Test 5: Test node creation with non-function on rhs
 
         input = quote
-            x ~ y where {created_by=(x:=y), is_deterministic = true}
+            x ~ y where {created_by=(x:=y),is_deterministic=true}
         end
         output = quote
             x = GraphPPL.make_node_from_object!(model, context, y, :x)
@@ -1493,7 +1494,7 @@ using MacroTools
         # Test 6: Test node creation with non-function on rhs with indexed statement
 
         input = quote
-            x[i] ~ y where {created_by=(x[i]:=y), is_deterministic = true}
+            x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
         end
         output = quote
             x[i] = GraphPPL.make_node_from_object!(model, context, y, :x, i)
@@ -1503,7 +1504,7 @@ using MacroTools
         # Test 7: Test node creation with non-function on rhs with multidimensional array
 
         input = quote
-            x[i, j] ~ y where {created_by=(x[i, j]:=y), is_deterministic = true}
+            x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
         end
         output = quote
             x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, i, j)
@@ -1512,7 +1513,7 @@ using MacroTools
 
         # Test 8: Test node creation with mixed args and kwargs on rhs
         input = quote
-            x ~ sum(1, 2; σ= 1, μ = 2) where {created_by=(x~sum(1, 2; σ= 1, μ = 2))}
+            x ~ sum(1, 2; σ = 1, μ = 2) where {created_by=(x~sum(1, 2; σ = 1, μ = 2))}
         end
         output = quote
             interfaces_tuple = (
@@ -1524,7 +1525,7 @@ using MacroTools
             GraphPPL.make_node!(model, context, sum, interfaces_tuple)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-    
+
 
     end
 

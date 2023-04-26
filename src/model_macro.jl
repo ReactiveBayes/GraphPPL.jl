@@ -476,9 +476,24 @@ function convert_tilde_expression(e::Expr)
         return GraphPPL.generate_make_node_call(fform, interfaces)
     elseif @capture(e, lhs_ ~ rhs_ where {options__})
         if @capture(lhs, var_[index__])
-            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(var)), $(index...)))
+            return :(
+                $lhs = GraphPPL.make_node_from_object!(
+                    model,
+                    context,
+                    $rhs,
+                    $(QuoteNode(var)),
+                    $(index...),
+                )
+            )
         else
-            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(lhs))))
+            return :(
+                $lhs = GraphPPL.make_node_from_object!(
+                    model,
+                    context,
+                    $rhs,
+                    $(QuoteNode(lhs)),
+                )
+            )
         end
     else
         return e
