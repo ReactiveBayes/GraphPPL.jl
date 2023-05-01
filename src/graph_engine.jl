@@ -23,6 +23,14 @@ struct Model
     counter::Base.RefValue{Int64}
 end
 
+"""
+    NodeLabel(name::Symbol, index::Int64, variable_type::UInt8, variable_index::Union{Int64,NTuple{N,Int64} where N})
+
+A structure representing a node in a probabilistic graphical model. It contains a symbol
+representing the name of the node, an integer representing the unique identifier of the node,
+a UInt8 representing the type of the variable, and an integer or tuple of integers representing
+the index of the variable.
+"""
 struct NodeLabel
     name::Symbol
     index::Int64
@@ -43,10 +51,11 @@ struct NodeData
     is_variable::Bool
     name::Any
     value::Any
+    options::Union{Nothing,Dict}
 end
 
 value(node::NodeData) = node.value
-NodeData(is_variable::Bool, name::Any) = NodeData(is_variable, name, nothing)
+options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
@@ -123,11 +132,11 @@ function generate_nodelabel(
 end
 
 generate_nodelabel(model::Model, name::Symbol, index::Nothing) =
-    generate_nodelabel(model, name, UInt8(1), 0)
+    generate_nodelabel(model, name, UInt8(0), 0)
 generate_nodelabel(model::Model, name::Symbol, index::Int64) =
-    generate_nodelabel(model, name, UInt8(2), index)
+    generate_nodelabel(model, name, UInt8(0), index)
 generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
-    generate_nodelabel(model, name, UInt8(3), index)
+    generate_nodelabel(model, name, UInt8(0), index)
 generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
     ArgumentError(
         "Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))",
@@ -361,7 +370,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol)
     check_if_tensor_variable(context, name)
     # Simply return a variable and create a new one if it does not exist
     return get(
-        () -> add_variable_node!(model, context, name, nothing),
+        () -> add_variable_node!(model, context, name; index=nothing),
         context.individual_variables,
         name,
     )
@@ -377,7 +386,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     # check that the variable exists in the current context
     @assert haskey(context.vector_variables, name)
     return get(
-        () -> add_variable_node!(model, context, name, index),
+        () -> add_variable_node!(model, context, name; index=index),
         context.vector_variables[name],
         index,
     )
@@ -388,7 +397,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     @assert haskey(context.tensor_variables, name)
     # Simply return a variable and create a new one if it does not exist
     if !isassigned(context.tensor_variables[name], index...)
-        add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name; index=index)
     end
     return context.tensor_variables[name][index...]
 end
@@ -398,7 +407,7 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar), nothing, var)
+    add_variable_node!(model, context, gensym(model, :constvar); value=var)
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -413,6 +422,8 @@ Args:
     - `context::Context`: The context to which the symbol is added.
     - `variable_id::Symbol`: The ID of the variable.
     - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
+    - `value::Union{Nothing, Any} = nothing`: The value of the variable.
+    - `options::Dict{Symbol, Any} = nothing`: The options to attach to the NodeData of the variable node.
 
 Returns:
     - The generated symbol for the variable.
@@ -420,13 +431,14 @@ Returns:
 function add_variable_node!(
     model::Model,
     context::Context,
-    variable_id::Symbol,
+    variable_id::Symbol;
     index = nothing,
     value = nothing,
+    options = nothing
 )
     variable_symbol = generate_nodelabel(model, variable_id, index)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = NodeData(true, variable_id, value)
+    model[variable_symbol] = NodeData(true, variable_id, value, options)
     return variable_symbol
 end
 
@@ -447,7 +459,7 @@ Returns:
 """
 function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
     node_id = generate_nodelabel(model, Symbol(node_name), UInt8(0))
-    model[node_id] = NodeData(false, node_name, nothing)
+    model[node_id] = NodeData(false, node_name, nothing, Dict())
     context.factor_nodes[node_id] = node_id
     return node_id
 end

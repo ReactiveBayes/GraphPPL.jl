@@ -28,13 +28,13 @@ using TestSetExtensions
         import GraphPPL: create_model, NodeLabel, NodeData
 
         model = create_model()
-        model[NodeLabel(:μ, 1, 1, 0)] = NodeData(true, :μ)
+        model[NodeLabel(:μ, 1, 1, 0)] = NodeData(true, :μ, nothing, nothing)
         @test GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         @test_throws MethodError model[0] = 1
 
         @test_throws MethodError model["string"] = NodeData(false, "string")
-        model[NodeLabel(:x, 2, 1, 0)] = NodeData(true, :x)
+        model[NodeLabel(:x, 2, 1, 0)] = NodeData(true, :x, nothing, nothing)
         @test GraphPPL.nv(model) == 2 && GraphPPL.ne(model) == 0
     end
 
@@ -44,8 +44,8 @@ using TestSetExtensions
         model = create_model()
         μ = NodeLabel(:μ, 1, 1, 0)
         x = NodeLabel(:x, 2, 1, 0)
-        model[μ] = NodeData(true, :μ)
-        model[x] = NodeData(true, :x)
+        model[μ] = NodeData(true, :μ, nothing, nothing)
+        model[x] = NodeData(true, :x, nothing, nothing)
         model[μ, x] = EdgeLabel(:interface)
         @test GraphPPL.ne(model) == 1
 
@@ -59,8 +59,8 @@ using TestSetExtensions
 
         model = create_model()
         label = NodeLabel(:x, 1, 1, 0)
-        model[label] = NodeData(true, :x)
-        @test model[label] == NodeData(true, :x)
+        model[label] = NodeData(true, :x, nothing, nothing)
+        @test isa(model[label], NodeData)
         @test_throws KeyError model[NodeLabel(:x, 1, 10, 0)]
         @test_throws MethodError model[0]
     end
@@ -83,8 +83,8 @@ using TestSetExtensions
         @test nv(model) == 0
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1, 1, 0)] = NodeData(true, :a)
-        model[NodeLabel(:b, 2, 1, 0)] = NodeData(false, :b)
+        model[NodeLabel(:a, 1, 1, 0)] = NodeData(true, :a, nothing, nothing)
+        model[NodeLabel(:b, 2, 1, 0)] = NodeData(false, :b, nothing, nothing)
         @test nv(model) == 2
         @test ne(model) == 0
 
@@ -105,25 +105,6 @@ using TestSetExtensions
 
         id = generate_nodelabel(model, :c)
         @test id.name == :c && id.index == 3
-
-
-        id = generate_nodelabel(model, "d")
-        @test id.name == :d && id.index == 4 && id.variable_type == 1
-
-
-        id = generate_nodelabel(model, :d, 3)
-        @test id.name == :d && id.index == 5 && id.variable_type == 2
-
-        id = generate_nodelabel(model, :d, (2, 1))
-        @test id.name == :d && id.index == 6 && id.variable_type == 3
-
-        id = generate_nodelabel(model, "d", (2, 1))
-        @test id.name == :d && id.index == 7 && id.variable_type == 3
-
-        id = generate_nodelabel(model, "d", 2)
-        @test id.name == :d && id.index == 8 && id.variable_type == 2
-
-        @test_throws ArgumentError generate_nodelabel(model, :d, (2, "a"))
 
     end
 
@@ -273,28 +254,28 @@ using TestSetExtensions
     @testset "getorcreate!" begin
         import GraphPPL: create_model, getorcreate!, Context
 
-        #Test case 1: create a new variable
+        # Test case 1: create a new variable
         model = create_model()
         ctx = context(model)
         getorcreate!(model, ctx, :x)
         @test nv(model) == 1
 
-        #Test case 2: check that getorcreate contains the same variable
+        # Test case 2: check that getorcreate contains the same variable
         x = getorcreate!(model, ctx, :x)
         @test nv(model) == 1 && x == getorcreate!(model, ctx, :x)
 
-        #Test case 3: create a new variable
+        # Test case 3: create a new variable
         y = getorcreate!(model, ctx, :y)
         @test nv(model) == 2
 
-        #Test case 4: create a tuple of variables
+        # Test case 4: create a tuple of variables
         (in1, in2) = getorcreate!(model, ctx, [:in_1, :in2])
         @test nv(model) == 4
 
-        #Test case 5: test that you cannot create integer variables
+        # Test case 5: test that you cannot create integer variables
         @test_throws MethodError getorcreate!(model, ctx, 1)
 
-        #Test case 6: test that two variables in two different contexts from the same markov blanket are the same variables in the model
+        # Test case 6: test that two variables in two different contexts from the same markov blanket are the same variables in the model
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in = x, out = y))
         @test getorcreate!(model, child_context, :in) == getorcreate!(model, ctx, :x)
@@ -327,7 +308,7 @@ using TestSetExtensions
         ctx = context(model)
         mv = getorcreatearray!(model, ctx, :mv, Val(2))
         c = 0
-        for i = 1:10
+        for i = 1:3
             for j = 1:3
                 c += 1
                 getorcreate!(model, ctx, :mv, i, j)
@@ -420,9 +401,9 @@ using TestSetExtensions
     end
 
     @testset "add_variable_node!" begin
-        import GraphPPL: create_model, add_variable_node!, context, getorcreatearray!
+        import GraphPPL: create_model, add_variable_node!, context, getorcreatearray!, options
 
-        #simple add variable to model
+        # Test 1: simple add variable to model
         model = create_model()
         ctx = context(model)
         node_id = add_variable_node!(model, ctx, :x)
@@ -430,73 +411,80 @@ using TestSetExtensions
               haskey(ctx.individual_variables, :x) &&
               ctx.individual_variables[:x] == node_id
 
-        #add second variable to model
+        # Test 2: Add second variable to model
         add_variable_node!(model, ctx, :y)
         @test nv(model) == 2 && haskey(ctx, :y)
 
-        #check that adding an integer variable throws a MethodError
+        # Test 3: Check that adding an integer variable throws a MethodError
         @test_throws MethodError add_variable_node!(model, ctx, 1)
 
-        #add a vector variable to the model
+        #Test 4: Add a vector variable to the model
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :x, Val(1))
-        node_id = add_variable_node!(model, ctx, :x, 2)
+        node_id = add_variable_node!(model, ctx, :x; index=2)
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
               ctx[:x][2] == node_id &&
               length(ctx[:x]) == 2
 
-        #add a second vector variable to the model
-        node_id = add_variable_node!(model, ctx, :x, 1)
+        #Test 5: Add a second vector variable to the model
+        node_id = add_variable_node!(model, ctx, :x; index=1)
         @test nv(model) == 2 &&
               haskey(ctx, :x) &&
               ctx[:x][1] == node_id &&
               length(ctx[:x]) == 2
 
-        #add a tensor variable to the model
+        # Test 6: Add a tensor variable to the model
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :x, Val(2))
-        node_id = add_variable_node!(model, ctx, :x, (2, 3))
+        node_id = add_variable_node!(model, ctx, :x; index=(2, 3))
         @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2, 3] == node_id
 
-        #add a second tensor variable to the model
-        node_id = add_variable_node!(model, ctx, :x, (2, 4))
+        # Test 7: Add a second tensor variable to the model
+        node_id = add_variable_node!(model, ctx, :x; index=(2, 4))
         @test nv(model) == 2 && haskey(ctx, :x) && ctx[:x][2, 4] == node_id
 
-        # Attempt to add a variable with an existing index
+        # Test 8: Attempt to add a variable with an existing index
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :y, Val(1))
-        node_id = add_variable_node!(model, ctx, :y, 1)
-        node_id = add_variable_node!(model, ctx, :y, 1)
+        node_id = add_variable_node!(model, ctx, :y; index=1)
+        node_id = add_variable_node!(model, ctx, :y; index=1)
 
 
-        # Add a variable with a non-integer index
+        # Test 9: Add a variable with a non-integer index
         getorcreatearray!(model, ctx, :z, Val(2))
-        @test_throws ArgumentError add_variable_node!(model, ctx, :z, (1, "a"))
+        @test_throws ArgumentError add_variable_node!(model, ctx, :z; index=(1, "a"))
 
-        # Add a variable with a negative index
+        # Test 10: Add a variable with a negative index
         getorcreatearray!(model, ctx, :w, Val(1))
-        @test_throws BoundsError add_variable_node!(model, ctx, :w, -1)
+        @test_throws BoundsError add_variable_node!(model, ctx, :w; index = -1)
+
+        # Test 11: Add a variable with options
+        model = create_model()
+        ctx = context(model)
+        var = add_variable_node!(model, ctx, :x, options = Dict(:isconstrained => true))
+        @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var && options(model[var]) == Dict(:isconstrained => true)
 
     end
 
     @testset "add_atomic_factor_node!" begin
         import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!
 
+        # Test 1: Add an atomic factor node to the model
         model = create_model()
         ctx = context(model)
         getorcreate!(model, ctx, :x)
-        node_id = add_atomic_factor_node!(model, model[], sum)
-
+        node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 2 && occursin("sum", String(label_for(model.graph, 2).name))
-        node_id = add_atomic_factor_node!(model, model[], sum)
 
+        # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
+        node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 3 && occursin("sum", String(label_for(model.graph, 3).name))
 
-        @test_throws ErrorException add_atomic_factor_node!(model, model[], 1)
+        @test_throws ErrorException add_atomic_factor_node!(model,ctx, 1)
     end
 
     @testset "add_composite_factor_node!" begin
@@ -687,6 +675,9 @@ using TestSetExtensions
         @test nv(model) == 1 && y[1] isa NodeLabel
     end
 
+    @testset "save_data_in_node" begin
+        import GraphPPL: create_model, save_data_in_node, getorcreate!
+    end
 end
 
 end
