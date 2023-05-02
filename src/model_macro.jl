@@ -253,9 +253,11 @@ function add_get_or_create_expression(e::Expr)
 end
 
 function generate_get_or_create(s::Symbol)
-    return :(
+    # I really don't like this fix, but I don't see a better way to do it
+    return quote
         $s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s)))
-    )
+        @assert $s isa GraphPPL.NodeLabel
+    end
 end
 
 
