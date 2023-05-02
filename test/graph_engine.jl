@@ -484,7 +484,7 @@ using TestSetExtensions
     end
 
     @testset "add_atomic_factor_node!" begin
-        import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!
+        import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, options
 
         # Test 1: Add an atomic factor node to the model
         model = create_model()
@@ -497,7 +497,13 @@ using TestSetExtensions
         node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 3 && occursin("sum", String(label_for(model.graph, 3).name))
 
+        # Test 3: Add an atomic factor node with an illegal name and assert it throws an error
         @test_throws ErrorException add_atomic_factor_node!(model,ctx, 1)
+        @test_throws ErrorException add_atomic_factor_node!(model,ctx, 1; options=Dict(:name => 1))
+
+        # Test 4: Add an atomic factor node with options
+        node_id = add_atomic_factor_node!(model, ctx, :sum; options = Dict(:isconstrained => true))
+        @test options(model[node_id]) == Dict(:isconstrained => true)
     end
 
     @testset "add_composite_factor_node!" begin

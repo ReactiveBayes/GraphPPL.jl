@@ -433,17 +433,17 @@ Args:
 Returns:
     - The generated symbol for the node.
 """
-function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
+function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol; options=nothing)
     node_id = generate_nodelabel(model, Symbol(node_name))
-    model[node_id] = NodeData(false, node_name, nothing, Dict())
+    model[node_id] = NodeData(false, node_name, nothing, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
-add_atomic_factor_node!(model::Model, context::Context, node_name::Real) =
+add_atomic_factor_node!(model::Model, context::Context, node_name::Real; options=nothing) =
     error("Cannot create factor node with Real argument")
-add_atomic_factor_node!(model::Model, context::Context, node_name) =
-    add_atomic_factor_node!(model, context, Symbol(node_name))
+add_atomic_factor_node!(model::Model, context::Context, node_name; options=nothing) =
+    add_atomic_factor_node!(model, context, Symbol(node_name); options=options)
 
 """
 Add a composite factor node to the model with the given name.
