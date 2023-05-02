@@ -539,6 +539,37 @@ function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     return ms_args
 end
 
+function get_make_node_function(ms_body, ms_args, ms_name)
+    # TODO (bvdmitri): prettify
+    init_input_arguments = map(ms_args) do arg
+        error_msg = "Missing interface $(arg)"
+        return quote
+            if !haskey(interfaces, $(QuoteNode(arg)))
+                error($error_msg)
+            end
+            $arg = interfaces[$(QuoteNode(arg))]
+        end
+    end
+    make_node_function = quote
+        function GraphPPL.make_node!(
+            model,
+            ::GraphPPL.Composite,
+            parent_context,
+            ::typeof($ms_name),
+            interfaces,
+        )
+            $(init_input_arguments...)
+            context = GraphPPL.Context(parent_context, $ms_name)
+            GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
+            $ms_body
+            # node_id = GraphPPL.generate_nodelabel(model, $ms_name)
+            GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
+        end
+    end
+    return make_node_function
+end
+
+
 function model_macro_interior(model_specification)
     @capture(
         model_specification,
@@ -565,35 +596,7 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
-
-
-    # TODO (bvdmitri): prettify
-    init_input_arguments = map(ms_args) do arg
-        error_msg = "Missing interface $(arg)"
-        return quote
-            if !haskey(interfaces, $(QuoteNode(arg)))
-                error($error_msg)
-            end
-            $arg = interfaces[$(QuoteNode(arg))]
-        end
-    end
-
-    make_node_function = quote
-        function GraphPPL.make_node!(
-            model,
-            ::GraphPPL.Composite,
-            parent_context,
-            ::typeof($ms_name),
-            interfaces,
-        )
-            $(init_input_arguments...)
-            context = GraphPPL.Context(parent_context, $ms_name)
-            GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
-            $ms_body
-            # node_id = GraphPPL.generate_nodelabel(model, $ms_name)
-            GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
-        end
-    end
+    make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
     @show prettify(ms_body)
 
     result = quote

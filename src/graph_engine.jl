@@ -379,7 +379,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
-getifcreated(model::Model, context::Context, var::ResizableArray) = var
+getifcreated(model::Model, context::Context, var::ResizableArray) = Tuple(var)
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =

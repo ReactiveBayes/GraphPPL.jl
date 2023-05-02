@@ -93,3 +93,7 @@ end
 function Base.iterate(array::ResizableArray{T,V,N}) where {T,V,N}
     return iterate(array.data)
 end
+
+function Base.Tuple(array::ResizableArray{T,V,N}) where {T,V,N}
+    return Tuple(array.data)
+end

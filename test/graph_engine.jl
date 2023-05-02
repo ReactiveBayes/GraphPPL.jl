@@ -567,8 +567,6 @@ using TestSetExtensions
             generate_nodelabel(model, :factor_node2),
             :interface,
         )
-
-
     end
 
     @testset "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
@@ -696,6 +694,25 @@ using TestSetExtensions
 
     @testset "save_data_in_node" begin
         import GraphPPL: create_model, save_data_in_node, getorcreate!
+    end
+
+    @testset "create_vector_of_random_variables" begin
+        import GraphPPL: create_model, getorcreatearray!, getorcreate!, getifcreated, make_node!
+        model = create_model()
+        ctx = context(model)
+        local x
+        for i in 1:10
+            x = @isdefined(x) ? x : getorcreatearray!(model, ctx, :x, Val(1))
+            getorcreate!(model, ctx, :x, i)
+            interfaces_tuple = (in = getifcreated(model, ctx, (0,1)), out = getifcreated(model, ctx, x[i]))
+            make_node!(model, ctx, sum, interfaces_tuple)
+        end
+        @test size(x) == (10,)
+        for i in 1:10
+            @test x[i] isa NodeLabel
+        end
+        @test Tuple(x) == tuple(x.data...)
+
     end
 end
 
