@@ -1051,6 +1051,7 @@ using MacroTools
         end
         output = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            @assert x isa GraphPPL.NodeLabel
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1111,11 +1112,13 @@ using MacroTools
         end
         output = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            @assert x isa GraphPPL.NodeLabel
             x ~ Normal(
                 begin
                     $sym =
                         @isdefined($sym) ? $sym :
                         GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)))
+                    @assert $sym isa GraphPPL.NodeLabel
                     $sym ~ Normal(
                         0,
                         1,
@@ -1144,6 +1147,7 @@ using MacroTools
         output = generate_get_or_create(:x)
         desired_result = quote
             x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            @assert x isa GraphPPL.NodeLabel
         end
         @test_expression_generating output desired_result
 
