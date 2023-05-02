@@ -126,10 +126,17 @@ using Test
             v[i] = GraphPPL.NodeLabel(:x, i)
         end
         @test size(v) == (10,)
-        tuple(v...) == (GraphPPL.NodeLabel(:x, 1), GraphPPL.NodeLabel(:x, 2),
-                        GraphPPL.NodeLabel(:x, 3), GraphPPL.NodeLabel(:x, 4),
-                        GraphPPL.NodeLabel(:x, 5), GraphPPL.NodeLabel(:x, 6),
-                        GraphPPL.NodeLabel(:x, 7), GraphPPL.NodeLabel(:x, 8),
-                        GraphPPL.NodeLabel(:x, 9), GraphPPL.NodeLabel(:x, 10))
+        tuple(v...) == (
+            GraphPPL.NodeLabel(:x, 1),
+            GraphPPL.NodeLabel(:x, 2),
+            GraphPPL.NodeLabel(:x, 3),
+            GraphPPL.NodeLabel(:x, 4),
+            GraphPPL.NodeLabel(:x, 5),
+            GraphPPL.NodeLabel(:x, 6),
+            GraphPPL.NodeLabel(:x, 7),
+            GraphPPL.NodeLabel(:x, 8),
+            GraphPPL.NodeLabel(:x, 9),
+            GraphPPL.NodeLabel(:x, 10),
+        )
     end
 end

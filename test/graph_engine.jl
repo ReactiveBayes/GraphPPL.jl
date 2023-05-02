@@ -420,7 +420,7 @@ using TestSetExtensions
         y = getorcreate!(model, ctx, :y)
         z = getifcreated(model, ctx, [x, y])
         @test z == [x, y]
-        
+
         # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
         model = create_model()
         ctx = context(model)
@@ -433,7 +433,8 @@ using TestSetExtensions
     end
 
     @testset "add_variable_node!" begin
-        import GraphPPL: create_model, add_variable_node!, context, getorcreatearray!, options
+        import GraphPPL:
+            create_model, add_variable_node!, context, getorcreatearray!, options
 
         # Test 1: simple add variable to model
         model = create_model()
@@ -454,14 +455,14 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :x, Val(1))
-        node_id = add_variable_node!(model, ctx, :x; index=2)
+        node_id = add_variable_node!(model, ctx, :x; index = 2)
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
               ctx[:x][2] == node_id &&
               length(ctx[:x]) == 2
 
         # Test 5: Add a second vector variable to the model
-        node_id = add_variable_node!(model, ctx, :x; index=1)
+        node_id = add_variable_node!(model, ctx, :x; index = 1)
         @test nv(model) == 2 &&
               haskey(ctx, :x) &&
               ctx[:x][1] == node_id &&
@@ -471,25 +472,25 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :x, Val(2))
-        node_id = add_variable_node!(model, ctx, :x; index=(2, 3))
+        node_id = add_variable_node!(model, ctx, :x; index = (2, 3))
         @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2, 3] == node_id
 
         # Test 7: Add a second tensor variable to the model
-        node_id = add_variable_node!(model, ctx, :x; index=(2, 4))
+        node_id = add_variable_node!(model, ctx, :x; index = (2, 4))
         @test nv(model) == 2 && haskey(ctx, :x) && ctx[:x][2, 4] == node_id
 
         # Test 8: Attempt to add a variable with an existing index
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :y, Val(1))
-        node_id = add_variable_node!(model, ctx, :y; index=1)
-        node_id = add_variable_node!(model, ctx, :y; index=1)
+        node_id = add_variable_node!(model, ctx, :y; index = 1)
+        node_id = add_variable_node!(model, ctx, :y; index = 1)
         @test nv(model) == 2
 
 
         # Test 9: Add a variable with a non-integer index
         getorcreatearray!(model, ctx, :z, Val(2))
-        @test_throws MethodError add_variable_node!(model, ctx, :z; index=(1, "a"))
+        @test_throws MethodError add_variable_node!(model, ctx, :z; index = (1, "a"))
 
         # Test 10: Add a variable with a negative index
         getorcreatearray!(model, ctx, :w, Val(1))
@@ -499,7 +500,10 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         var = add_variable_node!(model, ctx, :x, options = Dict(:isconstrained => true))
-        @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var && options(model[var]) == Dict(:isconstrained => true)
+        @test nv(model) == 1 &&
+              haskey(ctx, :x) &&
+              ctx[:x] == var &&
+              options(model[var]) == Dict(:isconstrained => true)
 
     end
 
@@ -518,11 +522,21 @@ using TestSetExtensions
         @test nv(model) == 3 && occursin("sum", String(label_for(model.graph, 3).name))
 
         # Test 3: Add an atomic factor node with an illegal name and assert it throws an error
-        @test_throws ErrorException add_atomic_factor_node!(model,ctx, 1)
-        @test_throws ErrorException add_atomic_factor_node!(model,ctx, 1; options=Dict(:name => 1))
+        @test_throws ErrorException add_atomic_factor_node!(model, ctx, 1)
+        @test_throws ErrorException add_atomic_factor_node!(
+            model,
+            ctx,
+            1;
+            options = Dict(:name => 1),
+        )
 
         # Test 4: Add an atomic factor node with options
-        node_id = add_atomic_factor_node!(model, ctx, :sum; options = Dict(:isconstrained => true))
+        node_id = add_atomic_factor_node!(
+            model,
+            ctx,
+            :sum;
+            options = Dict(:isconstrained => true),
+        )
         @test options(model[node_id]) == Dict(:isconstrained => true)
     end
 
@@ -688,11 +702,11 @@ using TestSetExtensions
         @test nv(model) == 4 && ne(model) == 3
 
         # Test 6: Add a node with a large vector ResizableArray as input
-        
+
         model = create_model()
         ctx = GraphPPL.context(model)
         x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(1))
-        for i in 1:10
+        for i = 1:10
             getorcreate!(model, ctx, :x, i)
         end
         y = getorcreate!(model, ctx, :y)
@@ -700,20 +714,17 @@ using TestSetExtensions
             model,
             ctx,
             sum,
-            (
-                in = getifcreated(model, ctx, x),
-                out = getifcreated(model, ctx, y),
-            ),
+            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y)),
         )
-        @test nv(model) == 12 && ne(model) == 11 
+        @test nv(model) == 12 && ne(model) == 11
 
         # Test 7: Add a node with a multidimensional ResizableArray as input
-        
+
         model = create_model()
         ctx = GraphPPL.context(model)
         x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(2))
-        for i in 1:3
-            for j in 1:3
+        for i = 1:3
+            for j = 1:3
                 getorcreate!(model, ctx, :x, i, j)
             end
         end
@@ -722,10 +733,7 @@ using TestSetExtensions
             model,
             ctx,
             sum,
-            (
-                in = getifcreated(model, ctx, x),
-                out = getifcreated(model, ctx, y),
-            ),
+            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y)),
         )
         @test nv(model) == 11 && ne(model) == 10
     end
@@ -774,20 +782,24 @@ using TestSetExtensions
 
 
     @testset "create_vector_of_random_variables" begin
-        import GraphPPL: create_model, getorcreatearray!, getorcreate!, getifcreated, make_node!
+        import GraphPPL:
+            create_model, getorcreatearray!, getorcreate!, getifcreated, make_node!
         model = create_model()
         ctx = context(model)
         local x
-        for i in 1:10
+        for i = 1:10
             x = @isdefined(x) ? x : getorcreatearray!(model, ctx, :x, Val(1))
             getorcreate!(model, ctx, :x, i)
-            interfaces_tuple = (in = getifcreated(model, ctx, (0,1)), out = getifcreated(model, ctx, x[i]))
+            interfaces_tuple = (
+                in = getifcreated(model, ctx, (0, 1)),
+                out = getifcreated(model, ctx, x[i]),
+            )
             make_node!(model, ctx, sum, interfaces_tuple)
         end
         @test size(x) == (10,)
-        for i in 1:10
+        for i = 1:10
             @test x[i] isa NodeLabel
-        end 
+        end
 
     end
 end

@@ -113,10 +113,7 @@ Arguments:
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function generate_nodelabel(
-    model::Model,
-    name::Symbol,
-)
+function generate_nodelabel(model::Model, name::Symbol)
     increase_count(model)
     return NodeLabel(name, model.counter)
 end
@@ -346,7 +343,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol)
     check_if_tensor_variable(context, name)
     # Simply return a variable and create a new one if it does not exist
     return get(
-        () -> add_variable_node!(model, context, name; index=nothing),
+        () -> add_variable_node!(model, context, name; index = nothing),
         context.individual_variables,
         name,
     )
@@ -362,7 +359,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     # check that the variable exists in the current context
     @assert haskey(context.vector_variables, name)
     return get(
-        () -> add_variable_node!(model, context, name; index=index),
+        () -> add_variable_node!(model, context, name; index = index),
         context.vector_variables[name],
         index,
     )
@@ -373,7 +370,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     @assert haskey(context.tensor_variables, name)
     # Simply return a variable and create a new one if it does not exist
     if !isassigned(context.tensor_variables[name], index...)
-        add_variable_node!(model, context, name; index=index)
+        add_variable_node!(model, context, name; index = index)
     end
     return context.tensor_variables[name][index...]
 end
@@ -383,7 +380,7 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar); value=var)
+    add_variable_node!(model, context, gensym(model, :constvar); value = var)
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -410,7 +407,7 @@ function add_variable_node!(
     variable_id::Symbol;
     index = nothing,
     value = nothing,
-    options = nothing
+    options = nothing,
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -433,17 +430,26 @@ Args:
 Returns:
     - The generated symbol for the node.
 """
-function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol; options=nothing)
+function add_atomic_factor_node!(
+    model::Model,
+    context::Context,
+    node_name::Symbol;
+    options = nothing,
+)
     node_id = generate_nodelabel(model, Symbol(node_name))
     model[node_id] = NodeData(false, node_name, nothing, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
-add_atomic_factor_node!(model::Model, context::Context, node_name::Real; options=nothing) =
-    error("Cannot create factor node with Real argument")
-add_atomic_factor_node!(model::Model, context::Context, node_name; options=nothing) =
-    add_atomic_factor_node!(model, context, Symbol(node_name); options=options)
+add_atomic_factor_node!(
+    model::Model,
+    context::Context,
+    node_name::Real;
+    options = nothing,
+) = error("Cannot create factor node with Real argument")
+add_atomic_factor_node!(model::Model, context::Context, node_name; options = nothing) =
+    add_atomic_factor_node!(model, context, Symbol(node_name); options = options)
 
 """
 Add a composite factor node to the model with the given name.
@@ -513,7 +519,7 @@ function make_node!(
     context::Context,
     node_name,
     interfaces::NamedTuple,
-)  
+)
     factor_node_id = add_atomic_factor_node!(model, context, node_name)
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
