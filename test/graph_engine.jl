@@ -234,8 +234,8 @@ using TestSetExtensions
         getorcreate!(model, ctx, :x, 1)
         getorcreate!(model, ctx, :x, 2)
         child_context = Context(context(model), "child")
-        copy_markov_blanket_to_child_context(child_context, (in1 = x,))
-        @test child_context[:in1] == x
+        copy_markov_blanket_to_child_context(child_context, (in = x,))
+        @test child_context[:in] == x
 
         # Test 3: Copy tensor variables
         model = create_model()
@@ -246,8 +246,19 @@ using TestSetExtensions
         getorcreate!(model, ctx, :x, 1, 2)
         getorcreate!(model, ctx, :x, 2, 2)
         child_context = Context(context(model), "child")
-        copy_markov_blanket_to_child_context(child_context, (in1 = x,))
-        @test child_context[:in1] == x
+        copy_markov_blanket_to_child_context(child_context, (in = x,))
+        @test child_context[:in] == x
+
+        # Test 4: Copy tuple of variables
+        model = create_model()
+        ctx = context(model)
+        x = getorcreatearray!(model, ctx, :x, Val(1))
+        getorcreate!(model, ctx, :x, 1)
+        getorcreate!(model, ctx, :x, 2)
+        x = Tuple(x)
+        child_context = Context(context(model), "child")
+        copy_markov_blanket_to_child_context(child_context, (in = x,))
+
     end
 
 
@@ -409,6 +420,15 @@ using TestSetExtensions
         y = getorcreate!(model, ctx, :y)
         z = getifcreated(model, ctx, [x, y])
         @test z == [x, y]
+        
+        # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
+        model = create_model()
+        ctx = context(model)
+        x = getorcreatearray!(model, ctx, :x, Val(2))
+        getorcreate!(model, ctx, :x, 1, 1)
+        getorcreate!(model, ctx, :x, 2, 1)
+        z = getifcreated(model, ctx, x)
+        @test z == x
 
     end
 
@@ -430,7 +450,7 @@ using TestSetExtensions
         # Test 3: Check that adding an integer variable throws a MethodError
         @test_throws MethodError add_variable_node!(model, ctx, 1)
 
-        #Test 4: Add a vector variable to the model
+        # Test 4: Add a vector variable to the model
         model = create_model()
         ctx = context(model)
         getorcreatearray!(model, ctx, :x, Val(1))
@@ -440,7 +460,7 @@ using TestSetExtensions
               ctx[:x][2] == node_id &&
               length(ctx[:x]) == 2
 
-        #Test 5: Add a second vector variable to the model
+        # Test 5: Add a second vector variable to the model
         node_id = add_variable_node!(model, ctx, :x; index=1)
         @test nv(model) == 2 &&
               haskey(ctx, :x) &&
@@ -648,6 +668,66 @@ using TestSetExtensions
         )
         @test nv(model) == 4 && ne(model) == 3
 
+        # Test 5: Add a node with a ResizableArray as input
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreatearray!(model, ctx, :x, Val(1))
+        getorcreate!(model, ctx, :x, 1)
+        getorcreate!(model, ctx, :x, 2)
+        y = getorcreate!(model, ctx, :y)
+        make_node!(
+            model,
+            context(model),
+            sum,
+            (
+                in = getifcreated(model, context(model), x),
+                out = getifcreated(model, context(model), y),
+            ),
+        )
+        @test nv(model) == 4 && ne(model) == 3
+
+        # Test 6: Add a node with a large vector ResizableArray as input
+        
+        model = create_model()
+        ctx = GraphPPL.context(model)
+        x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(1))
+        for i in 1:10
+            getorcreate!(model, ctx, :x, i)
+        end
+        y = getorcreate!(model, ctx, :y)
+        make_node!(
+            model,
+            ctx,
+            sum,
+            (
+                in = getifcreated(model, ctx, x),
+                out = getifcreated(model, ctx, y),
+            ),
+        )
+        @test nv(model) == 12 && ne(model) == 11 
+
+        # Test 7: Add a node with a multidimensional ResizableArray as input
+        
+        model = create_model()
+        ctx = GraphPPL.context(model)
+        x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(2))
+        for i in 1:3
+            for j in 1:3
+                getorcreate!(model, ctx, :x, i, j)
+            end
+        end
+        y = getorcreate!(model, ctx, :y)
+        make_node!(
+            model,
+            ctx,
+            sum,
+            (
+                in = getifcreated(model, ctx, x),
+                out = getifcreated(model, ctx, y),
+            ),
+        )
+        @test nv(model) == 11 && ne(model) == 10
     end
 
     @testset "make_node_from_object" begin
@@ -692,9 +772,6 @@ using TestSetExtensions
         @test nv(model) == 1 && y[1] isa NodeLabel
     end
 
-    @testset "save_data_in_node" begin
-        import GraphPPL: create_model, save_data_in_node, getorcreate!
-    end
 
     @testset "create_vector_of_random_variables" begin
         import GraphPPL: create_model, getorcreatearray!, getorcreate!, getifcreated, make_node!
@@ -710,8 +787,7 @@ using TestSetExtensions
         @test size(x) == (10,)
         for i in 1:10
             @test x[i] isa NodeLabel
-        end
-        @test Tuple(x) == tuple(x.data...)
+        end 
 
     end
 end

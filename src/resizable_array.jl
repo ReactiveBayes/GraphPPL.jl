@@ -90,10 +90,5 @@ function Base.show(io::IO, array::ResizableArray{T,V,N}) where {T,V,N}
     print(io, ")")
 end
 
-function Base.iterate(array::ResizableArray{T,V,N}) where {T,V,N}
-    return iterate(array.data)
-end
+Base.iterate(array::ResizableArray{T,V,N}, state=1) where {T,V,N} = iterate(array.data, state)
 
-function Base.Tuple(array::ResizableArray{T,V,N}) where {T,V,N}
-    return Tuple(array.data)
-end

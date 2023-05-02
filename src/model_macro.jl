@@ -561,9 +561,8 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             $(init_input_arguments...)
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
+            node_name = GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
             $ms_body
-            # node_id = GraphPPL.generate_nodelabel(model, $ms_name)
-            GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
         end
     end
     return make_node_function

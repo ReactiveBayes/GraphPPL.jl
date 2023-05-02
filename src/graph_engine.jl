@@ -379,7 +379,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
-getifcreated(model::Model, context::Context, var::ResizableArray) = Tuple(var)
+getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
@@ -482,11 +482,6 @@ add_composite_factor_node!(
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 
-function add_edge(model::Model, factor_node_id::NodeLabel, variable_node_id::Real)
-    add_variable_node!(model, model.context, variable_node_id)
-    model.graph[variable_node_id, factor_node_id] = EdgeLabel()
-end
-
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
@@ -518,7 +513,7 @@ function make_node!(
     context::Context,
     node_name,
     interfaces::NamedTuple,
-)
+)  
     factor_node_id = add_atomic_factor_node!(model, context, node_name)
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
