@@ -24,7 +24,7 @@ struct Model
 end
 
 """
-    NodeLabel(name::Symbol, index::Int64, variable_type::UInt8, variable_index::Union{Int64,NTuple{N,Int64} where N})
+    NodeLabel(name::Symbol, index::Int64)
 
 A structure representing a node in a probabilistic graphical model. It contains a symbol
 representing the name of the node, an integer representing the unique identifier of the node,
@@ -34,16 +34,8 @@ the index of the variable.
 struct NodeLabel
     name::Symbol
     index::Int64
-    variable_type::UInt8
-    variable_index::Union{Int64,NTuple{N,Int64} where N}
-end
 
-NodeLabel(
-    name::Symbol,
-    index::Int64,
-    variable_type::Int64,
-    variable_index::Union{Int64,NTuple{N,Int64} where N},
-) = NodeLabel(name, index, UInt8(variable_type), variable_index)
+end
 
 name(label::NodeLabel) = label.name
 
@@ -124,27 +116,11 @@ A new `NodeLabel` object with a unique identifier.
 function generate_nodelabel(
     model::Model,
     name::Symbol,
-    variable_type::UInt8 = UInt8(0),
-    index::Union{Int64,NTuple{N,Int64} where N} = 0,
 )
     increase_count(model)
-    return NodeLabel(name, model.counter, variable_type, index)
+    return NodeLabel(name, model.counter)
 end
 
-generate_nodelabel(model::Model, name::Symbol, index::Nothing) =
-    generate_nodelabel(model, name, UInt8(0), 0)
-generate_nodelabel(model::Model, name::Symbol, index::Int64) =
-    generate_nodelabel(model, name, UInt8(0), index)
-generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
-    generate_nodelabel(model, name, UInt8(0), index)
-generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
-    ArgumentError(
-        "Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))",
-    ),
-)
-
-generate_nodelabel(model::Model, name, index = nothing) =
-    generate_nodelabel(model::Model, Symbol(name), index)
 
 function Base.gensym(model::Model, name::Symbol)
     increase_count
@@ -436,7 +412,7 @@ function add_variable_node!(
     value = nothing,
     options = nothing
 )
-    variable_symbol = generate_nodelabel(model, variable_id, index)
+    variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
     model[variable_symbol] = NodeData(true, variable_id, value, options)
     return variable_symbol
@@ -458,7 +434,7 @@ Returns:
     - The generated symbol for the node.
 """
 function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
-    node_id = generate_nodelabel(model, Symbol(node_name), UInt8(0))
+    node_id = generate_nodelabel(model, Symbol(node_name))
     model[node_id] = NodeData(false, node_name, nothing, Dict())
     context.factor_nodes[node_id] = node_id
     return node_id

@@ -594,6 +594,7 @@ function model_macro_interior(model_specification)
             GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
         end
     end
+    @show prettify(ms_body)
 
     result = quote
 
