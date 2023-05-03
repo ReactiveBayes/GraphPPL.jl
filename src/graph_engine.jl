@@ -518,9 +518,11 @@ function make_node!(
     ::Atomic,
     context::Context,
     node_name,
-    interfaces::NamedTuple,
+    interfaces::NamedTuple;
+    options = nothing,
+    debug = false,
 )
-    factor_node_id = add_atomic_factor_node!(model, context, node_name)
+    factor_node_id = add_atomic_factor_node!(model, context, node_name; options = options)
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
     end
@@ -528,14 +530,22 @@ function make_node!(
 end
 
 
-make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTuple) =
-    make_node!(
-        model::Model,
-        NodeType(node_name),
-        parent_context::Context,
-        node_name,
-        interfaces,
-    )
+make_node!(
+    model::Model,
+    parent_context::Context,
+    node_name,
+    interfaces::NamedTuple;
+    options = nothing,
+    debug = false,
+) = make_node!(
+    model::Model,
+    NodeType(node_name),
+    parent_context::Context,
+    node_name,
+    interfaces;
+    options = options,
+    debug = debug,
+)
 
 make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, index...) =
     node

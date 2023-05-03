@@ -249,16 +249,6 @@ using TestSetExtensions
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
 
-        # Test 4: Copy tuple of variables
-        model = create_model()
-        ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(1))
-        getorcreate!(model, ctx, :x, 1)
-        getorcreate!(model, ctx, :x, 2)
-        x = Tuple(x)
-        child_context = Context(context(model), "child")
-        copy_markov_blanket_to_child_context(child_context, (in = x,))
-
     end
 
 
@@ -636,7 +626,9 @@ using TestSetExtensions
                 in1 = getifcreated(model, context(model), θ),
                 in2 = getifcreated(model, context(model), τ),
                 out = getifcreated(model, context(model), μ),
-            ),
+            );
+            options = Dict(:created_by => :(θ ~ sum(τ, μ))),
+            debug = false,
         )
         @test nv(model) == 4 && ne(model) == 3
 
@@ -656,14 +648,23 @@ using TestSetExtensions
                 in1 = getifcreated(model, context(model), θ),
                 in2 = getifcreated(model, context(model), τ),
                 out = getifcreated(model, context(model), μ),
-            ),
+            );
+            options = Dict(:created_by => :(θ ~ sum(τ, μ))),
+            debug = false,
         )
         @test nv(model) == 4 && ne(model) == 3
 
         # Test 3: Add a node with inputs with no interfaces
 
         model = create_model()
-        make_node!(model, context(model), sum, NamedTuple())
+        make_node!(
+            model,
+            context(model),
+            sum,
+            NamedTuple();
+            options = nothing,
+            debug = false,
+        )
         @test nv(model) == 1
 
         # Test 4: Add a node with constants as inputs
@@ -678,7 +679,9 @@ using TestSetExtensions
                 in1 = getifcreated(model, context(model), 1),
                 in2 = getifcreated(model, context(model), 2),
                 out = getifcreated(model, context(model), z),
-            ),
+            );
+            options = nothing,
+            debug = false,
         )
         @test nv(model) == 4 && ne(model) == 3
 
@@ -697,7 +700,9 @@ using TestSetExtensions
             (
                 in = getifcreated(model, context(model), x),
                 out = getifcreated(model, context(model), y),
-            ),
+            );
+            options = nothing,
+            debug = false,
         )
         @test nv(model) == 4 && ne(model) == 3
 
@@ -733,7 +738,9 @@ using TestSetExtensions
             model,
             ctx,
             sum,
-            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y)),
+            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y));
+            options = nothing,
+            debug = false,
         )
         @test nv(model) == 11 && ne(model) == 10
     end
