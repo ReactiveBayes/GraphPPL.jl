@@ -118,4 +118,25 @@ using Test
             @test_throws MethodError v[i] = i
         end
     end
+
+    using GraphPPL
+    let v = ResizableArray(GraphPPL.NodeLabel, Val(1))
+
+        for i = 1:10
+            v[i] = GraphPPL.NodeLabel(:x, i)
+        end
+        @test size(v) == (10,)
+        tuple(v...) == (
+            GraphPPL.NodeLabel(:x, 1),
+            GraphPPL.NodeLabel(:x, 2),
+            GraphPPL.NodeLabel(:x, 3),
+            GraphPPL.NodeLabel(:x, 4),
+            GraphPPL.NodeLabel(:x, 5),
+            GraphPPL.NodeLabel(:x, 6),
+            GraphPPL.NodeLabel(:x, 7),
+            GraphPPL.NodeLabel(:x, 8),
+            GraphPPL.NodeLabel(:x, 9),
+            GraphPPL.NodeLabel(:x, 10),
+        )
+    end
 end

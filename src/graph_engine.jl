@@ -23,19 +23,19 @@ struct Model
     counter::Base.RefValue{Int64}
 end
 
+"""
+    NodeLabel(name::Symbol, index::Int64)
+
+A structure representing a node in a probabilistic graphical model. It contains a symbol
+representing the name of the node, an integer representing the unique identifier of the node,
+a UInt8 representing the type of the variable, and an integer or tuple of integers representing
+the index of the variable.
+"""
 struct NodeLabel
     name::Symbol
     index::Int64
-    variable_type::UInt8
-    variable_index::Union{Int64,NTuple{N,Int64} where N}
-end
 
-NodeLabel(
-    name::Symbol,
-    index::Int64,
-    variable_type::Int64,
-    variable_index::Union{Int64,NTuple{N,Int64} where N},
-) = NodeLabel(name, index, UInt8(variable_type), variable_index)
+end
 
 name(label::NodeLabel) = label.name
 
@@ -43,10 +43,11 @@ struct NodeData
     is_variable::Bool
     name::Any
     value::Any
+    options::Union{Nothing,Dict}
 end
 
 value(node::NodeData) = node.value
-NodeData(is_variable::Bool, name::Any) = NodeData(is_variable, name, nothing)
+options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
@@ -112,30 +113,11 @@ Arguments:
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function generate_nodelabel(
-    model::Model,
-    name::Symbol,
-    variable_type::UInt8 = UInt8(0),
-    index::Union{Int64,NTuple{N,Int64} where N} = 0,
-)
+function generate_nodelabel(model::Model, name::Symbol)
     increase_count(model)
-    return NodeLabel(name, model.counter, variable_type, index)
+    return NodeLabel(name, model.counter)
 end
 
-generate_nodelabel(model::Model, name::Symbol, index::Nothing) =
-    generate_nodelabel(model, name, UInt8(1), 0)
-generate_nodelabel(model::Model, name::Symbol, index::Int64) =
-    generate_nodelabel(model, name, UInt8(2), index)
-generate_nodelabel(model::Model, name::Symbol, index::NTuple{N,Int64} where {N}) =
-    generate_nodelabel(model, name, UInt8(3), index)
-generate_nodelabel(model::Model, name::Symbol, index::Tuple) = throw(
-    ArgumentError(
-        "Index, if provided, must be an integer or tuple of integers, not a $(typeof(index))",
-    ),
-)
-
-generate_nodelabel(model::Model, name, index = nothing) =
-    generate_nodelabel(model::Model, Symbol(name), index)
 
 function Base.gensym(model::Model, name::Symbol)
     increase_count
@@ -158,7 +140,10 @@ function Base.show(io::IO, context::Context)
     println(io, "$("    " ^ context.depth)Context: $(context.prefix)")
     println(io, "$("    " ^ (context.depth + 1))Individual variables:")
     for (variable_name, variable_label) in context.individual_variables
-        println(io, "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))")
+        println(
+            io,
+            "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))",
+        )
     end
     println(io, "$("    " ^ (context.depth + 1))Vector variables:")
     for (variable_name, variable_labels) in context.vector_variables
@@ -173,15 +158,19 @@ function Base.show(io::IO, context::Context)
         if isa(factor_context, Context)
             show(io, factor_context)
         else
-            println(io, "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))")
+            println(
+                io,
+                "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))",
+            )
         end
     end
 end
 
 name(f::Function) = String(Symbol(f))
 
-Context(depth :: Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_name::String) = Context(parent.depth + 1, parent.prefix * model_name * "_")
+Context(depth::Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_name::String) =
+    Context(parent.depth + 1, parent.prefix * model_name * "_")
 Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
 Context() = Context(0, "")
 
@@ -354,7 +343,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol)
     check_if_tensor_variable(context, name)
     # Simply return a variable and create a new one if it does not exist
     return get(
-        () -> add_variable_node!(model, context, name, nothing),
+        () -> add_variable_node!(model, context, name; index = nothing),
         context.individual_variables,
         name,
     )
@@ -370,7 +359,7 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
     # check that the variable exists in the current context
     @assert haskey(context.vector_variables, name)
     return get(
-        () -> add_variable_node!(model, context, name, index),
+        () -> add_variable_node!(model, context, name; index = index),
         context.vector_variables[name],
         index,
     )
@@ -381,17 +370,17 @@ function getorcreate!(model::Model, context::Context, name::Symbol, index...)
     @assert haskey(context.tensor_variables, name)
     # Simply return a variable and create a new one if it does not exist
     if !isassigned(context.tensor_variables[name], index...)
-        add_variable_node!(model, context, name, index)
+        add_variable_node!(model, context, name; index = index)
     end
     return context.tensor_variables[name][index...]
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Tuple) =
+getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar), nothing, var)
+    add_variable_node!(model, context, gensym(model, :constvar); value = var)
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -406,6 +395,8 @@ Args:
     - `context::Context`: The context to which the symbol is added.
     - `variable_id::Symbol`: The ID of the variable.
     - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
+    - `value::Union{Nothing, Any} = nothing`: The value of the variable.
+    - `options::Dict{Symbol, Any} = nothing`: The options to attach to the NodeData of the variable node.
 
 Returns:
     - The generated symbol for the variable.
@@ -413,13 +404,14 @@ Returns:
 function add_variable_node!(
     model::Model,
     context::Context,
-    variable_id::Symbol,
+    variable_id::Symbol;
     index = nothing,
     value = nothing,
+    options = nothing,
 )
-    variable_symbol = generate_nodelabel(model, variable_id, index)
+    variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = NodeData(true, variable_id, value)
+    model[variable_symbol] = NodeData(true, variable_id, value, options)
     return variable_symbol
 end
 
@@ -438,17 +430,26 @@ Args:
 Returns:
     - The generated symbol for the node.
 """
-function add_atomic_factor_node!(model::Model, context::Context, node_name::Symbol)
-    node_id = generate_nodelabel(model, Symbol(node_name), UInt8(0))
-    model[node_id] = NodeData(false, node_name, nothing)
+function add_atomic_factor_node!(
+    model::Model,
+    context::Context,
+    node_name::Symbol;
+    options = nothing,
+)
+    node_id = generate_nodelabel(model, Symbol(node_name))
+    model[node_id] = NodeData(false, node_name, nothing, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
-add_atomic_factor_node!(model::Model, context::Context, node_name::Real) =
-    error("Cannot create factor node with Real argument")
-add_atomic_factor_node!(model::Model, context::Context, node_name) =
-    add_atomic_factor_node!(model, context, Symbol(node_name))
+add_atomic_factor_node!(
+    model::Model,
+    context::Context,
+    node_name::Real;
+    options = nothing,
+) = error("Cannot create factor node with Real argument")
+add_atomic_factor_node!(model::Model, context::Context, node_name; options = nothing) =
+    add_atomic_factor_node!(model, context, Symbol(node_name); options = options)
 
 """
 Add a composite factor node to the model with the given name.
@@ -487,11 +488,6 @@ add_composite_factor_node!(
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 
-function add_edge(model::Model, factor_node_id::NodeLabel, variable_node_id::Real)
-    add_variable_node!(model, model.context, variable_node_id)
-    model.graph[variable_node_id, factor_node_id] = EdgeLabel()
-end
-
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
@@ -522,9 +518,11 @@ function make_node!(
     ::Atomic,
     context::Context,
     node_name,
-    interfaces::NamedTuple,
+    interfaces::NamedTuple;
+    options = nothing,
+    debug = false,
 )
-    factor_node_id = add_atomic_factor_node!(model, context, node_name)
+    factor_node_id = add_atomic_factor_node!(model, context, node_name; options = options)
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
     end
@@ -532,21 +530,48 @@ function make_node!(
 end
 
 
-make_node!(model::Model, parent_context::Context, node_name, interfaces::NamedTuple) =
-    make_node!(
-        model::Model,
-        NodeType(node_name),
-        parent_context::Context,
-        node_name,
-        interfaces,
-    )
+make_node!(
+    model::Model,
+    parent_context::Context,
+    node_name,
+    interfaces::NamedTuple;
+    options = nothing,
+    debug = false,
+) = make_node!(
+    model::Model,
+    NodeType(node_name),
+    parent_context::Context,
+    node_name,
+    interfaces;
+    options = options,
+    debug = debug,
+)
 
-make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, index...) = node
+make_node_from_object!(
+    model::Model,
+    context::Context,
+    node::NodeLabel,
+    lhs,
+    options,
+    debug,
+    index...,
+) = node
 
-function make_node_from_object!(model::Model, context::Context, distribution, lhs, index...)
+function make_node_from_object!(
+    model::Model,
+    context::Context,
+    distribution,
+    lhs,
+    options,
+    debug,
+    index...,
+)
     node_name = typeof(distribution)
     interfaces = fieldnames(node_name)
-    values = [GraphPPL.getifcreated(model, context, getfield(distribution, field)) for field in interfaces]
+    values = [
+        GraphPPL.getifcreated(model, context, getfield(distribution, field)) for
+        field in interfaces
+    ]
     interfaces = (interfaces..., :out)
     if length(index) == 0
         new_interface_variable = GraphPPL.getorcreate!(model, context, lhs)
@@ -554,7 +579,14 @@ function make_node_from_object!(model::Model, context::Context, distribution, lh
         new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, index...)
     end
     values = (values..., new_interface_variable)
-    GraphPPL.make_node!(model, context, node_name, NamedTuple{interfaces}(values))
+    GraphPPL.make_node!(
+        model,
+        context,
+        node_name,
+        NamedTuple{interfaces}(values);
+        options = options,
+        debug = debug,
+    )
     return new_interface_variable
 end
 

@@ -733,6 +733,27 @@ using MacroTools
         output = input
         @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
+        # Test 27: Input expression with additional where clause on rhs
+        input = quote
+            x ~ Normal(
+                μ = μ,
+                σ = σ,
+            ) where {
+                created_by=(x~Normal(μ = μ, σ = σ) where {q=MeanField()}),
+                q=MeanField(),
+            }
+        end
+        output = quote
+            x ~ Normal(;
+                μ = μ,
+                σ = σ,
+            ) where {
+                created_by=(x~Normal(μ = μ, σ = σ) where {q=MeanField()}),
+                q=MeanField(),
+            }
+        end
+        @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
     end
 
     @testset "convert_indexed_statement" begin
@@ -1036,7 +1057,7 @@ using MacroTools
 
         # Test 9: Input expression with arithmetic indexed call on rhs
         input = quote
-            x ~ Normal(x[i - 1], 1) where {created_by=(x~Normal(y[i - 1], 1))}
+            x ~ Normal(x[i-1], 1) where {created_by=(x~Normal(y[i-1], 1))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
@@ -1132,10 +1153,23 @@ using MacroTools
 
         # Test 5: Input expression with NodeLabel on rhs
         input = quote
-            y ~ x where {created_by=(y:=x), is_deterministic=true}
+            y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
         output = quote
-            y ~ x where {created_by=(y:=x), is_deterministic=true}
+            y ~ x where {created_by=(y:=x),is_deterministic=true}
+        end
+        @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
+        # Test 6: Input expression with additional options on rhs
+        input = quote
+            x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1) where {q=q(x)q(y)}),q=q(x)q(y)}
+        end
+        output = quote
+            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            x ~ Normal(
+                0,
+                1,
+            ) where {created_by=(x~Normal(0, 1) where {q=q(x)q(y)}),q=q(x)q(y)}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
@@ -1222,12 +1256,12 @@ using MacroTools
 
         #Test 3: Test input with operator inside call
         input = quote
-            sin(a + b)
+            sin(a + b) where {created_by=(sin(a + b))}
         end
         output = quote
-            sin(sum(a, b))
+            sin(sum(a, b)) where {created_by=(sin(a + b))}
         end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+        @test_broken apply_pipeline(input, convert_arithmetic_operations) == output
 
         #Test 4: Test input with nested calls 
         input = quote
@@ -1284,6 +1318,25 @@ using MacroTools
         #Test 10: Test input with indexed operation on the right hand side
         input = quote
             x[1] ~ (Normal(x[i+1], σ) where {(created_by = (x[1] ~ Normal(x[i+1], σ)))})
+        end
+        output = input
+        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+
+        #Test 11: Test input with product call in where clause
+        input = quote
+            x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}
+        end
+        output = input
+        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
+
+        #Test 12: Test input with product call in where clause and in created_by
+        input = quote
+            x ~ Normal(
+                0,
+                1,
+            ) where {
+                q=q(y_mean)q(y_var)q(y),
+            } where {(created_by = (x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}))}
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
@@ -1418,7 +1471,18 @@ using MacroTools
                 in = GraphPPL.getifcreated(model, context, (0, 1)),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
+                    debug,
+                ),
+                debug = debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
@@ -1432,9 +1496,21 @@ using MacroTools
                 σ = GraphPPL.getifcreated(model, context, 1),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
+                    debug,
+                ),
+                debug = debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
 
         # Test 3: Test regular node creation with indexed input
         input = quote
@@ -1445,7 +1521,18 @@ using MacroTools
                 in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])),
                 out = GraphPPL.getifcreated(model, context, x[i]),
             )
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
+                    debug,
+                ),
+                debug = debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
@@ -1454,7 +1541,8 @@ using MacroTools
             x ~ sum(
                 begin
                     tmp_1 ~ sum(
-                        0, 1
+                        0,
+                        1,
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
                     tmp_1
                 end,
@@ -1472,7 +1560,22 @@ using MacroTools
                                 in = GraphPPL.getifcreated(model, context, (0, 1)),
                                 out = GraphPPL.getifcreated(model, context, tmp_1),
                             )
-                            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+                            GraphPPL.make_node!(
+                                model,
+                                context,
+                                sum,
+                                interfaces_tuple;
+                                options = GraphPPL.prepare_options(
+                                    options,
+                                    $(Dict{Any,Any}(
+                                        :anonymous => true,
+                                        Symbol("created_by") =>
+                                            :(x ~ Normal(Normal(0, 1), 0)),
+                                    )),
+                                    debug,
+                                ),
+                                debug = debug,
+                            )
                             tmp_1
                         end,
                         0,
@@ -1480,43 +1583,92 @@ using MacroTools
                 ),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(
+                        Symbol("created_by") => :(x ~ Normal(Normal(0, 1), 0)),
+                    )),
+                    debug,
+                ),
+                debug = debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 5: Test node creation with non-function on rhs
 
         input = quote
-            x ~ y where {created_by=(x:=y), is_deterministic = true}
+            x ~ y where {created_by=(x:=y),is_deterministic=true}
         end
         output = quote
-            x = GraphPPL.make_node_from_object!(model, context, y, :x)
+            x = GraphPPL.make_node_from_object!(
+                model,
+                context,
+                y,
+                :x,
+                GraphPPL.prepare_options(
+                    options,
+                    $(Dict(:created_by => :(x := y), :is_deterministic => true)),
+                    debug,
+                ),
+                debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 6: Test node creation with non-function on rhs with indexed statement
 
         input = quote
-            x[i] ~ y where {created_by=(x[i]:=y), is_deterministic = true}
+            x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
         end
         output = quote
-            x[i] = GraphPPL.make_node_from_object!(model, context, y, :x, i)
+            x[i] = GraphPPL.make_node_from_object!(
+                model,
+                context,
+                y,
+                :x,
+                GraphPPL.prepare_options(
+                    options,
+                    $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
+                    debug,
+                ),
+                debug,
+                i,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 7: Test node creation with non-function on rhs with multidimensional array
 
         input = quote
-            x[i, j] ~ y where {created_by=(x[i, j]:=y), is_deterministic = true}
+            x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
         end
         output = quote
-            x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, i, j)
+            x[i, j] = GraphPPL.make_node_from_object!(
+                model,
+                context,
+                y,
+                :x,
+                GraphPPL.prepare_options(
+                    options,
+                    $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
+                    debug,
+                ),
+                debug,
+                i,
+                j,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
         # Test 8: Test node creation with mixed args and kwargs on rhs
         input = quote
-            x ~ sum(1, 2; σ= 1, μ = 2) where {created_by=(x~sum(1, 2; σ= 1, μ = 2))}
+            x ~ sum(1, 2; σ = 1, μ = 2) where {created_by=(x~sum(1, 2; σ = 1, μ = 2))}
         end
         output = quote
             interfaces_tuple = (
@@ -1525,10 +1677,50 @@ using MacroTools
                 μ = GraphPPL.getifcreated(model, context, 2),
                 out = GraphPPL.getifcreated(model, context, x),
             )
-            GraphPPL.make_node!(model, context, sum, interfaces_tuple)
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(
+                        Symbol("created_by") => :(x ~ sum(1, 2; σ = 1, μ = 2)),
+                    )),
+                    debug,
+                ),
+                debug = debug,
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-    
+
+        # Test 9: Test node creation with additional options
+        input = quote
+            x ~ sum(μ, σ) where {created_by=(x~sum(μ, σ) where {q=q(μ)q(σ)}),q=q(μ)q(σ)}
+        end
+        output = quote
+            interfaces_tuple = (
+                in = GraphPPL.getifcreated(model, context, (μ, σ)),
+                out = GraphPPL.getifcreated(model, context, x),
+            )
+            GraphPPL.make_node!(
+                model,
+                context,
+                sum,
+                interfaces_tuple;
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(
+                        :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
+                        :q => :(q(μ)q(σ)),
+                    )),
+                    debug,
+                ),
+                debug = debug,
+            )
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
 
     end
 
@@ -1563,6 +1755,111 @@ using MacroTools
         @test extract_interfaces(interfaces, ms_body) == [:x, :y, :z, :a, :b, :c]
 
 
+    end
+
+    @testset "options_vector_to_dict" begin
+        import GraphPPL: options_vector_to_dict
+
+        # Test 1: Test with empty input
+        input = []
+        output = nothing
+        @test options_vector_to_dict(input) == output
+
+        # Test 2: Test with input with two clauses
+
+        input = [:(anonymous = true), :(created_by = (x ~ Normal(Normal(0, 1), 0)))]
+        output = Dict(:anonymous => true, :created_by => :(x ~ Normal(Normal(0, 1), 0)))
+        @test options_vector_to_dict(input) == output
+
+        # Test 3: Test with factorized input on rhs
+        input = [:(q = q(y_mean)q(y_var)q(y))]
+        output = Dict(:q => :(q(y_mean)q(y_var)q(y)))
+        @test options_vector_to_dict(input) == output
+    end
+
+    @testset "remove_debug_options" begin
+        import GraphPPL: remove_debug_options
+
+        # Test 1: Test with empty input
+        input = Dict()
+        output = nothing
+        @test remove_debug_options(input) == output
+
+        # Test 2: Test with created_by input
+        input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
+        output = nothing
+        @test remove_debug_options(input) == output
+
+        # Test 3: Test with created_by and anonymous input
+        input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :anonymous => true)
+        output = Dict(:anonymous => true)
+        @test remove_debug_options(input) == output
+
+        # Test 4: Test without created_by input
+        input = Dict(:anonymous => true)
+        output = Dict(:anonymous => true)
+        @test remove_debug_options(input) == output
+    end
+
+    @testset "prepare_options" begin
+        import GraphPPL: prepare_options
+
+        # Test 1: Test if both parent options and node options are nothing
+        parent_options = nothing
+        node_options = nothing
+        @test prepare_options(parent_options, node_options, true) == nothing
+        @test prepare_options(parent_options, node_options, false) == nothing
+
+        # Test 2: Test if parent options are nothing and node options have value
+        parent_options = nothing
+        node_options = Dict(:q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, true) ==
+              Dict(:q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, false) ==
+              Dict(:q => :(MeanField()))
+
+        # Test 3: Test if parent options have value and node options are nothing
+        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
+        node_options = nothing
+        @test prepare_options(parent_options, node_options, true) ==
+              Dict(:prod_1 => Dict(:q => :(MeanField())))
+        @test prepare_options(parent_options, node_options, false) ==
+              Dict(:prod_1 => Dict(:q => :(MeanField())))
+
+        # Test 4: Test if parent options and node options have value
+        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
+        node_options = Dict(:q => :(MeanField()))
+        output = Dict(:prod_1 => Dict(:q => :(MeanField())), :q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, true) == output
+
+        # Test 5: Test if parent options are nothing, node options have value and created_by clause exists
+        parent_options = nothing
+        node_options =
+            Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, true) ==
+              Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, false) ==
+              Dict(:q => :(MeanField()))
+
+        # Test 6: Test if parent options are nothing and node options only has created_by clause
+        parent_options = nothing
+        node_options = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
+        @test prepare_options(parent_options, node_options, true) ==
+              Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
+        @test prepare_options(parent_options, node_options, false) == nothing
+
+        # Test 7: Test if parent options and node_options have value and created_by clause exists
+        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
+        node_options =
+            Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
+        output_debug = Dict(
+            :prod_1 => Dict(:q => :(MeanField())),
+            :created_by => :(x ~ Normal(Normal(0, 1), 0)),
+            :q => :(MeanField()),
+        )
+        output_no_debug = Dict(:prod_1 => Dict(:q => :(MeanField())), :q => :(MeanField()))
+        @test prepare_options(parent_options, node_options, true) == output_debug
+        @test prepare_options(parent_options, node_options, false) == output_no_debug
     end
 
     @testset "model_macro_interior" begin

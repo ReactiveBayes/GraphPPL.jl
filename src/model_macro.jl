@@ -185,6 +185,9 @@ function convert_to_kwargs_expression(e::Expr)
     end
 end
 
+what_walk(::typeof(convert_to_kwargs_expression)) =
+    guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
+
 function convert_indexed_statement(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         if @capture(lhs, var_[index__])
@@ -252,6 +255,9 @@ function add_get_or_create_expression(e::Expr)
     return e
 end
 
+what_walk(::typeof(add_get_or_create_expression)) =
+    guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
+
 function generate_get_or_create(s::Symbol)
     # I really don't like this fix, but I don't see a better way to do it
     return quote
@@ -287,9 +293,11 @@ end
 """
     what_walk(::typeof(convert_arithmetic_operations))
 
-Guarded walk that makes sure that the arithmetic operations are never converted in indexed expressions (e.g. x[i + 1] is not converted to x[sum(i, 1)]
+Guarded walk that makes sure that the arithmetic operations are never converted in indexed expressions (e.g. x[i + 1] is not converted to x[sum(i, 1)]. Any expressions in the `where` clause are also not converted.
 """
-what_walk(::typeof(convert_arithmetic_operations)) = not_enter_indexed_walk
+what_walk(::typeof(convert_arithmetic_operations)) = guarded_walk(
+    (x) -> ((x isa Expr && x.head == :ref)) || (x isa Expr && x.head == :where),
+)
 
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
@@ -404,7 +412,8 @@ Generates the expression for calling `make_node!` with the given `fform` and `in
 # Returns
 - `Expr`: The expression for calling `make_node!`.
 """
-function generate_make_node_call(fform, interfaces::NamedTuple)
+function generate_make_node_call(fform, interfaces::NamedTuple, options)
+    options = options_vector_to_dict(options)
     interfaces_tuple = map(iterator(interfaces)) do (name, interface)
         return convert_interfaces_tuple(name, interface)
     end
@@ -413,7 +422,14 @@ function generate_make_node_call(fform, interfaces::NamedTuple)
     end
     result = quote
         interfaces_tuple = ($(interfaces_tuple...),)
-        GraphPPL.make_node!(model, context, $fform, interfaces_tuple)
+        GraphPPL.make_node!(
+            model,
+            context,
+            $fform,
+            interfaces_tuple;
+            options = GraphPPL.prepare_options(options, $(options), debug),
+            debug = debug,
+        )
     end
     return result
 end
@@ -475,39 +491,43 @@ function convert_tilde_expression(e::Expr)
             end
         end
         interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
-        return GraphPPL.generate_make_node_call(fform, interfaces)
+        return GraphPPL.generate_make_node_call(fform, interfaces, options)
     elseif @capture(e, lhs_ ~ rhs_ where {options__})
+        options = GraphPPL.options_vector_to_dict(options)
         if @capture(lhs, var_[index__])
-            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(var)), $(index...)))
+            return :(
+                $lhs = GraphPPL.make_node_from_object!(
+                    model,
+                    context,
+                    $rhs,
+                    $(QuoteNode(var)),
+                    GraphPPL.prepare_options(options, $(options), debug),
+                    debug,
+                    $(index...),
+                )
+            )
         else
-            return :($lhs = GraphPPL.make_node_from_object!(model, context, $rhs, $(QuoteNode(lhs))))
+            return :(
+                $lhs = GraphPPL.make_node_from_object!(
+                    model,
+                    context,
+                    $rhs,
+                    $(QuoteNode(lhs)),
+                    GraphPPL.prepare_options(options, $(options), debug),
+                    debug,
+                )
+            )
         end
     else
         return e
     end
 end
 
+what_walk(::typeof(convert_tilde_expression)) =
+    guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
 
-function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
-    return quote
-        function $ms_name end
-        GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
-        GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
-        function $ms_name()
-            model = GraphPPL.create_model()
-            context = GraphPPL.context(model)
-            arguments = []
-            for argument in $ms_args
-                argument = GraphPPL.getorcreate!(model, context, argument)
-                push!(arguments, argument)
-            end
-            args = (; zip($ms_args, arguments)...)
-            GraphPPL.make_node!(model, context, $ms_name, args)
-            return model
-        end
-    end
-end
+
 
 extend(ms_args::AbstractArray, new_interface::Symbol) = vcat(ms_args, new_interface)
 extend(ms_args::AbstractArray, new_interface::Expr) = vcat(ms_args, new_interface.args)
@@ -525,6 +545,113 @@ function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     end
     return ms_args
 end
+
+function options_vector_to_dict(options::AbstractArray)
+    if length(options) == 0
+        return nothing
+    end
+    result = Dict()
+    for option in options
+        if option.head != :(=)
+            error("Invalid option $(option)")
+        end
+        result[option.args[1]] = option.args[2]
+    end
+    return result
+end
+
+function remove_debug_options(options::Dict)
+    options = delete!(options, :created_by)
+    if length(options) == 0
+        return nothing
+    end
+    return options
+end
+
+
+prepare_options(parent_options::Nothing, node_options::Nothing, debug::Bool) = nothing
+
+function prepare_options(parent_options::Dict, node_options::Nothing, debug::Bool)
+    return parent_options
+end
+
+function prepare_options(parent_options::Nothing, node_options::Dict, debug::Bool)
+    if !debug
+        return remove_debug_options(node_options)
+    else
+        return node_options
+    end
+end
+
+function prepare_options(parent_options::Dict, node_options::Dict, debug::Bool)
+    result = merge(parent_options, node_options)
+    if !debug
+        return remove_debug_options(result)
+    else
+        return result
+    end
+end
+
+function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+    return quote
+        function $ms_name end
+        GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
+        GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
+        function $ms_name()
+            model = GraphPPL.create_model()
+            context = GraphPPL.context(model)
+            arguments = []
+            for argument in $ms_args
+                argument = GraphPPL.getorcreate!(model, context, argument)
+                push!(arguments, argument)
+            end
+            args = (; zip($ms_args, arguments)...)
+            GraphPPL.make_node!(model, context, $ms_name, args; debug = true)
+            return model
+        end
+    end
+end
+
+
+function get_make_node_function(ms_body, ms_args, ms_name)
+    # TODO (bvdmitri): prettify
+    init_input_arguments = map(ms_args) do arg
+        error_msg = "Missing interface $(arg)"
+        return quote
+            if !haskey(interfaces, $(QuoteNode(arg)))
+                error($error_msg)
+            end
+            $arg = interfaces[$(QuoteNode(arg))]
+        end
+    end
+    make_node_function = quote
+        function GraphPPL.make_node!(
+            model,
+            ::GraphPPL.Composite,
+            parent_context,
+            ::typeof($ms_name),
+            interfaces;
+            options = nothing,
+            debug = false,
+        )
+            $(init_input_arguments...)
+            context = GraphPPL.Context(parent_context, $ms_name)
+            GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
+            node_name = GraphPPL.add_composite_factor_node!(
+                model,
+                parent_context,
+                context,
+                $ms_name,
+            )
+            options =
+                options == nothing ? nothing : Dict(parent_context.prefix => options)
+
+            $ms_body
+        end
+    end
+    return make_node_function
+end
+
 
 function model_macro_interior(model_specification)
     @capture(
@@ -553,34 +680,8 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
 
+    make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
 
-    # TODO (bvdmitri): prettify
-    init_input_arguments = map(ms_args) do arg
-        error_msg = "Missing interface $(arg)"
-        return quote
-            if !haskey(interfaces, $(QuoteNode(arg)))
-                error($error_msg)
-            end
-            $arg = interfaces[$(QuoteNode(arg))]
-        end
-    end
-
-    make_node_function = quote
-        function GraphPPL.make_node!(
-            model,
-            ::GraphPPL.Composite,
-            parent_context,
-            ::typeof($ms_name),
-            interfaces,
-        )
-            $(init_input_arguments...)
-            context = GraphPPL.Context(parent_context, $ms_name)
-            GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
-            $ms_body
-            # node_id = GraphPPL.generate_nodelabel(model, $ms_name)
-            GraphPPL.add_composite_factor_node!(model, parent_context, context, $ms_name)
-        end
-    end
 
     result = quote
 
