@@ -512,7 +512,7 @@ function convert_tilde_expression(e::Expr)
                     $rhs,
                     $(QuoteNode(lhs)),
                     GraphPPL.prepare_options(options, $(options), debug),
-                    debug
+                    debug,
                 )
             )
         end
@@ -641,7 +641,8 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 context,
                 $ms_name,
             )
-            options = options == nothing ? nothing : Dict(parent_context.prefix => options)
+            options =
+                options == nothing ? nothing : Dict(parent_context.prefix => options)
 
             $ms_body
         end

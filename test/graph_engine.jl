@@ -792,7 +792,9 @@ using TestSetExtensions
         ctx = context(model)
         x = Normal(0, 1)
         y = make_node_from_object!(model, ctx, x, :y, Dict(:created_by => :(y := x)), true)
-        @test nv(model) == 4 && y isa NodeLabel && options(model[label_for(model.graph, 4)]) == Dict(:created_by => :(y := x))
+        @test nv(model) == 4 &&
+              y isa NodeLabel &&
+              options(model[label_for(model.graph, 4)]) == Dict(:created_by => :(y := x))
     end
 
 

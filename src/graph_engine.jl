@@ -547,10 +547,25 @@ make_node!(
     debug = debug,
 )
 
-make_node_from_object!(model::Model, context::Context, node::NodeLabel, lhs, options, debug, index...) =
-    node
+make_node_from_object!(
+    model::Model,
+    context::Context,
+    node::NodeLabel,
+    lhs,
+    options,
+    debug,
+    index...,
+) = node
 
-function make_node_from_object!(model::Model, context::Context, distribution, lhs, options, debug, index...)
+function make_node_from_object!(
+    model::Model,
+    context::Context,
+    distribution,
+    lhs,
+    options,
+    debug,
+    index...,
+)
     node_name = typeof(distribution)
     interfaces = fieldnames(node_name)
     values = [
@@ -564,7 +579,14 @@ function make_node_from_object!(model::Model, context::Context, distribution, lh
         new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, index...)
     end
     values = (values..., new_interface_variable)
-    GraphPPL.make_node!(model, context, node_name, NamedTuple{interfaces}(values); options=options, debug=debug)
+    GraphPPL.make_node!(
+        model,
+        context,
+        node_name,
+        NamedTuple{interfaces}(values);
+        options = options,
+        debug = debug,
+    )
     return new_interface_variable
 end
 
