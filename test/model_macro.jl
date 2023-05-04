@@ -1602,7 +1602,7 @@ using MacroTools
             x ~ y where {created_by=(x:=y),is_deterministic=true}
         end
         output = quote
-            x = GraphPPL.make_node_from_object!(model, context, y, :x)
+            x = GraphPPL.make_node_from_object!(model, context, y, :x, GraphPPL.prepare_options(options,$(Dict(:created_by => :(x := y), :is_deterministic => true)), debug), debug)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
@@ -1612,7 +1612,7 @@ using MacroTools
             x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
         end
         output = quote
-            x[i] = GraphPPL.make_node_from_object!(model, context, y, :x, i)
+            x[i] = GraphPPL.make_node_from_object!(model, context, y, :x, GraphPPL.prepare_options(options,$(Dict(:created_by => :(x[i] := y), :is_deterministic => true)), debug), debug, i)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
@@ -1622,7 +1622,7 @@ using MacroTools
             x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
         end
         output = quote
-            x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, i, j)
+            x[i, j] = GraphPPL.make_node_from_object!(model, context, y, :x, GraphPPL.prepare_options(options,$(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)), debug), debug, i, j)
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 

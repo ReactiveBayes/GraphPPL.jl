@@ -491,6 +491,7 @@ function convert_tilde_expression(e::Expr)
         interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
         return GraphPPL.generate_make_node_call(fform, interfaces, options)
     elseif @capture(e, lhs_ ~ rhs_ where {options__})
+        options = GraphPPL.options_vector_to_dict(options)
         if @capture(lhs, var_[index__])
             return :(
                 $lhs = GraphPPL.make_node_from_object!(
@@ -498,6 +499,8 @@ function convert_tilde_expression(e::Expr)
                     context,
                     $rhs,
                     $(QuoteNode(var)),
+                    GraphPPL.prepare_options(options, $(options), debug),
+                    debug,
                     $(index...),
                 )
             )
@@ -508,6 +511,8 @@ function convert_tilde_expression(e::Expr)
                     context,
                     $rhs,
                     $(QuoteNode(lhs)),
+                    GraphPPL.prepare_options(options, $(options), debug),
+                    debug
                 )
             )
         end
@@ -636,7 +641,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 context,
                 $ms_name,
             )
-            options = Dict(parent_context.prefix => options)
+            options = options == nothing ? nothing : Dict(parent_context.prefix => options)
 
             $ms_body
         end

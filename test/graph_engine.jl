@@ -757,7 +757,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x)
-        y = make_node_from_object!(model, ctx, x, :y)
+        y = make_node_from_object!(model, ctx, x, :y, nothing, false)
         @test x == y && nv(model) == 1
 
         # Test 2: make_node_from_object with a distribution
@@ -765,7 +765,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = Normal(0, 1)
-        y = make_node_from_object!(model, ctx, x, :y)
+        y = make_node_from_object!(model, ctx, x, :y, nothing, false)
         @test nv(model) == 4 && y isa NodeLabel
 
         # Test 3: make_node_from_object with an indexed node
@@ -774,7 +774,7 @@ using TestSetExtensions
         ctx = context(model)
         x = Normal(0, 1)
         y = getorcreatearray!(model, ctx, :y, Val(1))
-        y[1] = make_node_from_object!(model, ctx, x, :y, 1)
+        y[1] = make_node_from_object!(model, ctx, x, :y, nothing, false, 1)
         @test nv(model) == 4 && y[1] isa NodeLabel
 
         # Test 4: make_node_from_object with indexed statement on the left and label right
@@ -783,8 +783,16 @@ using TestSetExtensions
         ctx = context(model)
         x = getorcreate!(model, ctx, :x)
         y = getorcreatearray!(model, ctx, :y, Val(1))
-        y[1] = make_node_from_object!(model, ctx, x, :y, 1)
+        y[1] = make_node_from_object!(model, ctx, x, :y, nothing, false, 1)
         @test nv(model) == 1 && y[1] isa NodeLabel
+
+        #test 5: make_node_from_object with options
+
+        model = create_model()
+        ctx = context(model)
+        x = Normal(0, 1)
+        y = make_node_from_object!(model, ctx, x, :y, Dict(:created_by => :(y := x)), true)
+        @test nv(model) == 4 && y isa NodeLabel && options(model[label_for(model.graph, 4)]) == Dict(:created_by => :(y := x))
     end
 
 
