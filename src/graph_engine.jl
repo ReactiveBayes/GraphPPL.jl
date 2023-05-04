@@ -1,13 +1,6 @@
 using Graphs
 using MetaGraphsNext
-import Base:
-    put!,
-    haskey,
-    gensym,
-    getindex,
-    getproperty,
-    setproperty!,
-    setindex!
+import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!
 using GraphPlot, Compose
 import Cairo
 
@@ -382,7 +375,8 @@ getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, gensym(model, :constvar); value = var)
 
 get_individual_variable(node::NodeLabel) = node
-get_individual_variable(node::ResizableArray) = error("$node is defined as Array of random variables")
+get_individual_variable(node::ResizableArray) =
+    error("$node is defined as Array of random variables")
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
