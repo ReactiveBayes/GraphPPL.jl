@@ -7,10 +7,7 @@ import Base:
     getindex,
     getproperty,
     setproperty!,
-    setindex!,
-    length,
-    size,
-    resize!
+    setindex!
 using GraphPlot, Compose
 import Cairo
 
@@ -187,6 +184,8 @@ function Base.getindex(c::Context, key::Symbol)
         return c.vector_variables[key]
     elseif haskey(c.tensor_variables, key)
         return c.tensor_variables[key]
+    elseif haskey(c.factor_nodes, key)
+        return c.factor_nodes[key]
     end
     throw(KeyError("Variable " * String(key) * " not found in Context " * c.prefix))
 end
@@ -381,6 +380,9 @@ getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{Node
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, gensym(model, :constvar); value = var)
+
+get_individual_variable(node::NodeLabel) = node
+get_individual_variable(node::ResizableArray) = error("$node is defined as Array of random variables")
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 

@@ -1071,8 +1071,7 @@ using MacroTools
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
-            @assert x isa GraphPPL.NodeLabel
+            x = @isdefined(x) ? GraphPPL.get_individual_variable(x) : GraphPPL.getorcreate!(model, context, :x)
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
@@ -1132,14 +1131,12 @@ using MacroTools
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
-            @assert x isa GraphPPL.NodeLabel
+            x = @isdefined(x) ? GraphPPL.get_individual_variable(x) : GraphPPL.getorcreate!(model, context, :x)
             x ~ Normal(
                 begin
                     $sym =
-                        @isdefined($sym) ? $sym :
+                        @isdefined($sym) ? GraphPPL.get_individual_variable($sym) :
                         GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)))
-                    @assert $sym isa GraphPPL.NodeLabel
                     $sym ~ Normal(
                         0,
                         1,
@@ -1165,7 +1162,7 @@ using MacroTools
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1) where {q=q(x)q(y)}),q=q(x)q(y)}
         end
         output = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
+            x = @isdefined(x) ? GraphPPL.get_individual_variable(x) : GraphPPL.getorcreate!(model, context, :x)
             x ~ Normal(
                 0,
                 1,
@@ -1180,8 +1177,7 @@ using MacroTools
         # Test 1: test scalar variable
         output = generate_get_or_create(:x)
         desired_result = quote
-            x = @isdefined(x) ? x : GraphPPL.getorcreate!(model, context, :x)
-            @assert x isa GraphPPL.NodeLabel
+            x = @isdefined(x) ? GraphPPL.get_individual_variable(x) : GraphPPL.getorcreate!(model, context, :x)
         end
         @test_expression_generating output desired_result
 
@@ -1863,31 +1859,23 @@ using MacroTools
     end
 
     @testset "model_macro_interior" begin
-        import GraphPPL: model_macro_interior
+        import GraphPPL: model_macro_interior, create_model, context, getorcreate!, make_node!
 
         # Test 1: Test regular node creation input
         input = quote
             function test_model(μ, σ)
-                y[i] := μ
+                y[1] := μ
                 x ~ sum(μ, σ)
             end
         end
-        output = quote
-            function test_model end
-            GraphPPL.interfaces(::typeof(test_model)) = (:μ, :σ)
-            GraphPPL.NodeType(::typeof(test_model)) = GraphPPL.Composite()
-            function test_model(μ, σ)
-                model = GraphPPL.create_model()
-                context = GraphPPL.create_context()
-                arguments = []
-                for argument in (:μ, :σ)
-                    argument = GraphPPL.getorcreate!(model, context, argument)
-                    push!(arguments, argument)
-                end
-                args = (; zip((:μ, :σ), arguments)...)
-                GraphPPL.make_node!(model, context, test_model, args)
-            end
-        end
+        eval(model_macro_interior(input))
+        model = create_model()
+        ctx = context(model)
+        μ = getorcreate!(model, ctx, :μ)
+        σ = getorcreate!(model, ctx, :σ)
+        make_node!(model, ctx, test_model, (μ = μ, σ = σ); options=nothing, debug=false)
+        @test nv(model) == 4 && ne(model) == 3
+        # @test ctx[:test_model_]
         # @test_expression_generating model_macro_interior(input) output
     end
 end

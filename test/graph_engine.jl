@@ -421,6 +421,25 @@ using TestSetExtensions
         @test z == x
 
     end
+    
+    @testset "get_individual_variable" begin
+        import GraphPPL: create_model, get_individual_variable, getorcreatearray!, getorcreate!
+
+        # Test case 1: check that get_individual_variable returns the variable created by getorcreate
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x)
+        @test get_individual_variable(x) == x
+
+        # Test case 2: check that get_individual_variable returns an ErrorException when called with a vector of random variables
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreatearray!(model, ctx, :x, Val(1))
+        getorcreate!(model, ctx, :x, 1)
+        @test_throws ErrorException get_individual_variable(x)
+        
+    end
 
     @testset "add_variable_node!" begin
         import GraphPPL:
