@@ -259,10 +259,10 @@ what_walk(::typeof(add_get_or_create_expression)) =
     guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
 function generate_get_or_create(s::Symbol)
-    # I really don't like this fix, but I don't see a better way to do it
     return quote
-        $s = @isdefined($s) ? $s : GraphPPL.getorcreate!(model, context, $(QuoteNode(s)))
-        @assert $s isa GraphPPL.NodeLabel
+        $s =
+            @isdefined($s) ? GraphPPL.get_individual_variable($s) :
+            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)))
     end
 end
 
