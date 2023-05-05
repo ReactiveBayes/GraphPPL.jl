@@ -210,29 +210,24 @@ using TestSetExtensions
 
     @testset "copy_markov_blanket_to_child_context" begin
         import GraphPPL:
-            create_model,
-            copy_markov_blanket_to_child_context,
-            Context,
-            getorcreate!,
-            getorcreatearray!
+            create_model, copy_markov_blanket_to_child_context, Context, getorcreate!
 
 
         # Test 1: Copy individual variables
         model = create_model()
         ctx = context(model)
         child_context = Context(context(model), "child")
-        x = getorcreate!(model, ctx, :x)
-        y = getorcreate!(model, ctx, :y)
-        z = getorcreate!(model, ctx, :z)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
+        z = getorcreate!(model, ctx, :z, nothing)
         copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
         @test child_context[:in1].name == :x
 
         # Test 2: Copy vector variables
         model = create_model()
         ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(1))
-        getorcreate!(model, ctx, :x, 1)
-        getorcreate!(model, ctx, :x, 2)
+        x = getorcreate!(model, ctx, :x, 1)
+        x = getorcreate!(model, ctx, :x, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
@@ -240,131 +235,213 @@ using TestSetExtensions
         # Test 3: Copy tensor variables
         model = create_model()
         ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(2))
-        getorcreate!(model, ctx, :x, 1, 1)
-        getorcreate!(model, ctx, :x, 2, 1)
-        getorcreate!(model, ctx, :x, 1, 2)
-        getorcreate!(model, ctx, :x, 2, 2)
+        x = getorcreate!(model, ctx, :x, 1, 1)
+        x = getorcreate!(model, ctx, :x, 2, 1)
+        x = getorcreate!(model, ctx, :x, 1, 2)
+        x = getorcreate!(model, ctx, :x, 2, 2)
         child_context = Context(context(model), "child")
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
 
     end
 
+    @testset "check_variate_compatability" begin
+        import GraphPPL: check_variate_compatability, NodeLabel, ResizableArray
 
-    @testset "getorcreatearray!" begin
-        import GraphPPL: create_model, getorcreatearray!, context, getorcreate!
+        # Test 1: Check that a one dimensional variable is compatable with a symbol
+        x = NodeLabel(:x, 1)
+        @test check_variate_compatability(x, :x)
 
-        #Test case 1: test creation of a vector variable
-        model = create_model()
-        ctx = context(model)
-        v = getorcreatearray!(model, ctx, :v, Val(1))
-        @test haskey(context(model).vector_variables, :v)
+        # Test 2: Check that an assigned vector variable returns the vector itself when called
+        x = ResizableArray(NodeLabel, Val(1))
+        x[1] = NodeLabel(:x, 1)
+        @test check_variate_compatability(x, :(x[1]))
 
-        # Test case 2: test creation of a tensor variable
-        mv = getorcreatearray!(model, context(model), :mv, Val(2))
-        @test haskey(context(model).tensor_variables, :mv)
+        #Test 3: Check that if it is not assigned, it is false
+        @test !check_variate_compatability(x, :(x[2]))
 
-        # Test case 3: test that creation of individual variable if it is already a vector variable throws an error
-        model = create_model()
-        ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        @test_throws ErrorException getorcreatearray!(model, ctx, :x, Val(1))
+        #Test 4: Check that if we overindex the array, it crashes
+        @test_throws ErrorException check_variate_compatability(x, :(x[1, 1]))
+
+        #Test 5: Check that if we underindex the array, it crashes
+        x = ResizableArray(NodeLabel, Val(2))
+        x[1, 1] = NodeLabel(:x, 1)
+        @test_throws ErrorException check_variate_compatability(x, :(x[1]))
+
+        #Test 6: Check that if we call an individual variable with an index, we return false
+        x = NodeLabel(:x, 1)
+        @test_throws ErrorException !check_variate_compatability(x, :(x[1]))
+
+        #Test 7: Check that if we call a vector variable without an index, we return false
+        x = ResizableArray(NodeLabel, Val(1))
+        x[1] = NodeLabel(:x, 1)
+        @test_throws ErrorException !check_variate_compatability(x, :x)
+
+
     end
 
-
     @testset "getorcreate!" begin
-        import GraphPPL: create_model, getorcreate!, Context
+        import GraphPPL: create_model, context, getorcreate!
 
-        # Test case 1: create a new variable
+        # Test 1: Creation of regular one-dimensional variable
         model = create_model()
         ctx = context(model)
-        getorcreate!(model, ctx, :x)
-        @test nv(model) == 1
+        x =
+            !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) :
+            (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
+        @test GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
+        # Test 2: Ensure that getorcreating this variable again does not create a new node
+        x2 =
+            !@isdefined(x2) ? getorcreate!(model, ctx, :x, nothing) :
+            (
+                check_variate_compatability(x2, :x) ? x2 :
+                getorcreate!(model, ctx, :x, nothing)
+            )
+        @test x == x2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
-        # Test case 2: check that getorcreate contains the same variable
-        x = getorcreate!(model, ctx, :x)
-        @test nv(model) == 1 && x == getorcreate!(model, ctx, :x)
+        # Test 3: Ensure that calling x another time gives us x benchmark
+        x =
+            !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) :
+            (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
+        @test x == x2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
-        # Test case 3: create a new variable
-        y = getorcreate!(model, ctx, :y)
-        @test nv(model) == 2
-
-        # Test case 4: create a tuple of variables
-        (in1, in2) = getorcreate!(model, ctx, [:in_1, :in2])
-        @test nv(model) == 4
-
-        # Test case 5: test that you cannot create integer variables
-        @test_throws MethodError getorcreate!(model, ctx, 1)
-
-        # Test case 6: test that two variables in two different contexts from the same markov blanket are the same variables in the model
-        child_context = Context(context(model), "child")
-        copy_markov_blanket_to_child_context(child_context, (in = x, out = y))
-        @test getorcreate!(model, child_context, :in) == getorcreate!(model, ctx, :x)
-
-        # Test case 7: test that iteratively creates new variables and should dynamically grow the array
+        # Test 4: Test that creating a vector variable creates an array of the correct size
         model = create_model()
         ctx = context(model)
-        mv = getorcreatearray!(model, ctx, :mv, Val(2))
-        c = 0
-        for i = 1:3
-            for j = 1:3
-                c += 1
-                getorcreate!(model, ctx, :mv, i, j)
-                @test nv(model) == c
-            end
+        y =
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, [1]) :
+            (
+                check_variate_compatability(y, :(y[1])) ? y :
+                getorcreate!(model, ctx, :y, [1])
+            )
+        @test GraphPPL.nv(model) == 1 &&
+              GraphPPL.ne(model) == 0 &&
+              y isa ResizableArray &&
+              y[1] isa NodeLabel
+
+        # Test 5: Test that recreating the same variable changes nothing
+        y2 =
+            !@isdefined(y2) ? getorcreate!(model, ctx, :y, [1]) :
+            (
+                check_variate_compatability(y2, :(y2[1])) ? y :
+                getorcreate!(model, ctx, :y, [1])
+            )
+        @test y == y2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
+
+        # Test 6: Test that adding a variable to this vector variable increases the size of the array
+        y =
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, [2]) :
+            (
+                check_variate_compatability(y, :(y[2])) ? y :
+                getorcreate!(model, ctx, :y, [2])
+            )
+        @test GraphPPL.nv(model) == 2 &&
+              y[2] isa NodeLabel &&
+              haskey(ctx.vector_variables, :y)
+
+        # Test 7: Test that getting this variable without index does not work
+        @test_throws ErrorException y =
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, nothing) :
+            (check_variate_compatability(y, :y) ? y : getorcreate!(model, ctx, :y, nothing))
+
+        # Test 8: Test that getting this variable with an index that is too large does not work
+        @test_throws ErrorException y =
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, [1, 2]) :
+            (
+                check_variate_compatability(y, :(y[1, 2])) ? y :
+                getorcreate!(model, ctx, :y, [1, 2])
+            )
+
+        #Test 9: Test that creating a tensor variable creates a tensor of the correct size
+        model = create_model()
+        ctx = context(model)
+        z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1, 1]) :
+            (
+                check_variate_compatability(z, :(z[1, 1])) ? z :
+                getorcreate!(model, ctx, :z, [1, 1])
+            )
+        @test GraphPPL.nv(model) == 1 &&
+              GraphPPL.ne(model) == 0 &&
+              z isa ResizableArray &&
+              z[1, 1] isa NodeLabel
+
+        #Test 10: Test that recreating the same variable changes nothing
+        z2 =
+            !@isdefined(z2) ? getorcreate!(model, ctx, :z, [1, 1]) :
+            (
+                check_variate_compatability(z2, :(z2[1, 1])) ? z :
+                getorcreate!(model, ctx, :z, [1, 1])
+            )
+        @test z == z2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
+
+        #Test 11: Test that adding a variable to this tensor variable increases the size of the array
+        z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, [2, 2]) :
+            (
+                check_variate_compatability(z, :(z[2, 2])) ? z :
+                getorcreate!(model, ctx, :z, [2, 2])
+            )
+        @test GraphPPL.nv(model) == 2 &&
+              z[2, 2] isa NodeLabel &&
+              haskey(ctx.tensor_variables, :z)
+
+        #Test 12: Test that getting this variable without index does not work
+        @test_throws ErrorException z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, nothing) :
+            (check_variate_compatability(z, :z) ? z : getorcreate!(model, ctx, :z, nothing))
+
+        #Test 13: Test that getting this variable with an index that is too small does not work
+        @test_throws ErrorException z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) :
+            (
+                check_variate_compatability(z, :(z[1])) ? z :
+                getorcreate!(model, ctx, :z, [1])
+            )
+
+        #Test 14: Test that getting this variable with an index that is too large does not work
+        @test_throws ErrorException z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1, 2, 3]) :
+            (
+                check_variate_compatability(z, :(z[1, 2, 3])) ? z :
+                getorcreate!(model, ctx, :z, [1, 2, 3])
+            )
+
+        # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
+        model = create_model()
+        ctx = context(model)
+        for i = 1:1
+            a =
+                !@isdefined(a) ? getorcreate!(model, ctx, :a, nothing) :
+                (
+                    check_variate_compatability(x, :a) ? a :
+                    getorcreate!(model, ctx, :a, nothing)
+                )
         end
-
-        # Test 8: Ensure that we can't create mv again
-        @test_throws ErrorException getorcreate!(model, ctx, :mv)
-
-        # Test case 9: test that getting an out-of-bounds tensor variable resizes the tensor
-        model = create_model()
-        ctx = context(model)
-        mv = getorcreatearray!(model, ctx, :mv, Val(2))
-        getorcreate!(model, context(model), :mv, 2, 3)
-        getorcreate!(model, context(model), :mv, 2, 1)
-        @test size(context(model)[:mv]) == (2, 3)
-        @test haskey(context(model).tensor_variables, :mv)
-        @test nv(model) == 2
-        getorcreate!(model, context(model), :mv, 2, 4)
-        @test nv(model) == 3
-        @test context(model)[:mv][2, 4] == mv[2, 4]
-        @test size(context(model)[:mv]) == (2, 4)
-
-        # Test case 10: test that getting a nonexistent vector variable throws an AssertionError
-        model = create_model()
-        ctx = context(model)
-        @test_throws AssertionError getorcreate!(model, ctx, :v, 1)
-
-        # Test case 11: test that getting a nonexistent tensor variable throws an AssertionError
-        model = create_model()
-        ctx = context(model)
-        @test_throws AssertionError getorcreate!(model, ctx, :v, 1, 1)
-
+        @test_throws ErrorException a =
+            !@isdefined(a) ? getorcreate!(model, ctx, :a, [1]) :
+            (check_variate_compatability(a, :a) ? a : getorcreate!(model, ctx, :a, [1]))
+        @test_throws ErrorException a =
+            !@isdefined(a) ? getorcreate!(model, ctx, :a, [1, 1]) :
+            (
+                check_variate_compatability(a, :(a[1, 1])) ? a :
+                getorcreate!(model, ctx, :a, [1, 1])
+            )
     end
 
     @testset "getifcreated" begin
         import GraphPPL:
-            create_model,
-            getifcreated,
-            getorcreate!,
-            context,
-            name,
-            value,
-            getorcreatearray!,
-            getorcreate!
+            create_model, getifcreated, getorcreate!, context, name, value, getorcreate!
         model = create_model()
         ctx = context(model)
 
         # Test case 1: check that getifcreated  the variable created by getorcreate
-        x = getorcreate!(model, ctx, :x)
+        x = getorcreate!(model, ctx, :x, nothing)
         @test getifcreated(model, ctx, x) == x
 
         # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
-        y = getorcreatearray!(model, ctx, :y, Val(1))
-        getorcreate!(model, ctx, :y, 1)
+        y = getorcreate!(model, ctx, :y, [1])
         @test getifcreated(model, ctx, y[1]) == y[1]
 
         # Test case 3: check that getifcreated returns a new variable node when called with integer input
@@ -391,8 +468,7 @@ using TestSetExtensions
         # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
         model = create_model()
         ctx = context(model)
-        z = getorcreatearray!(model, ctx, :z, Val(1))
-        getorcreate!(model, ctx, :z, 1)
+        z = getorcreate!(model, ctx, :z, 1)
         z_fetched = getifcreated(model, ctx, z[1])
         @test z_fetched == z[1]
 
@@ -406,45 +482,25 @@ using TestSetExtensions
         # Test case 12: Test that getifcreated returns a vector of NodeLabels if called with a vector of NodeLabels
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        y = getorcreate!(model, ctx, :y)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
         z = getifcreated(model, ctx, [x, y])
         @test z == [x, y]
 
         # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
         model = create_model()
         ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(2))
-        getorcreate!(model, ctx, :x, 1, 1)
-        getorcreate!(model, ctx, :x, 2, 1)
+        x = getorcreate!(model, ctx, :x, 1, 1)
+        x = getorcreate!(model, ctx, :x, 2, 1)
         z = getifcreated(model, ctx, x)
         @test z == x
 
     end
 
-    @testset "get_individual_variable" begin
-        import GraphPPL:
-            create_model, get_individual_variable, getorcreatearray!, getorcreate!
-
-        # Test case 1: check that get_individual_variable returns the variable created by getorcreate
-        model = create_model()
-        ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        @test get_individual_variable(x) == x
-
-        # Test case 2: check that get_individual_variable returns an ErrorException when called with a vector of random variables
-
-        model = create_model()
-        ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(1))
-        getorcreate!(model, ctx, :x, 1)
-        @test_throws ErrorException get_individual_variable(x)
-
-    end
 
     @testset "add_variable_node!" begin
         import GraphPPL:
-            create_model, add_variable_node!, context, getorcreatearray!, options
+            create_model, add_variable_node!, context, options
 
         # Test 1: simple add variable to model
         model = create_model()
@@ -464,7 +520,7 @@ using TestSetExtensions
         # Test 4: Add a vector variable to the model
         model = create_model()
         ctx = context(model)
-        getorcreatearray!(model, ctx, :x, Val(1))
+        ctx.vector_variables[:x] = ResizableArray(NodeLabel, Val(1))
         node_id = add_variable_node!(model, ctx, :x; index = 2)
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
@@ -481,7 +537,7 @@ using TestSetExtensions
         # Test 6: Add a tensor variable to the model
         model = create_model()
         ctx = context(model)
-        getorcreatearray!(model, ctx, :x, Val(2))
+        ctx.tensor_variables[:x] = ResizableArray(NodeLabel, Val(2))
         node_id = add_variable_node!(model, ctx, :x; index = (2, 3))
         @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2, 3] == node_id
 
@@ -489,22 +545,15 @@ using TestSetExtensions
         node_id = add_variable_node!(model, ctx, :x; index = (2, 4))
         @test nv(model) == 2 && haskey(ctx, :x) && ctx[:x][2, 4] == node_id
 
-        # Test 8: Attempt to add a variable with an existing index
+        # Test 9: Add a variable with a non-integer index
         model = create_model()
         ctx = context(model)
-        getorcreatearray!(model, ctx, :y, Val(1))
-        node_id = add_variable_node!(model, ctx, :y; index = 1)
-        node_id = add_variable_node!(model, ctx, :y; index = 1)
-        @test nv(model) == 2
-
-
-        # Test 9: Add a variable with a non-integer index
-        getorcreatearray!(model, ctx, :z, Val(2))
+        ctx.tensor_variables[:z] = ResizableArray(NodeLabel, Val(2))
         @test_throws MethodError add_variable_node!(model, ctx, :z; index = (1, "a"))
 
         # Test 10: Add a variable with a negative index
-        getorcreatearray!(model, ctx, :w, Val(1))
-        @test_throws BoundsError add_variable_node!(model, ctx, :w; index = -1)
+        ctx.vector_variables[:x] = ResizableArray(NodeLabel, Val(1))
+        @test_throws BoundsError add_variable_node!(model, ctx, :x; index = -1)
 
         # Test 11: Add a variable with options
         model = create_model()
@@ -523,7 +572,7 @@ using TestSetExtensions
         # Test 1: Add an atomic factor node to the model
         model = create_model()
         ctx = context(model)
-        getorcreate!(model, ctx, :x)
+        x = getorcreate!(model, ctx, :x, nothing)
         node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 2 && occursin("sum", String(label_for(model.graph, 2).name))
 
@@ -596,8 +645,8 @@ using TestSetExtensions
 
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        y = getorcreate!(model, ctx, :y)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
         add_edge!(model, x, y, :interface)
 
 
@@ -618,10 +667,10 @@ using TestSetExtensions
             create_model, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        y = getorcreate!(model, ctx, :y)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
 
-        variable_nodes = [getorcreate!(model, ctx, i) for i in [:a, :b, :c]]
+        variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
         add_edge!(model, y, variable_nodes, :interface)
 
         @test ne(model) == 3
@@ -635,9 +684,9 @@ using TestSetExtensions
 
         model = create_model()
         ctx = context(model)
-        θ = getorcreate!(model, ctx, :x)
-        τ = getorcreate!(model, ctx, :y)
-        μ = getorcreate!(model, ctx, :w)
+        θ = getorcreate!(model, ctx, :x,nothing)
+        τ = getorcreate!(model, ctx, :y, nothing)
+        μ = getorcreate!(model, ctx, :w, nothing)
         make_node!(
             model,
             context(model),
@@ -657,9 +706,9 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         f = sum
-        θ = getorcreate!(model, ctx, :x)
-        τ = getorcreate!(model, ctx, :y)
-        μ = getorcreate!(model, ctx, :w)
+        θ = getorcreate!(model, ctx, :x, nothing)
+        τ = getorcreate!(model, ctx, :y,nothing)
+        μ = getorcreate!(model, ctx, :w, nothing)
         make_node!(
             model,
             context(model),
@@ -690,7 +739,7 @@ using TestSetExtensions
         # Test 4: Add a node with constants as inputs
 
         model = create_model()
-        z = getorcreate!(model, ctx, :z)
+        z = getorcreate!(model, ctx, :z, nothing)
         make_node!(
             model,
             context(model),
@@ -709,10 +758,9 @@ using TestSetExtensions
 
         model = create_model()
         ctx = context(model)
-        x = getorcreatearray!(model, ctx, :x, Val(1))
-        getorcreate!(model, ctx, :x, 1)
-        getorcreate!(model, ctx, :x, 2)
-        y = getorcreate!(model, ctx, :y)
+        x = getorcreate!(model, ctx, :x, 1)
+        x = getorcreate!(model, ctx, :x, 2)
+        y = getorcreate!(model, ctx, :y, nothing)
         make_node!(
             model,
             context(model),
@@ -730,11 +778,11 @@ using TestSetExtensions
 
         model = create_model()
         ctx = GraphPPL.context(model)
-        x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(1))
+        local x
         for i = 1:10
-            getorcreate!(model, ctx, :x, i)
+            x = getorcreate!(model, ctx, :x, i)
         end
-        y = getorcreate!(model, ctx, :y)
+        y = getorcreate!(model, ctx, :y, nothing)
         make_node!(
             model,
             ctx,
@@ -747,13 +795,13 @@ using TestSetExtensions
 
         model = create_model()
         ctx = GraphPPL.context(model)
-        x = GraphPPL.getorcreatearray!(model, ctx, :x, Val(2))
+        local x
         for i = 1:3
             for j = 1:3
-                getorcreate!(model, ctx, :x, i, j)
+                x = getorcreate!(model, ctx, :x, i, j)
             end
         end
-        y = getorcreate!(model, ctx, :y)
+        y = getorcreate!(model, ctx, :y, nothing)
         make_node!(
             model,
             ctx,
@@ -776,7 +824,7 @@ using TestSetExtensions
 
         model = create_model()
         ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
+        x = getorcreate!(model, ctx, :x, nothing)
         y = make_node_from_object!(model, ctx, x, :y, nothing, false)
         @test x == y && nv(model) == 1
 
@@ -788,25 +836,7 @@ using TestSetExtensions
         y = make_node_from_object!(model, ctx, x, :y, nothing, false)
         @test nv(model) == 4 && y isa NodeLabel
 
-        # Test 3: make_node_from_object with an indexed node
-
-        model = create_model()
-        ctx = context(model)
-        x = Normal(0, 1)
-        y = getorcreatearray!(model, ctx, :y, Val(1))
-        y[1] = make_node_from_object!(model, ctx, x, :y, nothing, false, 1)
-        @test nv(model) == 4 && y[1] isa NodeLabel
-
-        # Test 4: make_node_from_object with indexed statement on the left and label right
-
-        model = create_model()
-        ctx = context(model)
-        x = getorcreate!(model, ctx, :x)
-        y = getorcreatearray!(model, ctx, :y, Val(1))
-        y[1] = make_node_from_object!(model, ctx, x, :y, nothing, false, 1)
-        @test nv(model) == 1 && y[1] isa NodeLabel
-
-        #test 5: make_node_from_object with options
+        # Test 3: make_node_from_object with options
 
         model = create_model()
         ctx = context(model)
@@ -825,8 +855,7 @@ using TestSetExtensions
         ctx = context(model)
         local x
         for i = 1:10
-            x = @isdefined(x) ? x : getorcreatearray!(model, ctx, :x, Val(1))
-            getorcreate!(model, ctx, :x, i)
+            x = getorcreate!(model, ctx, :x, i)
             interfaces_tuple = (
                 in = getifcreated(model, ctx, (0, 1)),
                 out = getifcreated(model, ctx, x[i]),
