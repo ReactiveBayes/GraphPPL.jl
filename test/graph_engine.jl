@@ -277,6 +277,30 @@ using TestSetExtensions
         x[1] = NodeLabel(:x, 1)
         @test_throws ErrorException !check_variate_compatability(x, :x)
 
+        #Test 8: Check we can work with a QuoteNode
+        x = ResizableArray(NodeLabel, Val(1))
+        x[1] = NodeLabel(:x, 1)
+        @test check_variate_compatability(x, QuoteNode(:(x[1])))
+
+        #Test 9: Check that if it is not assigned, it is false with QuoteNode
+        @test !check_variate_compatability(x, QuoteNode(:(x[2])))
+
+        #Test 10: Check that if we overindex the array, it crashes with QuoteNode
+        @test_throws ErrorException check_variate_compatability(x, QuoteNode(:(x[1, 1])))
+
+        #Test 11: Check that if we underindex the array, it crashes with QuoteNode
+        x = ResizableArray(NodeLabel, Val(2))
+        x[1, 1] = NodeLabel(:x, 1)
+        @test_throws ErrorException check_variate_compatability(x, QuoteNode(:(x[1])))
+
+        #Test 12: Check that if we call an individual variable with an index, we return false with QuoteNode
+        x = NodeLabel(:x, 1)
+        @test_throws ErrorException !check_variate_compatability(x, QuoteNode(:(x[1])))
+
+        x = ResizableArray(NodeLabel, Val(1))
+        x[1] = NodeLabel(:x, 1)
+        @test !check_variate_compatability(x, QuoteNode(:(x[i])))
+
 
     end
 
@@ -310,7 +334,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         y =
-            !@isdefined(y) ? getorcreate!(model, ctx, :y, [1]) :
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) :
             (
                 check_variate_compatability(y, :(y[1])) ? y :
                 getorcreate!(model, ctx, :y, [1])
@@ -322,7 +346,7 @@ using TestSetExtensions
 
         # Test 5: Test that recreating the same variable changes nothing
         y2 =
-            !@isdefined(y2) ? getorcreate!(model, ctx, :y, [1]) :
+            !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) :
             (
                 check_variate_compatability(y2, :(y2[1])) ? y :
                 getorcreate!(model, ctx, :y, [1])
@@ -331,7 +355,7 @@ using TestSetExtensions
 
         # Test 6: Test that adding a variable to this vector variable increases the size of the array
         y =
-            !@isdefined(y) ? getorcreate!(model, ctx, :y, [2]) :
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) :
             (
                 check_variate_compatability(y, :(y[2])) ? y :
                 getorcreate!(model, ctx, :y, [2])
@@ -347,7 +371,7 @@ using TestSetExtensions
 
         # Test 8: Test that getting this variable with an index that is too large does not work
         @test_throws ErrorException y =
-            !@isdefined(y) ? getorcreate!(model, ctx, :y, [1, 2]) :
+            !@isdefined(y) ? getorcreate!(model, ctx, :y, 1, 2) :
             (
                 check_variate_compatability(y, :(y[1, 2])) ? y :
                 getorcreate!(model, ctx, :y, [1, 2])
@@ -357,7 +381,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         z =
-            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1, 1]) :
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, 1, 1) :
             (
                 check_variate_compatability(z, :(z[1, 1])) ? z :
                 getorcreate!(model, ctx, :z, [1, 1])
@@ -369,7 +393,7 @@ using TestSetExtensions
 
         #Test 10: Test that recreating the same variable changes nothing
         z2 =
-            !@isdefined(z2) ? getorcreate!(model, ctx, :z, [1, 1]) :
+            !@isdefined(z2) ? getorcreate!(model, ctx, :z, 1, 1) :
             (
                 check_variate_compatability(z2, :(z2[1, 1])) ? z :
                 getorcreate!(model, ctx, :z, [1, 1])
@@ -378,7 +402,7 @@ using TestSetExtensions
 
         #Test 11: Test that adding a variable to this tensor variable increases the size of the array
         z =
-            !@isdefined(z) ? getorcreate!(model, ctx, :z, [2, 2]) :
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, 2, 2) :
             (
                 check_variate_compatability(z, :(z[2, 2])) ? z :
                 getorcreate!(model, ctx, :z, [2, 2])
@@ -499,8 +523,7 @@ using TestSetExtensions
 
 
     @testset "add_variable_node!" begin
-        import GraphPPL:
-            create_model, add_variable_node!, context, options
+        import GraphPPL: create_model, add_variable_node!, context, options
 
         # Test 1: simple add variable to model
         model = create_model()
@@ -684,7 +707,7 @@ using TestSetExtensions
 
         model = create_model()
         ctx = context(model)
-        θ = getorcreate!(model, ctx, :x,nothing)
+        θ = getorcreate!(model, ctx, :x, nothing)
         τ = getorcreate!(model, ctx, :y, nothing)
         μ = getorcreate!(model, ctx, :w, nothing)
         make_node!(
@@ -707,7 +730,7 @@ using TestSetExtensions
         ctx = context(model)
         f = sum
         θ = getorcreate!(model, ctx, :x, nothing)
-        τ = getorcreate!(model, ctx, :y,nothing)
+        τ = getorcreate!(model, ctx, :y, nothing)
         μ = getorcreate!(model, ctx, :w, nothing)
         make_node!(
             model,

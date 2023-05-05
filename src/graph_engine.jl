@@ -297,13 +297,18 @@ function check_variate_compatability(
                 "Index of length $(length(index)) not possible for $N-dimensional vector of random variables",
             )
         end
+        if typeof(index[1]) == Symbol
+            return false
+        end
         return isassigned(node, index...)
     end
     return false
 end
 
+check_variate_compatability(node::ResizableArray{NodeLabel}, var::QuoteNode) = check_variate_compatability(node, var.value)
+
 check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
-    "Cannot cal $N-dimensional vector of random variables on the left-hand-side by a single symbol",
+    "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
 )
 
 
