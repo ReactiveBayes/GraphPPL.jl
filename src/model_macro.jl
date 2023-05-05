@@ -188,25 +188,6 @@ end
 what_walk(::typeof(convert_to_kwargs_expression)) =
     guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
-function convert_indexed_statement(e::Expr)
-    if @capture(e, (lhs_ ~ rhs_ where {options__}))
-        if @capture(lhs, var_[index__])
-            return quote
-                $var =
-                    @isdefined($var) ? $var :
-                    GraphPPL.getorcreatearray!(
-                        model,
-                        context,
-                        $(QuoteNode(var)),
-                        Val($(length(index))),
-                    )
-                $e
-            end
-        end
-    end
-    return e
-end
-
 function convert_to_anonymous(e::Expr, created_by)
     if @capture(e, f_(args__))
         sym = gensym(:tmp)
@@ -240,16 +221,10 @@ what_walk(::typeof(convert_function_argument_in_rhs)) =
 
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
-        if @capture(lhs, var_[index__])
-            return quote
-                $(generate_get_or_create(var, index))
-                $e
-            end
-        else
-            return quote
-                $(generate_get_or_create(lhs))
-                $e
-            end
+        @capture(lhs, (var_[index__])| (var_))
+        return quote
+            $(generate_get_or_create(var, lhs, index))
+            $e
         end
     end
     return e
@@ -258,17 +233,25 @@ end
 what_walk(::typeof(add_get_or_create_expression)) =
     guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
-function generate_get_or_create(s::Symbol)
+function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
     return quote
-        $s =
-            @isdefined($s) ? GraphPPL.get_individual_variable($s) :
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)))
+        $s = !@isdefined($s) ? GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing) :
+        (
+            GraphPPL.check_variate_compatability($s, $(QuoteNode(lhs))) ? $s :
+            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing)
+        )
     end
 end
 
 
-function generate_get_or_create(s::Symbol, index::Union{Tuple,AbstractArray,Int})
-    return :(GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)))
+function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
+    return quote
+        $s = !@isdefined($s) ? GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)) :
+        (
+            GraphPPL.check_variate_compatability($s, $(QuoteNode(lhs))) ? $s :
+            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...))
+        )
+    end
 end
 
 """
@@ -674,14 +657,12 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
     ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
-    ms_body = apply_pipeline(ms_body, convert_indexed_statement)
     ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 
 
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
-
 
     result = quote
 

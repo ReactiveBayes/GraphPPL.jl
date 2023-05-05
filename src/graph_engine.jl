@@ -282,32 +282,35 @@ check_if_tensor_variable(context::Context, name::Symbol) =
     haskey(context.tensor_variables, name) ?
     error("Variable $name is already a tensor variable in the model") : nothing
 
+check_variate_compatability(node::NodeLabel, var::Symbol) = true
+check_variate_compatability(node::NodeLabel, var) = error(
+    "Cannot call single random variable on the left-hand-side by an indexed statement",
+)
 
-function getorcreatearray!(model::Model, context::Context, name::Symbol, dim::Val{1})
-    # check that the variable does not exist in other categories
-    check_if_individual_variable(context, name)
-    check_if_tensor_variable(context, name)
-    if !haskey(context.vector_variables, name)
-        context.vector_variables[name] = ResizableArray(NodeLabel)
+function check_variate_compatability(
+    node::ResizableArray{NodeLabel,V,N},
+    var::Expr,
+) where {V,N}
+    if @capture(var, (lhs_[index__]))
+        if !(length(index) == N)
+            error(
+                "Index of length $(length(index)) not possible for $N-dimensional vector of random variables",
+            )
+        end
+        if typeof(index[1]) == Symbol
+            return false
+        end
+        return isassigned(node, index...)
     end
-    return context.vector_variables[name]
+    return false
 end
 
-function getorcreatearray!(
-    model::Model,
-    context::Context,
-    name::Symbol,
-    dim::Val{N},
-) where {N}
-    # check that the variable does not exist in other categories
-    check_if_individual_variable(context, name)
-    check_if_vector_variable(context, name)
-    # Simply return a variable and create a new one if it does not exist
-    if !haskey(context.tensor_variables, name)
-        context.tensor_variables[name] = ResizableArray(NodeLabel, dim)
-    end
-    return context.tensor_variables[name]
-end
+check_variate_compatability(node::ResizableArray{NodeLabel}, var::QuoteNode) = check_variate_compatability(node, var.value)
+
+check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
+    "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
+)
+
 
 """
     getorcreate!(model::Model, context::Context, edge, index)
@@ -329,42 +332,43 @@ The variable (edge) found or created in the factor graph model and context.
 Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
 getorcreate!(model, context, :x)
 """
-function getorcreate!(model::Model, context::Context, name::Symbol)
-    # check that the variable does not exist in other categories
-    check_if_vector_variable(context, name)
-    check_if_tensor_variable(context, name)
-    # Simply return a variable and create a new one if it does not exist
+function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Nothing)
+    check_if_vector_variable(ctx, name)
+    check_if_tensor_variable(ctx, name)
     return get(
-        () -> add_variable_node!(model, context, name; index = nothing),
-        context.individual_variables,
+        () -> add_variable_node!(model, ctx, name; index = nothing),
+        ctx.individual_variables,
         name,
     )
 end
 
+getorcreate!(model::Model, ctx::Context, name::Symbol, index::AbstractArray{Int}) =
+    getorcreate!(model, ctx, name, index...)
 
-getorcreate!(model::Model, context::Context, variables::Union{Tuple,AbstractArray}) =
-    map((edge) -> getorcreate!(model, context, edge), variables)
-
-
-
-function getorcreate!(model::Model, context::Context, name::Symbol, index::Int)
-    # check that the variable exists in the current context
-    @assert haskey(context.vector_variables, name)
-    return get(
-        () -> add_variable_node!(model, context, name; index = index),
-        context.vector_variables[name],
-        index,
-    )
+function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Integer)
+    check_if_individual_variable(ctx, name)
+    check_if_tensor_variable(ctx, name)
+    if !haskey(ctx.vector_variables, name)
+        ctx.vector_variables[name] = ResizableArray(NodeLabel, Val(1))
+    end
+    if !isassigned(ctx.vector_variables[name], index)
+        ctx.vector_variables[name][index] =
+            add_variable_node!(model, ctx, name; index = index)
+    end
+    return ctx.vector_variables[name]
 end
 
-function getorcreate!(model::Model, context::Context, name::Symbol, index...)
-    # check that the variable exists in the current context
-    @assert haskey(context.tensor_variables, name)
-    # Simply return a variable and create a new one if it does not exist
-    if !isassigned(context.tensor_variables[name], index...)
-        add_variable_node!(model, context, name; index = index)
+function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
+    check_if_individual_variable(ctx, name)
+    check_if_vector_variable(ctx, name)
+    if !haskey(ctx.tensor_variables, name)
+        ctx.tensor_variables[name] = ResizableArray(NodeLabel, Val(length(index)))
     end
-    return context.tensor_variables[name][index...]
+    if !isassigned(ctx.tensor_variables[name], index...)
+        ctx.tensor_variables[name][index...] =
+            add_variable_node!(model, ctx, name; index = index)
+    end
+    return ctx.tensor_variables[name]
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
@@ -374,9 +378,6 @@ getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{Node
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, gensym(model, :constvar); value = var)
 
-get_individual_variable(node::NodeLabel) = node
-get_individual_variable(node::ResizableArray) =
-    error("$node is defined as Array of random variables")
 
 """
 Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
@@ -570,7 +571,7 @@ function make_node_from_object!(
     ]
     interfaces = (interfaces..., :out)
     if length(index) == 0
-        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs)
+        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, nothing)
     else
         new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, index...)
     end
