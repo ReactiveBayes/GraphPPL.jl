@@ -282,34 +282,28 @@ check_if_tensor_variable(context::Context, name::Symbol) =
     haskey(context.tensor_variables, name) ?
     error("Variable $name is already a tensor variable in the model") : nothing
 
-check_variate_compatability(node::NodeLabel, var::Symbol) = true
-check_variate_compatability(node::NodeLabel, var) = error(
+check_variate_compatability(node::NodeLabel, index::Nothing) = true
+check_variate_compatability(node::NodeLabel, index) = error(
     "Cannot call single random variable on the left-hand-side by an indexed statement",
 )
 
 function check_variate_compatability(
     node::ResizableArray{NodeLabel,V,N},
-    var::Expr,
+    index...,
 ) where {V,N}
-    if @capture(var, (lhs_[index__]))
-        if !(length(index) == N)
-            error(
-                "Index of length $(length(index)) not possible for $N-dimensional vector of random variables",
-            )
-        end
-        if typeof(index[1]) == Symbol
-            return false
-        end
-        return isassigned(node, index...)
+    if !(length(index) == N)
+        error(
+            "Index of length $(length(index)) not possible for $N-dimensional vector of random variables",
+        )
     end
-    return false
+
+    return isassigned(node, index...)
 end
 
-check_variate_compatability(node::ResizableArray{NodeLabel}, var::QuoteNode) = check_variate_compatability(node, var.value)
-
-check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
-    "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
-)
+check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} = error("Krijg de tyfus")
+# check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
+#     "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
+# )
 
 
 """

@@ -250,57 +250,32 @@ using TestSetExtensions
 
         # Test 1: Check that a one dimensional variable is compatable with a symbol
         x = NodeLabel(:x, 1)
-        @test check_variate_compatability(x, :x)
+        @test check_variate_compatability(x, nothing)
 
         # Test 2: Check that an assigned vector variable returns the vector itself when called
         x = ResizableArray(NodeLabel, Val(1))
         x[1] = NodeLabel(:x, 1)
-        @test check_variate_compatability(x, :(x[1]))
+        @test check_variate_compatability(x, 1)
 
         #Test 3: Check that if it is not assigned, it is false
-        @test !check_variate_compatability(x, :(x[2]))
+        @test !check_variate_compatability(x, 2)
 
         #Test 4: Check that if we overindex the array, it crashes
-        @test_throws ErrorException check_variate_compatability(x, :(x[1, 1]))
+        @test_throws ErrorException check_variate_compatability(x, 1, 1)
 
         #Test 5: Check that if we underindex the array, it crashes
         x = ResizableArray(NodeLabel, Val(2))
         x[1, 1] = NodeLabel(:x, 1)
-        @test_throws ErrorException check_variate_compatability(x, :(x[1]))
+        @test_throws ErrorException check_variate_compatability(x, 1)
 
         #Test 6: Check that if we call an individual variable with an index, we return false
         x = NodeLabel(:x, 1)
-        @test_throws ErrorException !check_variate_compatability(x, :(x[1]))
+        @test_throws ErrorException !check_variate_compatability(x, 1)
 
         #Test 7: Check that if we call a vector variable without an index, we return false
         x = ResizableArray(NodeLabel, Val(1))
         x[1] = NodeLabel(:x, 1)
-        @test_throws ErrorException !check_variate_compatability(x, :x)
-
-        #Test 8: Check we can work with a QuoteNode
-        x = ResizableArray(NodeLabel, Val(1))
-        x[1] = NodeLabel(:x, 1)
-        @test check_variate_compatability(x, QuoteNode(:(x[1])))
-
-        #Test 9: Check that if it is not assigned, it is false with QuoteNode
-        @test !check_variate_compatability(x, QuoteNode(:(x[2])))
-
-        #Test 10: Check that if we overindex the array, it crashes with QuoteNode
-        @test_throws ErrorException check_variate_compatability(x, QuoteNode(:(x[1, 1])))
-
-        #Test 11: Check that if we underindex the array, it crashes with QuoteNode
-        x = ResizableArray(NodeLabel, Val(2))
-        x[1, 1] = NodeLabel(:x, 1)
-        @test_throws ErrorException check_variate_compatability(x, QuoteNode(:(x[1])))
-
-        #Test 12: Check that if we call an individual variable with an index, we return false with QuoteNode
-        x = NodeLabel(:x, 1)
-        @test_throws ErrorException !check_variate_compatability(x, QuoteNode(:(x[1])))
-
-        x = ResizableArray(NodeLabel, Val(1))
-        x[1] = NodeLabel(:x, 1)
-        @test !check_variate_compatability(x, QuoteNode(:(x[i])))
-
+        @test_throws ErrorException !check_variate_compatability(x, nothing)
 
     end
 
@@ -327,7 +302,7 @@ using TestSetExtensions
         # Test 3: Ensure that calling x another time gives us x benchmark
         x =
             !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) :
-            (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
+            (check_variate_compatability(x,nothing ) ? x : getorcreate!(model, ctx, :x, nothing))
         @test x == x2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         # Test 4: Test that creating a vector variable creates an array of the correct size
@@ -336,7 +311,7 @@ using TestSetExtensions
         y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) :
             (
-                check_variate_compatability(y, :(y[1])) ? y :
+                check_variate_compatability(y, 1) ? y :
                 getorcreate!(model, ctx, :y, [1])
             )
         @test GraphPPL.nv(model) == 1 &&
@@ -348,7 +323,7 @@ using TestSetExtensions
         y2 =
             !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) :
             (
-                check_variate_compatability(y2, :(y2[1])) ? y :
+                check_variate_compatability(y2, 1) ? y :
                 getorcreate!(model, ctx, :y, [1])
             )
         @test y == y2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
@@ -357,7 +332,7 @@ using TestSetExtensions
         y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) :
             (
-                check_variate_compatability(y, :(y[2])) ? y :
+                check_variate_compatability(y, 2) ? y :
                 getorcreate!(model, ctx, :y, [2])
             )
         @test GraphPPL.nv(model) == 2 &&
@@ -367,13 +342,13 @@ using TestSetExtensions
         # Test 7: Test that getting this variable without index does not work
         @test_throws ErrorException y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, nothing) :
-            (check_variate_compatability(y, :y) ? y : getorcreate!(model, ctx, :y, nothing))
+            (check_variate_compatability(y, nothing) ? y : getorcreate!(model, ctx, :y, nothing))
 
         # Test 8: Test that getting this variable with an index that is too large does not work
         @test_throws ErrorException y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, 1, 2) :
             (
-                check_variate_compatability(y, :(y[1, 2])) ? y :
+                check_variate_compatability(y, 1, 2) ? y :
                 getorcreate!(model, ctx, :y, [1, 2])
             )
 
@@ -383,7 +358,7 @@ using TestSetExtensions
         z =
             !@isdefined(z) ? getorcreate!(model, ctx, :z, 1, 1) :
             (
-                check_variate_compatability(z, :(z[1, 1])) ? z :
+                check_variate_compatability(z, 1, 1) ? z :
                 getorcreate!(model, ctx, :z, [1, 1])
             )
         @test GraphPPL.nv(model) == 1 &&
@@ -395,7 +370,7 @@ using TestSetExtensions
         z2 =
             !@isdefined(z2) ? getorcreate!(model, ctx, :z, 1, 1) :
             (
-                check_variate_compatability(z2, :(z2[1, 1])) ? z :
+                check_variate_compatability(z2, 1, 1) ? z :
                 getorcreate!(model, ctx, :z, [1, 1])
             )
         @test z == z2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
@@ -404,7 +379,7 @@ using TestSetExtensions
         z =
             !@isdefined(z) ? getorcreate!(model, ctx, :z, 2, 2) :
             (
-                check_variate_compatability(z, :(z[2, 2])) ? z :
+                check_variate_compatability(z, 2, 2) ? z :
                 getorcreate!(model, ctx, :z, [2, 2])
             )
         @test GraphPPL.nv(model) == 2 &&
@@ -420,7 +395,7 @@ using TestSetExtensions
         @test_throws ErrorException z =
             !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) :
             (
-                check_variate_compatability(z, :(z[1])) ? z :
+                check_variate_compatability(z, 1) ? z :
                 getorcreate!(model, ctx, :z, [1])
             )
 
@@ -428,7 +403,7 @@ using TestSetExtensions
         @test_throws ErrorException z =
             !@isdefined(z) ? getorcreate!(model, ctx, :z, [1, 2, 3]) :
             (
-                check_variate_compatability(z, :(z[1, 2, 3])) ? z :
+                check_variate_compatability(z, 1, 2, 3) ? z :
                 getorcreate!(model, ctx, :z, [1, 2, 3])
             )
 
@@ -439,7 +414,7 @@ using TestSetExtensions
             a =
                 !@isdefined(a) ? getorcreate!(model, ctx, :a, nothing) :
                 (
-                    check_variate_compatability(x, :a) ? a :
+                    check_variate_compatability(a, nothing) ? a :
                     getorcreate!(model, ctx, :a, nothing)
                 )
         end
@@ -449,7 +424,7 @@ using TestSetExtensions
         @test_throws ErrorException a =
             !@isdefined(a) ? getorcreate!(model, ctx, :a, [1, 1]) :
             (
-                check_variate_compatability(a, :(a[1, 1])) ? a :
+                check_variate_compatability(a, 1, 2) ? a :
                 getorcreate!(model, ctx, :a, [1, 1])
             )
     end

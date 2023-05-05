@@ -221,7 +221,7 @@ what_walk(::typeof(convert_function_argument_in_rhs)) =
 
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
-        @capture(lhs, (var_[index__])| (var_))
+        @capture(lhs, (var_[index__]) | (var_))
         return quote
             $(generate_get_or_create(var, lhs, index))
             $e
@@ -235,22 +235,26 @@ what_walk(::typeof(add_get_or_create_expression)) =
 
 function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
     return quote
-        $s = !@isdefined($s) ? GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing) :
-        (
-            GraphPPL.check_variate_compatability($s, $(QuoteNode(lhs))) ? $s :
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing)
-        )
+        $s =
+            !@isdefined($s) ?
+            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing) :
+            (
+                GraphPPL.check_variate_compatability($s, nothing) ? $s :
+                GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing)
+            )
     end
 end
 
 
 function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     return quote
-        $s = !@isdefined($s) ? GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)) :
-        (
-            GraphPPL.check_variate_compatability($s, $(QuoteNode(lhs))) ? $s :
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...))
-        )
+        $s =
+            !@isdefined($s) ?
+            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)) :
+            (
+                GraphPPL.check_variate_compatability($s, $(index...)) ? $s :
+                GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...))
+            )
     end
 end
 

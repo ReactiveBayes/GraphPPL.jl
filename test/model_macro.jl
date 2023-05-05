@@ -1028,7 +1028,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
                 (
-                    GraphPPL.check_variate_compatability(x, :x) ? x :
+                    GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(model, context, :x, nothing)
                 )
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
@@ -1043,7 +1043,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[1])))) ? x :
+                    GraphPPL.check_variate_compatability(x, 1) ? x :
                     GraphPPL.getorcreate!(model, context, :x, 1)
                 )
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
@@ -1058,8 +1058,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[1, 2])))) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ?
+                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
@@ -1073,7 +1073,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[i])))) ? x :
+                    GraphPPL.check_variate_compatability(x, i) ? x :
                     GraphPPL.getorcreate!(model, context, :x, i)
                 )
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
@@ -1088,8 +1088,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[i, j])))) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ?
+                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
@@ -1113,16 +1113,22 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
                 (
-                    GraphPPL.check_variate_compatability(x, :x) ? x :
+                    GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(model, context, :x, nothing)
                 )
             x ~ Normal(
                 begin
                     $sym =
-                        !@isdefined($sym) ? GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing) :
+                        !@isdefined($sym) ?
+                        GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing) :
                         (
-                            GraphPPL.check_variate_compatability($sym, $(QuoteNode(sym))) ? $sym :
-                            GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing)
+                            GraphPPL.check_variate_compatability($sym, nothing) ? $sym :
+                            GraphPPL.getorcreate!(
+                                model,
+                                context,
+                                $(QuoteNode(sym)),
+                                nothing,
+                            )
                         )
                     $sym ~ Normal(
                         0,
@@ -1152,7 +1158,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
                 (
-                    GraphPPL.check_variate_compatability(x, :x) ? x :
+                    GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(model, context, :x, nothing)
                 )
             x ~ Normal(
@@ -1172,7 +1178,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
                 (
-                    GraphPPL.check_variate_compatability(x, :x) ? x :
+                    GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(model, context, :x, nothing)
                 )
         end
@@ -1184,20 +1190,20 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[1])))) ? x :
+                    GraphPPL.check_variate_compatability(x, 1) ? x :
                     GraphPPL.getorcreate!(model, context, :x, 1)
                 )
         end
         @test_expression_generating output desired_result
 
         # Test 3: test matrix variable
-        output = generate_get_or_create(:x, :(x[1,2]), [1, 2])
+        output = generate_get_or_create(:x, :(x[1, 2]), [1, 2])
         desired_result = quote
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[1, 2])))) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ?
+                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
         end
         @test_expression_generating output desired_result
@@ -1208,8 +1214,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[i,j])))) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ?
+                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1220,7 +1226,7 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[i])))) ? x :
+                    GraphPPL.check_variate_compatability(x, i) ? x :
                     GraphPPL.getorcreate!(model, context, :x, i)
                 )
         end
@@ -1232,8 +1238,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, $(QuoteNode(:(x[i,j])))) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ?
+                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1897,12 +1903,12 @@ using MacroTools
         σ = getorcreate!(model, ctx, :σ, nothing)
         make_node!(model, ctx, test_model, (μ = μ, σ = σ); options = nothing, debug = false)
         @test nv(model) == 4 && ne(model) == 3
-        
+
         # Test 2: Test regular node creation input with vector
         input = quote
             function test_model(μ, σ)
                 local x
-                for i in 1:10
+                for i = 1:10
                     x[i] ~ sum(μ, σ)
                 end
                 y ~ x[1] + x[10]
@@ -1914,14 +1920,14 @@ using MacroTools
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
         make_node!(model, ctx, test_model, (μ = μ, σ = σ); options = nothing, debug = false)
-        @test nv(model) == 24 
+        @test nv(model) == 24
 
 
         # Test 3: Test regular node creation input with vector
         input = quote
             function illegal_model(μ, σ)
                 local x
-                for i in 1:10
+                for i = 1:10
                     x[i] ~ sum(μ, σ)
                 end
                 y ~ x[1] + x[10] + x[11]
@@ -1932,7 +1938,14 @@ using MacroTools
         ctx = context(model)
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
-        @test_throws BoundsError make_node!(model, ctx, illegal_model, (μ = μ, σ = σ); options = nothing, debug = false)
+        @test_throws BoundsError make_node!(
+            model,
+            ctx,
+            illegal_model,
+            (μ = μ, σ = σ);
+            options = nothing,
+            debug = false,
+        )
     end
 end
 end
