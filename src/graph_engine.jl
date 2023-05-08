@@ -22,21 +22,27 @@ a UInt8 representing the type of the variable, and an integer or tuple of intege
 the index of the variable.
 """
 struct NodeLabel
-    name::Symbol
+    name::Any
     index::Int64
 
 end
 
 name(label::NodeLabel) = label.name
 
-struct NodeData
-    is_variable::Bool
-    name::Any
-    value::Any
-    options::Union{Nothing,Dict}
+
+struct VariableNodeData
+    name::Symbol
+    options::Union{Nothing,Dict,NamedTuple}
 end
 
-value(node::NodeData) = node.value
+struct FactorNodeData
+    fform::Any
+    options::Union{Nothing,Dict,NamedTuple}
+end
+
+const NodeData = Union{FactorNodeData,VariableNodeData}
+
+value(node::VariableNodeData) = node.options[:value]
 options(node::NodeData) = node.options
 
 struct EdgeLabel
@@ -372,7 +378,7 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar); value = var)
+    add_variable_node!(model, context, gensym(model, :constvar); options = (value = var,))
 
 
 """
@@ -399,12 +405,11 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    value = nothing,
     options = nothing,
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = NodeData(true, variable_id, value, options)
+    model[variable_symbol] = VariableNodeData(variable_id, options)
     return variable_symbol
 end
 
@@ -426,11 +431,11 @@ Returns:
 function add_atomic_factor_node!(
     model::Model,
     context::Context,
-    node_name::Symbol;
+    node_name;
     options = nothing,
 )
     node_id = generate_nodelabel(model, Symbol(node_name))
-    model[node_id] = NodeData(false, node_name, nothing, options)
+    model[node_id] = FactorNodeData(node_name, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
@@ -441,8 +446,11 @@ add_atomic_factor_node!(
     node_name::Real;
     options = nothing,
 ) = error("Cannot create factor node with Real argument")
-add_atomic_factor_node!(model::Model, context::Context, node_name; options = nothing) =
-    add_atomic_factor_node!(model, context, Symbol(node_name); options = options)
+
+factor_alias(::typeof(+)) = sum
+factor_alias(::typeof(-)) = minus
+factor_alias(::typeof(*)) = prod
+factor_alias(::typeof(/)) = div
 
 """
 Add a composite factor node to the model with the given name.

@@ -25,27 +25,30 @@ using TestSetExtensions
 
 
     @testset "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
-        import GraphPPL: create_model, NodeLabel, NodeData
+        import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData
 
         model = create_model()
-        model[NodeLabel(:μ, 1)] = NodeData(true, :μ, nothing, nothing)
+        model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, nothing)
         @test GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         @test_throws MethodError model[0] = 1
 
-        @test_throws MethodError model["string"] = NodeData(false, "string")
-        model[NodeLabel(:x, 2)] = NodeData(true, :x, nothing, nothing)
+        @test_throws MethodError model["string"] = VariableNodeData(:x, nothing)
+        model[NodeLabel(:x, 2)] = VariableNodeData(:x, nothing)
         @test GraphPPL.nv(model) == 2 && GraphPPL.ne(model) == 0
+
+        model[NodeLabel(sum, 3)] = FactorNodeData(sum, nothing)
+        @test GraphPPL.nv(model) == 3 && GraphPPL.ne(model) == 0
     end
 
     @testset "setindex!(::Model, ::EdgeLabel, ::NodeLabel, ::NodeLabel)" begin
-        import GraphPPL: create_model, NodeLabel, NodeData, EdgeLabel
+        import GraphPPL: create_model, NodeLabel, VariableNodeData, EdgeLabel
 
         model = create_model()
         μ = NodeLabel(:μ, 1)
         x = NodeLabel(:x, 2)
-        model[μ] = NodeData(true, :μ, nothing, nothing)
-        model[x] = NodeData(true, :x, nothing, nothing)
+        model[μ] = VariableNodeData(:μ, nothing)
+        model[x] = VariableNodeData(:x, nothing)
         model[μ, x] = EdgeLabel(:interface)
         @test GraphPPL.ne(model) == 1
 
@@ -55,11 +58,11 @@ using TestSetExtensions
     end
 
     @testset "getindex(::Model, ::NodeLabel)" begin
-        import GraphPPL: create_model, NodeLabel, NodeData
+        import GraphPPL: create_model, NodeLabel, VariableNodeData
 
         model = create_model()
         label = NodeLabel(:x, 1)
-        model[label] = NodeData(true, :x, nothing, nothing)
+        model[label] = VariableNodeData(:x, nothing)
         @test isa(model[label], NodeData)
         @test_throws KeyError model[NodeLabel(:x, 10)]
         @test_throws MethodError model[0]
@@ -77,14 +80,14 @@ using TestSetExtensions
     end
 
     @testset "nv_ne(::Model)" begin
-        import GraphPPL: create_model, nv, ne, NodeData, NodeLabel, EdgeLabel
+        import GraphPPL: create_model, nv, ne, VariableNodeData, NodeLabel, EdgeLabel
 
         model = create_model()
         @test nv(model) == 0
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1)] = NodeData(true, :a, nothing, nothing)
-        model[NodeLabel(:b, 2)] = NodeData(false, :b, nothing, nothing)
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, nothing)
         @test nv(model) == 2
         @test ne(model) == 0
 
