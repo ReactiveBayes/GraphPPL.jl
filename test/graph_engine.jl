@@ -96,6 +96,37 @@ using TestSetExtensions
         @test ne(model) == 1
     end
 
+    @testset "edges" begin
+        import GraphPPL: edges, create_model, VariableNodeData, NodeLabel, EdgeLabel
+
+        # Test 1: Test getting all edges from a model
+        model = create_model()
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+        @test length(edges(model)) == 1
+
+        model[NodeLabel(:c, 2)] = VariableNodeData(:b, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2)
+        @test length(edges(model)) == 2
+
+        # Test 2: Test getting all edges from a model with a specific node
+        @test edges(model, NodeLabel(:a, 1)) == [EdgeLabel(:edge, 1), EdgeLabel(:edge, 2)]
+        @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1)]
+        @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2)]
+        
+    end
+
+    @testset "neighbors(::Model, ::NodeData)" begin
+        import GraphPPL: create_model, neighbors, VariableNodeData, NodeLabel, EdgeLabel
+        model = create_model()
+
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+        @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
+    end
+
     @testset "generate_nodelabel(::Model, ::Symbol)" begin
         import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 
@@ -691,7 +722,7 @@ using TestSetExtensions
 
 
     @testset "make_node!(::Atomic)" begin
-        import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated
+        import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated, context
 
         # Test 1: Add a node with regular inputs
 
@@ -705,9 +736,9 @@ using TestSetExtensions
             context(model),
             sum,
             (
-                in1 = getifcreated(model, context(model), θ),
-                in2 = getifcreated(model, context(model), τ),
-                out = getifcreated(model, context(model), μ),
+                in1 = getifcreated(model, ctx, θ),
+                in2 = getifcreated(model, ctx, τ),
+                out = getifcreated(model, ctx, μ),
             );
             options = Dict(:created_by => :(θ ~ sum(τ, μ))),
             debug = false,

@@ -96,6 +96,15 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
+Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
+MetaGraphsNext.neighbors(model::Model, node::NodeLabel) =
+    [label_for(model.graph, neighbor) for neighbor in MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))]
+
+function Graphs.edges(model::Model, node::NodeLabel)
+    neighbors = MetaGraphsNext.neighbors(model, node)
+    return [model.graph[node, neighbor] for neighbor in neighbors]
+end
+
 
 
 """
@@ -124,8 +133,7 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(id.name) * "_" * string(id.index))
-
+to_symbol(id::NodeLabel) = Symbol(String(Symbol(id.name)) * "_" * string(id.index))
 
 struct Context
     depth::Int64
