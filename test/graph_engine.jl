@@ -49,12 +49,12 @@ using TestSetExtensions
         x = NodeLabel(:x, 2)
         model[μ] = VariableNodeData(:μ, nothing)
         model[x] = VariableNodeData(:x, nothing)
-        model[μ, x] = EdgeLabel(:interface)
+        model[μ, x] = EdgeLabel(:interface, 1)
         @test GraphPPL.ne(model) == 1
 
         @test_throws MethodError model[0, 1] = 1
 
-        @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if)
+        @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1)
     end
 
     @testset "getindex(::Model, ::NodeLabel)" begin
@@ -91,7 +91,7 @@ using TestSetExtensions
         @test nv(model) == 2
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
         @test nv(model) == 2
         @test ne(model) == 1
     end
@@ -568,30 +568,47 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        node_id = add_atomic_factor_node!(model, ctx, sum)
-        @test nv(model) == 2 && occursin("sum", String(label_for(model.graph, 2).name))
+        node_id = add_atomic_factor_node!(model, ctx, sum, Val((:in, :out)))
+        @test nv(model) == 2 && label_for(model.graph, 2).name == sum
 
         # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
-        node_id = add_atomic_factor_node!(model, ctx, sum)
-        @test nv(model) == 3 && occursin("sum", String(label_for(model.graph, 3).name))
+        node_id = add_atomic_factor_node!(model, ctx, sum, Val((:in, :out)))
+        @test nv(model) == 3 && label_for(model.graph, 3).name == sum
 
-        # Test 3: Add an atomic factor node with an illegal name and assert it throws an error
-        @test_throws ErrorException add_atomic_factor_node!(model, ctx, 1)
-        @test_throws ErrorException add_atomic_factor_node!(
-            model,
-            ctx,
-            1;
-            options = Dict(:name => 1),
-        )
-
-        # Test 4: Add an atomic factor node with options
+        # Test 3: Add an atomic factor node with options
         node_id = add_atomic_factor_node!(
             model,
             ctx,
-            :sum;
+            sum,
+            Val((:in, :out));
             options = Dict(:isconstrained => true),
         )
         @test options(model[node_id]) == Dict(:isconstrained => true)
+
+
+        #Test 4: Make sure alias is added
+        node_id = add_atomic_factor_node!(
+            model,
+            ctx,
+            +,
+            Val((:in, :out));
+            options = Dict(:isconstrained => true),
+        )
+        @test node_id.name == sum
+
+        function NormalMeanVariance end
+        function Normal end
+        GraphPPL.factor_alias(::typeof(Normal), ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
+
+        node_id = add_atomic_factor_node!(
+            model,
+            ctx,
+            Normal,
+            Val((:out, :μ, :σ));
+            options = Dict(:isconstrained => true),
+        )
+        @test node_id.name == NormalMeanVariance
+
     end
 
     @testset "add_composite_factor_node!" begin
@@ -668,7 +685,8 @@ using TestSetExtensions
         variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
         add_edge!(model, y, variable_nodes, :interface)
 
-        @test ne(model) == 3
+        @test ne(model) == 3 &&
+              model.graph[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
     end
 
 
@@ -805,7 +823,39 @@ using TestSetExtensions
             options = nothing,
             debug = false,
         )
-        @test nv(model) == 11 && ne(model) == 10
+        @test nv(model) == 11 &&
+              ne(model) == 10 &&
+              model[x[3, 3], GraphPPL.NodeLabel(sum, 11)] == EdgeLabel(:in, 9)
+
+
+        # Test 8: Add node with aliased statement as input
+
+        function NormalMeanVariance end
+        function Normal end
+        GraphPPL.factor_alias(::typeof(Normal), ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
+
+
+        model = create_model()
+        ctx = context(model)
+        μ = getorcreate!(model, ctx, :μ, nothing)
+        σ = getorcreate!(model, ctx, :σ, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
+        make_node!(
+            model,
+            context(model),
+            Normal,
+            (
+                out = getifcreated(model, context(model), y),
+                μ = getifcreated(model, context(model), μ),
+                σ = getifcreated(model, context(model), σ),
+            );
+            options = nothing,
+            debug = false,
+        )
+        @test nv(model) == 4 &&
+              ne(model) == 3 &&
+              label_for(model.graph, 4).name == NormalMeanVariance
+
     end
 
     @testset "make_node_from_object" begin

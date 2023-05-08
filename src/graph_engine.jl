@@ -24,7 +24,6 @@ the index of the variable.
 struct NodeLabel
     name::Any
     index::Int64
-
 end
 
 name(label::NodeLabel) = label.name
@@ -47,10 +46,13 @@ options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
+    index::Val
 end
+EdgeLabel(name::Symbol, index::Int64) = EdgeLabel(name, Val(index))
 
 
-"""
+
+""" 
     Model(graph::MetaGraph)
 
 A structure representing a probabilistic graphical model. It contains a `MetaGraph` object
@@ -70,6 +72,8 @@ Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) =
     Base.setindex!(model.graph, val, src, dst)
 Base.getindex(model::Model) = Base.getindex(model.graph)
 Base.getindex(model::Model, key::NodeLabel) = Base.getindex(model.graph, key)
+Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
+    Base.getindex(model.graph, src, dst)
 
 
 function Base.getproperty(val::Model, p::Symbol)
@@ -109,7 +113,7 @@ Arguments:
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function generate_nodelabel(model::Model, name::Symbol)
+function generate_nodelabel(model::Model, name)
     increase_count(model)
     return NodeLabel(name, model.counter)
 end
@@ -394,7 +398,6 @@ Args:
     - `context::Context`: The context to which the symbol is added.
     - `variable_id::Symbol`: The ID of the variable.
     - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
-    - `value::Union{Nothing, Any} = nothing`: The value of the variable.
     - `options::Dict{Symbol, Any} = nothing`: The options to attach to the NodeData of the variable node.
 
 Returns:
@@ -417,13 +420,12 @@ end
 Add an atomic factor node to the model with the given name.
 
 The function generates a new symbol for the node and adds it to the model with
-the generated symbol as the key and a `NodeData` struct with `is_variable` set to
-`false` and `node_name` set to the given name.
+the generated symbol as the key and a `FactorNodeData` struct.
 
 Args:
     - `model::Model`: The model to which the node is added.
     - `context::Context`: The context to which the symbol is added.
-    - `node_name::Symbol`: The name of the node.
+    - `node_name::Any`: The name of the node.
 
 Returns:
     - The generated symbol for the node.
@@ -431,26 +433,22 @@ Returns:
 function add_atomic_factor_node!(
     model::Model,
     context::Context,
-    node_name;
+    node_name,
+    interfaces;
     options = nothing,
 )
-    node_id = generate_nodelabel(model, Symbol(node_name))
-    model[node_id] = FactorNodeData(node_name, options)
+    node_fform = factor_alias(node_name, interfaces)
+    node_id = generate_nodelabel(model, node_fform)
+    model[node_id] = FactorNodeData(node_fform, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
-add_atomic_factor_node!(
-    model::Model,
-    context::Context,
-    node_name::Real;
-    options = nothing,
-) = error("Cannot create factor node with Real argument")
-
-factor_alias(::typeof(+)) = sum
-factor_alias(::typeof(-)) = minus
-factor_alias(::typeof(*)) = prod
-factor_alias(::typeof(/)) = div
+factor_alias(any, interfaces) = any
+factor_alias(::typeof(+), interfaces) = sum
+factor_alias(::typeof(-), interfaces) = sub
+factor_alias(::typeof(*), interfaces) = prod
+factor_alias(::typeof(/), interfaces) = div
 
 """
 Add a composite factor node to the model with the given name.
@@ -488,31 +486,30 @@ add_composite_factor_node!(
 
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
-
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_node_id::NodeLabel,
-    interface_name::Symbol,
+    interface_name::Symbol;
+    index = 1,
 )
-    model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name)
+    model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
 end
 
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_nodes::Union{AbstractArray{NodeLabel},Tuple,NamedTuple},
-    interface_name::Symbol,
+    interface_name::Symbol;
+    index = 1,
 )
-    for (i, variable_node) in enumerate(variable_nodes)
-        add_edge!(
-            model,
-            factor_node_id,
-            variable_node,
-            Symbol(String(interface_name) * "_" * string(i)),
-        )
+    for variable_node in variable_nodes
+        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
+        index += increase_index(variable_node)
     end
 end
+increase_index(any) = 1
+increase_index(x::AbstractArray) = length(x)
 
 function make_node!(
     model::Model,
@@ -523,7 +520,14 @@ function make_node!(
     options = nothing,
     debug = false,
 )
-    factor_node_id = add_atomic_factor_node!(model, context, node_name; options = options)
+    interface_keys = Val(keys(interfaces))
+    factor_node_id = add_atomic_factor_node!(
+        model,
+        context,
+        node_name,
+        interface_keys;
+        options = options,
+    )
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
     end
