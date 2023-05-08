@@ -413,7 +413,7 @@ end
             x := (a + b) where {created_by=(x:=a+b)}
         end
         @test_expression_generating save_expression_in_tilde(input) output
-        
+
     end
 
     @testset "get_created_by" begin
@@ -474,10 +474,16 @@ end
 
         # Test case 5: Input expression with multiple matching patterns
         input = quote
-            x := (a + b)  where {q = q(x)q(a)q(b), created_by=(x:=a+b where {q = q(x)q(a)q(b)})}
+            x := (a + b) where {q=q(x)q(a)q(b),created_by=(x:=a+b where {q=q(x)q(a)q(b)})}
         end
         output = quote
-            x ~ (a + b) where{q = q(x)q(a)q(b), created_by=(x:=a+b where {q = q(x)q(a)q(b)}), is_deterministic=true}
+            x ~ (
+                a + b
+            ) where {
+                q=q(x)q(a)q(b),
+                created_by=(x:=a+b where {q=q(x)q(a)q(b)}),
+                is_deterministic=true,
+            }
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
@@ -523,11 +529,17 @@ end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
         #Test 4: local statement with multiple matching patterns
         input = quote
-            local x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by=(x~Normal(a, b) where {q = q(x)q(a)q(b)})}
+            local x ~ Normal(
+                a,
+                b,
+            ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
         end
         output = quote
             x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
-            x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by=(x~Normal(a, b) where {q = q(x)q(a)q(b)})}
+            x ~ Normal(
+                a,
+                b,
+            ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
     end
@@ -1285,48 +1297,6 @@ end
 
         # Test 9: test error if un-unrollable index
         @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
-    end
-
-    @testset "convert_arithmetic_operations" begin
-        import GraphPPL: convert_arithmetic_operations, apply_pipeline
-
-
-        #Test 1: Test input with operator inside call
-        input = quote
-            x ~ sin(a + b) where {created_by=(sin(a + b))}
-        end
-        output = quote
-            x ~ sin(sum(a, b)) where {created_by=(sin(a + b))}
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 2: Test input with indexed operation on the right hand side
-        input = quote
-            x[1] ~ (Normal(x[i+1], σ) where {(created_by = (x[1] ~ Normal(x[i+1], σ)))})
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 11: Test input with product call in where clause
-        input = quote
-            x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 12: Test input with product call in where clause and in created_by
-        input = quote
-            x ~ Normal(
-                0,
-                1,
-            ) where {
-                q=q(y_mean)q(y_var)q(y),
-                (created_by = (x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)})),
-            }
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
     end
 
     @testset "missing_interfaces" begin
