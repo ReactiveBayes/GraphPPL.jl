@@ -303,7 +303,9 @@ end
 check_variate_compatability(
     node::ResizableArray{NodeLabel,V,N},
     index::Nothing,
-) where {V,N} = error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
+) where {V,N} = error(
+    "Cannot call vector of random variables on the left-hand-side by an unindexed statement",
+)
 
 
 """

@@ -6,6 +6,12 @@ using Graphs
 using TestSetExtensions
 using MacroTools
 
+macro test_expression_generating(lhs, rhs)
+    return esc(quote
+        @test prettify($lhs) == prettify($rhs)
+    end)
+end
+
 
 @testset ExtendedTestSet "model_macro" begin
 

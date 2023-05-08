@@ -1,11 +1,7 @@
-export @model, @test_expression_generating
+export @model
 import MacroTools: postwalk, @capture, walk
 
-macro test_expression_generating(lhs, rhs)
-    return esc(quote
-        @test prettify($lhs) == prettify($rhs)
-    end)
-end
+
 
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
