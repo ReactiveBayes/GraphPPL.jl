@@ -300,10 +300,10 @@ function check_variate_compatability(
     return isassigned(node, index...)
 end
 
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} = error("Krijg de tyfus")
-# check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
-#     "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
-# )
+check_variate_compatability(
+    node::ResizableArray{NodeLabel,V,N},
+    index::Nothing,
+) where {V,N} = error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
 
 
 """

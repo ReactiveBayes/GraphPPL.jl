@@ -286,6 +286,19 @@ what_walk(::typeof(convert_arithmetic_operations)) = guarded_walk(
     (x) -> ((x isa Expr && x.head == :ref)) || (x isa Expr && x.head == :where),
 )
 
+function apply_pipeline(e::Expr, pipeline::typeof(convert_arithmetic_operations))
+    outer_walk = walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+    inner_walk = what_walk(pipeline)
+    return outer_walk(e) do expr
+        if @capture(expr, lhs_ ~ rhs_ where {options__})
+            rhs = inner_walk(x -> __guard_f(pipeline, x), rhs)
+            return :($lhs ~ $rhs where {$(options...)})
+        else
+            return expr
+        end
+    end
+end
+
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """

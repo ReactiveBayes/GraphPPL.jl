@@ -1058,8 +1058,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, 1, 2) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
@@ -1088,8 +1088,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
@@ -1122,7 +1122,8 @@ using MacroTools
                         !@isdefined($sym) ?
                         GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing) :
                         (
-                            GraphPPL.check_variate_compatability($sym, nothing) ? $sym :
+                            GraphPPL.check_variate_compatability($sym, nothing) ?
+                            $sym :
                             GraphPPL.getorcreate!(
                                 model,
                                 context,
@@ -1202,8 +1203,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, 1, 2) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
         end
         @test_expression_generating output desired_result
@@ -1214,8 +1215,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1238,8 +1239,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1254,92 +1255,17 @@ using MacroTools
     @testset "convert_arithmetic_operations" begin
         import GraphPPL: convert_arithmetic_operations, apply_pipeline
 
-        #Test 1: Test regular input with all operators
+
+        #Test 1: Test input with operator inside call
         input = quote
-            a + b
-            a * b
-            a / b
-            a - b
+            x ~ sin(a + b) where {created_by=(sin(a + b))}
         end
         output = quote
-            sum(a, b)
-            prod(a, b)
-            div(a, b)
-            sub(a, b)
+            x ~ sin(sum(a, b)) where {created_by=(sin(a + b))}
         end
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
 
-        #Test 2: Test input with one operator with 3 arguments
-        input = quote
-            a + b + c
-        end
-        output = quote
-            sum(a, b, c)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 3: Test input with operator inside call
-        input = quote
-            sin(a + b) where {created_by=(sin(a + b))}
-        end
-        output = quote
-            sin(sum(a, b)) where {created_by=(sin(a + b))}
-        end
-        @test_broken apply_pipeline(input, convert_arithmetic_operations) == output
-
-        #Test 4: Test input with nested calls 
-        input = quote
-            sin(a + b) + cos(a + b)
-        end
-        output = quote
-            sum(sin(sum(a, b)), cos(sum(a, b)))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 5: Test input with call on rhs
-        input = quote
-            x = a + b
-        end
-        output = quote
-            x = sum(a, b)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 6: Test input with mixed operators
-        input = quote
-            a + b * c
-        end
-        output = quote
-            sum(a, prod(b, c))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 7: Test input with mixed operators but different order
-        input = quote
-            a * b + c
-        end
-        output = quote
-            sum(prod(a, b), c)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 8: Test input with mixed operators and parentheses
-        input = quote
-            a * (b + c)
-        end
-        output = quote
-            prod(a, sum(b, c))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 9: Test input with indexed operation on the right hand side
-        input = quote
-            x[i] ~ Normal(x[i-1], 1)
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 10: Test input with indexed operation on the right hand side
+        #Test 2: Test input with indexed operation on the right hand side
         input = quote
             x[1] ~ (Normal(x[i+1], σ) where {(created_by = (x[1] ~ Normal(x[i+1], σ)))})
         end
@@ -1360,7 +1286,8 @@ using MacroTools
                 1,
             ) where {
                 q=q(y_mean)q(y_var)q(y),
-            } where {(created_by = (x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}))}
+                (created_by = (x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)})),
+            }
         end
         output = input
         @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output

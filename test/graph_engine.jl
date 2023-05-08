@@ -302,7 +302,10 @@ using TestSetExtensions
         # Test 3: Ensure that calling x another time gives us x benchmark
         x =
             !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) :
-            (check_variate_compatability(x,nothing ) ? x : getorcreate!(model, ctx, :x, nothing))
+            (
+                check_variate_compatability(x, nothing) ? x :
+                getorcreate!(model, ctx, :x, nothing)
+            )
         @test x == x2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         # Test 4: Test that creating a vector variable creates an array of the correct size
@@ -310,10 +313,7 @@ using TestSetExtensions
         ctx = context(model)
         y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) :
-            (
-                check_variate_compatability(y, 1) ? y :
-                getorcreate!(model, ctx, :y, [1])
-            )
+            (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, [1]))
         @test GraphPPL.nv(model) == 1 &&
               GraphPPL.ne(model) == 0 &&
               y isa ResizableArray &&
@@ -322,19 +322,13 @@ using TestSetExtensions
         # Test 5: Test that recreating the same variable changes nothing
         y2 =
             !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) :
-            (
-                check_variate_compatability(y2, 1) ? y :
-                getorcreate!(model, ctx, :y, [1])
-            )
+            (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, [1]))
         @test y == y2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         # Test 6: Test that adding a variable to this vector variable increases the size of the array
         y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) :
-            (
-                check_variate_compatability(y, 2) ? y :
-                getorcreate!(model, ctx, :y, [2])
-            )
+            (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, [2]))
         @test GraphPPL.nv(model) == 2 &&
               y[2] isa NodeLabel &&
               haskey(ctx.vector_variables, :y)
@@ -342,7 +336,10 @@ using TestSetExtensions
         # Test 7: Test that getting this variable without index does not work
         @test_throws ErrorException y =
             !@isdefined(y) ? getorcreate!(model, ctx, :y, nothing) :
-            (check_variate_compatability(y, nothing) ? y : getorcreate!(model, ctx, :y, nothing))
+            (
+                check_variate_compatability(y, nothing) ? y :
+                getorcreate!(model, ctx, :y, nothing)
+            )
 
         # Test 8: Test that getting this variable with an index that is too large does not work
         @test_throws ErrorException y =
@@ -394,10 +391,7 @@ using TestSetExtensions
         #Test 13: Test that getting this variable with an index that is too small does not work
         @test_throws ErrorException z =
             !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) :
-            (
-                check_variate_compatability(z, 1) ? z :
-                getorcreate!(model, ctx, :z, [1])
-            )
+            (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, [1]))
 
         #Test 14: Test that getting this variable with an index that is too large does not work
         @test_throws ErrorException z =
@@ -847,8 +841,7 @@ using TestSetExtensions
 
 
     @testset "create_vector_of_random_variables" begin
-        import GraphPPL:
-            create_model, getorcreatearray!, getorcreate!, getifcreated, make_node!
+        import GraphPPL: create_model, getorcreate!, getifcreated, make_node!
         model = create_model()
         ctx = context(model)
         local x
