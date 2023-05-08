@@ -270,26 +270,28 @@ end
     @testset "save_expression_in_tilde" begin
         import GraphPPL: save_expression_in_tilde, apply_pipeline
 
+        # Test 1: save expression in tilde
         input = :(x ~ Normal(0, 1))
         output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 2: save expression in tilde with multiple expressions
         input = quote
             x ~ Normal(0, 1)
             y ~ Normal(0, 1)
         end
-
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
-
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
+        # Test 3: save expression in tilde with broadcasted operation
         input = :(x .~ Normal(0, 1))
         output = :(x .~ Normal(0, 1) where {created_by=(x.~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 4: save expression in tilde with multiple broadcast expressions
         input = quote
             x .~ Normal(0, 1)
             y .~ Normal(0, 1)
@@ -302,11 +304,12 @@ end
 
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-
+        # Test 5: save expression in tilde with deterministic operation
         input = :(x := Normal(0, 1))
         output = :(x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 6: save expression in tilde with multiple deterministic expressions
         input = quote
             x := Normal(0, 1)
             y := Normal(0, 1)
@@ -319,12 +322,11 @@ end
 
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-
+        # Test 7: save expression in tilde with additional options
         input = quote
             x ~ Normal(0, 1) where {q=MeanField()}
             y ~ Normal(0, 1) where {q=MeanField()}
         end
-
         output = quote
             x ~ Normal(
                 0,
@@ -335,19 +337,14 @@ end
                 1,
             ) where {q=MeanField(),created_by=(y~Normal(0, 1) where {q=MeanField()})}
         end
-
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-        # Test with different variable names
+        # Test 8: with different variable names
         input = :(y ~ Normal(0, 1))
         output = :(y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
-        input = :(z ~ Normal(0, 1))
-        output = :(z ~ Normal(0, 1) where {created_by=(z~Normal(0, 1))})
-        @test save_expression_in_tilde(input) == output
-
-        # Test with different parameter options
+        # Test 9: with different parameter options
         input = :(x ~ Normal(0, 1) where {mu=2.0,sigma=0.5})
         output = :(
             x ~ Normal(
@@ -361,15 +358,17 @@ end
         )
         @test save_expression_in_tilde(input) == output
 
+        # Test 10: with different parameter options
         input = :(y ~ Normal(0, 1) where {mu=1.0})
         output =
             :(y ~ Normal(0, 1) where {mu=1.0,created_by=(y~Normal(0, 1) where {mu=1.0})})
         @test save_expression_in_tilde(input) == output
 
-        # Test with no parameter options
+        # Test 11: with no parameter options
         input = :(x ~ Normal(0, 1) where {})
         output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1) where {})})
 
+        # Test 12: check unmatching pattern
         input = quote
             for i = 1:10
                 println(i)
@@ -379,6 +378,7 @@ end
         end
         @test_expression_generating save_expression_in_tilde(input) input
 
+        # Test 13: check matching pattern in loop
         input = quote
             for i = 1:10
                 x[i] ~ Normal(0, 1)
@@ -392,17 +392,28 @@ end
         @test_expression_generating save_expression_in_tilde(input) input
 
 
+        # Test 14: check local statements
         input = quote
             local x ~ Normal(0, 1)
             local y ~ Normal(0, 1)
         end
 
         output = quote
-            local x ~ Normal(0, 1) where {created_by=(local x ~ Normal(0, 1))}
-            local y ~ Normal(0, 1) where {created_by=(local y ~ Normal(0, 1))}
+            local x ~ (Normal(0, 1)) where {created_by=(local x ~ Normal(0, 1))}
+            local y ~ (Normal(0, 1)) where {created_by=(local y ~ Normal(0, 1))}
         end
 
         @test_expression_generating save_expression_in_tilde(input) input
+
+        # Test 15: check arithmetic operations
+        input = quote
+            x := a + b
+        end
+        output = quote
+            x := (a + b) where {created_by=(x:=a+b)}
+        end
+        @test_expression_generating save_expression_in_tilde(input) output
+        
     end
 
     @testset "get_created_by" begin
@@ -454,11 +465,19 @@ end
             y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
             z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
         end
-        # Expected output: Modified expressions with added `is_deterministic = true` option
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y ~ Normal(0, 1) where {created_by=(y:=Normal(0, 1)),is_deterministic=true}
             z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
+
+        # Test case 5: Input expression with multiple matching patterns
+        input = quote
+            x := (a + b)  where {q = q(x)q(a)q(b), created_by=(x:=a+b where {q = q(x)q(a)q(b)})}
+        end
+        output = quote
+            x ~ (a + b) where{q = q(x)q(a)q(b), created_by=(x:=a+b where {q = q(x)q(a)q(b)}), is_deterministic=true}
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
@@ -499,6 +518,16 @@ end
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+        end
+
+        @test_expression_generating apply_pipeline(input, convert_local_statement) output
+        #Test 4: local statement with multiple matching patterns
+        input = quote
+            local x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by=(x~Normal(a, b) where {q = q(x)q(a)q(b)})}
+        end
+        output = quote
+            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
+            x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by=(x~Normal(a, b) where {q = q(x)q(a)q(b)})}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
     end
@@ -1677,7 +1706,6 @@ end
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-
 
     end
 

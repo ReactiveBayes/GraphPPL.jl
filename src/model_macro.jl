@@ -6,35 +6,6 @@ import MacroTools: postwalk, @capture, walk
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
 
-"""
-    apply_pipeline(e::Expr, pipeline)
-
-Apply a pipeline function to an expression.
-
-The `apply_pipeline` function takes an expression `e` and a `pipeline` function and applies the function in the pipeline to `e` when walking over it. The walk utilized can be specified by implementing `what_walk` for a pipeline funciton.
-
-# Arguments
-- `e::Expr`: An expression to apply the pipeline to.
-- `pipeline`: A function to apply to the expressions in `e`.
-
-# Returns
-The result of applying the pipeline function to `e`.
-"""
-function apply_pipeline(e::Expr, pipeline)
-    walk = what_walk(pipeline)
-    return walk(x -> __guard_f(pipeline, x), e)
-end
-
-function warn_datavar_constvar_randomvar(e::Expr)
-    if @capture(
-        e,
-        ((lhs_ = datavar(args__)) | (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__)))
-    )
-        @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-        return
-    end
-    return e
-end
 
 struct guarded_walk
     guard::Function
@@ -62,9 +33,58 @@ function (w::walk_until_occurrence{E})(f, x) where {E<:Expr}
     return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
 end
 
+find_where_block = walk_until_occurrence(:(lhs ~ rhs_ where {options__}))
 
 what_walk(anything) = postwalk
 
+struct ProcessWhereBlock end
+struct SkipWhereBlock end
+
+pipeline_form(any) = ProcessWhereBlock()
+
+"""
+    apply_pipeline(e::Expr, pipeline)
+
+Apply a pipeline function to an expression.
+
+The `apply_pipeline` function takes an expression `e` and a `pipeline` function and applies the function in the pipeline to `e` when walking over it. The walk utilized can be specified by implementing `what_walk` for a pipeline funciton.
+
+# Arguments
+- `e::Expr`: An expression to apply the pipeline to.
+- `pipeline`: A function to apply to the expressions in `e`.
+
+# Returns
+The result of applying the pipeline function to `e`.
+"""
+function apply_pipeline(e::Expr, ::ProcessWhereBlock, pipeline)
+    walk = what_walk(pipeline)
+    return walk(x -> __guard_f(pipeline, x), e)
+end
+
+function apply_pipeline(e::Expr, ::SkipWhereBlock, pipeline)
+    inner_walk = what_walk(pipeline)
+    return GraphPPL.find_where_block(e) do expr
+        if @capture(expr, lhs_ ~ rhs_ where {options__})
+            rhs = inner_walk(x -> __guard_f(pipeline, x), rhs)
+            return :($lhs ~ $rhs where {$(options...)})
+        else
+            return expr
+        end
+    end
+end
+
+apply_pipeline(e::Expr, pipeline) = apply_pipeline(e, pipeline_form(e), pipeline)
+
+function warn_datavar_constvar_randomvar(e::Expr)
+    if @capture(
+        e,
+        ((lhs_ = datavar(args__)) | (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__)))
+    )
+        @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
+        return
+    end
+    return e
+end
 
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
@@ -117,6 +137,8 @@ function convert_deterministic_statement(e::Expr)
         return e
     end
 end
+
+what_walk(::typeof(convert_deterministic_statement)) = walk_until_occurrence(:(lhs_ := rhs_ where {options__}))
 
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
