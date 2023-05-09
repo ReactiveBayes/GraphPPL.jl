@@ -22,29 +22,37 @@ a UInt8 representing the type of the variable, and an integer or tuple of intege
 the index of the variable.
 """
 struct NodeLabel
-    name::Symbol
+    name::Any
     index::Int64
-
 end
 
 name(label::NodeLabel) = label.name
 
-struct NodeData
-    is_variable::Bool
-    name::Any
-    value::Any
-    options::Union{Nothing,Dict}
+
+struct VariableNodeData
+    name::Symbol
+    options::Union{Nothing,Dict,NamedTuple}
 end
 
-value(node::NodeData) = node.value
+struct FactorNodeData
+    fform::Any
+    options::Union{Nothing,Dict,NamedTuple}
+end
+
+const NodeData = Union{FactorNodeData,VariableNodeData}
+
+value(node::VariableNodeData) = node.options[:value]
 options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
+    index::Val
 end
+EdgeLabel(name::Symbol, index::Int64) = EdgeLabel(name, Val(index))
 
 
-"""
+
+""" 
     Model(graph::MetaGraph)
 
 A structure representing a probabilistic graphical model. It contains a `MetaGraph` object
@@ -64,6 +72,8 @@ Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) =
     Base.setindex!(model.graph, val, src, dst)
 Base.getindex(model::Model) = Base.getindex(model.graph)
 Base.getindex(model::Model, key::NodeLabel) = Base.getindex(model.graph, key)
+Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
+    Base.getindex(model.graph, src, dst)
 
 
 function Base.getproperty(val::Model, p::Symbol)
@@ -86,6 +96,15 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
+Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
+MetaGraphsNext.neighbors(model::Model, node::NodeLabel) = label_for.((model.graph,), collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))))
+    
+
+function Graphs.edges(model::Model, node::NodeLabel)
+    neighbors = MetaGraphsNext.neighbors(model, node)
+    return [model.graph[node, neighbor] for neighbor in neighbors]
+end
+
 
 
 """
@@ -103,7 +122,7 @@ Arguments:
 Returns:
 A new `NodeLabel` object with a unique identifier.
 """
-function generate_nodelabel(model::Model, name::Symbol)
+function generate_nodelabel(model::Model, name)
     increase_count(model)
     return NodeLabel(name, model.counter)
 end
@@ -114,8 +133,7 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(id.name) * "_" * string(id.index))
-
+to_symbol(id::NodeLabel) = Symbol(String(Symbol(id.name)) * "_" * string(id.index))
 
 struct Context
     depth::Int64
@@ -300,10 +318,12 @@ function check_variate_compatability(
     return isassigned(node, index...)
 end
 
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} = error("Krijg de tyfus")
-# check_variate_compatability(node::ResizableArray{NodeLabel,V,N}, var) where {V,N} = error(
-#     "Cannot call $N-dimensional vector of random variables on the left-hand-side by a single symbol",
-# )
+check_variate_compatability(
+    node::ResizableArray{NodeLabel,V,N},
+    index::Nothing,
+) where {V,N} = error(
+    "Cannot call vector of random variables on the left-hand-side by an unindexed statement",
+)
 
 
 """
@@ -370,7 +390,7 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar); value = var)
+    add_variable_node!(model, context, gensym(model, :constvar); options = (value = var,))
 
 
 """
@@ -386,7 +406,6 @@ Args:
     - `context::Context`: The context to which the symbol is added.
     - `variable_id::Symbol`: The ID of the variable.
     - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
-    - `value::Union{Nothing, Any} = nothing`: The value of the variable.
     - `options::Dict{Symbol, Any} = nothing`: The options to attach to the NodeData of the variable node.
 
 Returns:
@@ -397,12 +416,11 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    value = nothing,
     options = nothing,
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = NodeData(true, variable_id, value, options)
+    model[variable_symbol] = VariableNodeData(variable_id, options)
     return variable_symbol
 end
 
@@ -410,13 +428,12 @@ end
 Add an atomic factor node to the model with the given name.
 
 The function generates a new symbol for the node and adds it to the model with
-the generated symbol as the key and a `NodeData` struct with `is_variable` set to
-`false` and `node_name` set to the given name.
+the generated symbol as the key and a `FactorNodeData` struct.
 
 Args:
     - `model::Model`: The model to which the node is added.
     - `context::Context`: The context to which the symbol is added.
-    - `node_name::Symbol`: The name of the node.
+    - `node_name::Any`: The name of the node.
 
 Returns:
     - The generated symbol for the node.
@@ -424,23 +441,22 @@ Returns:
 function add_atomic_factor_node!(
     model::Model,
     context::Context,
-    node_name::Symbol;
+    node_name,
+    interfaces;
     options = nothing,
 )
-    node_id = generate_nodelabel(model, Symbol(node_name))
-    model[node_id] = NodeData(false, node_name, nothing, options)
+    node_fform = factor_alias(node_name, interfaces)
+    node_id = generate_nodelabel(model, node_fform)
+    model[node_id] = FactorNodeData(node_fform, options)
     context.factor_nodes[node_id] = node_id
     return node_id
 end
 
-add_atomic_factor_node!(
-    model::Model,
-    context::Context,
-    node_name::Real;
-    options = nothing,
-) = error("Cannot create factor node with Real argument")
-add_atomic_factor_node!(model::Model, context::Context, node_name; options = nothing) =
-    add_atomic_factor_node!(model, context, Symbol(node_name); options = options)
+factor_alias(any, interfaces) = any
+factor_alias(::typeof(+), interfaces) = sum
+factor_alias(::typeof(-), interfaces) = sub
+factor_alias(::typeof(*), interfaces) = prod
+factor_alias(::typeof(/), interfaces) = div
 
 """
 Add a composite factor node to the model with the given name.
@@ -478,31 +494,30 @@ add_composite_factor_node!(
 
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
-
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_node_id::NodeLabel,
-    interface_name::Symbol,
+    interface_name::Symbol;
+    index = 1,
 )
-    model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name)
+    model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
 end
 
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_nodes::Union{AbstractArray{NodeLabel},Tuple,NamedTuple},
-    interface_name::Symbol,
+    interface_name::Symbol;
+    index = 1,
 )
-    for (i, variable_node) in enumerate(variable_nodes)
-        add_edge!(
-            model,
-            factor_node_id,
-            variable_node,
-            Symbol(String(interface_name) * "_" * string(i)),
-        )
+    for variable_node in variable_nodes
+        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
+        index += increase_index(variable_node)
     end
 end
+increase_index(any) = 1
+increase_index(x::AbstractArray) = length(x)
 
 function make_node!(
     model::Model,
@@ -513,7 +528,14 @@ function make_node!(
     options = nothing,
     debug = false,
 )
-    factor_node_id = add_atomic_factor_node!(model, context, node_name; options = options)
+    interface_keys = Val(keys(interfaces))
+    factor_node_id = add_atomic_factor_node!(
+        model,
+        context,
+        node_name,
+        interface_keys;
+        options = options,
+    )
     for (interface_name, variable_name) in iterator(interfaces)
         add_edge!(model, factor_node_id, variable_name, interface_name)
     end

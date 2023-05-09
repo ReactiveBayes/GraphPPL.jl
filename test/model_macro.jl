@@ -6,6 +6,12 @@ using Graphs
 using TestSetExtensions
 using MacroTools
 
+macro test_expression_generating(lhs, rhs)
+    return esc(quote
+        @test prettify($lhs) == prettify($rhs)
+    end)
+end
+
 
 @testset ExtendedTestSet "model_macro" begin
 
@@ -264,26 +270,28 @@ using MacroTools
     @testset "save_expression_in_tilde" begin
         import GraphPPL: save_expression_in_tilde, apply_pipeline
 
+        # Test 1: save expression in tilde
         input = :(x ~ Normal(0, 1))
         output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 2: save expression in tilde with multiple expressions
         input = quote
             x ~ Normal(0, 1)
             y ~ Normal(0, 1)
         end
-
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
-
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
+        # Test 3: save expression in tilde with broadcasted operation
         input = :(x .~ Normal(0, 1))
         output = :(x .~ Normal(0, 1) where {created_by=(x.~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 4: save expression in tilde with multiple broadcast expressions
         input = quote
             x .~ Normal(0, 1)
             y .~ Normal(0, 1)
@@ -296,11 +304,12 @@ using MacroTools
 
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-
+        # Test 5: save expression in tilde with deterministic operation
         input = :(x := Normal(0, 1))
         output = :(x := Normal(0, 1) where {created_by=(x:=Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
+        # Test 6: save expression in tilde with multiple deterministic expressions
         input = quote
             x := Normal(0, 1)
             y := Normal(0, 1)
@@ -313,12 +322,11 @@ using MacroTools
 
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-
+        # Test 7: save expression in tilde with additional options
         input = quote
             x ~ Normal(0, 1) where {q=MeanField()}
             y ~ Normal(0, 1) where {q=MeanField()}
         end
-
         output = quote
             x ~ Normal(
                 0,
@@ -329,19 +337,14 @@ using MacroTools
                 1,
             ) where {q=MeanField(),created_by=(y~Normal(0, 1) where {q=MeanField()})}
         end
-
         @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
-        # Test with different variable names
+        # Test 8: with different variable names
         input = :(y ~ Normal(0, 1))
         output = :(y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))})
         @test save_expression_in_tilde(input) == output
 
-        input = :(z ~ Normal(0, 1))
-        output = :(z ~ Normal(0, 1) where {created_by=(z~Normal(0, 1))})
-        @test save_expression_in_tilde(input) == output
-
-        # Test with different parameter options
+        # Test 9: with different parameter options
         input = :(x ~ Normal(0, 1) where {mu=2.0,sigma=0.5})
         output = :(
             x ~ Normal(
@@ -355,15 +358,17 @@ using MacroTools
         )
         @test save_expression_in_tilde(input) == output
 
+        # Test 10: with different parameter options
         input = :(y ~ Normal(0, 1) where {mu=1.0})
         output =
             :(y ~ Normal(0, 1) where {mu=1.0,created_by=(y~Normal(0, 1) where {mu=1.0})})
         @test save_expression_in_tilde(input) == output
 
-        # Test with no parameter options
+        # Test 11: with no parameter options
         input = :(x ~ Normal(0, 1) where {})
         output = :(x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1) where {})})
 
+        # Test 12: check unmatching pattern
         input = quote
             for i = 1:10
                 println(i)
@@ -373,6 +378,7 @@ using MacroTools
         end
         @test_expression_generating save_expression_in_tilde(input) input
 
+        # Test 13: check matching pattern in loop
         input = quote
             for i = 1:10
                 x[i] ~ Normal(0, 1)
@@ -386,17 +392,28 @@ using MacroTools
         @test_expression_generating save_expression_in_tilde(input) input
 
 
+        # Test 14: check local statements
         input = quote
             local x ~ Normal(0, 1)
             local y ~ Normal(0, 1)
         end
 
         output = quote
-            local x ~ Normal(0, 1) where {created_by=(local x ~ Normal(0, 1))}
-            local y ~ Normal(0, 1) where {created_by=(local y ~ Normal(0, 1))}
+            local x ~ (Normal(0, 1)) where {created_by=(local x ~ Normal(0, 1))}
+            local y ~ (Normal(0, 1)) where {created_by=(local y ~ Normal(0, 1))}
         end
 
         @test_expression_generating save_expression_in_tilde(input) input
+
+        # Test 15: check arithmetic operations
+        input = quote
+            x := a + b
+        end
+        output = quote
+            x := (a + b) where {created_by=(x:=a+b)}
+        end
+        @test_expression_generating save_expression_in_tilde(input) output
+
     end
 
     @testset "get_created_by" begin
@@ -448,11 +465,25 @@ using MacroTools
             y := Normal(0, 1) where {created_by=(y:=Normal(0, 1))}
             z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
         end
-        # Expected output: Modified expressions with added `is_deterministic = true` option
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y ~ Normal(0, 1) where {created_by=(y:=Normal(0, 1)),is_deterministic=true}
             z ~ Bernoulli(0.5) where {created_by=(z:=Bernoulli(0.5))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
+
+        # Test case 5: Input expression with multiple matching patterns
+        input = quote
+            x := (a + b) where {q=q(x)q(a)q(b),created_by=(x:=a+b where {q=q(x)q(a)q(b)})}
+        end
+        output = quote
+            x ~ (
+                a + b
+            ) where {
+                q=q(x)q(a)q(b),
+                created_by=(x:=a+b where {q=q(x)q(a)q(b)}),
+                is_deterministic=true,
+            }
         end
         @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
@@ -493,6 +524,22 @@ using MacroTools
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
             y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
+        end
+
+        @test_expression_generating apply_pipeline(input, convert_local_statement) output
+        #Test 4: local statement with multiple matching patterns
+        input = quote
+            local x ~ Normal(
+                a,
+                b,
+            ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
+        end
+        output = quote
+            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
+            x ~ Normal(
+                a,
+                b,
+            ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
     end
@@ -1058,8 +1105,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, 1, 2) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
@@ -1088,8 +1135,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
@@ -1122,7 +1169,8 @@ using MacroTools
                         !@isdefined($sym) ?
                         GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing) :
                         (
-                            GraphPPL.check_variate_compatability($sym, nothing) ? $sym :
+                            GraphPPL.check_variate_compatability($sym, nothing) ?
+                            $sym :
                             GraphPPL.getorcreate!(
                                 model,
                                 context,
@@ -1202,8 +1250,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
                 (
-                    GraphPPL.check_variate_compatability(x, 1, 2) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.check_variate_compatability(x, 1, 2) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
                 )
         end
         @test_expression_generating output desired_result
@@ -1214,8 +1262,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1238,8 +1286,8 @@ using MacroTools
             x =
                 !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
                 (
-                    GraphPPL.check_variate_compatability(x, i, j) ?
-                    x : GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.check_variate_compatability(x, i, j) ? x :
+                    GraphPPL.getorcreate!(model, context, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1249,122 +1297,6 @@ using MacroTools
 
         # Test 9: test error if un-unrollable index
         @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
-    end
-
-    @testset "convert_arithmetic_operations" begin
-        import GraphPPL: convert_arithmetic_operations, apply_pipeline
-
-        #Test 1: Test regular input with all operators
-        input = quote
-            a + b
-            a * b
-            a / b
-            a - b
-        end
-        output = quote
-            sum(a, b)
-            prod(a, b)
-            div(a, b)
-            sub(a, b)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 2: Test input with one operator with 3 arguments
-        input = quote
-            a + b + c
-        end
-        output = quote
-            sum(a, b, c)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 3: Test input with operator inside call
-        input = quote
-            sin(a + b) where {created_by=(sin(a + b))}
-        end
-        output = quote
-            sin(sum(a, b)) where {created_by=(sin(a + b))}
-        end
-        @test_broken apply_pipeline(input, convert_arithmetic_operations) == output
-
-        #Test 4: Test input with nested calls 
-        input = quote
-            sin(a + b) + cos(a + b)
-        end
-        output = quote
-            sum(sin(sum(a, b)), cos(sum(a, b)))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 5: Test input with call on rhs
-        input = quote
-            x = a + b
-        end
-        output = quote
-            x = sum(a, b)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 6: Test input with mixed operators
-        input = quote
-            a + b * c
-        end
-        output = quote
-            sum(a, prod(b, c))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 7: Test input with mixed operators but different order
-        input = quote
-            a * b + c
-        end
-        output = quote
-            sum(prod(a, b), c)
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 8: Test input with mixed operators and parentheses
-        input = quote
-            a * (b + c)
-        end
-        output = quote
-            prod(a, sum(b, c))
-        end
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 9: Test input with indexed operation on the right hand side
-        input = quote
-            x[i] ~ Normal(x[i-1], 1)
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 10: Test input with indexed operation on the right hand side
-        input = quote
-            x[1] ~ (Normal(x[i+1], σ) where {(created_by = (x[1] ~ Normal(x[i+1], σ)))})
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 11: Test input with product call in where clause
-        input = quote
-            x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
-        #Test 12: Test input with product call in where clause and in created_by
-        input = quote
-            x ~ Normal(
-                0,
-                1,
-            ) where {
-                q=q(y_mean)q(y_var)q(y),
-            } where {(created_by = (x ~ Normal(0, 1) where {q=q(y_mean)q(y_var)q(y)}))}
-        end
-        output = input
-        @test_expression_generating apply_pipeline(input, convert_arithmetic_operations) output
-
     end
 
     @testset "missing_interfaces" begin
@@ -1744,7 +1676,6 @@ using MacroTools
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
-
 
     end
 

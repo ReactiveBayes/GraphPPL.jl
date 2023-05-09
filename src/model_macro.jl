@@ -1,14 +1,41 @@
-export @model, @test_expression_generating
+export @model
 import MacroTools: postwalk, @capture, walk
 
-macro test_expression_generating(lhs, rhs)
-    return esc(quote
-        @test prettify($lhs) == prettify($rhs)
-    end)
-end
+
 
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
+
+
+struct guarded_walk
+    guard::Function
+end
+
+function (w::guarded_walk)(f, x)
+    return w.guard(x) ? x : walk(x, x -> w(f, x), f)
+end
+
+struct walk_until_occurrence{E}
+    patterns::E
+end
+
+not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref))
+
+function (w::walk_until_occurrence{E})(f, x) where {E<:Tuple}
+    return walk(
+        x,
+        z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z),
+        f,
+    )
+end
+
+function (w::walk_until_occurrence{E})(f, x) where {E<:Expr}
+    return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
+end
+
+find_where_block = walk_until_occurrence(:(lhs ~ rhs_ where {options__}))
+
+what_walk(anything) = postwalk
 
 """
     apply_pipeline(e::Expr, pipeline)
@@ -39,36 +66,6 @@ function warn_datavar_constvar_randomvar(e::Expr)
     end
     return e
 end
-
-struct guarded_walk
-    guard::Function
-end
-
-function (w::guarded_walk)(f, x)
-    return w.guard(x) ? x : walk(x, x -> w(f, x), f)
-end
-
-struct walk_until_occurrence{E}
-    patterns::E
-end
-
-not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref))
-
-function (w::walk_until_occurrence{E})(f, x) where {E<:Tuple}
-    return walk(
-        x,
-        z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z),
-        f,
-    )
-end
-
-function (w::walk_until_occurrence{E})(f, x) where {E<:Expr}
-    return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
-end
-
-
-what_walk(anything) = postwalk
-
 
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
@@ -121,6 +118,9 @@ function convert_deterministic_statement(e::Expr)
         return e
     end
 end
+
+what_walk(::typeof(convert_deterministic_statement)) =
+    walk_until_occurrence(:(lhs_ := rhs_ where {options__}))
 
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
@@ -258,33 +258,6 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     end
 end
 
-"""
-    convert_arithmetic_operations(e::Expr)
-
-Converts all arithmetic operations to a function call. For example, `x * y` is converted to `prod(x, y)`.
-"""
-function convert_arithmetic_operations(e::Expr)
-    if e.head == :call && e.args[1] == :*
-        return :(prod($(e.args[2:end]...)))
-    elseif e.head == :call && e.args[1] == :/
-        return :(div($(e.args[2:end]...)))
-    elseif e.head == :call && e.args[1] == :+
-        return :(sum($(e.args[2:end]...)))
-    elseif e.head == :call && e.args[1] == :-
-        return :(sub($(e.args[2:end]...)))
-    else
-        return e
-    end
-end
-
-"""
-    what_walk(::typeof(convert_arithmetic_operations))
-
-Guarded walk that makes sure that the arithmetic operations are never converted in indexed expressions (e.g. x[i + 1] is not converted to x[sum(i, 1)]. Any expressions in the `where` clause are also not converted.
-"""
-what_walk(::typeof(convert_arithmetic_operations)) = guarded_walk(
-    (x) -> ((x isa Expr && x.head == :ref)) || (x isa Expr && x.head == :where),
-)
 
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
@@ -660,7 +633,6 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
-    ms_body = apply_pipeline(ms_body, convert_arithmetic_operations)
     ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
