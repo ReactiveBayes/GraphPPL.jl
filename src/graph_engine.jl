@@ -97,8 +97,8 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-MetaGraphsNext.neighbors(model::Model, node::NodeLabel) =
-    [label_for(model.graph, neighbor) for neighbor in MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))]
+MetaGraphsNext.neighbors(model::Model, node::NodeLabel) = label_for.((model.graph,), collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))))
+    
 
 function Graphs.edges(model::Model, node::NodeLabel)
     neighbors = MetaGraphsNext.neighbors(model, node)
