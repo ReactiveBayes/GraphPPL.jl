@@ -97,8 +97,12 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-MetaGraphsNext.neighbors(model::Model, node::NodeLabel) = label_for.((model.graph,), collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))))
-    
+MetaGraphsNext.neighbors(model::Model, node::NodeLabel) =
+    label_for.(
+        (model.graph,),
+        collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))),
+    )
+
 
 function Graphs.edges(model::Model, node::NodeLabel)
     neighbors = MetaGraphsNext.neighbors(model, node)
@@ -231,6 +235,11 @@ struct Atomic <: NodeType end
 NodeType(::Type) = Atomic()
 NodeType(::Function) = Atomic()
 
+abstract type NodeBehaviour end
+struct Stochastic <: NodeBehaviour end
+struct Deterministic <: NodeBehaviour end
+
+is_stochastic(x) = Deterministic()
 
 """
 create_model()
@@ -519,89 +528,216 @@ end
 increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
-function make_node!(
-    model::Model,
-    ::Atomic,
-    context::Context,
-    node_name,
-    interfaces::NamedTuple;
-    options = nothing,
-    debug = false,
-)
-    interface_keys = Val(keys(interfaces))
-    factor_node_id = add_atomic_factor_node!(
-        model,
-        context,
-        node_name,
-        interface_keys;
-        options = options,
-    )
-    for (interface_name, variable_name) in iterator(interfaces)
-        add_edge!(model, factor_node_id, variable_name, interface_name)
-    end
-    return factor_node_id
+function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
+    missing_interface =
+        GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
+    @assert length(missing_interface) == 1
+    missing_interface = first(missing_interface)
+    return NamedTuple{(keys(rhs_interfaces)..., missing_interface)}((
+        values(rhs_interfaces)...,
+        lhs_interface,
+    ))
 end
 
+rhs_to_named_tuple(fform, rhs) = (in = rhs,)
 
+is_nodelabel(x) = false
+is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
+is_nodelabel(x::GraphPPL.NodeLabel) = true
+
+function contains_nodelabel(collection::AbstractArray)
+    if any(element -> is_nodelabel(element), collection)
+        return Val(true)
+    else
+        return Val(false)
+    end
+end
+
+function contains_nodelabel(collection::NamedTuple)
+    if any(element -> is_nodelabel(element), values(collection))
+        return Val(true)
+    else
+        return Val(false)
+    end
+end
+
+# Two-level dispatch for make_node!
+# First check if node is Composite or Atomic
 make_node!(
     model::Model,
-    parent_context::Context,
-    node_name,
-    interfaces::NamedTuple;
+    ctx::Context,
+    fform,
+    lhs_interface::NodeLabel,
+    rhs_interfaces;
     options = nothing,
-    debug = false,
+    debug = nothing,
 ) = make_node!(
-    model::Model,
-    NodeType(node_name),
-    parent_context::Context,
-    node_name,
-    interfaces;
+    NodeType(fform),
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
     options = options,
     debug = debug,
 )
 
-make_node_from_object!(
+make_node!(
     model::Model,
-    context::Context,
-    node::NodeLabel,
-    lhs,
-    options,
-    debug,
-    index...,
-) = node
-
-function make_node_from_object!(
-    model::Model,
-    context::Context,
-    distribution,
-    lhs,
-    options,
-    debug,
-    index...,
+    ctx::Context,
+    fform,
+    lhs_interface::NodeLabel,
+    rhs_interfaces::Nothing;
+    options = nothing,
+    debug = nothing,
+) = make_node!(
+    Val(true),
+    Atomic(),
+    Stochastic(),
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    NamedTuple{}();
+    options = options,
+    debug = debug,
 )
-    node_name = typeof(distribution)
-    interfaces = fieldnames(node_name)
-    values = [
-        GraphPPL.getifcreated(model, context, getfield(distribution, field)) for
-        field in interfaces
-    ]
-    interfaces = (interfaces..., :out)
-    if length(index) == 0
-        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, nothing)
-    else
-        new_interface_variable = GraphPPL.getorcreate!(model, context, lhs, index...)
+
+# If node is Atomic, check stochasticity
+make_node!(
+    ::Atomic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = nothing,
+    debug = nothing,
+) = make_node!(
+    Atomic(),
+    is_stochastic(fform),
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = options,
+    debug = debug,
+)
+#If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
+make_node!(
+    atomic::Atomic,
+    deterministic::Deterministic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = nothing,
+    debug = nothing,
+) = make_node!(
+    contains_nodelabel(rhs_interfaces),
+    atomic,
+    deterministic,
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = options,
+    debug = debug,
+)
+
+# If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
+make_node!(
+    ::Val{false},
+    ::Atomic,
+    ::Deterministic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = nothing,
+    debug = nothing,
+) = fform(rhs_interfaces...)
+
+# If a node is Stochastic, we always materialize.
+make_node!(
+    atomic::Atomic,
+    stochastic::Stochastic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = nothing,
+    debug = nothing,
+) = make_node!(
+    Val(true),
+    atomic,
+    stochastic,
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    options = options,
+    debug = debug,
+)
+
+# If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
+make_node!(
+    ::Val{true},
+    ::Atomic,
+    behaviour::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::AbstractArray;
+    options = nothing,
+    debug = nothing,
+) = make_node!(
+    Val(true),
+    Atomic(),
+    behaviour,
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    GraphPPL.rhs_to_named_tuple(fform, rhs_interfaces);
+    options = options,
+    debug = debug,
+)
+
+# If node has to be materialized and rhs_interfaces is a NamedTuple we actually create a node in the FFG. 
+function make_node!(
+    ::Val{true},
+    ::Atomic,
+    ::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::NamedTuple;
+    options = nothing,
+    debug = nothing,
+)
+    interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
+    interface_keys = Val(keys(interfaces))
+    node_id = add_atomic_factor_node!(model, ctx, fform, interface_keys; options = options)
+    for (interface_name, interface_value) in iterator(interfaces)
+        add_edge!(
+            model,
+            node_id,
+            GraphPPL.getifcreated(model, ctx, interface_value),
+            interface_name,
+        )
     end
-    values = (values..., new_interface_variable)
-    GraphPPL.make_node!(
-        model,
-        context,
-        node_name,
-        NamedTuple{interfaces}(values);
-        options = options,
-        debug = debug,
-    )
-    return new_interface_variable
+    return lhs_interface
 end
+
 
 function plot_graph(g::MetaGraph; name = "tmp.png")
     node_labels =

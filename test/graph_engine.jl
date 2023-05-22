@@ -114,7 +114,7 @@ using TestSetExtensions
         @test edges(model, NodeLabel(:a, 1)) == [EdgeLabel(:edge, 1), EdgeLabel(:edge, 2)]
         @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1)]
         @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2)]
-        
+
     end
 
     @testset "neighbors(::Model, ::NodeData)" begin
@@ -627,9 +627,12 @@ using TestSetExtensions
         )
         @test node_id.name == sum
 
-        function NormalMeanVariance end
-        function Normal end
-        GraphPPL.factor_alias(::typeof(Normal), ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
+        struct NormalMeanVariance end
+        struct Normal
+            μ::Number
+            σ::Number
+        end
+        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
 
         node_id = add_atomic_factor_node!(
             model,
@@ -640,6 +643,13 @@ using TestSetExtensions
         )
         @test node_id.name == NormalMeanVariance
 
+        # Test 5: Test that creating a node with an instantiated object is supported
+
+        model = create_model()
+        ctx = context(model)
+        prior = Normal(0, 1)
+        node_id = add_atomic_factor_node!(model, ctx, prior, Val((:out)))
+        @test GraphPPL.nv(model) == 1 && label_for(model.graph, 1).name == Normal(0, 1)
     end
 
     @testset "add_composite_factor_node!" begin
@@ -720,229 +730,108 @@ using TestSetExtensions
               model.graph[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
     end
 
+    @testset "rhs_to_named_tuple()" begin
+        import GraphPPL: rhs_to_named_tuple
 
-    @testset "make_node!(::Atomic)" begin
-        import GraphPPL: create_model, make_node!, plot_graph, getorcreate!, getifcreated, context
+        # Test 1: Add default arguments to Normal call
+        GraphPPL.rhs_to_named_tuple(::Type{Normal}, interface_values) =
+            NamedTuple{(:μ, :σ)}(interface_values)
+        @test rhs_to_named_tuple(Normal, [0, 1]) == (μ = 0, σ = 1)
 
-        # Test 1: Add a node with regular inputs
-
-        model = create_model()
-        ctx = context(model)
-        θ = getorcreate!(model, ctx, :x, nothing)
-        τ = getorcreate!(model, ctx, :y, nothing)
-        μ = getorcreate!(model, ctx, :w, nothing)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, ctx, θ),
-                in2 = getifcreated(model, ctx, τ),
-                out = getifcreated(model, ctx, μ),
-            );
-            options = Dict(:created_by => :(θ ~ sum(τ, μ))),
-            debug = false,
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        # Test 2: Add a node with inputs with different symbol names
-
-        model = create_model()
-        ctx = context(model)
-        f = sum
-        θ = getorcreate!(model, ctx, :x, nothing)
-        τ = getorcreate!(model, ctx, :y, nothing)
-        μ = getorcreate!(model, ctx, :w, nothing)
-        make_node!(
-            model,
-            context(model),
-            f,
-            (
-                in1 = getifcreated(model, context(model), θ),
-                in2 = getifcreated(model, context(model), τ),
-                out = getifcreated(model, context(model), μ),
-            );
-            options = Dict(:created_by => :(θ ~ sum(τ, μ))),
-            debug = false,
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        # Test 3: Add a node with inputs with no interfaces
-
-        model = create_model()
-        make_node!(
-            model,
-            context(model),
-            sum,
-            NamedTuple();
-            options = nothing,
-            debug = false,
-        )
-        @test nv(model) == 1
-
-        # Test 4: Add a node with constants as inputs
-
-        model = create_model()
-        z = getorcreate!(model, ctx, :z, nothing)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in1 = getifcreated(model, context(model), 1),
-                in2 = getifcreated(model, context(model), 2),
-                out = getifcreated(model, context(model), z),
-            );
-            options = nothing,
-            debug = false,
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        # Test 5: Add a node with a ResizableArray as input
-
-        model = create_model()
-        ctx = context(model)
-        x = getorcreate!(model, ctx, :x, 1)
-        x = getorcreate!(model, ctx, :x, 2)
-        y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(
-            model,
-            context(model),
-            sum,
-            (
-                in = getifcreated(model, context(model), x),
-                out = getifcreated(model, context(model), y),
-            );
-            options = nothing,
-            debug = false,
-        )
-        @test nv(model) == 4 && ne(model) == 3
-
-        # Test 6: Add a node with a large vector ResizableArray as input
-
-        model = create_model()
-        ctx = GraphPPL.context(model)
-        local x
-        for i = 1:10
-            x = getorcreate!(model, ctx, :x, i)
-        end
-        y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(
-            model,
-            ctx,
-            sum,
-            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y)),
-        )
-        @test nv(model) == 12 && ne(model) == 11
-
-        # Test 7: Add a node with a multidimensional ResizableArray as input
-
-        model = create_model()
-        ctx = GraphPPL.context(model)
-        local x
-        for i = 1:3
-            for j = 1:3
-                x = getorcreate!(model, ctx, :x, i, j)
-            end
-        end
-        y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(
-            model,
-            ctx,
-            sum,
-            (in = getifcreated(model, ctx, x), out = getifcreated(model, ctx, y));
-            options = nothing,
-            debug = false,
-        )
-        @test nv(model) == 11 &&
-              ne(model) == 10 &&
-              model[x[3, 3], GraphPPL.NodeLabel(sum, 11)] == EdgeLabel(:in, 9)
-
-
-        # Test 8: Add node with aliased statement as input
-
-        function NormalMeanVariance end
-        function Normal end
-        GraphPPL.factor_alias(::typeof(Normal), ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
-
-
-        model = create_model()
-        ctx = context(model)
-        μ = getorcreate!(model, ctx, :μ, nothing)
-        σ = getorcreate!(model, ctx, :σ, nothing)
-        y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(
-            model,
-            context(model),
-            Normal,
-            (
-                out = getifcreated(model, context(model), y),
-                μ = getifcreated(model, context(model), μ),
-                σ = getifcreated(model, context(model), σ),
-            );
-            options = nothing,
-            debug = false,
-        )
-        @test nv(model) == 4 &&
-              ne(model) == 3 &&
-              label_for(model.graph, 4).name == NormalMeanVariance
-
+        # Test 2: Add :in to function call that has default behaviour 
+        @test rhs_to_named_tuple(+, [1, 2]) == (in = [1, 2],)
     end
 
-    @testset "make_node_from_object" begin
-        import GraphPPL: create_model, getorcreate!, make_node_from_object!, context
-        struct Normal
-            μ::Real
-            σ::Real
-        end
+    @testset "make_node!(::Atomic)" begin
+        import GraphPPL: make_node!, create_model, getorcreate!
 
-        # Test 1: make_node_from_object with a variable node
-
+        # Test 1: Deterministic call returns result of deterministic function and does not create new node
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        y = make_node_from_object!(model, ctx, x, :y, nothing, false)
-        @test x == y && nv(model) == 1
+        @test make_node!(model, ctx, +, x, [1, 1]) == 2
+        @test make_node!(model, ctx, sin, x, [0]) == 0
+        @test GraphPPL.nv(model) == 1
 
-        # Test 2: make_node_from_object with a distribution
+        # Test 2: Stochastic atomic call returns a new node
+        GraphPPL.is_stochastic(::Type{Normal}) = GraphPPL.Stochastic()
+        GraphPPL.interfaces(::Type{Normal}, ::Val{3}) = (:out, :μ, :σ)
+        node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
+        @test GraphPPL.nv(model) == 4
+        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
+              GraphPPL.EdgeLabel[
+            GraphPPL.EdgeLabel(:out, Val(1)),
+            GraphPPL.EdgeLabel(:μ, Val(1)),
+            GraphPPL.EdgeLabel(:σ, Val(1)),
+        ]
 
+        # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
         ctx = context(model)
-        x = Normal(0, 1)
-        y = make_node_from_object!(model, ctx, x, :y, nothing, false)
-        @test nv(model) == 4 && y isa NodeLabel
+        x = getorcreate!(model, ctx, :x, nothing)
+        make_node!(model, ctx, Normal, x, [0, 1])
 
-        # Test 3: make_node_from_object with options
-
+        # Test 4: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
         ctx = context(model)
-        x = Normal(0, 1)
-        y = make_node_from_object!(model, ctx, x, :y, Dict(:created_by => :(y := x)), true)
-        @test nv(model) == 4 &&
-              y isa NodeLabel &&
-              options(model[label_for(model.graph, 4)]) == Dict(:created_by => :(y := x))
+        in1 = getorcreate!(model, ctx, :in1, nothing)
+        in2 = getorcreate!(model, ctx, :in2, nothing)
+        out = getorcreate!(model, ctx, :out, nothing)
+        make_node!(model, ctx, +, out, [in1, in2])
+        @test GraphPPL.nv(model) == 4
+
+        # Test 5: Deterministic atomic call with nodelabels should create the actual node
+        model = create_model()
+        ctx = context(model)
+        in1 = getorcreate!(model, ctx, :in1, nothing)
+        in2 = getorcreate!(model, ctx, :in2, nothing)
+        out = getorcreate!(model, ctx, :out, nothing)
+        make_node!(model, ctx, +, out, (in=[in1, in2], ))
+        @test GraphPPL.nv(model) == 4
+
+        # Test 6: Stochastic node with default arguments
+        GraphPPL.rhs_to_named_tuple(::Type{Normal}, interface_values) =
+            NamedTuple{(:μ, :σ)}(interface_values)
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        node_id = make_node!(model, ctx, Normal, x, [0, 1])
+        @test GraphPPL.nv(model) == 4
+        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
+              GraphPPL.EdgeLabel[
+            GraphPPL.EdgeLabel(:out, Val(1)),
+            GraphPPL.EdgeLabel(:μ, Val(1)),
+            GraphPPL.EdgeLabel(:σ, Val(1)),
+        ]
+
+        # Test 7: Stochastic node with instantiated object
+        model = create_model()
+        ctx = context(model)
+        prior = Normal(0, 1)
+        x = getorcreate!(model, ctx, :x, nothing)
+        node_id = make_node!(model, ctx, prior, x, nothing)
+        @test GraphPPL.nv(model) == 2
+
+        # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined
+        model = create_model()
+        ctx = context(model)
+        in1 = getorcreate!(model, ctx, :in1, nothing)
+        in2 = getorcreate!(model, ctx, :in2, nothing)
+        out = getorcreate!(model, ctx, :out, nothing)
+        @test_throws AssertionError make_node!(model, ctx, +, out, (in=in1, out=in2))
+
+        # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined
+        model = create_model()
+        ctx = context(model)
+        struct ArbitraryNode end
+        GraphPPL.is_stochastic(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
+        out = getorcreate!(model, ctx, :out, nothing)
+        make_node!(model, ctx, ArbitraryNode, out, (in=[0, 1],))
+        @test GraphPPL.nv(model) == 3
+
     end
 
 
-    @testset "create_vector_of_random_variables" begin
-        import GraphPPL: create_model, getorcreate!, getifcreated, make_node!
-        model = create_model()
-        ctx = context(model)
-        local x
-        for i = 1:10
-            x = getorcreate!(model, ctx, :x, i)
-            interfaces_tuple = (
-                in = getifcreated(model, ctx, (0, 1)),
-                out = getifcreated(model, ctx, x[i]),
-            )
-            make_node!(model, ctx, sum, interfaces_tuple)
-        end
-        @test size(x) == (10,)
-        for i = 1:10
-            @test x[i] isa NodeLabel
-        end
-
-    end
 end
 
 end

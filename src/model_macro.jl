@@ -262,7 +262,8 @@ end
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
-function interfaces end
+interfaces(any_f, ::Val{1}) = (:out,)
+interfaces(any_f, any_val) = (:out, :in)
 
 """
     missing_interfaces(node_type, val, known_interfaces)
