@@ -70,22 +70,22 @@ end
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs ~ $rhs where {$(options...),created_by=$e})
+        return :(local $lhs ~ $rhs where {$(options...),created_by=$(prettify(e))})
     elseif @capture(e, (local lhs_ .~ rhs_ where {options__}) | (local lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs .~ $rhs where {$(options...),created_by=$e})
+        return :(local $lhs .~ $rhs where {$(options...),created_by=$(prettify(e))})
     elseif @capture(e, (local lhs_ := rhs_ where {options__}) | (local lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs := $rhs where {$(options...),created_by=$e})
+        return :(local $lhs := $rhs where {$(options...),created_by=$(prettify(e))})
     elseif @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs ~ $rhs where {$(options...),created_by=$e})
+        return :($lhs ~ $rhs where {$(options...),created_by=$(prettify(e))})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs .~ $rhs where {$(options...),created_by=$e})
+        return :($lhs .~ $rhs where {$(options...),created_by=$(prettify(e))})
     elseif @capture(e, (lhs_ := rhs_ where {options__}) | (lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :($lhs := $rhs where {$(options...),created_by=$e})
+        return :($lhs := $rhs where {$(options...),created_by=$(prettify(e))})
     else
         return e
     end
@@ -283,7 +283,7 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     return nothing
 end
 
-combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) = length(args) == 0 ? :(NamedTuple{}()) : Expr(:vect, args...)
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
     [args..., keyword_expressions_to_named_tuple(kwargs)]
