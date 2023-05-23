@@ -816,7 +816,6 @@ end
         output = quote
             begin
                 $anon ~ Normal(0, 1) where {anonymous=true,created_by=x~Normal(0, 1)}
-                $anon
             end
         end
         @test_expression_generating convert_to_anonymous(input, created_by) output
@@ -853,7 +852,6 @@ end
                         0,
                         1,
                     ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
-                    $sym
                 end,
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
@@ -887,7 +885,6 @@ end
                         anonymous=true,
                         created_by=x~Normal(; μ = Normal(0, 1), σ = 1),
                     }
-                    $sym
                 end,
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
@@ -922,7 +919,7 @@ end
                         anonymous=true,
                         created_by=x~Normal(Normal(0, 1), Normal(0, 1)),
                     }
-                    $sym1
+
                 end,
                 begin
                     $sym2 ~ Normal(
@@ -932,7 +929,7 @@ end
                         anonymous=true,
                         created_by=x~Normal(Normal(0, 1), Normal(0, 1)),
                     }
-                    $sym2
+
                 end,
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
@@ -957,7 +954,7 @@ end
                         anonymous=true,
                         created_by=x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)),
                     }
-                    $sym1
+
                 end,
                 σ = begin
                     $sym2 ~ Normal(
@@ -967,7 +964,7 @@ end
                         anonymous=true,
                         created_by=x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)),
                     }
-                    $sym2
+
                 end,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
@@ -994,14 +991,13 @@ end
                                 anonymous=true,
                                 created_by=x~Normal(Normal(Normal(0, 1), 1), 1),
                             }
-                            $sym2
                         end,
                         1,
                     ) where {
                         anonymous=true,
                         created_by=x~Normal(Normal(Normal(0, 1), 1), 1),
                     }
-                    $sym1
+
                 end,
                 1,
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
@@ -1036,7 +1032,6 @@ end
                                     1,
                                 ) where {q=MeanField()},
                             }
-                            $sym2
                         end,
                         1,
                     ) where {
@@ -1046,7 +1041,6 @@ end
                             1,
                         ) where {q=MeanField()},
                     }
-                    $sym1
                 end,
                 1,
             ) where {
@@ -1151,7 +1145,6 @@ end
                         0,
                         1,
                     ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
-                    $sym
                 end,
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
@@ -1182,7 +1175,6 @@ end
                         0,
                         1,
                     ) where {anonymous=true,created_by=x~Normal(Normal(0, 1), 1)}
-                    $sym
                 end,
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
@@ -1324,94 +1316,30 @@ end
         @test missing_interfaces(bar, Val(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
     end
 
-    @testset "prepare_interfaces" begin
-        import GraphPPL: prepare_interfaces, interfaces
-
-        function dummy end
-
-        GraphPPL.NodeType(::typeof(dummy)) = GraphPPL.Composite()
-        GraphPPL.interfaces(::typeof(dummy), ::Val{2}) = (:a, :b)
-
-        # Test 1: Test regular input for composite node
-        lhs = :x
-        fform = dummy
-        rhs = (a = :y,)
-        @test prepare_interfaces(lhs, fform, rhs) == (a = :y, b = :x)
-
-        # Test 2: Test illegal input for composite node
-        @test_throws ErrorException prepare_interfaces(lhs, dummy, [:y])
-
-        # Test 3: Test regular input for atomic node
-        lhs = :x
-        fform = sum
-        rhs = [:y, :z]
-        @test prepare_interfaces(lhs, fform, rhs) == (in = :((y, z)), out = :x)
-
-        # Test 4: Test kwarg input for atomic node
-        lhs = :x
-        fform = sum
-        rhs = (a = :y, z = :z)
-        @test prepare_interfaces(lhs, fform, rhs) == (a = :y, z = :z, out = :x)
-
-        # Test 5: Test composite node with Expr rhs
-        lhs = :(x[i])
-        fform = dummy
-        rhs = (a = :(y[i]),)
-        @test prepare_interfaces(lhs, fform, rhs) == (a = :(y[i]), b = :(x[i]))
-
-
-    end
-
-    @testset "convert_interfaces_tuple" begin
-        import GraphPPL: convert_interfaces_tuple, interfaces
-
-        # Test 1: Test regular input
-        @test convert_interfaces_tuple(:a, :y) ==
-              :((a = GraphPPL.getifcreated(model, context, y)))
-
-        # Test 2: Test tuple input
-        @test convert_interfaces_tuple(:in, :((0, 1))) ==
-              :((in = GraphPPL.getifcreated(model, context, (0, 1))))
-
-        # Test 3: Test input with multiple interfaces
-        @test_expression_generating convert_interfaces_tuple(:b, (:x, :y, :z)) :((
-            b = GraphPPL.getifcreated(model, context, $(:x, :y, :z))
-        ))
-
-        # Test 4: Test tuple input with symbols
-        @test convert_interfaces_tuple(:in, :((y, z))) ==
-              :((in = GraphPPL.getifcreated(model, context, (y, z))))
-
-        # Test 5: Test input with a nested tuple
-        @test convert_interfaces_tuple(:d, :((0, (1, 2), 3))) ==
-              :((d = GraphPPL.getifcreated(model, context, (0, (1, 2), 3))))
-
-    end
-
     @testset "keyword_expressions_to_named_tuple" begin
         import GraphPPL:
             keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
 
         expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
-        @test keyword_expressions_to_named_tuple(expr) == (; zip((:in1, :in2), (:y, :z))...)
+        @test keyword_expressions_to_named_tuple(expr) == :((in1 = y, in2 = z))
 
         expr = quote
             x ~ Normal(; μ = 0, σ = 1)
         end
         @capture(expr, (lhs_ ~ f_(; kwargs__)))
-        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:μ, :σ), (0, 1))...)
+        @test keyword_expressions_to_named_tuple(kwargs) == :((μ = 0, σ = 1))
 
         input = quote
             x ~ Normal(0, 1; a = 1, b = 2) where {created_by=(x~Normal(0, 1; a = 1, b = 2))}
         end
         @capture(input, (lhs_ ~ f_(args__; kwargs__) where {options__}))
-        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:a, :b), (1, 2))...)
+        @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
 
         input = quote
             x ~ Normal(μ, σ; a = 1, b = 2) where {created_by=(x~Normal(μ, σ; a = 1, b = 2))}
         end
         @capture(input, (lhs_ ~ f_(args__; kwargs__) where {options__}))
-        @test keyword_expressions_to_named_tuple(kwargs) == (; zip((:a, :b), (1, 2))...)
+        @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
     end
 
     @testset "convert_tilde_expression" begin
@@ -1423,15 +1351,12 @@ end
             x ~ sum(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, (0, 1)),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x,
+                [0, 1];
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
@@ -1447,16 +1372,12 @@ end
             x ~ sum(; μ = 0, σ = 1) where {created_by=(x~sum(μ = 0, σ = 1))}
         end
         output = quote
-            interfaces_tuple = (
-                μ = GraphPPL.getifcreated(model, context, 0),
-                σ = GraphPPL.getifcreated(model, context, 1),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x,
+                (μ = 0, σ = 1);
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
@@ -1473,15 +1394,12 @@ end
             x[i] ~ sum(μ[i], σ[i]) where {created_by=(x[i]~sum(μ[i], σ[i]))}
         end
         output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, (μ[i], σ[i])),
-                out = GraphPPL.getifcreated(model, context, x[i]),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x[i],
+                [μ[i], σ[i]];
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
@@ -1496,54 +1414,78 @@ end
         input = quote
             x ~ sum(
                 begin
+                    tmp_1 =
+                        !@isdefined(tmp_1) ?
+                        GraphPPL.getorcreate!(
+                            model,
+                            context,
+                            $(QuoteNode(:tmp_1)),
+                            nothing,
+                        ) :
+                        (
+                            GraphPPL.check_variate_compatability(tmp_1, nothing) ?
+                            tmp_1 :
+                            GraphPPL.getorcreate!(
+                                model,
+                                context,
+                                $(QuoteNode(:tmp_1)),
+                                nothing,
+                            )
+                        )
                     tmp_1 ~ sum(
                         0,
                         1,
                     ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
-                    tmp_1
                 end,
                 0,
             ) where {created_by=(x~Normal(Normal(0, 1), 0))}
         end
         output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(
-                    model,
-                    context,
-                    (
-                        begin
-                            interfaces_tuple = (
-                                in = GraphPPL.getifcreated(model, context, (0, 1)),
-                                out = GraphPPL.getifcreated(model, context, tmp_1),
-                            )
-                            GraphPPL.make_node!(
-                                model,
-                                context,
-                                sum,
-                                interfaces_tuple;
-                                options = GraphPPL.prepare_options(
-                                    options,
-                                    $(Dict{Any,Any}(
-                                        :anonymous => true,
-                                        Symbol("created_by") =>
-                                            :(x ~ Normal(Normal(0, 1), 0)),
-                                    )),
-                                    debug,
-                                ),
-                                debug = debug,
-                            )
-                            tmp_1
-                        end,
-                        0,
-                    ),
-                ),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x,
+                [
+                    begin
+                        tmp_1 =
+                            !@isdefined(tmp_1) ?
+                            GraphPPL.getorcreate!(
+                                model,
+                                context,
+                                $(QuoteNode(:tmp_1)),
+                                nothing,
+                            ) :
+                            (
+                                GraphPPL.check_variate_compatability(tmp_1, nothing) ?
+                                tmp_1 :
+                                GraphPPL.getorcreate!(
+                                    model,
+                                    context,
+                                    $(QuoteNode(:tmp_1)),
+                                    nothing,
+                                )
+                            )
+                        GraphPPL.make_node!(
+                            model,
+                            context,
+                            sum,
+                            tmp_1,
+                            [0, 1];
+                            options = GraphPPL.prepare_options(
+                                options,
+                                $(Dict{Any,Any}(
+                                    Symbol("anonymous") => true,
+                                    Symbol("created_by") =>
+                                        :(x ~ Normal(Normal(0, 1), 0)),
+                                )),
+                                debug,
+                            ),
+                            debug = debug,
+                        )
+                    end,
+                    0,
+                ];
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(
@@ -1562,17 +1504,18 @@ end
             x ~ y where {created_by=(x:=y),is_deterministic=true}
         end
         output = quote
-            x = GraphPPL.make_node_from_object!(
+            GraphPPL.make_node!(
                 model,
                 context,
                 y,
-                :x,
-                GraphPPL.prepare_options(
+                x,
+                $nothing;
+                options = GraphPPL.prepare_options(
                     options,
                     $(Dict(:created_by => :(x := y), :is_deterministic => true)),
                     debug,
                 ),
-                debug,
+                debug = debug,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1583,18 +1526,18 @@ end
             x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
         end
         output = quote
-            x[i] = GraphPPL.make_node_from_object!(
+            GraphPPL.make_node!(
                 model,
                 context,
                 y,
-                :x,
-                GraphPPL.prepare_options(
+                x[i],
+                $nothing;
+                options = GraphPPL.prepare_options(
                     options,
                     $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
                     debug,
                 ),
-                debug,
-                i,
+                debug = debug,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1605,19 +1548,18 @@ end
             x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
         end
         output = quote
-            x[i, j] = GraphPPL.make_node_from_object!(
+            GraphPPL.make_node!(
                 model,
                 context,
                 y,
-                :x,
-                GraphPPL.prepare_options(
+                x[i, j],
+                $nothing;
+                options = GraphPPL.prepare_options(
                     options,
                     $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
                     debug,
                 ),
-                debug,
-                i,
-                j,
+                debug = debug,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1627,17 +1569,12 @@ end
             x ~ sum(1, 2; σ = 1, μ = 2) where {created_by=(x~sum(1, 2; σ = 1, μ = 2))}
         end
         output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, $(1, 2)),
-                σ = GraphPPL.getifcreated(model, context, 1),
-                μ = GraphPPL.getifcreated(model, context, 2),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x,
+                $[1, 2, :((σ = 1, μ = 2))];
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(
@@ -1655,21 +1592,39 @@ end
             x ~ sum(μ, σ) where {created_by=(x~sum(μ, σ) where {q=q(μ)q(σ)}),q=q(μ)q(σ)}
         end
         output = quote
-            interfaces_tuple = (
-                in = GraphPPL.getifcreated(model, context, (μ, σ)),
-                out = GraphPPL.getifcreated(model, context, x),
-            )
             GraphPPL.make_node!(
                 model,
                 context,
                 sum,
-                interfaces_tuple;
+                x,
+                [μ, σ];
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(
                         :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
                         :q => :(q(μ)q(σ)),
                     )),
+                    debug,
+                ),
+                debug = debug,
+            )
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 10: Test node creation with kwargs and symbols_to_expression
+        input = quote
+            y ~ (Normal(; μ = x, σ = σ) where {(created_by = (y ~ Normal(μ = x, σ = σ)))})
+        end
+        output = quote
+            GraphPPL.make_node!(
+                model,
+                context,
+                Normal,
+                y,
+                (μ = x, σ = σ);
+                options = GraphPPL.prepare_options(
+                    options,
+                    $(Dict{Any,Any}(:created_by => :(y ~ Normal(μ = x, σ = σ)))),
                     debug,
                 ),
                 debug = debug,
@@ -1832,7 +1787,7 @@ end
         ctx = context(model)
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, (μ = μ, σ = σ); options = nothing, debug = false)
+        make_node!(model, ctx, test_model, μ, (σ = σ,); options = nothing, debug = false)
         @test nv(model) == 4 && ne(model) == 3
 
         # Test 2: Test regular node creation input with vector
@@ -1850,7 +1805,7 @@ end
         ctx = context(model)
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, (μ = μ, σ = σ); options = nothing, debug = false)
+        make_node!(model, ctx, test_model, μ, (σ = σ,); options = nothing, debug = false)
         @test nv(model) == 24
 
 
@@ -1873,7 +1828,8 @@ end
             model,
             ctx,
             illegal_model,
-            (μ = μ, σ = σ);
+            μ,
+            (σ = σ,);
             options = nothing,
             debug = false,
         )
