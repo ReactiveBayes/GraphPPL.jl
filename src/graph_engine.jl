@@ -236,10 +236,11 @@ NodeType(::Type) = Atomic()
 NodeType(::Function) = Atomic()
 
 abstract type NodeBehaviour end
+
 struct Stochastic <: NodeBehaviour end
 struct Deterministic <: NodeBehaviour end
 
-is_stochastic(x) = Deterministic()
+NodeBehaviour(x) = Deterministic()
 
 """
 create_model()
@@ -298,6 +299,9 @@ function add_to_child_context(
         child_context.tensor_variables[name_in_child] = object_in_parent
     end
 end
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) =
+    nothing
+
 
 check_if_individual_variable(context::Context, name::Symbol) =
     haskey(context.individual_variables, name) ?
@@ -528,6 +532,34 @@ end
 increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
+
+
+"""
+Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
+"""
+interfaces(any_f, ::Val{1}) = (:out,)
+interfaces(any_f, any_val) = (:out, :in)
+
+"""
+    missing_interfaces(node_type, val, known_interfaces)
+
+Returns the interfaces that are missing for a node. This is used when inferring the interfaces for a node that is composite.
+
+# Arguments
+- `node_type`: The type of the node as a Function object.
+- `val`: The value of the amount of interfaces the node is supposed to have. This is a `Val` object.
+- `known_interfaces`: The known interfaces for the node.
+
+# Returns
+- `missing_interfaces`: A `Vector` of the missing interfaces.
+"""
+function missing_interfaces(node_type, val::Val, known_interfaces)
+    all_interfaces = GraphPPL.interfaces(node_type, val)
+    missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
+    return missing_interfaces
+end
+
+
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface =
         GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
@@ -539,7 +571,9 @@ function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     ))
 end
 
-rhs_to_named_tuple(fform, rhs) = (in = rhs,)
+rhs_to_named_tuple(::Atomic, fform, rhs) = (in = Tuple(rhs),)
+rhs_to_named_tuple(::Composite, fform, rhs) =
+    error("Composite nodes always have to be initialized with named arguments")
 
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
@@ -615,7 +649,7 @@ make_node!(
     debug = nothing,
 ) = make_node!(
     Atomic(),
-    is_stochastic(fform),
+    NodeBehaviour(fform),
     model,
     ctx,
     fform,
@@ -689,7 +723,7 @@ make_node!(
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
 make_node!(
     ::Val{true},
-    ::Atomic,
+    node_type::NodeType,
     behaviour::NodeBehaviour,
     model::Model,
     ctx::Context,
@@ -700,13 +734,13 @@ make_node!(
     debug = nothing,
 ) = make_node!(
     Val(true),
-    Atomic(),
+    node_type,
     behaviour,
     model,
     ctx,
     fform,
     lhs_interface,
-    GraphPPL.rhs_to_named_tuple(fform, rhs_interfaces);
+    GraphPPL.rhs_to_named_tuple(node_type, fform, rhs_interfaces);
     options = options,
     debug = debug,
 )
@@ -748,3 +782,11 @@ function plot_graph(g::MetaGraph; name = "tmp.png")
 end
 
 plot_graph(g::Model; name = "tmp.png") = plot_graph(g.graph; name = name)
+
+function prune!(m::Model)
+    degrees = degree(m.graph)
+    nodes_to_remove = keys(degrees)[degrees.==0]
+    for node in sort(nodes_to_remove, rev = true)
+        rem_vertex!(m.graph, node)
+    end
+end

@@ -194,7 +194,6 @@ function convert_to_anonymous(e::Expr, created_by)
         return quote
             begin
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
-                $sym
             end
         end
     end
@@ -259,141 +258,6 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
 end
 
 
-"""
-Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
-"""
-interfaces(any_f, ::Val{1}) = (:out,)
-interfaces(any_f, any_val) = (:out, :in)
-
-"""
-    missing_interfaces(node_type, val, known_interfaces)
-
-Returns the interfaces that are missing for a node. This is used when inferring the interfaces for a node that is composite.
-
-# Arguments
-- `node_type`: The type of the node as a Function object.
-- `val`: The value of the amount of interfaces the node is supposed to have. This is a `Val` object.
-- `known_interfaces`: The known interfaces for the node.
-
-# Returns
-- `missing_interfaces`: A `Vector` of the missing interfaces.
-"""
-function missing_interfaces(node_type, val::Val, known_interfaces)
-    all_interfaces = GraphPPL.interfaces(node_type, val)
-    missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
-    return missing_interfaces
-end
-
-"""
-    prepare_interfaces(lhs, fform, rhs)
-
-Generate the NamedTuple of interfaces for a node. Calls `missing_interfaces` if the node is composite and infers 
-    the missing interface from the number of arguments and the known interfaces.
-
-# Arguments
-- `lhs`: The left-hand side of the node. This can be either a symbol (e.g. `:x`) or an expression (e.g. `:(x[1])`).
-- `fform`: The node type, the object representing the node "function".
-- `rhs`: The right-hand side of the node. This can be either a `NamedTuple` (in case of named arguments) or an `AbstractArray` (in case of unnamed arguments).
-
-# Returns
-- `NamedTuple`: The NamedTuple of interfaces for the node.
-"""
-function prepare_interfaces(
-    ::GraphPPL.Atomic,
-    lhs::Union{Symbol,Expr},
-    fform,
-    rhs::NamedTuple,
-)
-    return (rhs..., out = lhs)
-end
-
-function prepare_interfaces(
-    ::GraphPPL.Composite,
-    lhs::Union{Symbol,Expr},
-    fform,
-    rhs::NamedTuple,
-)
-    missing_interface = GraphPPL.missing_interfaces(fform, Val(length(rhs) + 1), rhs)[1]
-    return NamedTuple{(keys(rhs)..., missing_interface)}((values(rhs)..., lhs))
-end
-
-function prepare_interfaces(
-    ::GraphPPL.Atomic,
-    lhs::Union{Symbol,Expr},
-    fform,
-    rhs::AbstractArray,
-)
-    return (in = Expr(:tuple, rhs...), out = lhs)
-end
-
-function prepare_interfaces(
-    ::GraphPPL.Composite,
-    lhs::Union{Symbol,Expr},
-    fform,
-    rhs::AbstractArray,
-)
-    error("Composite nodes can only be invoked with keyword arguments.")
-end
-
-prepare_interfaces(lhs::Union{Symbol,Expr}, fform, rhs) =
-    prepare_interfaces(GraphPPL.NodeType(fform), lhs, fform, rhs)
-
-"""
-    convert_interfaces_tuple(field::Symbol, interfaces)
-
-Converts the `interfaces` to a NamedTuple expression with calls to getifcreated.
-
-# Arguments
-- `field::Symbol`: The name of the field.
-- `interfaces`: The interfaces.
-
-# Returns
-- `Expr`: The NamedTuple expression.
-
-# Example
-```julia
-julia> convert_interfaces_tuple(:interfaces, :y))
-:(interfaces = GraphPPL.getifcreated(model, context, y))
-```
-ß
-"""
-convert_interfaces_tuple(name::Symbol, interface) =
-    :($name = GraphPPL.getifcreated(model, context, $interface))
-
-
-"""
-    generate_make_node_call(fform, interfaces::NamedTuple)
-
-Generates the expression for calling `make_node!` with the given `fform` and `interfaces`.
-
-# Arguments
-- `fform::Function`: The function form.
-- `interfaces::NamedTuple`: The interfaces.
-
-# Returns
-- `Expr`: The expression for calling `make_node!`.
-"""
-function generate_make_node_call(fform, interfaces::NamedTuple, options)
-    options = options_vector_to_dict(options)
-    interfaces_tuple = map(iterator(interfaces)) do (name, interface)
-        return convert_interfaces_tuple(name, interface)
-    end
-    if length(interfaces_tuple) == 0
-        interfaces_tuple = NamedTuple()
-    end
-    result = quote
-        interfaces_tuple = ($(interfaces_tuple...),)
-        GraphPPL.make_node!(
-            model,
-            context,
-            $fform,
-            interfaces_tuple;
-            options = GraphPPL.prepare_options(options, $(options), debug),
-            debug = debug,
-        )
-    end
-    return result
-end
 
 """
     keyword_expressions_to_named_tuple(keywords::Vector)
@@ -414,10 +278,18 @@ julia> keyword_expressions_to_named_tuple([:($(Expr(:kw, :in1, :y))), :($(Expr(:
 ```
 """
 function keyword_expressions_to_named_tuple(keywords::Vector)
-    keys = [expr.args[1] for expr in keywords]
-    values = [expr.args[2] for expr in keywords]
-    return (; zip(keys, values)...)
+    result = [Expr(:(=), arg.args[1], arg.args[2]) for arg in keywords]
+    return Expr(:tuple, result...)
+    return nothing
 end
+
+combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Vector) =
+    length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
+    [args..., keyword_expressions_to_named_tuple(kwargs)]
+combine_args(args::Nothing, kwargs::Nothing) = nothing
+
+
 
 """
     convert_tilde_expression(e::Expr)
@@ -433,52 +305,30 @@ Converts a tilde expression to a `make_node!` call.
 # Examples
 
 ```julia
-julia> convert_tilde_expression(:(x ~ Normal(0, 1)))
+julia> convert_tilde_expression(:(x ~ Normal(0, 1) where {created_by = (x~Normal(0,1))}))
 quote
-    interfaces_tuple = (
-        in = GraphPPL.getifcreated(model, context, (0, 1)),
-        out = GraphPPL.getifcreated(model, context, x),
-    )
-    GraphPPL.make_node!(model, context, Normal, interfaces_tuple)
+    GraphPPL.make_node!(model, context, Normal, x, [0, 1]; options = $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))), debug = debug)
 end
 ```
 """
 function convert_tilde_expression(e::Expr)
-    if @capture(e, lhs_ ~ fform_(args__) where {options__})
-        if @capture(e, (f_ ~ x_(fargs__; kwargs__) where {o__}))
-            args = GraphPPL.keyword_expressions_to_named_tuple(kwargs)
-            if length(fargs) > 0
-                args = (in = Tuple(fargs), args...)
-            end
-        end
-        interfaces = GraphPPL.prepare_interfaces(lhs, getfield(Main, fform), args)
-        return GraphPPL.generate_make_node_call(fform, interfaces, options)
-    elseif @capture(e, lhs_ ~ rhs_ where {options__})
+    if @capture(
+        e,
+        (lhs_ ~ fform_(args__; kwargs__) where {options__}) |
+        (lhs_ ~ fform_(args__) where {options__}) |
+        (lhs_ ~ fform_ where {options__})
+    )
+        args = combine_args(args, kwargs)
         options = GraphPPL.options_vector_to_dict(options)
-        if @capture(lhs, var_[index__])
-            return :(
-                $lhs = GraphPPL.make_node_from_object!(
-                    model,
-                    context,
-                    $rhs,
-                    $(QuoteNode(var)),
-                    GraphPPL.prepare_options(options, $(options), debug),
-                    debug,
-                    $(index...),
-                )
-            )
-        else
-            return :(
-                $lhs = GraphPPL.make_node_from_object!(
-                    model,
-                    context,
-                    $rhs,
-                    $(QuoteNode(lhs)),
-                    GraphPPL.prepare_options(options, $(options), debug),
-                    debug,
-                )
-            )
-        end
+        return :(GraphPPL.make_node!(
+            model,
+            context,
+            $fform,
+            $lhs,
+            $args;
+            options = GraphPPL.prepare_options(options, $(options), debug),
+            debug = debug,
+        ))
     else
         return e
     end
@@ -558,18 +408,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
-        function $ms_name()
-            model = GraphPPL.create_model()
-            context = GraphPPL.context(model)
-            arguments = []
-            for argument in $ms_args
-                argument = GraphPPL.getorcreate!(model, context, argument)
-                push!(arguments, argument)
-            end
-            args = (; zip($ms_args, arguments)...)
-            GraphPPL.make_node!(model, context, $ms_name, args; debug = true)
-            return model
-        end
+        GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
 end
 
@@ -587,14 +426,17 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     end
     make_node_function = quote
         function GraphPPL.make_node!(
-            model,
             ::GraphPPL.Composite,
-            parent_context,
+            model::GraphPPL.Model,
+            parent_context::GraphPPL.Context,
             ::typeof($ms_name),
-            interfaces;
-            options = nothing,
-            debug = false,
+            lhs_interface::GraphPPL.NodeLabel,
+            rhs_interfaces::NamedTuple;
+            options = options,
+            debug = debug,
         )
+            interfaces =
+                GraphPPL.prepare_interfaces($ms_name, lhs_interface, rhs_interfaces)
             $(init_input_arguments...)
             context = GraphPPL.Context(parent_context, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
@@ -608,6 +450,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 options == nothing ? nothing : Dict(parent_context.prefix => options)
 
             $ms_body
+            return lhs_interface
         end
     end
     return make_node_function
@@ -637,7 +480,6 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
-
 
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
 

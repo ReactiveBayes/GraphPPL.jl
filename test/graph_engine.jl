@@ -277,6 +277,20 @@ using TestSetExtensions
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
 
+        # Test 4: Do not copy constant variables
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        child_context = Context(context(model), "child")
+        copy_markov_blanket_to_child_context(child_context, (in = 1,))
+        @test !haskey(child_context, :in)
+
+        # Test 5: Do not copy vector valued constant variables
+        model = create_model()
+        ctx = context(model)
+        child_context = Context(context(model), "child")
+        copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
+        @test !haskey(child_context, :in)
     end
 
     @testset "check_variate_compatability" begin
@@ -522,6 +536,14 @@ using TestSetExtensions
         z = getifcreated(model, ctx, x)
         @test z == x
 
+        # Test case 14: Test that getifcreated returns multiple variables if called with a tuple of constants
+        model = create_model()
+        ctx = context(model)
+        z = getifcreated(model, ctx, ([1, 1], 2))
+        @test GraphPPL.nv(model) == 2 &&
+              GraphPPL.value(model[z[1]]) == [1, 1] &&
+              GraphPPL.value(model[z[2]]) == 2
+
     end
 
 
@@ -734,12 +756,23 @@ using TestSetExtensions
         import GraphPPL: rhs_to_named_tuple
 
         # Test 1: Add default arguments to Normal call
-        GraphPPL.rhs_to_named_tuple(::Type{Normal}, interface_values) =
+        GraphPPL.rhs_to_named_tuple(::Atomic, ::Type{Normal}, interface_values) =
             NamedTuple{(:μ, :σ)}(interface_values)
-        @test rhs_to_named_tuple(Normal, [0, 1]) == (μ = 0, σ = 1)
+        @test rhs_to_named_tuple(Atomic(), Normal, [0, 1]) == (μ = 0, σ = 1)
 
         # Test 2: Add :in to function call that has default behaviour 
-        @test rhs_to_named_tuple(+, [1, 2]) == (in = [1, 2],)
+        @test rhs_to_named_tuple(Atomic(), +, [1, 2]) == (in = (1, 2),)
+
+        # Test 3: Add :in to function call that has default behaviour with nested interfaces
+        @test rhs_to_named_tuple(Atomic(), +, [[1, 1], 2]) == (in = ([1, 1], 2),)
+
+        struct CompositeNode end
+        GraphPPL.NodeType(::Type{CompositeNode}) = GraphPPL.Composite()
+        @test_throws ErrorException GraphPPL.rhs_to_named_tuple(
+            Composite(),
+            CompositeNode,
+            [1, 2],
+        )
     end
 
     @testset "make_node!(::Atomic)" begin
@@ -754,7 +787,7 @@ using TestSetExtensions
         @test GraphPPL.nv(model) == 1
 
         # Test 2: Stochastic atomic call returns a new node
-        GraphPPL.is_stochastic(::Type{Normal}) = GraphPPL.Stochastic()
+        GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
         GraphPPL.interfaces(::Type{Normal}, ::Val{3}) = (:out, :μ, :σ)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test GraphPPL.nv(model) == 4
@@ -786,11 +819,11 @@ using TestSetExtensions
         in1 = getorcreate!(model, ctx, :in1, nothing)
         in2 = getorcreate!(model, ctx, :in2, nothing)
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, +, out, (in=[in1, in2], ))
+        make_node!(model, ctx, +, out, (in = [in1, in2],))
         @test GraphPPL.nv(model) == 4
 
         # Test 6: Stochastic node with default arguments
-        GraphPPL.rhs_to_named_tuple(::Type{Normal}, interface_values) =
+        GraphPPL.rhs_to_named_tuple(::Atomic, ::Type{Normal}, interface_values) =
             NamedTuple{(:μ, :σ)}(interface_values)
         model = create_model()
         ctx = context(model)
@@ -818,20 +851,50 @@ using TestSetExtensions
         in1 = getorcreate!(model, ctx, :in1, nothing)
         in2 = getorcreate!(model, ctx, :in2, nothing)
         out = getorcreate!(model, ctx, :out, nothing)
-        @test_throws AssertionError make_node!(model, ctx, +, out, (in=in1, out=in2))
+        @test_throws AssertionError make_node!(model, ctx, +, out, (in = in1, out = in2))
 
         # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined
         model = create_model()
         ctx = context(model)
         struct ArbitraryNode end
-        GraphPPL.is_stochastic(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
+        GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, ArbitraryNode, out, (in=[0, 1],))
+        make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
         @test GraphPPL.nv(model) == 3
+
+        # Test 9: Stochastic node with all interfaces defined as constants
+        model = create_model()
+        ctx = context(model)
+        out = getorcreate!(model, ctx, :out, nothing)
+        make_node!(model, ctx, ArbitraryNode, out, [1, 1]; debug = false)
+        @test GraphPPL.nv(model) == 4
 
     end
 
+    @testset "prune!(m::Model)" begin
+        import GraphPPL: prune!, create_model, getorcreate!, add_edge!
 
+        # Test 1: Prune a node with no edges
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        prune!(model)
+        @test GraphPPL.nv(model) == 0
+
+        # Test 2: Prune two nodes
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
+        z = getorcreate!(model, ctx, :z, nothing)
+        w = getorcreate!(model, ctx, :w, nothing)
+
+        add_edge!(model, y, z, :test)
+        prune!(model)
+        @test GraphPPL.nv(model) == 2
+
+
+    end
 end
 
 end
