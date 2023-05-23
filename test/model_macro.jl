@@ -1186,6 +1186,12 @@ end
             y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
         output = quote
+            y =
+                !@isdefined(y) ? GraphPPL.getorcreate!(model, context, :y, nothing) :
+                (
+                    GraphPPL.check_variate_compatability(y, nothing) ? y :
+                    GraphPPL.getorcreate!(model, context, :y, nothing)
+                )
             y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output

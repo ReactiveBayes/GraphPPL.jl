@@ -219,7 +219,7 @@ what_walk(::typeof(convert_function_argument_in_rhs)) =
     walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
 
 function add_get_or_create_expression(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+    if @capture(e, (lhs_ ~ rhs_ where {options__}))
         @capture(lhs, (var_[index__]) | (var_))
         return quote
             $(generate_get_or_create(var, lhs, index))
