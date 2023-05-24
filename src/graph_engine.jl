@@ -51,7 +51,6 @@ end
 EdgeLabel(name::Symbol, index::Int64) = EdgeLabel(name, Val(index))
 
 
-
 """ 
     Model(graph::MetaGraph)
 
@@ -145,34 +144,36 @@ struct Context
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
     tensor_variables::Dict{Symbol,ResizableArray}
-    factor_nodes::Dict{NodeLabel,Union{NodeLabel,Context}}
+    factor_nodes::Dict{Symbol,Union{NodeLabel,Context}}
 end
 
 function Base.show(io::IO, context::Context)
-    println(io, "$("    " ^ context.depth)Context: $(context.prefix)")
-    println(io, "$("    " ^ (context.depth + 1))Individual variables:")
+    indentation = 2 * context.depth
+    println(io, "$("    " ^ indentation)Context: $(context.prefix)")
+    println(io, "$("    " ^ (indentation + 1))Individual variables:")
     for (variable_name, variable_label) in context.individual_variables
         println(
             io,
-            "$("    " ^ (context.depth + 2))$(variable_name): $(to_symbol(variable_label))",
+            "$("    " ^ (indentation + 2))$(variable_name): $(to_symbol(variable_label))",
         )
     end
-    println(io, "$("    " ^ (context.depth + 1))Vector variables:")
+    println(io, "$("    " ^ (indentation + 1))Vector variables:")
     for (variable_name, variable_labels) in context.vector_variables
-        println(io, "$("    " ^ (context.depth + 2))$(variable_name)")
+        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
     end
-    println(io, "$("    " ^ (context.depth + 1))Tensor variables: ")
+    println(io, "$("    " ^ (indentation + 1))Tensor variables: ")
     for (variable_name, variable_labels) in context.tensor_variables
-        println(io, "$("    " ^ (context.depth + 2))$(variable_name)")
+        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
     end
-    println(io, "$("    " ^ (context.depth + 1))Factor nodes: ")
+    println(io, "$("    " ^ (indentation + 1))Factor nodes: ")
     for (factor_label, factor_context) in context.factor_nodes
         if isa(factor_context, Context)
+            println(io, "$("    " ^ (indentation + 2))$(factor_label) : ")
             show(io, factor_context)
         else
             println(
                 io,
-                "$("    " ^ (context.depth + 2))$(to_symbol(factor_label)) : $(to_symbol(factor_context))",
+                "$("    " ^ (indentation + 2))$(factor_label) : $(to_symbol(factor_context))",
             )
         end
     end
@@ -202,7 +203,7 @@ function Base.getindex(c::Context, key::Symbol)
     elseif haskey(c.factor_nodes, key)
         return c.factor_nodes[key]
     end
-    throw(KeyError("Variable " * String(key) * " not found in Context " * c.prefix))
+    throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
 end
 
 function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
@@ -461,7 +462,7 @@ function add_atomic_factor_node!(
     node_fform = factor_alias(node_name, interfaces)
     node_id = generate_nodelabel(model, node_fform)
     model[node_id] = FactorNodeData(node_fform, options)
-    context.factor_nodes[node_id] = node_id
+    context.factor_nodes[to_symbol(node_id)] = node_id
     return node_id
 end
 
@@ -494,7 +495,7 @@ function add_composite_factor_node!(
     node_name::Symbol,
 )
     node_id = generate_nodelabel(model, node_name)
-    parent_context.factor_nodes[node_id] = context
+    parent_context.factor_nodes[to_symbol(node_id)] = context
     return node_id
 end
 

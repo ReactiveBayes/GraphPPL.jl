@@ -675,7 +675,7 @@ using TestSetExtensions
     end
 
     @testset "add_composite_factor_node!" begin
-        import GraphPPL: create_model, add_composite_factor_node!, context
+        import GraphPPL: create_model, add_composite_factor_node!, context, to_symbol
 
         # Add a composite factor node to the model
         model = create_model()
@@ -684,25 +684,28 @@ using TestSetExtensions
         add_variable_node!(model, child_ctx, :x)
         add_variable_node!(model, child_ctx, :y)
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :f)
+        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_id) &&
-              parent_ctx.factor_nodes[node_id] === child_ctx &&
+              haskey(parent_ctx.factor_nodes, node_name) &&
+              parent_ctx.factor_nodes[node_name] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
 
         # Add a composite factor node with a different name
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :g)
+        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_id) &&
-              parent_ctx.factor_nodes[node_id] === child_ctx &&
+              haskey(parent_ctx.factor_nodes, node_name) &&
+              parent_ctx.factor_nodes[node_name] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
         # Add a composite factor node with an empty child context
         empty_ctx = Context()
         node_id = add_composite_factor_node!(model, parent_ctx, empty_ctx, :h)
+        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_id) &&
-              parent_ctx.factor_nodes[node_id] === empty_ctx &&
+              haskey(parent_ctx.factor_nodes, node_name) &&
+              parent_ctx.factor_nodes[node_name] === empty_ctx &&
               length(empty_ctx.individual_variables) == 0
     end
 
