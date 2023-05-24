@@ -280,13 +280,12 @@ julia> keyword_expressions_to_named_tuple([:($(Expr(:kw, :in1, :y))), :($(Expr(:
 function keyword_expressions_to_named_tuple(keywords::Vector)
     result = [Expr(:(=), arg.args[1], arg.args[2]) for arg in keywords]
     return Expr(:tuple, result...)
-    return nothing
 end
 
-combine_args(args::Vector, kwargs::Nothing) = length(args) == 0 ? :(NamedTuple{}()) : Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) = length(args) == 0 ? :nothing : Expr(:vect, args...)
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
-    [args..., keyword_expressions_to_named_tuple(kwargs)]
+    :(GraphPPL.MixedArguments($(Expr(:vect, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
 combine_args(args::Nothing, kwargs::Nothing) = nothing
 
 
@@ -432,8 +431,8 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             ::typeof($ms_name),
             lhs_interface::GraphPPL.NodeLabel,
             rhs_interfaces::NamedTuple;
-            options = options,
-            debug = debug,
+            options = nothing,
+            debug = false,
         )
             interfaces =
                 GraphPPL.prepare_interfaces($ms_name, lhs_interface, rhs_interfaces)
@@ -447,7 +446,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 $ms_name,
             )
             options =
-                options == nothing ? nothing : Dict(parent_context.prefix => options)
+                options == nothing ? nothing : Dict("parent_options" => options)
 
             $ms_body
             return lhs_interface

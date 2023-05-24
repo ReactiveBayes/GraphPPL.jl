@@ -1580,7 +1580,7 @@ end
                 context,
                 sum,
                 x,
-                $[1, 2, :((σ = 1, μ = 2))];
+                GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
                 options = GraphPPL.prepare_options(
                     options,
                     $(Dict{Any,Any}(

@@ -534,6 +534,10 @@ increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
 
+struct MixedArguments
+    args::AbstractArray
+    kwargs::NamedTuple
+end
 
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
@@ -590,6 +594,14 @@ end
 
 function contains_nodelabel(collection::NamedTuple)
     if any(element -> is_nodelabel(element), values(collection))
+        return Val(true)
+    else
+        return Val(false)
+    end
+end
+
+function contains_nodelabel(collection::MixedArguments) 
+    if any(element -> is_nodelabel(element), collection.args) || any(element -> is_nodelabel(element), values(collection.kwargs))
         return Val(true)
     else
         return Val(false)
@@ -692,10 +704,36 @@ make_node!(
     ctx::Context,
     fform,
     lhs_interface,
-    rhs_interfaces;
+    rhs_interfaces::AbstractArray;
     options = nothing,
     debug = nothing,
-) = fform(rhs_interfaces...)
+) = fform(rhs_interfaces...) 
+
+make_node!(
+    ::Val{false},
+    ::Atomic,
+    ::Deterministic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::NamedTuple;
+    options = nothing,
+    debug = nothing,
+) = fform(; rhs_interfaces...) 
+
+make_node!(
+    ::Val{false},
+    ::Atomic,
+    ::Deterministic,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::MixedArguments;
+    options = nothing,
+    debug = nothing,
+) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...) 
 
 # If a node is Stochastic, we always materialize.
 make_node!(
@@ -745,6 +783,19 @@ make_node!(
     options = options,
     debug = debug,
 )
+
+make_node!(
+    ::Val{true},
+    node_type::NodeType,
+    behaviour::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::MixedArguments;
+    options = nothing,
+    debug = nothing,
+) = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
 # If node has to be materialized and rhs_interfaces is a NamedTuple we actually create a node in the FFG. 
 function make_node!(

@@ -856,7 +856,7 @@ using TestSetExtensions
         out = getorcreate!(model, ctx, :out, nothing)
         @test_throws AssertionError make_node!(model, ctx, +, out, (in = in1, out = in2))
 
-        # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined
+        # Test 8: Stochastic node with nodelabel objects where all interfaces are already defined
         model = create_model()
         ctx = context(model)
         struct ArbitraryNode end
@@ -871,6 +871,31 @@ using TestSetExtensions
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, [1, 1]; debug = false)
         @test GraphPPL.nv(model) == 4
+
+        #Test 10: Deterministic node with keyword arguments
+        function abc(; a = 1, b = 2)
+            return a + b
+        end
+        model = create_model()
+        ctx = context(model)
+        out = getorcreate!(model, ctx, :out, nothing)
+        @test make_node!(model, ctx, abc, out, (a = 1, b = 2)) == 3
+
+        # Test 11: Deterministic node with mixed arguments
+        function abc(a; b = 2)
+            return a + b
+        end
+        model = create_model()
+        ctx = context(model)
+        out = getorcreate!(model, ctx, :out, nothing)
+        out = make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([2], (b=2,))) == 4
+
+        # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
+        model = create_model()
+        ctx = context(model)
+        out = getorcreate!(model, ctx, :out, nothing)
+        a = getorcreate!(model, ctx, :a, nothing)
+        @test_throws ErrorException make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([a], (b=2,)))
 
     end
 
