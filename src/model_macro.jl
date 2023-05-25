@@ -342,19 +342,21 @@ function convert_tilde_expression(e::Expr)
     )
         args = combine_args(args, kwargs)
         options = GraphPPL.options_vector_to_dict(options)
-        return :(GraphPPL.make_node!(
-            __model__,
-            __context__,
-            $fform,
-            $lhs,
-            $args;
-            __parent_options__ = GraphPPL.prepare_options(
-                __parent_options__,
-                $(options),
-                __debug__,
-            ),
-            __debug__ = __debug__,
-        ))
+        return quote
+            GraphPPL.make_node!(
+                __model__,
+                __context__,
+                $fform,
+                $lhs,
+                $args;
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
+                    $(options),
+                    __debug__,
+                ),
+                __debug__ = __debug__,
+            )
+        end
     else
         return e
     end
@@ -397,7 +399,7 @@ function options_vector_to_dict(options::AbstractArray)
     return result
 end
 
-function remove_debug_options(options::Dict)
+function remove_debug_options!(options::Dict)
     options = delete!(options, :created_by)
     if length(options) == 0
         return nothing
@@ -414,7 +416,7 @@ end
 
 function prepare_options(parent_options::Nothing, node_options::Dict, debug::Bool)
     if !debug
-        return remove_debug_options(node_options)
+        return remove_debug_options!(deepcopy(node_options))
     else
         return node_options
     end
@@ -423,7 +425,7 @@ end
 function prepare_options(parent_options::Dict, node_options::Dict, debug::Bool)
     result = merge(parent_options, node_options)
     if !debug
-        return remove_debug_options(result)
+        return remove_debug_options!(deepcopy(result))
     else
         return result
     end

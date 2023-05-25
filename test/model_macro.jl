@@ -1733,28 +1733,28 @@ end
         @test options_vector_to_dict(input) == output
     end
 
-    @testset "remove_debug_options" begin
-        import GraphPPL: remove_debug_options
+    @testset "remove_debug_options!" begin
+        import GraphPPL: remove_debug_options!
 
         # Test 1: Test with empty input
         input = Dict()
         output = nothing
-        @test remove_debug_options(input) == output
+        @test remove_debug_options!(input) == output
 
         # Test 2: Test with created_by input
         input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
         output = nothing
-        @test remove_debug_options(input) == output
+        @test remove_debug_options!(input) == output
 
         # Test 3: Test with created_by and anonymous input
         input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :anonymous => true)
         output = Dict(:anonymous => true)
-        @test remove_debug_options(input) == output
+        @test remove_debug_options!(input) == output
 
         # Test 4: Test without created_by input
         input = Dict(:anonymous => true)
         output = Dict(:anonymous => true)
-        @test remove_debug_options(input) == output
+        @test remove_debug_options!(input) == output
     end
 
     @testset "prepare_options" begin
