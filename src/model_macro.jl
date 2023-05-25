@@ -57,7 +57,19 @@ function apply_pipeline(e::Expr, pipeline)
 end
 
 function check_reserved_variable_names(e::Expr)
-    if any(reserved_name -> MacroTools.inexpr(e, reserved_name), [:(__parent_options__), :(__debug__), :(__model__), :(__context__), :(__parent_context__), :(__lhs_interface__), :(__rhs_interfaces__), :(__interfaces__)])
+    if any(
+        reserved_name -> MacroTools.inexpr(e, reserved_name),
+        [
+            :(__parent_options__),
+            :(__debug__),
+            :(__model__),
+            :(__context__),
+            :(__parent_context__),
+            :(__lhs_interface__),
+            :(__rhs_interfaces__),
+            :(__interfaces__),
+        ],
+    )
         error("Variable name in $(prettify(e)) is reserved.")
     end
     return e
@@ -197,7 +209,7 @@ what_walk(::typeof(convert_to_kwargs_expression)) =
 
 function convert_to_anonymous(e::Expr, created_by)
     if @capture(e, f_(args__))
-        sym = gensym(:tmp)
+        sym = MacroTools.gensym_ids(gensym(:tmp))
         return quote
             begin
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
@@ -452,12 +464,15 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __parent_options__ = nothing,
             __debug__ = false,
         )
-            __interfaces__ =
-                GraphPPL.prepare_interfaces($ms_name, __lhs_interface__, __rhs_interfaces__)
+            __interfaces__ = GraphPPL.prepare_interfaces(
+                $ms_name,
+                __lhs_interface__,
+                __rhs_interfaces__,
+            )
             $(init_input_arguments...)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
-            __node_name__ = GraphPPL.add_composite_factor_node!(
+            GraphPPL.add_composite_factor_node!(
                 __model__,
                 __parent_context__,
                 __context__,

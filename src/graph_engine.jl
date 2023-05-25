@@ -403,8 +403,12 @@ getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
-getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar); __options__ = (value = var,))
+getifcreated(model::Model, context::Context, var) = add_variable_node!(
+    model,
+    context,
+    gensym(model, :constvar);
+    __options__ = (value = var,),
+)
 
 
 """

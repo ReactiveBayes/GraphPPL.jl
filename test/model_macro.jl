@@ -837,7 +837,7 @@ end
             Normal(0, 1)
         end
         created_by = :(x ~ Normal(0, 1))
-        anon = gensym(:tmp)
+        anon = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             begin
                 $anon ~ Normal(0, 1) where {anonymous=true,created_by=x~Normal(0, 1)}
@@ -869,7 +869,7 @@ end
         input = quote
             x ~ Normal(Normal(0, 1), 1) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
-        sym = gensym(:tmp)
+        sym = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(
                 begin
@@ -899,7 +899,7 @@ end
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
         end
-        sym = gensym(:tmp)
+        sym = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(;
                 μ = begin
@@ -932,8 +932,8 @@ end
                 Normal(0, 1),
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
-        sym1 = gensym(:tmp)
-        sym2 = gensym(:tmp)
+        sym1 = MacroTools.gensym_ids(gensym(:tmp))
+        sym2 = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(
                 begin
@@ -967,8 +967,8 @@ end
                 σ = Normal(0, 1),
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
-        sym1 = gensym(:tmp)
-        sym2 = gensym(:tmp)
+        sym1 = MacroTools.gensym_ids(gensym(:tmp))
+        sym2 = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(;
                 μ = begin
@@ -1002,8 +1002,8 @@ end
                 1,
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
-        sym1 = gensym(:tmp)
-        sym2 = gensym(:tmp)
+        sym1 = MacroTools.gensym_ids(gensym(:tmp))
+        sym2 = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(
                 begin
@@ -1040,8 +1040,8 @@ end
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        sym1 = gensym(:tmp)
-        sym2 = gensym(:tmp)
+        sym1 = MacroTools.gensym_ids(gensym(:tmp))
+        sym2 = MacroTools.gensym_ids(gensym(:tmp))
         output = quote
             x ~ Normal(
                 begin
@@ -1092,7 +1092,8 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
@@ -1122,7 +1123,8 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
                 (
                     GraphPPL.check_variate_compatability(x, 1, 2) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
@@ -1152,7 +1154,8 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
@@ -1176,7 +1179,8 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
@@ -1185,7 +1189,12 @@ end
                 begin
                     $sym =
                         !@isdefined($sym) ?
-                        GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing) :
+                        GraphPPL.getorcreate!(
+                            __model__,
+                            __context__,
+                            $(QuoteNode(sym)),
+                            nothing,
+                        ) :
                         (
                             GraphPPL.check_variate_compatability($sym, nothing) ?
                             $sym :
@@ -1212,7 +1221,8 @@ end
         end
         output = quote
             y =
-                !@isdefined(y) ? GraphPPL.getorcreate!(__model__, __context__, :y, nothing) :
+                !@isdefined(y) ?
+                GraphPPL.getorcreate!(__model__, __context__, :y, nothing) :
                 (
                     GraphPPL.check_variate_compatability(y, nothing) ? y :
                     GraphPPL.getorcreate!(__model__, __context__, :y, nothing)
@@ -1227,7 +1237,8 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
@@ -1247,7 +1258,8 @@ end
         output = generate_get_or_create(:x, :x, nothing)
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
@@ -1271,7 +1283,8 @@ end
         output = generate_get_or_create(:x, :(x[1, 2]), [1, 2])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
                 (
                     GraphPPL.check_variate_compatability(x, 1, 2) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
@@ -1283,7 +1296,8 @@ end
         output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
@@ -1307,7 +1321,8 @@ end
         output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
+                !@isdefined(x) ?
+                GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
                     GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
@@ -1818,7 +1833,15 @@ end
         __context__ = context(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
         σ = getorcreate!(__model__, __context__, :σ, nothing)
-        make_node!(__model__, __context__, test___model__, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
+        make_node!(
+            __model__,
+            __context__,
+            test___model__,
+            μ,
+            (σ = σ,);
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
         @test nv(__model__) == 4 && ne(__model__) == 3
 
         # Test 2: Test regular node creation input with vector
@@ -1836,7 +1859,15 @@ end
         __context__ = context(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
         σ = getorcreate!(__model__, __context__, :σ, nothing)
-        make_node!(__model__, __context__, test___model__, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
+        make_node!(
+            __model__,
+            __context__,
+            test___model__,
+            μ,
+            (σ = σ,);
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
         @test nv(__model__) == 24
 
 
@@ -1861,7 +1892,8 @@ end
             illegal___model__,
             μ,
             (σ = σ,);
-            __parent_options__ = nothing, __debug__ = false
+            __parent_options__ = nothing,
+            __debug__ = false,
         )
 
         # Test 4: Test Composite nodes with different number of interfaces
@@ -1881,7 +1913,15 @@ end
         __context__ = context(__model__)
         x = getorcreate!(__model__, __context__, :x, nothing)
         y = getorcreate!(__model__, __context__, :y, nothing)
-        make_node!(__model__, __context__, foo, x, (y = y,); __parent_options__ = nothing, __debug__ = false)
+        make_node!(
+            __model__,
+            __context__,
+            foo,
+            x,
+            (y = y,);
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
         @test nv(__model__) == 4 && ne(__model__) == 3
     end
 end
