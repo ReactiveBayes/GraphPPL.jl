@@ -56,6 +56,13 @@ function apply_pipeline(e::Expr, pipeline)
     return walk(x -> __guard_f(pipeline, x), e)
 end
 
+function check_reserved_variable_names(e::Expr)
+    if any(reserved_name -> MacroTools.inexpr(prettify(e), reserved_name), [:(__parent_options__), :(__debug__)])
+        error("Variable name $(prettify(e)) is reserved.")
+    end
+    return e
+end
+
 function warn_datavar_constvar_randomvar(e::Expr)
     if @capture(
         e,

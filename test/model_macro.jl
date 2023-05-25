@@ -41,6 +41,31 @@ end
         @test_expression_generating apply_pipeline(input, pipeline) output
     end
 
+    @testset "check_reserved_variable_names" begin
+        import GraphPPL: apply_pipeline, check_reserved_variable_names
+
+        # Test 1: test that reserved variable name __parent_options__ throws an error
+        input = quote
+            __parent_options__ = 1
+            x ~ Normal(0, 1)
+        end
+        @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names)
+
+        # Test 2: test that reserved variable name __debug__ throws an error
+        input = quote
+            __debug__ = 1
+            x ~ Normal(0, 1)
+        end
+        @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names)
+
+        # Test 3: test that other variable names do not throw an error
+        input = quote
+            x = 1
+            x ~ Normal(0, 1)
+        end
+        @test apply_pipeline(input, check_reserved_variable_names) == input
+    end
+
     @testset "warn_datavar_constvar_randomvar" begin
         import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
 
