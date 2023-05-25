@@ -1841,15 +1841,14 @@ end
         )
 
         # Test 4: Test Composite nodes with different number of interfaces
-        struct Normal end
         input_1 = quote
             function foo(x, y)
-                x ~ Normal(y, 1)
+                x ~ y + 1
             end
         end
         input_2 = quote
             function foo(x, y, z)
-                x ~ Normal(y, z)
+                x ~ y + z
             end
         end
         eval(model_macro_interior(input_1))
@@ -1859,6 +1858,7 @@ end
         x = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
         make_node!(model, ctx, foo, x, (y = y,); options = nothing, debug = false)
+        @test nv(model) == 4 && ne(model) == 3
     end
 end
 end
