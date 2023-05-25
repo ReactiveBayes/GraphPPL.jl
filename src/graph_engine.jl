@@ -457,11 +457,11 @@ function add_atomic_factor_node!(
     context::Context,
     node_name,
     interfaces;
-    options = nothing,
+    __options__ = nothing,
 )
     node_fform = factor_alias(node_name, interfaces)
     node_id = generate_nodelabel(model, node_fform)
-    model[node_id] = FactorNodeData(node_fform, options)
+    model[node_id] = FactorNodeData(node_fform, __options__)
     context.factor_nodes[to_symbol(node_id)] = node_id
     return node_id
 end
@@ -600,8 +600,9 @@ function contains_nodelabel(collection::NamedTuple)
     end
 end
 
-function contains_nodelabel(collection::MixedArguments) 
-    if any(element -> is_nodelabel(element), collection.args) || any(element -> is_nodelabel(element), values(collection.kwargs))
+function contains_nodelabel(collection::MixedArguments)
+    if any(element -> is_nodelabel(element), collection.args) ||
+       any(element -> is_nodelabel(element), values(collection.kwargs))
         return Val(true)
     else
         return Val(false)
@@ -616,8 +617,8 @@ make_node!(
     fform,
     lhs_interface::NodeLabel,
     rhs_interfaces;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     NodeType(fform),
     model,
@@ -625,8 +626,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 
 make_node!(
@@ -635,8 +636,8 @@ make_node!(
     fform,
     lhs_interface::NodeLabel,
     rhs_interfaces::Nothing;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     Val(true),
     Atomic(),
@@ -646,8 +647,8 @@ make_node!(
     fform,
     lhs_interface,
     NamedTuple{}();
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 
 # If node is Atomic, check stochasticity
@@ -658,8 +659,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     Atomic(),
     NodeBehaviour(fform),
@@ -668,8 +669,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
@@ -680,8 +681,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     contains_nodelabel(rhs_interfaces),
     atomic,
@@ -691,8 +692,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
@@ -705,9 +706,9 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::AbstractArray;
-    options = nothing,
-    debug = false,
-) = fform(rhs_interfaces...) 
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = fform(rhs_interfaces...)
 
 make_node!(
     ::Val{false},
@@ -718,9 +719,9 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple;
-    options = nothing,
-    debug = false,
-) = fform(; rhs_interfaces...) 
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = fform(; rhs_interfaces...)
 
 make_node!(
     ::Val{false},
@@ -731,9 +732,9 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::MixedArguments;
-    options = nothing,
-    debug = false,
-) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...) 
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
 
 # If a node is Stochastic, we always materialize.
 make_node!(
@@ -744,8 +745,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     Val(true),
     atomic,
@@ -755,8 +756,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
@@ -769,8 +770,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::AbstractArray;
-    options = nothing,
-    debug = false,
+    __parent_options__ = nothing,
+    __debug__ = false,
 ) = make_node!(
     Val(true),
     node_type,
@@ -780,8 +781,8 @@ make_node!(
     fform,
     lhs_interface,
     GraphPPL.rhs_to_named_tuple(node_type, fform, rhs_interfaces);
-    options = options,
-    debug = debug,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
 
 make_node!(
@@ -793,11 +794,32 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::MixedArguments;
-    options = nothing,
-    debug = false,
-) = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = error(
+    "MixedArguments not supported for rhs_interfaces when node has to be materialized",
+)
 
-make_node!(::Composite, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; options = nothing, debug = false,) = make_node!(Composite(), model, ctx, fform, lhs_interface, rhs_interfaces, Val(length(rhs_interfaces) + 1); options = options, debug = debug,)
+make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = make_node!(
+    Composite(),
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces,
+    Val(length(rhs_interfaces) + 1);
+    __parent_options__ = options,
+    __debug__ = __debug__,
+)
 
 # If node has to be materialized and rhs_interfaces is a NamedTuple we actually create a node in the FFG. 
 function make_node!(
@@ -809,12 +831,18 @@ function make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple;
-    options = nothing,
-    debug = nothing,
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
 )
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
     interface_keys = Val(keys(interfaces))
-    node_id = add_atomic_factor_node!(model, ctx, fform, interface_keys; options = options)
+    node_id = add_atomic_factor_node!(
+        model,
+        ctx,
+        fform,
+        interface_keys;
+        __options__ = __parent_options__,
+    )
     for (interface_name, interface_value) in iterator(interfaces)
         add_edge!(
             model,

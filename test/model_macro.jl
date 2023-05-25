@@ -1363,12 +1363,12 @@ end
                 sum,
                 x,
                 [0, 1];
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1384,12 +1384,12 @@ end
                 sum,
                 x,
                 (μ = 0, σ = 1);
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1406,12 +1406,12 @@ end
                 sum,
                 x[i],
                 [μ[i], σ[i]];
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1478,28 +1478,28 @@ end
                             sum,
                             tmp_1,
                             [0, 1];
-                            options = GraphPPL.prepare_options(
-                                options,
+                            __parent_options__ = GraphPPL.prepare_options(
+                                __parent_options__,
                                 $(Dict{Any,Any}(
                                     Symbol("anonymous") => true,
                                     Symbol("created_by") =>
                                         :(x ~ Normal(Normal(0, 1), 0)),
                                 )),
-                                debug,
+                                __debug__,
                             ),
-                            debug = debug,
+                            __debug__ = __debug__,
                         )
                     end,
                     0,
                 ];
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(
                         Symbol("created_by") => :(x ~ Normal(Normal(0, 1), 0)),
                     )),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1516,12 +1516,12 @@ end
                 y,
                 x,
                 $nothing;
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict(:created_by => :(x := y), :is_deterministic => true)),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1538,12 +1538,12 @@ end
                 y,
                 x[i],
                 $nothing;
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1560,12 +1560,12 @@ end
                 y,
                 x[i, j],
                 $nothing;
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1581,14 +1581,14 @@ end
                 sum,
                 x,
                 GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(
                         Symbol("created_by") => :(x ~ sum(1, 2; σ = 1, μ = 2)),
                     )),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1604,15 +1604,15 @@ end
                 sum,
                 x,
                 [μ, σ];
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(
                         :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
                         :q => :(q(μ)q(σ)),
                     )),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1628,12 +1628,12 @@ end
                 Normal,
                 y,
                 (μ = x, σ = σ);
-                options = GraphPPL.prepare_options(
-                    options,
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
                     $(Dict{Any,Any}(:created_by => :(y ~ Normal(μ = x, σ = σ)))),
-                    debug,
+                    __debug__,
                 ),
-                debug = debug,
+                __debug__ = __debug__,
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1793,7 +1793,7 @@ end
         ctx = context(model)
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, μ, (σ = σ,); options = nothing, debug = false)
+        make_node!(model, ctx, test_model, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
         @test nv(model) == 4 && ne(model) == 3
 
         # Test 2: Test regular node creation input with vector
@@ -1811,7 +1811,7 @@ end
         ctx = context(model)
         μ = getorcreate!(model, ctx, :μ, nothing)
         σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, μ, (σ = σ,); options = nothing, debug = false)
+        make_node!(model, ctx, test_model, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
         @test nv(model) == 24
 
 
@@ -1836,8 +1836,7 @@ end
             illegal_model,
             μ,
             (σ = σ,);
-            options = nothing,
-            debug = false,
+            __parent_options__ = nothing, __debug__ = false
         )
 
         # Test 4: Test Composite nodes with different number of interfaces
@@ -1857,7 +1856,7 @@ end
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(model, ctx, foo, x, (y = y,); options = nothing, debug = false)
+        make_node!(model, ctx, foo, x, (y = y,); __parent_options__ = nothing, __debug__ = false)
         @test nv(model) == 4 && ne(model) == 3
     end
 end

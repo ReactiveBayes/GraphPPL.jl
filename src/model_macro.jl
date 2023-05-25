@@ -282,10 +282,14 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     return Expr(:tuple, result...)
 end
 
-combine_args(args::Vector, kwargs::Nothing) = length(args) == 0 ? :nothing : Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) =
+    length(args) == 0 ? :nothing : Expr(:vect, args...)
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
-    :(GraphPPL.MixedArguments($(Expr(:vect, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
+    :(GraphPPL.MixedArguments(
+        $(Expr(:vect, args...)),
+        $(keyword_expressions_to_named_tuple(kwargs)),
+    ))
 combine_args(args::Nothing, kwargs::Nothing) = nothing
 
 
@@ -325,8 +329,12 @@ function convert_tilde_expression(e::Expr)
             $fform,
             $lhs,
             $args;
-            options = GraphPPL.prepare_options(options, $(options), debug),
-            debug = debug,
+            __parent_options__ = GraphPPL.prepare_options(
+                __parent_options__,
+                $(options),
+                __debug__,
+            ),
+            __debug__ = __debug__,
         ))
     else
         return e
@@ -406,7 +414,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     return quote
         function $ms_name end
-        GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords") 
+        GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
         GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
@@ -434,8 +442,8 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             lhs_interface::GraphPPL.NodeLabel,
             rhs_interfaces::NamedTuple,
             ::Val{$(length(ms_args))};
-            options = nothing,
-            debug = false,
+            __parent_options__ = nothing,
+            __debug__ = false,
         )
             interfaces =
                 GraphPPL.prepare_interfaces($ms_name, lhs_interface, rhs_interfaces)
@@ -448,8 +456,9 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 context,
                 $ms_name,
             )
-            options =
-                options == nothing ? nothing : Dict("parent_options" => options)
+            __parent_options__ =
+                __parent_options__ == nothing ? nothing :
+                Dict("parent_options" => __parent_options__)
 
             $ms_body
             return lhs_interface

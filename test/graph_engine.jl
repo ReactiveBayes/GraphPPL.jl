@@ -634,7 +634,7 @@ using TestSetExtensions
             ctx,
             sum,
             Val((:in, :out));
-            options = Dict(:isconstrained => true),
+            __options__ = Dict(:isconstrained => true),
         )
         @test options(model[node_id]) == Dict(:isconstrained => true)
 
@@ -645,7 +645,7 @@ using TestSetExtensions
             ctx,
             +,
             Val((:in, :out));
-            options = Dict(:isconstrained => true),
+            __options__ = Dict(:isconstrained => true),
         )
         @test node_id.name == sum
 
@@ -661,7 +661,7 @@ using TestSetExtensions
             ctx,
             Normal,
             Val((:out, :μ, :σ));
-            options = Dict(:isconstrained => true),
+            __options__ = Dict(:isconstrained => true),
         )
         @test node_id.name == NormalMeanVariance
 
@@ -869,7 +869,7 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, ArbitraryNode, out, [1, 1]; debug = false)
+        make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
         @test GraphPPL.nv(model) == 4
 
         #Test 10: Deterministic node with keyword arguments
@@ -888,14 +888,20 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        out = make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([2], (b=2,))) == 4
+        out = make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([2], (b = 2,))) == 4
 
         # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
         model = create_model()
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
         a = getorcreate!(model, ctx, :a, nothing)
-        @test_throws ErrorException make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([a], (b=2,)))
+        @test_throws ErrorException make_node!(
+            model,
+            ctx,
+            abc,
+            out,
+            GraphPPL.MixedArguments([a], (b = 2,)),
+        )
 
     end
 
