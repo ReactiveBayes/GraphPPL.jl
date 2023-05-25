@@ -57,7 +57,7 @@ function apply_pipeline(e::Expr, pipeline)
 end
 
 function check_reserved_variable_names(e::Expr)
-    if any(reserved_name -> MacroTools.inexpr(prettify(e), reserved_name), [:(__parent_options__), :(__debug__)])
+    if any(reserved_name -> MacroTools.inexpr(e, reserved_name), [:(__parent_options__), :(__debug__), :(__model__), :(__context__), :(__parent_context__), :(__lhs_interface__), :(__rhs_interfaces__), :(__interfaces__)])
         error("Variable name in $(prettify(e)) is reserved.")
     end
     return e
@@ -133,9 +133,9 @@ function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
         return quote
             $lhs = GraphPPL.add_variable_node!(
-                model,
-                context,
-                gensym(model, $(QuoteNode(lhs))),
+                __model__,
+                __context__,
+                gensym(__model__, $(QuoteNode(lhs))),
             )
             $lhs ~ $rhs where {$(options...)}
         end
@@ -243,10 +243,10 @@ function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
     return quote
         $s =
             !@isdefined($s) ?
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing) :
+            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing) :
             (
                 GraphPPL.check_variate_compatability($s, nothing) ? $s :
-                GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), nothing)
+                GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
             )
     end
 end
@@ -256,10 +256,10 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     return quote
         $s =
             !@isdefined($s) ?
-            GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...)) :
+            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...)) :
             (
                 GraphPPL.check_variate_compatability($s, $(index...)) ? $s :
-                GraphPPL.getorcreate!(model, context, $(QuoteNode(s)), $(index...))
+                GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
             )
     end
 end
@@ -317,7 +317,7 @@ Converts a tilde expression to a `make_node!` call.
 ```julia
 julia> convert_tilde_expression(:(x ~ Normal(0, 1) where {created_by = (x~Normal(0,1))}))
 quote
-    GraphPPL.make_node!(model, context, Normal, x, [0, 1]; options = $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))), debug = debug)
+    GraphPPL.make_node!(__model__, __context__, Normal, x, [0, 1]; options = $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))), debug = debug)
 end
 ```
 """
@@ -331,8 +331,8 @@ function convert_tilde_expression(e::Expr)
         args = combine_args(args, kwargs)
         options = GraphPPL.options_vector_to_dict(options)
         return :(GraphPPL.make_node!(
-            model,
-            context,
+            __model__,
+            __context__,
             $fform,
             $lhs,
             $args;
@@ -434,33 +434,33 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     init_input_arguments = map(ms_args) do arg
         error_msg = "Missing interface $(arg)"
         return quote
-            if !haskey(interfaces, $(QuoteNode(arg)))
+            if !haskey(__interfaces__, $(QuoteNode(arg)))
                 error($error_msg)
             end
-            $arg = interfaces[$(QuoteNode(arg))]
+            $arg = __interfaces__[$(QuoteNode(arg))]
         end
     end
     make_node_function = quote
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
-            model::GraphPPL.Model,
-            parent_context::GraphPPL.Context,
+            __model__::GraphPPL.Model,
+            __parent_context__::GraphPPL.Context,
             ::typeof($ms_name),
-            lhs_interface::GraphPPL.NodeLabel,
-            rhs_interfaces::NamedTuple,
+            __lhs_interface__::GraphPPL.NodeLabel,
+            __rhs_interfaces__::NamedTuple,
             ::Val{$(length(ms_args))};
             __parent_options__ = nothing,
             __debug__ = false,
         )
-            interfaces =
-                GraphPPL.prepare_interfaces($ms_name, lhs_interface, rhs_interfaces)
+            __interfaces__ =
+                GraphPPL.prepare_interfaces($ms_name, __lhs_interface__, __rhs_interfaces__)
             $(init_input_arguments...)
-            context = GraphPPL.Context(parent_context, $ms_name)
-            GraphPPL.copy_markov_blanket_to_child_context(context, interfaces)
-            node_name = GraphPPL.add_composite_factor_node!(
-                model,
-                parent_context,
-                context,
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
+            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            __node_name__ = GraphPPL.add_composite_factor_node!(
+                __model__,
+                __parent_context__,
+                __context__,
                 $ms_name,
             )
             __parent_options__ =
@@ -468,22 +468,22 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 Dict("parent_options" => __parent_options__)
 
             $ms_body
-            return lhs_interface
+            return __lhs_interface__
         end
     end
     return make_node_function
 end
 
 
-function model_macro_interior(model_specification)
+function model_macro_interior(__model___specification)
     @capture(
-        model_specification,
+        __model___specification,
         (function ms_name_(ms_args__; ms_kwargs__)
             ms_body_
         end) | (function ms_name_(ms_args__)
             ms_body_
         end)
-    ) || error("Model specification language requires full function definition")
+    ) || error("__model__ specification language requires full function definition")
 
     ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)

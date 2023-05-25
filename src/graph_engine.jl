@@ -42,7 +42,7 @@ end
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
 value(node::VariableNodeData) = node.options[:value]
-options(node::NodeData) = node.options
+node_options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
@@ -404,7 +404,7 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, gensym(model, :constvar); options = (value = var,))
+    add_variable_node!(model, context, gensym(model, :constvar); __options__ = (value = var,))
 
 
 """
@@ -430,11 +430,11 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    options = nothing,
+    __options__ = nothing,
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, options)
+    model[variable_symbol] = VariableNodeData(variable_id, __options__)
     return variable_symbol
 end
 
@@ -817,7 +817,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces,
     Val(length(rhs_interfaces) + 1);
-    __parent_options__ = options,
+    __parent_options__ = __parent_options__,
     __debug__ = __debug__,
 )
 

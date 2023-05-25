@@ -522,7 +522,7 @@ end
             local x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         output = quote
-            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
+            x = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :x))
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
@@ -533,9 +533,9 @@ end
             local y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         output = quote
-            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
+            x = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :x))
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
-            y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
+            y = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
@@ -547,7 +547,7 @@ end
         end
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
-            y = GraphPPL.add_variable_node!(model, context, gensym(model, :y))
+            y = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :y))
             y ~ Normal(0, 1) where {created_by=(y~Normal(0, 1))}
         end
 
@@ -560,7 +560,7 @@ end
             ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
         end
         output = quote
-            x = GraphPPL.add_variable_node!(model, context, gensym(model, :x))
+            x = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :x))
             x ~ Normal(
                 a,
                 b,
@@ -1092,10 +1092,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
                 )
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
@@ -1107,10 +1107,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1) :
                 (
                     GraphPPL.check_variate_compatability(x, 1) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, 1)
                 )
             x[1] ~ Normal(0, 1) where {created_by=(x[1]~Normal(0, 1))}
         end
@@ -1122,10 +1122,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
                 (
                     GraphPPL.check_variate_compatability(x, 1, 2) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
                 )
             x[1, 2] ~ Normal(0, 1) where {created_by=(x[1, 2]~Normal(0, 1))}
         end
@@ -1137,10 +1137,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i) :
                 (
                     GraphPPL.check_variate_compatability(x, i) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, i)
                 )
             x[i] ~ Normal(0, 1) where {created_by=(x[i]~Normal(0, 1))}
         end
@@ -1152,10 +1152,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
                 )
             x[i, j] ~ Normal(0, 1) where {created_by=(x[i, j]~Normal(0, 1))}
         end
@@ -1176,22 +1176,22 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
                 )
             x ~ Normal(
                 begin
                     $sym =
                         !@isdefined($sym) ?
-                        GraphPPL.getorcreate!(model, context, $(QuoteNode(sym)), nothing) :
+                        GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing) :
                         (
                             GraphPPL.check_variate_compatability($sym, nothing) ?
                             $sym :
                             GraphPPL.getorcreate!(
-                                model,
-                                context,
+                                __model__,
+                                __context__,
                                 $(QuoteNode(sym)),
                                 nothing,
                             )
@@ -1212,10 +1212,10 @@ end
         end
         output = quote
             y =
-                !@isdefined(y) ? GraphPPL.getorcreate!(model, context, :y, nothing) :
+                !@isdefined(y) ? GraphPPL.getorcreate!(__model__, __context__, :y, nothing) :
                 (
                     GraphPPL.check_variate_compatability(y, nothing) ? y :
-                    GraphPPL.getorcreate!(model, context, :y, nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, :y, nothing)
                 )
             y ~ x where {created_by=(y:=x),is_deterministic=true}
         end
@@ -1227,10 +1227,10 @@ end
         end
         output = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
                 )
             x ~ Normal(
                 0,
@@ -1247,10 +1247,10 @@ end
         output = generate_get_or_create(:x, :x, nothing)
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, nothing) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, nothing) :
                 (
                     GraphPPL.check_variate_compatability(x, nothing) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
                 )
         end
         @test_expression_generating output desired_result
@@ -1259,10 +1259,10 @@ end
         output = generate_get_or_create(:x, :(x[1]), [1])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1) :
                 (
                     GraphPPL.check_variate_compatability(x, 1) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, 1)
                 )
         end
         @test_expression_generating output desired_result
@@ -1271,10 +1271,10 @@ end
         output = generate_get_or_create(:x, :(x[1, 2]), [1, 2])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, 1, 2) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2) :
                 (
                     GraphPPL.check_variate_compatability(x, 1, 2) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, 1, 2)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
                 )
         end
         @test_expression_generating output desired_result
@@ -1283,10 +1283,10 @@ end
         output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1295,10 +1295,10 @@ end
         output = generate_get_or_create(:x, :(x[i]), [:i])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i) :
                 (
                     GraphPPL.check_variate_compatability(x, i) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, i)
                 )
         end
         @test_expression_generating output desired_result
@@ -1307,10 +1307,10 @@ end
         output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
         desired_result = quote
             x =
-                !@isdefined(x) ? GraphPPL.getorcreate!(model, context, :x, i, j) :
+                !@isdefined(x) ? GraphPPL.getorcreate!(__model__, __context__, :x, i, j) :
                 (
                     GraphPPL.check_variate_compatability(x, i, j) ? x :
-                    GraphPPL.getorcreate!(model, context, :x, i, j)
+                    GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
                 )
         end
         @test_expression_generating output desired_result
@@ -1383,8 +1383,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x,
                 [0, 1];
@@ -1404,8 +1404,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x,
                 (μ = 0, σ = 1);
@@ -1426,8 +1426,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x[i],
                 [μ[i], σ[i]];
@@ -1448,8 +1448,8 @@ end
                     tmp_1 =
                         !@isdefined(tmp_1) ?
                         GraphPPL.getorcreate!(
-                            model,
-                            context,
+                            __model__,
+                            __context__,
                             $(QuoteNode(:tmp_1)),
                             nothing,
                         ) :
@@ -1457,8 +1457,8 @@ end
                             GraphPPL.check_variate_compatability(tmp_1, nothing) ?
                             tmp_1 :
                             GraphPPL.getorcreate!(
-                                model,
-                                context,
+                                __model__,
+                                __context__,
                                 $(QuoteNode(:tmp_1)),
                                 nothing,
                             )
@@ -1473,8 +1473,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x,
                 [
@@ -1482,8 +1482,8 @@ end
                         tmp_1 =
                             !@isdefined(tmp_1) ?
                             GraphPPL.getorcreate!(
-                                model,
-                                context,
+                                __model__,
+                                __context__,
                                 $(QuoteNode(:tmp_1)),
                                 nothing,
                             ) :
@@ -1491,15 +1491,15 @@ end
                                 GraphPPL.check_variate_compatability(tmp_1, nothing) ?
                                 tmp_1 :
                                 GraphPPL.getorcreate!(
-                                    model,
-                                    context,
+                                    __model__,
+                                    __context__,
                                     $(QuoteNode(:tmp_1)),
                                     nothing,
                                 )
                             )
                         GraphPPL.make_node!(
-                            model,
-                            context,
+                            __model__,
+                            __context__,
                             sum,
                             tmp_1,
                             [0, 1];
@@ -1536,8 +1536,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 y,
                 x,
                 $nothing;
@@ -1558,8 +1558,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 y,
                 x[i],
                 $nothing;
@@ -1580,8 +1580,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 y,
                 x[i, j],
                 $nothing;
@@ -1601,8 +1601,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x,
                 GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
@@ -1624,8 +1624,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 sum,
                 x,
                 [μ, σ];
@@ -1648,8 +1648,8 @@ end
         end
         output = quote
             GraphPPL.make_node!(
-                model,
-                context,
+                __model__,
+                __context__,
                 Normal,
                 y,
                 (μ = x, σ = σ);
@@ -1809,21 +1809,21 @@ end
 
         # Test 1: Test regular node creation input
         input = quote
-            function test_model(μ, σ)
+            function test___model__(μ, σ)
                 x ~ sum(μ, σ)
             end
         end
         eval(model_macro_interior(input))
-        model = create_model()
-        ctx = context(model)
-        μ = getorcreate!(model, ctx, :μ, nothing)
-        σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
-        @test nv(model) == 4 && ne(model) == 3
+        __model__ = create_model()
+        __context__ = context(__model__)
+        μ = getorcreate!(__model__, __context__, :μ, nothing)
+        σ = getorcreate!(__model__, __context__, :σ, nothing)
+        make_node!(__model__, __context__, test___model__, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
+        @test nv(__model__) == 4 && ne(__model__) == 3
 
         # Test 2: Test regular node creation input with vector
         input = quote
-            function test_model(μ, σ)
+            function test___model__(μ, σ)
                 local x
                 for i = 1:10
                     x[i] ~ sum(μ, σ)
@@ -1832,17 +1832,17 @@ end
             end
         end
         eval(model_macro_interior(input))
-        model = create_model()
-        ctx = context(model)
-        μ = getorcreate!(model, ctx, :μ, nothing)
-        σ = getorcreate!(model, ctx, :σ, nothing)
-        make_node!(model, ctx, test_model, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
-        @test nv(model) == 24
+        __model__ = create_model()
+        __context__ = context(__model__)
+        μ = getorcreate!(__model__, __context__, :μ, nothing)
+        σ = getorcreate!(__model__, __context__, :σ, nothing)
+        make_node!(__model__, __context__, test___model__, μ, (σ = σ,); __parent_options__ = nothing, __debug__ = false)
+        @test nv(__model__) == 24
 
 
         # Test 3: Test regular node creation input with vector
         input = quote
-            function illegal_model(μ, σ)
+            function illegal___model__(μ, σ)
                 local x
                 for i = 1:10
                     x[i] ~ sum(μ, σ)
@@ -1851,14 +1851,14 @@ end
             end
         end
         eval(model_macro_interior(input))
-        model = create_model()
-        ctx = context(model)
-        μ = getorcreate!(model, ctx, :μ, nothing)
-        σ = getorcreate!(model, ctx, :σ, nothing)
+        __model__ = create_model()
+        __context__ = context(__model__)
+        μ = getorcreate!(__model__, __context__, :μ, nothing)
+        σ = getorcreate!(__model__, __context__, :σ, nothing)
         @test_throws BoundsError make_node!(
-            model,
-            ctx,
-            illegal_model,
+            __model__,
+            __context__,
+            illegal___model__,
             μ,
             (σ = σ,);
             __parent_options__ = nothing, __debug__ = false
@@ -1877,12 +1877,12 @@ end
         end
         eval(model_macro_interior(input_1))
         eval(model_macro_interior(input_2))
-        model = create_model()
-        ctx = context(model)
-        x = getorcreate!(model, ctx, :x, nothing)
-        y = getorcreate!(model, ctx, :y, nothing)
-        make_node!(model, ctx, foo, x, (y = y,); __parent_options__ = nothing, __debug__ = false)
-        @test nv(model) == 4 && ne(model) == 3
+        __model__ = create_model()
+        __context__ = context(__model__)
+        x = getorcreate!(__model__, __context__, :x, nothing)
+        y = getorcreate!(__model__, __context__, :y, nothing)
+        make_node!(__model__, __context__, foo, x, (y = y,); __parent_options__ = nothing, __debug__ = false)
+        @test nv(__model__) == 4 && ne(__model__) == 3
     end
 end
 end

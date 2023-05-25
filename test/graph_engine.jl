@@ -548,7 +548,7 @@ using TestSetExtensions
 
 
     @testset "add_variable_node!" begin
-        import GraphPPL: create_model, add_variable_node!, context, options
+        import GraphPPL: create_model, add_variable_node!, context, node_options
 
         # Test 1: simple add variable to model
         model = create_model()
@@ -606,16 +606,16 @@ using TestSetExtensions
         # Test 11: Add a variable with options
         model = create_model()
         ctx = context(model)
-        var = add_variable_node!(model, ctx, :x, options = Dict(:isconstrained => true))
+        var = add_variable_node!(model, ctx, :x, __options__ = Dict(:isconstrained => true))
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
               ctx[:x] == var &&
-              options(model[var]) == Dict(:isconstrained => true)
+              node_options(model[var]) == Dict(:isconstrained => true)
 
     end
 
     @testset "add_atomic_factor_node!" begin
-        import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, options
+        import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, node_options
 
         # Test 1: Add an atomic factor node to the model
         model = create_model()
@@ -636,7 +636,7 @@ using TestSetExtensions
             Val((:in, :out));
             __options__ = Dict(:isconstrained => true),
         )
-        @test options(model[node_id]) == Dict(:isconstrained => true)
+        @test node_options(model[node_id]) == Dict(:isconstrained => true)
 
 
         #Test 4: Make sure alias is added
