@@ -403,8 +403,10 @@ function prepare_options(parent_options::Dict, node_options::Dict, debug::Bool)
 end
 
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+    error_msg = "$(ms_name) Composite node cannot be invoked with"
     return quote
         function $ms_name end
+        GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords") 
         GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
@@ -430,7 +432,8 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             parent_context::GraphPPL.Context,
             ::typeof($ms_name),
             lhs_interface::GraphPPL.NodeLabel,
-            rhs_interfaces::NamedTuple;
+            rhs_interfaces::NamedTuple,
+            ::Val{$(length(ms_args))};
             options = nothing,
             debug = false,
         )

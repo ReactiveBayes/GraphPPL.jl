@@ -568,7 +568,7 @@ end
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface =
         GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
-    @assert length(missing_interface) == 1
+    @assert length(missing_interface) == 1 "Expected only one missing interface, got $missing_interface of length $(length(missing_interface))"
     missing_interface = first(missing_interface)
     return NamedTuple{(keys(rhs_interfaces)..., missing_interface)}((
         values(rhs_interfaces)...,
@@ -617,7 +617,7 @@ make_node!(
     lhs_interface::NodeLabel,
     rhs_interfaces;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     NodeType(fform),
     model,
@@ -636,7 +636,7 @@ make_node!(
     lhs_interface::NodeLabel,
     rhs_interfaces::Nothing;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     Val(true),
     Atomic(),
@@ -659,7 +659,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     Atomic(),
     NodeBehaviour(fform),
@@ -681,7 +681,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     contains_nodelabel(rhs_interfaces),
     atomic,
@@ -706,7 +706,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces::AbstractArray;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = fform(rhs_interfaces...) 
 
 make_node!(
@@ -719,7 +719,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces::NamedTuple;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = fform(; rhs_interfaces...) 
 
 make_node!(
@@ -732,7 +732,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces::MixedArguments;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...) 
 
 # If a node is Stochastic, we always materialize.
@@ -745,7 +745,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     Val(true),
     atomic,
@@ -770,7 +770,7 @@ make_node!(
     lhs_interface,
     rhs_interfaces::AbstractArray;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = make_node!(
     Val(true),
     node_type,
@@ -794,8 +794,10 @@ make_node!(
     lhs_interface,
     rhs_interfaces::MixedArguments;
     options = nothing,
-    debug = nothing,
+    debug = false,
 ) = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
+
+make_node!(::Composite, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; options = nothing, debug = false,) = make_node!(Composite(), model, ctx, fform, lhs_interface, rhs_interfaces, Val(length(rhs_interfaces) + 1); options = options, debug = debug,)
 
 # If node has to be materialized and rhs_interfaces is a NamedTuple we actually create a node in the FFG. 
 function make_node!(
