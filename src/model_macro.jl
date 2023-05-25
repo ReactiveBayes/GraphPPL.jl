@@ -58,7 +58,7 @@ end
 
 function check_reserved_variable_names(e::Expr)
     if any(reserved_name -> MacroTools.inexpr(prettify(e), reserved_name), [:(__parent_options__), :(__debug__)])
-        error("Variable name $(prettify(e)) is reserved.")
+        error("Variable name in $(prettify(e)) is reserved.")
     end
     return e
 end
@@ -490,6 +490,7 @@ function model_macro_interior(model_specification)
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
+    ms_body = apply_pipeline(ms_body, check_reserved_variable_names)
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
     ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
