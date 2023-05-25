@@ -459,13 +459,11 @@ Returns:
 function add_atomic_factor_node!(
     model::Model,
     context::Context,
-    node_name,
-    interfaces;
+    fform;
     __options__ = nothing,
 )
-    node_fform = factor_alias(node_name, interfaces)
-    node_id = generate_nodelabel(model, node_fform)
-    model[node_id] = FactorNodeData(node_fform, __options__)
+    node_id = generate_nodelabel(model, fform)
+    model[node_id] = FactorNodeData(fform, __options__)
     context.factor_nodes[to_symbol(node_id)] = node_id
     return node_id
 end
@@ -574,9 +572,9 @@ function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
         GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
     @assert length(missing_interface) == 1 "Expected only one missing interface, got $missing_interface of length $(length(missing_interface))"
     missing_interface = first(missing_interface)
-    return NamedTuple{(keys(rhs_interfaces)..., missing_interface)}((
-        values(rhs_interfaces)...,
+    return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,
+        values(rhs_interfaces)...,
     ))
 end
 
@@ -838,13 +836,12 @@ function make_node!(
     __parent_options__ = __parent_options__,
     __debug__ = __debug__,
 )
+    fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    interface_keys = Val(keys(interfaces))
     node_id = add_atomic_factor_node!(
         model,
         ctx,
-        fform,
-        interface_keys;
+        fform;
         __options__ = __parent_options__,
     )
     for (interface_name, interface_value) in iterator(interfaces)

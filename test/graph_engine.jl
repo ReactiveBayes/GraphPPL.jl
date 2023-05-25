@@ -621,19 +621,18 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        node_id = add_atomic_factor_node!(model, ctx, sum, Val((:in, :out)))
+        node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 2 && label_for(model.graph, 2).name == sum
 
         # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
-        node_id = add_atomic_factor_node!(model, ctx, sum, Val((:in, :out)))
+        node_id = add_atomic_factor_node!(model, ctx, sum,)
         @test nv(model) == 3 && label_for(model.graph, 3).name == sum
 
         # Test 3: Add an atomic factor node with options
         node_id = add_atomic_factor_node!(
             model,
             ctx,
-            sum,
-            Val((:in, :out));
+            sum;
             __options__ = Dict(:isconstrained => true),
         )
         @test node_options(model[node_id]) == Dict(:isconstrained => true)
@@ -643,34 +642,22 @@ using TestSetExtensions
         node_id = add_atomic_factor_node!(
             model,
             ctx,
-            +,
-            Val((:in, :out));
+            sum;
             __options__ = Dict(:isconstrained => true),
         )
         @test node_id.name == sum
 
-        struct NormalMeanVariance end
+       
         struct Normal
             μ::Number
             σ::Number
         end
-        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:out, :μ, :σ)}) = NormalMeanVariance
-
-        node_id = add_atomic_factor_node!(
-            model,
-            ctx,
-            Normal,
-            Val((:out, :μ, :σ));
-            __options__ = Dict(:isconstrained => true),
-        )
-        @test node_id.name == NormalMeanVariance
-
         # Test 5: Test that creating a node with an instantiated object is supported
 
         model = create_model()
         ctx = context(model)
         prior = Normal(0, 1)
-        node_id = add_atomic_factor_node!(model, ctx, prior, Val((:out)))
+        node_id = add_atomic_factor_node!(model, ctx, prior)
         @test GraphPPL.nv(model) == 1 && label_for(model.graph, 1).name == Normal(0, 1)
     end
 
@@ -908,6 +895,36 @@ using TestSetExtensions
             GraphPPL.MixedArguments([a], (b = 2,)),
         )
 
+        # Test 13: Make stochastic node with aliases
+        struct NormalMeanVariance end
+        struct NormalMeanPrecision end
+
+        GraphPPL.interfaces(::Type{NormalMeanVariance}, ::Val{3}) = (:out, :μ, :σ)
+        GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::Val{3}) = (:out, :μ, :τ)
+        GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Normal}, rhs) = (μ = rhs[1], σ = rhs[2])
+        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
+        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
+        @test any((key) -> occursin("NormalMeanPrecision", String(key)), keys(ctx.factor_nodes))
+        @test GraphPPL.nv(model) == 4
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
+        @test any((key) -> occursin("NormalMeanVariance", String(key)), keys(ctx.factor_nodes))
+        @test GraphPPL.nv(model) == 4
+
+        model = create_model()
+        ctx = context(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        node_id = make_node!(model, ctx, Normal, x, [0, 1])
+        @test any((key) -> occursin("NormalMeanVariance", String(key)), keys(ctx.factor_nodes))
+        @test GraphPPL.nv(model) == 4
     end
 
     @testset "prune!(m::Model)" begin
