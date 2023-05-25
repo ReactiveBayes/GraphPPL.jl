@@ -136,7 +136,7 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(Symbol(id.name)) * "_" * string(id.index))
+to_symbol(id::NodeLabel) = Symbol(String(Symbol(name(id))) * "_" * string(id.index))
 
 struct Context
     depth::Int64
@@ -619,7 +619,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface,
     rhs_interfaces;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -638,7 +638,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface,
     rhs_interfaces::Nothing;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -833,7 +833,7 @@ function make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface,
+    lhs_interface::NodeLabel,
     rhs_interfaces::NamedTuple;
     __parent_options__ = __parent_options__,
     __debug__ = __debug__,
@@ -859,15 +859,15 @@ function make_node!(
 end
 
 
-function plot_graph(g::MetaGraph; name = "tmp.png")
+function plot_graph(g::MetaGraph; file_name = "tmp.png")
     node_labels =
         [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
     plt = gplot(g, nodelabel = node_labels)
-    draw(PNG(name, 16cm, 16cm), plt)
+    draw(PNG(file_name, 16cm, 16cm), plt)
     return plt
 end
 
-plot_graph(g::Model; name = "tmp.png") = plot_graph(g.graph; name = name)
+plot_graph(g::Model; file_name = "tmp.png") = plot_graph(g.graph; file_name = file_name)
 
 function prune!(m::Model)
     degrees = degree(m.graph)

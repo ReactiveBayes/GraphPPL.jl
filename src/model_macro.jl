@@ -343,7 +343,7 @@ function convert_tilde_expression(e::Expr)
         args = combine_args(args, kwargs)
         options = GraphPPL.options_vector_to_dict(options)
         return quote
-            GraphPPL.make_node!(
+            $lhs = GraphPPL.make_node!(
                 __model__,
                 __context__,
                 $fform,

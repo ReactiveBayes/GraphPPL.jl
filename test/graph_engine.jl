@@ -806,6 +806,7 @@ using TestSetExtensions
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
         make_node!(model, ctx, Normal, x, [0, 1])
+        @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
 
         # Test 4: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -814,7 +815,7 @@ using TestSetExtensions
         in2 = getorcreate!(model, ctx, :in2, nothing)
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, +, out, [in1, in2])
-        @test GraphPPL.nv(model) == 4
+        @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
 
         # Test 5: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -848,7 +849,7 @@ using TestSetExtensions
         node_id = make_node!(model, ctx, prior, x, nothing)
         @test GraphPPL.nv(model) == 2
 
-        # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined
+        # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
         model = create_model()
         ctx = context(model)
         in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -856,14 +857,16 @@ using TestSetExtensions
         out = getorcreate!(model, ctx, :out, nothing)
         @test_throws AssertionError make_node!(model, ctx, +, out, (in = in1, out = in2))
 
-        # Test 8: Stochastic node with nodelabel objects where all interfaces are already defined
+        # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
         model = create_model()
         ctx = context(model)
         struct ArbitraryNode end
         GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
-        @test GraphPPL.nv(model) == 3
+
+        @test GraphPPL.nv(model) == 3 &&
+              GraphPPL.node_options(model[ctx[:constvar_2]])[:value] == [0, 1]
 
         # Test 9: Stochastic node with all interfaces defined as constants
         model = create_model()
@@ -879,7 +882,8 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        @test make_node!(model, ctx, abc, out, (a = 1, b = 2)) == 3
+        out = make_node!(model, ctx, abc, out, (a = 1, b = 2))
+        @test out == 3
 
         # Test 11: Deterministic node with mixed arguments
         function abc(a; b = 2)
@@ -888,7 +892,8 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        out = make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([2], (b = 2,))) == 4
+        out = make_node!(model, ctx, abc, out, GraphPPL.MixedArguments([2], (b = 2,)))
+        @test out == 4
 
         # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
         model = create_model()

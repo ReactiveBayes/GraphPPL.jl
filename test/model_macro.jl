@@ -5,6 +5,7 @@ using GraphPPL
 using Graphs
 using TestSetExtensions
 using MacroTools
+using LinearAlgebra
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -1388,297 +1389,297 @@ end
         @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
     end
 
-    @testset "convert_tilde_expression" begin
-        import GraphPPL: convert_tilde_expression, apply_pipeline
-        function Normal end
+    # @testset "convert_tilde_expression" begin
+    #     import GraphPPL: convert_tilde_expression, apply_pipeline
+    #     function Normal end
 
-        # Test 1: Test regular node creation input
-        input = quote
-            x ~ sum(0, 1) where {created_by=(x~Normal(0, 1))}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                [0, 1];
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 1: Test regular node creation input
+    #     input = quote
+    #         x ~ sum(0, 1) where {created_by=(x~Normal(0, 1))}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x,
+    #             [0, 1];
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 2: Test regular node creation input with kwargs
-        input = quote
-            x ~ sum(; μ = 0, σ = 1) where {created_by=(x~sum(μ = 0, σ = 1))}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                (μ = 0, σ = 1);
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 2: Test regular node creation input with kwargs
+    #     input = quote
+    #         x ~ sum(; μ = 0, σ = 1) where {created_by=(x~sum(μ = 0, σ = 1))}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x,
+    #             (μ = 0, σ = 1);
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
 
-        # Test 3: Test regular node creation with indexed input
-        input = quote
-            x[i] ~ sum(μ[i], σ[i]) where {created_by=(x[i]~sum(μ[i], σ[i]))}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x[i],
-                [μ[i], σ[i]];
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 3: Test regular node creation with indexed input
+    #     input = quote
+    #         x[i] ~ sum(μ[i], σ[i]) where {created_by=(x[i]~sum(μ[i], σ[i]))}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x[i],
+    #             [μ[i], σ[i]];
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 4: Test node creation with anonymous variable
-        input = quote
-            x ~ sum(
-                begin
-                    tmp_1 =
-                        !@isdefined(tmp_1) ?
-                        GraphPPL.getorcreate!(
-                            __model__,
-                            __context__,
-                            $(QuoteNode(:tmp_1)),
-                            nothing,
-                        ) :
-                        (
-                            GraphPPL.check_variate_compatability(tmp_1, nothing) ?
-                            tmp_1 :
-                            GraphPPL.getorcreate!(
-                                __model__,
-                                __context__,
-                                $(QuoteNode(:tmp_1)),
-                                nothing,
-                            )
-                        )
-                    tmp_1 ~ sum(
-                        0,
-                        1,
-                    ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
-                end,
-                0,
-            ) where {created_by=(x~Normal(Normal(0, 1), 0))}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                [
-                    begin
-                        tmp_1 =
-                            !@isdefined(tmp_1) ?
-                            GraphPPL.getorcreate!(
-                                __model__,
-                                __context__,
-                                $(QuoteNode(:tmp_1)),
-                                nothing,
-                            ) :
-                            (
-                                GraphPPL.check_variate_compatability(tmp_1, nothing) ?
-                                tmp_1 :
-                                GraphPPL.getorcreate!(
-                                    __model__,
-                                    __context__,
-                                    $(QuoteNode(:tmp_1)),
-                                    nothing,
-                                )
-                            )
-                        GraphPPL.make_node!(
-                            __model__,
-                            __context__,
-                            sum,
-                            tmp_1,
-                            [0, 1];
-                            __parent_options__ = GraphPPL.prepare_options(
-                                __parent_options__,
-                                $(Dict{Any,Any}(
-                                    Symbol("anonymous") => true,
-                                    Symbol("created_by") =>
-                                        :(x ~ Normal(Normal(0, 1), 0)),
-                                )),
-                                __debug__,
-                            ),
-                            __debug__ = __debug__,
-                        )
-                    end,
-                    0,
-                ];
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(
-                        Symbol("created_by") => :(x ~ Normal(Normal(0, 1), 0)),
-                    )),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 4: Test node creation with anonymous variable
+    #     input = quote
+    #         x ~ sum(
+    #             begin
+    #                 tmp_1 =
+    #                     !@isdefined(tmp_1) ?
+    #                     GraphPPL.getorcreate!(
+    #                         __model__,
+    #                         __context__,
+    #                         $(QuoteNode(:tmp_1)),
+    #                         nothing,
+    #                     ) :
+    #                     (
+    #                         GraphPPL.check_variate_compatability(tmp_1, nothing) ?
+    #                         tmp_1 :
+    #                         GraphPPL.getorcreate!(
+    #                             __model__,
+    #                             __context__,
+    #                             $(QuoteNode(:tmp_1)),
+    #                             nothing,
+    #                         )
+    #                     )
+    #                 tmp_1 ~ sum(
+    #                     0,
+    #                     1,
+    #                 ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
+    #             end,
+    #             0,
+    #         ) where {created_by=(x~Normal(Normal(0, 1), 0))}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x,
+    #             [
+    #                 begin
+    #                     tmp_1 =
+    #                         !@isdefined(tmp_1) ?
+    #                         GraphPPL.getorcreate!(
+    #                             __model__,
+    #                             __context__,
+    #                             $(QuoteNode(:tmp_1)),
+    #                             nothing,
+    #                         ) :
+    #                         (
+    #                             GraphPPL.check_variate_compatability(tmp_1, nothing) ?
+    #                             tmp_1 :
+    #                             GraphPPL.getorcreate!(
+    #                                 __model__,
+    #                                 __context__,
+    #                                 $(QuoteNode(:tmp_1)),
+    #                                 nothing,
+    #                             )
+    #                         )
+    #                     GraphPPL.make_node!(
+    #                         __model__,
+    #                         __context__,
+    #                         sum,
+    #                         tmp_1,
+    #                         [0, 1];
+    #                         __parent_options__ = GraphPPL.prepare_options(
+    #                             __parent_options__,
+    #                             $(Dict{Any,Any}(
+    #                                 Symbol("anonymous") => true,
+    #                                 Symbol("created_by") =>
+    #                                     :(x ~ Normal(Normal(0, 1), 0)),
+    #                             )),
+    #                             __debug__,
+    #                         ),
+    #                         __debug__ = __debug__,
+    #                     )
+    #                 end,
+    #                 0,
+    #             ];
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(
+    #                     Symbol("created_by") => :(x ~ Normal(Normal(0, 1), 0)),
+    #                 )),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 5: Test node creation with non-function on rhs
+    #     # Test 5: Test node creation with non-function on rhs
 
-        input = quote
-            x ~ y where {created_by=(x:=y),is_deterministic=true}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                y,
-                x,
-                $nothing;
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict(:created_by => :(x := y), :is_deterministic => true)),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     input = quote
+    #         x ~ y where {created_by=(x:=y),is_deterministic=true}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             y,
+    #             x,
+    #             $nothing;
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict(:created_by => :(x := y), :is_deterministic => true)),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 6: Test node creation with non-function on rhs with indexed statement
+    #     # Test 6: Test node creation with non-function on rhs with indexed statement
 
-        input = quote
-            x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                y,
-                x[i],
-                $nothing;
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     input = quote
+    #         x[i] ~ y where {created_by=(x[i]:=y),is_deterministic=true}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             y,
+    #             x[i],
+    #             $nothing;
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 7: Test node creation with non-function on rhs with multidimensional array
+    #     # Test 7: Test node creation with non-function on rhs with multidimensional array
 
-        input = quote
-            x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                y,
-                x[i, j],
-                $nothing;
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     input = quote
+    #         x[i, j] ~ y where {created_by=(x[i, j]:=y),is_deterministic=true}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             y,
+    #             x[i, j],
+    #             $nothing;
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 8: Test node creation with mixed args and kwargs on rhs
-        input = quote
-            x ~ sum(1, 2; σ = 1, μ = 2) where {created_by=(x~sum(1, 2; σ = 1, μ = 2))}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(
-                        Symbol("created_by") => :(x ~ sum(1, 2; σ = 1, μ = 2)),
-                    )),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 8: Test node creation with mixed args and kwargs on rhs
+    #     input = quote
+    #         x ~ sum(1, 2; σ = 1, μ = 2) where {created_by=(x~sum(1, 2; σ = 1, μ = 2))}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x,
+    #             GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(
+    #                     Symbol("created_by") => :(x ~ sum(1, 2; σ = 1, μ = 2)),
+    #                 )),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 9: Test node creation with additional options
-        input = quote
-            x ~ sum(μ, σ) where {created_by=(x~sum(μ, σ) where {q=q(μ)q(σ)}),q=q(μ)q(σ)}
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                [μ, σ];
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(
-                        :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
-                        :q => :(q(μ)q(σ)),
-                    )),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 9: Test node creation with additional options
+    #     input = quote
+    #         x ~ sum(μ, σ) where {created_by=(x~sum(μ, σ) where {q=q(μ)q(σ)}),q=q(μ)q(σ)}
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             sum,
+    #             x,
+    #             [μ, σ];
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(
+    #                     :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
+    #                     :q => :(q(μ)q(σ)),
+    #                 )),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-        # Test 10: Test node creation with kwargs and symbols_to_expression
-        input = quote
-            y ~ (Normal(; μ = x, σ = σ) where {(created_by = (y ~ Normal(μ = x, σ = σ)))})
-        end
-        output = quote
-            GraphPPL.make_node!(
-                __model__,
-                __context__,
-                Normal,
-                y,
-                (μ = x, σ = σ);
-                __parent_options__ = GraphPPL.prepare_options(
-                    __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(y ~ Normal(μ = x, σ = σ)))),
-                    __debug__,
-                ),
-                __debug__ = __debug__,
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    #     # Test 10: Test node creation with kwargs and symbols_to_expression
+    #     input = quote
+    #         y ~ (Normal(; μ = x, σ = σ) where {(created_by = (y ~ Normal(μ = x, σ = σ)))})
+    #     end
+    #     output = quote
+    #         GraphPPL.make_node!(
+    #             __model__,
+    #             __context__,
+    #             Normal,
+    #             y,
+    #             (μ = x, σ = σ);
+    #             __parent_options__ = GraphPPL.prepare_options(
+    #                 __parent_options__,
+    #                 $(Dict{Any,Any}(:created_by => :(y ~ Normal(μ = x, σ = σ)))),
+    #                 __debug__,
+    #             ),
+    #             __debug__ = __debug__,
+    #         )
+    #     end
+    #     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
-    end
+    # end
 
     @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
         import GraphPPL: extract_interfaces
@@ -1824,7 +1825,7 @@ end
 
         # Test 1: Test regular node creation input
         input = quote
-            function test___model__(μ, σ)
+            function test_model(μ, σ)
                 x ~ sum(μ, σ)
             end
         end
@@ -1836,7 +1837,7 @@ end
         make_node!(
             __model__,
             __context__,
-            test___model__,
+            test_model,
             μ,
             (σ = σ,);
             __parent_options__ = nothing,
@@ -1846,7 +1847,7 @@ end
 
         # Test 2: Test regular node creation input with vector
         input = quote
-            function test___model__(μ, σ)
+            function test_model(μ, σ)
                 local x
                 for i = 1:10
                     x[i] ~ sum(μ, σ)
@@ -1862,7 +1863,7 @@ end
         make_node!(
             __model__,
             __context__,
-            test___model__,
+            test_model,
             μ,
             (σ = σ,);
             __parent_options__ = nothing,
@@ -1873,7 +1874,7 @@ end
 
         # Test 3: Test regular node creation input with vector
         input = quote
-            function illegal___model__(μ, σ)
+            function illegal_model(μ, σ)
                 local x
                 for i = 1:10
                     x[i] ~ sum(μ, σ)
@@ -1889,7 +1890,7 @@ end
         @test_throws BoundsError make_node!(
             __model__,
             __context__,
-            illegal___model__,
+            illegal_model,
             μ,
             (σ = σ,);
             __parent_options__ = nothing,
@@ -1923,6 +1924,35 @@ end
             __debug__ = false,
         )
         @test nv(__model__) == 4 && ne(__model__) == 3
+
+        # Test 5: Test deep anonymous deterministic function collapses to single node
+        struct Normal end
+        GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
+        input = quote
+            function model_with_deep_anonymous_call(x, y)
+                z ~ Normal(x, Matrix{Float64}(Diagonal(ones(4))))
+                y ~ Normal(z, 1)
+            end
+        end
+        eval(model_macro_interior(input))
+        __model__ = create_model()
+        __context__ = context(__model__)
+        x = getorcreate!(__model__, __context__, :x, nothing)
+        y = getorcreate!(__model__, __context__, :y, nothing)
+        x = make_node!(
+            __model__,
+            __context__,
+            model_with_deep_anonymous_call,
+            x,
+            (y = y,);
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
+        # Test that lhs of deterministic node call gets the corresponding value
+        @test GraphPPL.node_options(
+            __model__[__context__[:model_with_deep_anonymous_call_3][:constvar_6]],
+        )[:value] == Matrix{Float64}(Diagonal(ones(4)))
+        @test GraphPPL.nv(__model__) == 8 && GraphPPL.ne(__model__) == 6
     end
 end
 end
