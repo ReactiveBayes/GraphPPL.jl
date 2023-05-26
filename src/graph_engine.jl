@@ -29,7 +29,7 @@ end
 name(label::NodeLabel) = label.name
 
 
-struct VariableNodeData
+mutable struct VariableNodeData
     name::Symbol
     options::Union{Nothing,Dict,NamedTuple}
 end
@@ -140,6 +140,7 @@ to_symbol(id::NodeLabel) = Symbol(String(Symbol(name(id))) * "_" * string(id.ind
 
 struct Context
     depth::Int64
+    fform::Function
     prefix::String
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
@@ -181,11 +182,9 @@ end
 
 name(f::Function) = String(Symbol(f))
 
-Context(depth::Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_name::String) =
-    Context(parent.depth + 1, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * model_name)
-Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
-Context() = Context(0, "")
+Context(depth::Int, fform::Function, prefix::String) = Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_fform::Function) = Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * name(model_fform))
+Context() = Context(0, identity, "")
 
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||

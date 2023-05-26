@@ -167,29 +167,36 @@ using TestSetExtensions
               length(ctx1.individual_variables) == 0 &&
               ctx1.depth == 0
 
-        ctx2 = Context(0, "test")
+        function test end
+
+        ctx2 = Context(0, test, "test")
         @test typeof(ctx2) == Context &&
               ctx2.prefix == "test" &&
               length(ctx2.individual_variables) == 0 &&
               ctx2.depth == 0
 
-        ctx3 = Context(ctx2, "model")
+        function layer end
+
+        ctx3 = Context(ctx2, layer)
         @test typeof(ctx3) == Context &&
-              ctx3.prefix == "test_model" &&
+              ctx3.prefix == "test_layer" &&
               length(ctx3.individual_variables) == 0 &&
               ctx3.depth == 1
 
         @test_throws MethodError Context(ctx2, :my_model)
 
-        ctx5 = Context(ctx2, "layer")
+        function secondlayer end
+
+        ctx5 = Context(ctx2, secondlayer)
         @test typeof(ctx5) == Context &&
-              ctx5.prefix == "test_layer" &&
+              ctx5.prefix == "test_secondlayer" &&
               length(ctx5.individual_variables) == 0 &&
               ctx5.depth == 1
 
-        ctx6 = Context(ctx5, "model")
+
+        ctx6 = Context(ctx3, secondlayer)
         @test typeof(ctx6) == Context &&
-              ctx6.prefix == "test_layer_model" &&
+              ctx6.prefix == "test_layer_secondlayer" &&
               length(ctx6.individual_variables) == 0 &&
               ctx6.depth == 2
     end
@@ -250,7 +257,8 @@ using TestSetExtensions
         # Test 1: Copy individual variables
         model = create_model()
         ctx = context(model)
-        child_context = Context(context(model), "child")
+        function child end
+        child_context = Context(context(model), child)
         x = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
         z = getorcreate!(model, ctx, :z, nothing)
@@ -262,7 +270,7 @@ using TestSetExtensions
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, 1)
         x = getorcreate!(model, ctx, :x, 2)
-        child_context = Context(context(model), "child")
+        child_context = Context(context(model), child)
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
 
@@ -273,7 +281,7 @@ using TestSetExtensions
         x = getorcreate!(model, ctx, :x, 2, 1)
         x = getorcreate!(model, ctx, :x, 1, 2)
         x = getorcreate!(model, ctx, :x, 2, 2)
-        child_context = Context(context(model), "child")
+        child_context = Context(context(model), child)
         copy_markov_blanket_to_child_context(child_context, (in = x,))
         @test child_context[:in] == x
 
@@ -281,14 +289,14 @@ using TestSetExtensions
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        child_context = Context(context(model), "child")
+        child_context = Context(context(model), child)
         copy_markov_blanket_to_child_context(child_context, (in = 1,))
         @test !haskey(child_context, :in)
 
         # Test 5: Do not copy vector valued constant variables
         model = create_model()
         ctx = context(model)
-        child_context = Context(context(model), "child")
+        child_context = Context(context(model), child)
         copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
         @test !haskey(child_context, :in)
     end
