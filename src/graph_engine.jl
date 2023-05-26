@@ -183,7 +183,7 @@ name(f::Function) = String(Symbol(f))
 
 Context(depth::Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
 Context(parent::Context, model_name::String) =
-    Context(parent.depth + 1, parent.prefix * model_name * "_")
+    Context(parent.depth + 1, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * model_name)
 Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
 Context() = Context(0, "")
 

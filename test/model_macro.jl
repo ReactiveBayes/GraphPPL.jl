@@ -1824,12 +1824,9 @@ end
             model_macro_interior, create_model, context, getorcreate!, make_node!
 
         # Test 1: Test regular node creation input
-        input = quote
-            function test_model(μ, σ)
-                x ~ sum(μ, σ)
-            end
+        @model function test_model(μ, σ)
+            x ~ sum(μ, σ)
         end
-        eval(model_macro_interior(input))
         __model__ = create_model()
         __context__ = context(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
@@ -1846,43 +1843,42 @@ end
         @test nv(__model__) == 4 && ne(__model__) == 3
 
         # Test 2: Test regular node creation input with vector
-        input = quote
-            function test_model(μ, σ)
-                local x
-                for i = 1:10
-                    x[i] ~ sum(μ, σ)
-                end
-                y ~ x[1] + x[10]
+        @model function test_model(μ, σ)
+            local x
+            for i = 1:10
+                x[i] ~ sum(μ, σ)
             end
+            y ~ x[1] + x[10]
         end
-        eval(model_macro_interior(input))
+        
         __model__ = create_model()
-        __context__ = context(__model__)
-        μ = getorcreate!(__model__, __context__, :μ, nothing)
-        σ = getorcreate!(__model__, __context__, :σ, nothing)
+        ctx = context(__model__)
+        μ = getorcreate!(__model__, ctx, :μ, nothing)
+        σ = getorcreate!(__model__, ctx, :σ, nothing)
         make_node!(
             __model__,
-            __context__,
+            ctx,
             test_model,
             μ,
             (σ = σ,);
             __parent_options__ = nothing,
             __debug__ = false,
         )
+        x = ctx[:test_model_3][:x]
+        for i in x
+            @test isa(i, GraphPPL.NodeLabel) && isa(__model__[i], GraphPPL.VariableNodeData)
+        end
         @test nv(__model__) == 24
 
 
-        # Test 3: Test regular node creation input with vector
-        input = quote
-            function illegal_model(μ, σ)
-                local x
-                for i = 1:10
-                    x[i] ~ sum(μ, σ)
-                end
-                y ~ x[1] + x[10] + x[11]
+        # Test 3: Test regular node creation input with vector with illegal access
+        @model function illegal_model(μ, σ)
+            local x
+            for i = 1:10
+                x[i] ~ sum(μ, σ)
             end
+            y ~ x[1] + x[10] + x[11]
         end
-        eval(model_macro_interior(input))
         __model__ = create_model()
         __context__ = context(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
@@ -1898,18 +1894,15 @@ end
         )
 
         # Test 4: Test Composite nodes with different number of interfaces
-        input_1 = quote
-            function foo(x, y)
-                x ~ y + 1
-            end
+        @model function foo(x, y)
+            x ~ y + 1
         end
+        
         input_2 = quote
             function foo(x, y, z)
                 x ~ y + z
             end
         end
-        eval(model_macro_interior(input_1))
-        eval(model_macro_interior(input_2))
         __model__ = create_model()
         __context__ = context(__model__)
         x = getorcreate!(__model__, __context__, :x, nothing)
@@ -1928,20 +1921,17 @@ end
         # Test 5: Test deep anonymous deterministic function collapses to single node
         struct Normal end
         GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
-        input = quote
-            function model_with_deep_anonymous_call(x, y)
-                z ~ Normal(x, Matrix{Float64}(Diagonal(ones(4))))
-                y ~ Normal(z, 1)
-            end
+        @model function model_with_deep_anonymous_call(x, y)
+            z ~ Normal(x, Matrix{Float64}(Diagonal(ones(4))))
+            y ~ Normal(z, 1)
         end
-        eval(model_macro_interior(input))
         __model__ = create_model()
-        __context__ = context(__model__)
-        x = getorcreate!(__model__, __context__, :x, nothing)
-        y = getorcreate!(__model__, __context__, :y, nothing)
+        ctx = context(__model__)
+        x = getorcreate!(__model__, ctx, :x, nothing)
+        y = getorcreate!(__model__, ctx, :y, nothing)
         x = make_node!(
             __model__,
-            __context__,
+            ctx,
             model_with_deep_anonymous_call,
             x,
             (y = y,);
@@ -1950,7 +1940,7 @@ end
         )
         # Test that lhs of deterministic node call gets the corresponding value
         @test GraphPPL.node_options(
-            __model__[__context__[:model_with_deep_anonymous_call_3][:constvar_6]],
+            __model__[ctx[:model_with_deep_anonymous_call_3][:constvar_6]],
         )[:value] == Matrix{Float64}(Diagonal(ones(4)))
         @test GraphPPL.nv(__model__) == 8 && GraphPPL.ne(__model__) == 6
     end

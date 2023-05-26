@@ -167,15 +167,15 @@ using TestSetExtensions
               length(ctx1.individual_variables) == 0 &&
               ctx1.depth == 0
 
-        ctx2 = Context(0, "test_")
+        ctx2 = Context(0, "test")
         @test typeof(ctx2) == Context &&
-              ctx2.prefix == "test_" &&
+              ctx2.prefix == "test" &&
               length(ctx2.individual_variables) == 0 &&
               ctx2.depth == 0
 
         ctx3 = Context(ctx2, "model")
         @test typeof(ctx3) == Context &&
-              ctx3.prefix == "test_model_" &&
+              ctx3.prefix == "test_model" &&
               length(ctx3.individual_variables) == 0 &&
               ctx3.depth == 1
 
@@ -183,13 +183,13 @@ using TestSetExtensions
 
         ctx5 = Context(ctx2, "layer")
         @test typeof(ctx5) == Context &&
-              ctx5.prefix == "test_layer_" &&
+              ctx5.prefix == "test_layer" &&
               length(ctx5.individual_variables) == 0 &&
               ctx5.depth == 1
 
         ctx6 = Context(ctx5, "model")
         @test typeof(ctx6) == Context &&
-              ctx6.prefix == "test_layer_model_" &&
+              ctx6.prefix == "test_layer_model" &&
               length(ctx6.individual_variables) == 0 &&
               ctx6.depth == 2
     end
