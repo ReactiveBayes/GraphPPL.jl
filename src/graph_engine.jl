@@ -1,8 +1,6 @@
 using Graphs
 using MetaGraphsNext
 import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!
-using GraphPlot, Compose
-import Cairo
 
 """
 The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
@@ -182,8 +180,13 @@ end
 
 name(f::Function) = String(Symbol(f))
 
-Context(depth::Int, fform::Function, prefix::String) = Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_fform::Function) = Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * name(model_fform))
+Context(depth::Int, fform::Function, prefix::String) =
+    Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_fform::Function) = Context(
+    parent.depth + 1,
+    model_fform,
+    (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * name(model_fform),
+)
 Context() = Context(0, identity, "")
 
 haskey(context::Context, key::Symbol) =
@@ -837,12 +840,7 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    node_id = add_atomic_factor_node!(
-        model,
-        ctx,
-        fform;
-        __options__ = __parent_options__,
-    )
+    node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
     for (interface_name, interface_value) in iterator(interfaces)
         add_edge!(
             model,
@@ -853,17 +851,6 @@ function make_node!(
     end
     return lhs_interface
 end
-
-
-function plot_graph(g::MetaGraph; file_name = "tmp.png")
-    node_labels =
-        [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
-    plt = gplot(g, nodelabel = node_labels)
-    draw(PNG(file_name, 16cm, 16cm), plt)
-    return plt
-end
-
-plot_graph(g::Model; file_name = "tmp.png") = plot_graph(g.graph; file_name = file_name)
 
 function prune!(m::Model)
     degrees = degree(m.graph)

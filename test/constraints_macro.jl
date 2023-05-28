@@ -13,7 +13,15 @@ function create_simple_model()
     x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
     y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
     out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
-    GraphPPL.make_node!(model, ctx, +, out, [x, y]; __debug__=false, __parent_options__=nothing)
+    GraphPPL.make_node!(
+        model,
+        ctx,
+        +,
+        out,
+        [x, y];
+        __debug__ = false,
+        __parent_options__ = nothing,
+    )
     return model
 end
 
@@ -40,17 +48,29 @@ end
         c = Constraints(Dict(:x => :(q(x, y) = q(x)q(y)), :y => :(q(x, y) = q(x)q(y))))
         model = create_simple_model()
         apply!(model, c)
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][1] :(q(x, y) = q(x)q(y))
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][1] :(q(x, y) = q(x)q(y))
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][1] :(
+            q(x, y) = q(x)q(y)
+        )
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][1] :(
+            q(x, y) = q(x)q(y)
+        )
         @test node_options(model[GraphPPL.context(model)[:out]]) === nothing
 
         # Test 2: Test apply! with variable nodes when nodes already have constraints
         c = Constraints(Dict(:x => :(q(x, y) = q(x, y)), :y => :(q(x, y) = q(x, y))))
         apply!(model, c)
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][1] :(q(x, y) = q(x)q(y))
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][2] :(q(x, y) = q(x, y))
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][1] :(q(x, y) = q(x)q(y))
-        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][2] :(q(x, y) = q(x, y))
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][1] :(
+            q(x, y) = q(x)q(y)
+        )
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:x]])[:constraints][2] :(
+            q(x, y) = q(x, y)
+        )
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][1] :(
+            q(x, y) = q(x)q(y)
+        )
+        @test_expression_generating node_options(model[GraphPPL.context(model)[:y]])[:constraints][2] :(
+            q(x, y) = q(x, y)
+        )
         @test node_options(model[GraphPPL.context(model)[:out]]) === nothing
     end
 end

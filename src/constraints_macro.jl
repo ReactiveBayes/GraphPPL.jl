@@ -1,5 +1,5 @@
-struct Constraints 
-    variable_constraints::Dict{Symbol, Expr}
+struct Constraints
+    variable_constraints::Dict{Symbol,Expr}
 end
 
 function apply!(model::Model, context::Context, constraints::Constraints)
@@ -9,7 +9,11 @@ function apply!(model::Model, context::Context, constraints::Constraints)
     end
 end
 
-function add_to_node_options!(node::VariableNodeData, node_options::AbstractDict, constraint::Expr)
+function add_to_node_options!(
+    node::VariableNodeData,
+    node_options::AbstractDict,
+    constraint::Expr,
+)
     if haskey(node_options, :constraints)
         push!(node_options[:constraints], constraint)
     else
@@ -17,8 +21,13 @@ function add_to_node_options!(node::VariableNodeData, node_options::AbstractDict
     end
 end
 
-function add_to_node_options!(node::VariableNodeData, node_options::Nothing, constraint::Expr)
-    node.options = Dict{Symbol, Any}(:constraints => [constraint])
+function add_to_node_options!(
+    node::VariableNodeData,
+    node_options::Nothing,
+    constraint::Expr,
+)
+    node.options = Dict{Symbol,Any}(:constraints => [constraint])
 end
 
-apply!(model::Model, constraints::Constraints) = apply!(model, GraphPPL.context(model), constraints)
+apply!(model::Model, constraints::Constraints) =
+    apply!(model, GraphPPL.context(model), constraints)

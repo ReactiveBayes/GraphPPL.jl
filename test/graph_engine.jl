@@ -240,7 +240,7 @@ using TestSetExtensions
     end
 
     @testset "create_model()" begin
-        import GraphPPL: create_model, Model, plot_graph
+        import GraphPPL: create_model, Model
 
 
         model = create_model()
@@ -633,7 +633,7 @@ using TestSetExtensions
         @test nv(model) == 2 && label_for(model.graph, 2).name == sum
 
         # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
-        node_id = add_atomic_factor_node!(model, ctx, sum,)
+        node_id = add_atomic_factor_node!(model, ctx, sum)
         @test nv(model) == 3 && label_for(model.graph, 3).name == sum
 
         # Test 3: Add an atomic factor node with options
@@ -655,7 +655,7 @@ using TestSetExtensions
         )
         @test node_id.name == sum
 
-       
+
         struct Normal
             μ::Number
             σ::Number
@@ -909,7 +909,8 @@ using TestSetExtensions
 
         GraphPPL.interfaces(::Type{NormalMeanVariance}, ::Val{3}) = (:out, :μ, :σ)
         GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::Val{3}) = (:out, :μ, :τ)
-        GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Normal}, rhs) = (μ = rhs[1], σ = rhs[2])
+        GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Normal}, rhs) =
+            (μ = rhs[1], σ = rhs[2])
         GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
         GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
 
@@ -917,21 +918,30 @@ using TestSetExtensions
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
-        @test any((key) -> occursin("NormalMeanPrecision", String(key)), keys(ctx.factor_nodes))
+        @test any(
+            (key) -> occursin("NormalMeanPrecision", String(key)),
+            keys(ctx.factor_nodes),
+        )
         @test GraphPPL.nv(model) == 4
 
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
-        @test any((key) -> occursin("NormalMeanVariance", String(key)), keys(ctx.factor_nodes))
+        @test any(
+            (key) -> occursin("NormalMeanVariance", String(key)),
+            keys(ctx.factor_nodes),
+        )
         @test GraphPPL.nv(model) == 4
 
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, [0, 1])
-        @test any((key) -> occursin("NormalMeanVariance", String(key)), keys(ctx.factor_nodes))
+        @test any(
+            (key) -> occursin("NormalMeanVariance", String(key)),
+            keys(ctx.factor_nodes),
+        )
         @test GraphPPL.nv(model) == 4
     end
 

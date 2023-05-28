@@ -1850,7 +1850,7 @@ end
             end
             y ~ x[1] + x[10]
         end
-        
+
         __model__ = create_model()
         ctx = context(__model__)
         μ = getorcreate!(__model__, ctx, :μ, nothing)
@@ -1897,7 +1897,7 @@ end
         @model function foo(x, y)
             x ~ y + 1
         end
-        
+
         input_2 = quote
             function foo(x, y, z)
                 x ~ y + z
