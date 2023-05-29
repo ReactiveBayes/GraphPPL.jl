@@ -7,7 +7,6 @@ version = "3.1.0"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 MetaGraphsNext = "fa8bd995-216d-47f1-8a91-f3b68fbeb377"
-TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
 
 [compat]
 MacroTools = "0.5.6"

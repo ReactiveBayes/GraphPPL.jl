@@ -859,3 +859,5 @@ function prune!(m::Model)
         rem_vertex!(m.graph, node)
     end
 end
+
+function plot_graph end
