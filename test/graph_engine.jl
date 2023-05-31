@@ -6,7 +6,7 @@ using Graphs
 using MetaGraphsNext
 using TestSetExtensions
 
-@testset "graph_engine" begin
+@testset ExtendedTestSet "graph_engine" begin
     @testset "model constructor" begin
         import GraphPPL: Model, NodeLabel, NodeData, Context, EdgeLabel
 
@@ -791,9 +791,9 @@ using TestSetExtensions
         @test GraphPPL.nv(model) == 4
         @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
               GraphPPL.EdgeLabel[
-            GraphPPL.EdgeLabel(:out, Val(1)),
-            GraphPPL.EdgeLabel(:μ, Val(1)),
-            GraphPPL.EdgeLabel(:σ, Val(1)),
+            GraphPPL.EdgeLabel(:out, nothing),
+            GraphPPL.EdgeLabel(:μ, nothing),
+            GraphPPL.EdgeLabel(:σ, nothing),
         ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
@@ -831,9 +831,9 @@ using TestSetExtensions
         @test GraphPPL.nv(model) == 4
         @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
               GraphPPL.EdgeLabel[
-            GraphPPL.EdgeLabel(:out, Val(1)),
-            GraphPPL.EdgeLabel(:μ, Val(1)),
-            GraphPPL.EdgeLabel(:σ, Val(1)),
+            GraphPPL.EdgeLabel(:out, nothing),
+            GraphPPL.EdgeLabel(:μ, nothing),
+            GraphPPL.EdgeLabel(:σ, nothing),
         ]
 
         # Test 7: Stochastic node with instantiated object
@@ -868,7 +868,13 @@ using TestSetExtensions
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
-        @test GraphPPL.nv(model) == 4
+        @test GraphPPL.nv(model) == 4 
+        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
+              GraphPPL.EdgeLabel[
+            GraphPPL.EdgeLabel(:out, nothing),
+            GraphPPL.EdgeLabel(:in, 1),
+            GraphPPL.EdgeLabel(:in, 2),
+        ]
 
         #Test 10: Deterministic node with keyword arguments
         function abc(; a = 1, b = 2)
@@ -943,6 +949,7 @@ using TestSetExtensions
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
+
     end
 
     @testset "prune!(m::Model)" begin

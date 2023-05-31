@@ -1,6 +1,6 @@
-module GraphPPLPlot
+module GraphPPLPlottingExt
 
-using GraphPPL, GraphPlot, Cairo, Compose
+using GraphPPL, GraphPlot, Cairo, Compose, MetaGraphsNext
 
 function GraphPPL.plot_graph(g::MetaGraph; file_name = "tmp.png")
     node_labels =

@@ -389,7 +389,7 @@ function options_vector_to_dict(options::AbstractArray)
     if length(options) == 0
         return nothing
     end
-    result = Dict()
+    result = Dict{Any, Any}()
     for option in options
         if option.head != :(=)
             error("Invalid option $(option)")
@@ -482,7 +482,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             )
             __parent_options__ =
                 __parent_options__ == nothing ? nothing :
-                Dict("parent_options" => __parent_options__)
+                Dict{Any, Any}("parent_options" => __parent_options__)
 
             $ms_body
             return __lhs_interface__

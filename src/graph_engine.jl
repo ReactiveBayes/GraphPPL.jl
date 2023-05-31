@@ -32,7 +32,7 @@ mutable struct VariableNodeData
     options::Union{Nothing,Dict,NamedTuple}
 end
 
-struct FactorNodeData
+mutable struct FactorNodeData
     fform::Any
     options::Union{Nothing,Dict,NamedTuple}
 end
@@ -44,9 +44,10 @@ node_options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
-    index::Val
+    index::Union{Int64, Nothing}
 end
-EdgeLabel(name::Symbol, index::Int64) = EdgeLabel(name, Val(index))
+
+to_symbol(label::EdgeLabel) = Symbol(string(label.name) * "_" * string(label.index))
 
 
 """ 
@@ -517,7 +518,7 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_node_id::NodeLabel,
     interface_name::Symbol;
-    index = 1,
+    index = nothing,
 )
     model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
 end
