@@ -1,6 +1,7 @@
 using Graphs
 using MetaGraphsNext
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!
+import Base:
+    put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 
 """
 The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
@@ -24,7 +25,14 @@ struct NodeLabel
     index::Int64
 end
 
+Base.length(label::NodeLabel) = 1
+
 name(label::NodeLabel) = label.name
+vec(label::NodeLabel) = [label]
+iterate(label::NodeLabel) = (label, nothing)
+iterate(label::NodeLabel, any) = nothing
+
+Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
 
 
 mutable struct VariableNodeData
@@ -44,10 +52,17 @@ node_options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
-    index::Union{Int64, Nothing}
+    index::Union{Int64,Nothing}
 end
 
-to_symbol(label::EdgeLabel) = Symbol(string(label.name) * "_" * string(label.index))
+to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
+to_symbol(label::EdgeLabel, ::Nothing) = label.name
+to_symbol(label::EdgeLabel, ::Int64) =
+    Symbol(string(label.name) * "[" * string(label.index) * "]")
+
+Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
+
+
 
 
 """ 
@@ -95,17 +110,18 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-MetaGraphsNext.neighbors(model::Model, node::NodeLabel) =
+Graphs.neighbors(model::Model, node::NodeLabel) =
     label_for.(
         (model.graph,),
         collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))),
     )
+Graphs.neighbors(model::Model, nodes::AbstractArray) =
+    union(Graphs.neighbors.(Ref(model), nodes)...)
+Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
 
 
-function Graphs.edges(model::Model, node::NodeLabel)
-    neighbors = MetaGraphsNext.neighbors(model, node)
-    return [model.graph[node, neighbor] for neighbor in neighbors]
-end
+Graphs.edges(model::Model, node::NodeLabel) =
+    getindex.(Ref(model), Ref(node), MetaGraphsNext.neighbors(model, node))
 
 
 
@@ -463,8 +479,9 @@ function add_atomic_factor_node!(
     model::Model,
     context::Context,
     fform;
-    __options__ = nothing,
+    __options__ = Dict(),
 )
+    __options__ = __options__ === nothing ? Dict() : __options__
     node_id = generate_nodelabel(model, fform)
     model[node_id] = FactorNodeData(fform, __options__)
     context.factor_nodes[to_symbol(node_id)] = node_id
@@ -850,6 +867,8 @@ function make_node!(
             interface_name,
         )
     end
+    out_degree = outdegree(model.graph, code_for(model.graph, node_id))
+    model[node_id].options[:q] = [BitSet(1:out_degree) for _ = 1:out_degree]
     return lhs_interface
 end
 

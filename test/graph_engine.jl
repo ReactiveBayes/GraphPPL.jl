@@ -5,6 +5,7 @@ using GraphPPL
 using Graphs
 using MetaGraphsNext
 using TestSetExtensions
+include("model_zoo.jl")
 
 @testset ExtendedTestSet "graph_engine" begin
     @testset "model constructor" begin
@@ -125,6 +126,19 @@ using TestSetExtensions
         model[NodeLabel(:b, 2)] = VariableNodeData(:b, nothing)
         model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
         @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
+
+        model = create_model()
+        a = GraphPPL.ResizableArray(NodeLabel, Val(1))
+        b = GraphPPL.ResizableArray(NodeLabel, Val(1))
+        for i = 1:3
+            a[i] = NodeLabel(:a, i)
+            model[a[i]] = VariableNodeData(:a, nothing)
+            b[i] = NodeLabel(:b, i)
+            model[b[i]] = VariableNodeData(:b, nothing)
+            model[a[i], b[i]] = EdgeLabel(:edge, i)
+        end
+        @test neighbors(model, a) == [b[1], b[2], b[3]]
+
     end
 
     @testset "generate_nodelabel(::Model, ::Symbol)" begin
@@ -655,11 +669,6 @@ using TestSetExtensions
         )
         @test node_id.name == sum
 
-
-        struct Normal
-            μ::Number
-            σ::Number
-        end
         # Test 5: Test that creating a node with an instantiated object is supported
 
         model = create_model()
@@ -754,8 +763,6 @@ using TestSetExtensions
         import GraphPPL: rhs_to_named_tuple
 
         # Test 1: Add default arguments to Normal call
-        GraphPPL.rhs_to_named_tuple(::Atomic, ::Type{Normal}, interface_values) =
-            NamedTuple{(:μ, :σ)}(interface_values)
         @test rhs_to_named_tuple(Atomic(), Normal, [0, 1]) == (μ = 0, σ = 1)
 
         # Test 2: Add :in to function call that has default behaviour 
@@ -785,8 +792,6 @@ using TestSetExtensions
         @test GraphPPL.nv(model) == 1
 
         # Test 2: Stochastic atomic call returns a new node
-        GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
-        GraphPPL.interfaces(::Type{Normal}, ::Val{3}) = (:out, :μ, :σ)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test GraphPPL.nv(model) == 4
         @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
@@ -822,8 +827,6 @@ using TestSetExtensions
         @test GraphPPL.nv(model) == 4
 
         # Test 6: Stochastic node with default arguments
-        GraphPPL.rhs_to_named_tuple(::Atomic, ::Type{Normal}, interface_values) =
-            NamedTuple{(:μ, :σ)}(interface_values)
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)
@@ -855,8 +858,6 @@ using TestSetExtensions
         # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
         model = create_model()
         ctx = context(model)
-        struct ArbitraryNode end
-        GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
 
@@ -868,7 +869,7 @@ using TestSetExtensions
         ctx = context(model)
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
-        @test GraphPPL.nv(model) == 4 
+        @test GraphPPL.nv(model) == 4
         @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
               GraphPPL.EdgeLabel[
             GraphPPL.EdgeLabel(:out, nothing),
@@ -910,16 +911,6 @@ using TestSetExtensions
         )
 
         # Test 13: Make stochastic node with aliases
-        struct NormalMeanVariance end
-        struct NormalMeanPrecision end
-
-        GraphPPL.interfaces(::Type{NormalMeanVariance}, ::Val{3}) = (:out, :μ, :σ)
-        GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::Val{3}) = (:out, :μ, :τ)
-        GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Normal}, rhs) =
-            (μ = rhs[1], σ = rhs[2])
-        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
-        GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
-
         model = create_model()
         ctx = context(model)
         x = getorcreate!(model, ctx, :x, nothing)

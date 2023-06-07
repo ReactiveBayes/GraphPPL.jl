@@ -389,7 +389,7 @@ function options_vector_to_dict(options::AbstractArray)
     if length(options) == 0
         return nothing
     end
-    result = Dict{Any, Any}()
+    result = Dict{Any,Any}()
     for option in options
         if option.head != :(=)
             error("Invalid option $(option)")
@@ -482,7 +482,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             )
             __parent_options__ =
                 __parent_options__ == nothing ? nothing :
-                Dict{Any, Any}("parent_options" => __parent_options__)
+                Dict{Any,Any}("parent_options" => __parent_options__)
 
             $ms_body
             return __lhs_interface__
@@ -492,15 +492,15 @@ function get_make_node_function(ms_body, ms_args, ms_name)
 end
 
 
-function model_macro_interior(__model___specification)
+function model_macro_interior(model_specification)
     @capture(
-        __model___specification,
+        model_specification,
         (function ms_name_(ms_args__; ms_kwargs__)
             ms_body_
         end) | (function ms_name_(ms_args__)
             ms_body_
         end)
-    ) || error("__model__ specification language requires full function definition")
+    ) || error("Model specification language requires full function definition")
 
     ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)
