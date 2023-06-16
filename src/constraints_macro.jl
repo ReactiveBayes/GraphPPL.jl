@@ -1,61 +1,236 @@
 export MeanField, FullFactorization
+
+using StaticArrays
+using Unrolled
+# import Base: +, ==, *, firstindex, lastindex, in
+
 struct MeanField end
 
 struct FullFactorization end
 
 """
+    FunctionalIndex
+
+A special type of an index that represents a function that can be used only in pair with a collection. 
+An example of a `FunctionalIndex` can be `firstindex` or `lastindex`, but more complex use cases are possible too, 
+e.g. `firstindex + 1`. Important part of the implementation is that the resulting structure is `isbitstype(...) = true`, that allows to store it in parametric type as valtype.
+
+One use case for this structure is to dispatch on and to replace `begin` or `end` (or more complex use cases, e.g. `begin + 1`) markers in constraints specification language.
+"""
+struct FunctionalIndex{R,F}
+    f::F
+
+    FunctionalIndex{R}(f::F) where {R,F} = new{R,F}(f)
+end
+
+(index::FunctionalIndex{R,F})(collection) where {R,F} =
+    __functional_index_apply(R, index.f, collection)::Integer
+
+__functional_index_apply(::Symbol, f, collection) = f(collection)
+__functional_index_apply(
+    subindex::FunctionalIndex,
+    f::Tuple{typeof(+),<:Integer},
+    collection,
+) = subindex(collection) .+ f[2]
+__functional_index_apply(
+    subindex::FunctionalIndex,
+    f::Tuple{typeof(-),<:Integer},
+    collection,
+) = subindex(collection) .- f[2]
+
+Base.:(+)(left::FunctionalIndex, index::Integer) = FunctionalIndex{left}((+, index))
+Base.:(-)(left::FunctionalIndex, index::Integer) = FunctionalIndex{left}((-, index))
+
+__functional_index_print(io::IO, f::typeof(firstindex)) = nothing
+__functional_index_print(io::IO, f::typeof(lastindex)) = nothing
+__functional_index_print(io::IO, f::Tuple{typeof(+),<:Integer}) = print(io, " + ", f[2])
+__functional_index_print(io::IO, f::Tuple{typeof(-),<:Integer}) = print(io, " - ", f[2])
+
+function Base.show(io::IO, index::FunctionalIndex{R,F}) where {R,F}
+    print(io, "(")
+    print(io, R)
+    __functional_index_print(io, index.f)
+    print(io, ")")
+end
+
+
+"""
     IndexedVariable
 
-`IndexedVariable` represents a variable with index in factorisation specification language. An IndexedVariable is generally part of a vector or tensor of random variables.
+`IndexedVariable` represents a variable with index in factorization specification language. An IndexedVariable is generally part of a vector or tensor of random variables.
 """
-struct IndexedVariable
+struct IndexedVariable{T}
     variable::Symbol
-    index::AbstractArray{T} where {T<:Int}
+    index::T
 end
+
+Base.:(==)(left::IndexedVariable, right::IndexedVariable) =
+    (left.variable == right.variable && left.index == right.index)
+
+Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.variable)
+Base.show(io::IO, variable::IndexedVariable) =
+    print(io, variable.variable, "[", variable.index, "]")
 
 """
     CombinedRange{L, R}
 
-`CombinedRange` represents a range of combined variable in factorisation specification language. Such variables specified to be in the same factorisation cluster.
+`CombinedRange` represents a range of combined variable in factorization specification language. Such variables specified to be in the same factorization cluster.
 
 See also: [`GraphPPL.SplittedRange`](@ref)
 """
-struct CombinedRange{L, R}
-    from :: L
-    to   :: R
+struct CombinedRange{L,R}
+    from::L
+    to::R
 end
 
 Base.firstindex(range::CombinedRange) = range.from
-Base.lastindex(range::CombinedRange)  = range.to
-Base.in(item, range::CombinedRange)   = firstindex(range) <= item <= lastindex(range)
+Base.lastindex(range::CombinedRange) = range.to
+Base.in(item, range::CombinedRange) = firstindex(range) <= item <= lastindex(range)
+Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
 
 """
     SplittedRange{L, R}
 
-`SplittedRange` represents a range of splitted variable in factorisation specification language. Such variables specified to be **not** in the same factorisation cluster.
+`SplittedRange` represents a range of splitted variable in factorization specification language. Such variables specified to be **not** in the same factorization cluster.
 
 See also: [`GraphPPL.CombinedRange`](@ref)
 """
-struct SplittedRange{L, R}
-    from :: L
-    to   :: R
+struct SplittedRange
+    from::Any
+    to::Any
 end
 
-is_splitted(any)                  = false
+is_splitted(any) = false
 is_splitted(range::SplittedRange) = true
 
 Base.firstindex(range::SplittedRange) = range.from
-Base.lastindex(range::SplittedRange)  = range.to
-Base.in(item, range::SplittedRange)   = firstindex(range) <= item <= lastindex(range)
+Base.lastindex(range::SplittedRange) = range.to
+Base.in(item, range::SplittedRange) = firstindex(range) <= item <= lastindex(range)
+Base.length(range::SplittedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::SplittedRange) = print(io, repr(range.from), "..", repr(range.to))
+
+
+
+"""
+    __factorization_specification_resolve_index(index, collection)
+
+This function materializes index from constraints specification to something we can use `Base.in` function to. For example constraint specification index may return `begin` or `end`
+placeholders in a form of the `FunctionalIndex` structure. This function correctly resolves all indices and check bounds as an extra step.
+"""
+function __factorization_specification_resolve_index end
+
+__factorization_specification_resolve_index(index::Any, collection::NodeLabel) =
+    error("Attempt to access a single variable $(name(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
+__factorization_specification_resolve_index(index::Nothing, collection::NodeLabel) = nothing
+__factorization_specification_resolve_index(
+    index::Nothing,
+    collection::AbstractArray{<:NodeLabel},
+) = nothing
+__factorization_specification_resolve_index(
+    index::Integer,
+    collection::AbstractArray{<:NodeLabel},
+) =
+    (firstindex(collection) <= index <= lastindex(collection)) ? index :
+    error(
+        "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(name(first(collection))) at index [$(index)].",
+    )
+__factorization_specification_resolve_index(
+    index::FunctionalIndex,
+    collection::AbstractArray{<:NodeLabel},
+) = __factorization_specification_resolve_index(
+    index(collection)::Integer,
+    collection,
+)::Integer
+__factorization_specification_resolve_index(
+    index::CombinedRange,
+    collection::AbstractArray{<:NodeLabel},
+) = CombinedRange(
+    __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
+    __factorization_specification_resolve_index(lastindex(index), collection)::Integer,
+)
+__factorization_specification_resolve_index(
+    index::SplittedRange,
+    collection::AbstractArray{<:NodeLabel},
+) = SplittedRange(
+    __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
+    __factorization_specification_resolve_index(lastindex(index), collection)::Integer,
+)
+
+# Only these combinations are allowed to be merged
+__factorization_split_merge_range(a::Int, b::Int) = SplittedRange(a, b)
+__factorization_split_merge_range(a::FunctionalIndex, b::Int) = SplittedRange(a, b)
+__factorization_split_merge_range(a::Int, b::FunctionalIndex) = SplittedRange(a, b)
+__factorization_split_merge_range(a::FunctionalIndex, b::FunctionalIndex) =
+    SplittedRange(a, b)
+__factorization_split_merge_range(a::Any, b::Any) =
+    error("Cannot merge $(a) and $(b) indexes in `factorization_split`")
+
+struct FactorizationConstraintEntry{T<:IndexedVariable}
+    entries::Vector{T}
+end
+
+function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
+    print(io, "q(")
+    print(io, join(constraint_entry.entries, ", "))
+    print(io, ")")
+end
+
+Base.iterate(e::FactorizationConstraintEntry, i::Int = 1) = Base.iterate(e.entries, i)
+
+Base.:(==)(lhs::FactorizationConstraintEntry, rhs::FactorizationConstraintEntry) =
+    length(lhs.entries) == length(rhs.entries) &&
+    all(pair -> pair[1] == pair[2], zip(lhs.entries, rhs.entries))
+
+getnames(entry::FactorizationConstraintEntry) = [e.variable for e in entry.entries]
+getindices(entry::FactorizationConstraintEntry) = Tuple([e.index for e in entry.entries])
+
+function factorization_split(
+    left::AbstractArray{<:FactorizationConstraintEntry},
+    right::AbstractArray{<:FactorizationConstraintEntry},
+)
+    left_last = last(left)
+    right_first = first(right)
+    (getnames(left_last) == getnames(right_first)) || error(
+        "Cannot split $(left_last) and $(right_first). Names or their order does not match.",
+    )
+    (length(getnames(left_last)) === length(Set(getnames(left_last)))) ||
+        error("Cannot split $(left_last) and $(right_first). Names should be unique.")
+    lindices = getindices(left_last)
+    rindices = getindices(right_first)
+    split_merged = unrolled_map(__factorization_split_merge_range, lindices, rindices)
+
+    return [
+        left[1:(end-1)]...,
+        FactorizationConstraintEntry([
+            IndexedVariable(var, split) for
+            (var, split) in zip(getnames(left_last), split_merged)
+        ]),
+        right[(begin+1):end]...,
+    ]
+end
+
+
 
 struct FactorizationConstraint{V,F}
     variables::V
     constraint::F
 end
+
+function Base.show(
+    io::IO,
+    constraint::FactorizationConstraint{V,F} where {V,F<:AbstractArray},
+)
+    print(io, "q(")
+    print(io, join(constraint.variables, ", "))
+    print(io, ") = ")
+    print(io, join(constraint.constraint), ", ")
+end
+
+Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
+    left.variables == right.variables && left.constraint == right.constraint
 
 struct FunctionalFormConstraint{V,F}
     variables::V
@@ -64,8 +239,8 @@ end
 
 const MaterializedConstraints = Union{FactorizationConstraint,FunctionalFormConstraint}
 
-variables(c::MaterializedConstraints) = c.variables
-constraint_data(c::MaterializedConstraints) = c.constraint
+getvariables(c::MaterializedConstraints) = c.variables
+getconstraint(c::MaterializedConstraints) = c.constraint
 
 
 struct GeneralSubModelConstraints
@@ -93,87 +268,148 @@ SubModelConstraints(x::Symbol, constraints::Constraints) =
 SubModelConstraints(fform::Function, constraints::Constraints) =
     GeneralSubModelConstraints(fform, constraints)
 
-function throw_var_not_defined(context::Context, variable::Symbol)
-    if !(
-        haskey(context.individual_variables, variable) ||
-        haskey(context.vector_variables, variable) ||
-        haskey(context.tensor_variables, variable)
-    )
-        error(lazy"Variable $variable does not exist in context")
-    end
-end
-
-function throw_var_not_defined(context::Context, variable::IndexedVariable)
-    if !(
-        haskey(context.vector_variables, variable.variable) ||
-        haskey(context.tensor_variables, variable.variable)
-    )
-        error(lazy"Variable $variable does not exist in context")
-    end
-end
-
-throw_var_not_defined(
-    context::Context,
-    variables::NTuple{N,Union{Symbol,IndexedVariable}} where {N},
-) = throw_var_not_defined.(Ref(context), variables)
-
-
-function find_applicable_nodes(
+function applicable_nodes(
     model::Model,
     context::Context,
-    constraint::FactorizationConstraint{V,F},
-) where {V,F<:Tuple}
-    applicable_nodes = intersect(
-        GraphPPL.neighbors.(
-            Ref(model),
-            vec.(_get_from_context.(Ref(context), constraint.variables)),
-        )...,
-    )
-    return applicable_nodes
+    constraint::FactorizationConstraint,
+)
+    union(neighbors.(Ref(model), collect(Iterators.flatten(vec.(getindex.(Ref(context), constraint.variables)))))...)
 end
 
-
-function find_applicable_nodes(
+function applicable_nodes(
     model::Model,
     context::Context,
     constraint::FunctionalFormConstraint,
 )
-    return vec(_get_from_context(context, constraint.variables))
+    nothing
 end
 
-_get_from_context(context::Context, variable::Symbol) = context[variable]
-_get_from_context(context::Context, variable::IndexedVariable) =
-    context[variable.variable][variable.index...]
+__meanfield_split(name::Symbol, var::NodeLabel) = IndexedVariable(name, nothing)
+__meanfield_split(name::Symbol, var::ResizableArray{<:NodeLabel, V, N}) where {V, N} = begin @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays." ; IndexedVariable(
+    name,
+    SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex)),
+) end
 
 
-in_neighbors(neighbors::AbstractArray, node::NodeLabel) =
-    node ∈ neighbors ? NodeLabel[node] : NodeLabel[]
-in_neighbors(neighbors::AbstractArray, node::ResizableArray) =
-    intersect!(vec(node), neighbors)
-
-convert_to_edge_names(
-    fct,
-    neighbors::AbstractArray{T} where {T<:NodeLabel},
+prepare_factorization_constraint(
     context::Context,
-) = in_neighbors(neighbors, _get_from_context(context, fct))
+    constraint::FactorizationConstraint{
+        V,
+        F,
+    } where {V,F<:AbstractArray{<:FactorizationConstraintEntry}},
+) = constraint
 
-function factorization_constraint_to_bitset(neighbors::AbstractArray, constraint::Tuple)
-    integer_constraint = map(factor -> map(dst -> findfirst(dst .== neighbors), factor), constraint)  #convert all constraint statements to integers, this might be faster with a mapping dictionary.
-    constraint_sets = BitSet.(integer_constraint)
-    for node = 1:length(neighbors)
-        if !any(node .∈ constraint_sets)
-            push!.(constraint_sets, node)
+function prepare_factorization_constraint(
+    context::Context,
+    constraint::FactorizationConstraint{V,F} where {V,F<:MeanField},
+)
+    return FactorizationConstraint(
+        constraint.variables,
+        [
+            FactorizationConstraintEntry([__meanfield_split(v, context[v])]) for
+            v in constraint.variables
+        ],
+    )
+end
+
+function prepare_factorization_constraint(
+    context::Context,
+    constraint::FactorizationConstraint{V,F} where {V,F<:FullFactorization},
+)
+    return FactorizationConstraint(
+        constraint.variables,
+        [
+            FactorizationConstraintEntry([
+                IndexedVariable(v, nothing) for v in constraint.variables
+            ]),
+        ],
+    )
+end
+
+__resolve_index(index::Nothing, collection::AbstractArray) = vec(collection)
+__resolve_index(index::Nothing, collection::NodeLabel) = collection
+
+function __get_variable(context::Context, var::IndexedVariable{Nothing})
+    return __resolve_index(nothing, context[var.variable])
+end
+
+__get_variable(context::Context, var::IndexedVariable{<:Int}) =
+    context[var.variable][var.index]
+
+function __get_variable(context::Context, var::IndexedVariable{<:CombinedRange})
+    array = context[var.variable]
+    index = __factorization_specification_resolve_index(var.index, array)
+    return array[firstindex(index):lastindex(index)]
+end
+
+__get_variable(context::Context, var::IndexedVariable{<:AbstractArray{<:Int}}) =
+    context[var.variable][var.index...]
+function __get_variable(context::Context, var::IndexedVariable{FunctionalIndex})
+    array = context[var.variable]
+    index = var.index(array)
+    return array[index]
+end
+
+function get_variables(context::Context, var::FactorizationConstraintEntry)
+    result = [__get_variable(context, v) for v in var.entries]
+    return Vector{GraphPPL.NodeLabel}[collect(Iterators.flatten(result))]
+end
+
+function get_variables(
+    context::Context,
+    var::FactorizationConstraintEntry{<:IndexedVariable{<:SplittedRange}},
+)
+    result = []
+    variables = [context[v.variable] for v in var.entries]
+    ranges = [v.index for v in var.entries]
+    ranges = __factorization_specification_resolve_index.(ranges, variables)
+    range_lengths = length.(ranges)
+    @assert all(y -> y == range_lengths[1], range_lengths) lazy"All ranges in a Factorization constraint entry $([(string(v.variable) * '[' * string(range) * ']') for v in var.entries]) should have the same length."
+    range_start_indices = firstindex.(ranges)
+    for i = 1:range_lengths[1]
+        indices = range_start_indices .+ (i - 1)
+        push!(result, [variables[j][indices[j]] for j = 1:length(variables)])
+    end
+    return result
+end
+
+function convert_to_nodelabels(context::Context, constraint_data::FactorizationConstraint)
+    result = Vector{GraphPPL.NodeLabel}[]
+    for entry in getconstraint(constraint_data)
+        variables = get_variables(context, entry)
+        result = vcat(result, variables)
+    end
+    all_variables = collect(Iterators.flatten(result))
+    
+    length(unique(all_variables)) == length(all_variables) || error(lazy"Factorization constraint $constraint_data contains duplicate variables.")
+    return result
+end
+
+"""
+    convert_to_bitsets(neighbors, constraint_labels)
+
+Converts the constraint encoded in `constraint_labels` to a `BitSet` representation. This representation contains for every neighbor a `BitSet` of all the other neighbors that are in the same factorization cluster according to this constraint.
+"""
+function convert_to_bitsets(neighbors::AbstractArray, constraint_labels::AbstractArray)
+    constraint_labels = intersect.(Ref(neighbors), constraint_labels)
+    num_neighbors = length(neighbors)
+    mapping = Dict(neighbors .=> 1:num_neighbors)
+    label_indices = map(group -> map(x -> mapping[x], group), constraint_labels)        #Apparently this is faster than calling findall, but be sure to benchmark this in actual production code.
+    constraint_sets = BitSet.(label_indices)
+    for (node, _) in enumerate(neighbors)
+        if !any(node .∈ constraint_sets)    #If a variable does not occur in any group
+            push!.(constraint_sets, node)   #Add it to all groups
         end
     end
     result = map(
         node -> union(constraint_sets[findall(node .∈ constraint_sets)]...),
-        1:length(neighbors),
+        1:num_neighbors,
     )
     return result
 end
+
 function apply!(model::Model, constraints::Constraints)
-    apply!(model, context(model), constraints)
-    materialize_constraints!(model)
+    apply!(model, GraphPPL.context(model), constraints)
 end
 
 function apply!(model::Model, context::Context, constraints::Constraints)
@@ -182,130 +418,70 @@ function apply!(model::Model, context::Context, constraints::Constraints)
     end
 end
 
-function apply!(model::Model, context::Context, constraint::GeneralSubModelConstraints)
-    for (_, factor_context) in context.factor_nodes
-        if isdefined(factor_context, :fform)
-            if factor_context.fform == constraint.fform
-                apply!(model, factor_context, constraint.constraints)
-            end
-        end
-    end
-end
-
-function apply!(model::Model, context::Context, constraint::SpecificSubModelConstraints)
-    for (tag, factor_context) in context.factor_nodes
-        if tag == constraint.tag
-            apply!(model, factor_context, constraint.constraints)
-        end
-    end
-end
-
+apply!(model::Model, context::Context, constraint::GeneralSubModelConstraints) = nothing
+apply!(model::Model, context::Context, constraint::SpecificSubModelConstraints) = nothing
 
 function apply!(model::Model, context::Context, constraint::MaterializedConstraints)
-    throw_var_not_defined(context, variables(constraint))
-    applicable_nodes = find_applicable_nodes(model, context, constraint)
-    if length(applicable_nodes) == 0
-        @warn "No applicable nodes found for constraint $constraint"
-        return
-    end
-    apply!(model, context, applicable_nodes, constraint)
+    nodes = applicable_nodes(model, context, constraint)
+    apply!(model, context, constraint, nodes)
 end
-
 
 function apply!(
     model::Model,
     context::Context,
-    applicable_nodes::AbstractArray{T},
     constraint::FactorizationConstraint,
-) where {T<:NodeLabel}
-    for node in applicable_nodes
-        @show constraint
-        
-        apply!(model, context, node, constraint)
-    end
-end
-
-function apply!(
-    model::Model,
-    context::Context,
-    node::NodeLabel,
-    c::FactorizationConstraint{V,F},
-) where {V,F<:Tuple}
-    @show c
-    neighbors = GraphPPL.neighbors(model, node)
-    constraint_variables = map(
-        factors -> collect(
-            Iterators.flatten(
-                map(factor -> convert_to_edge_names(factor, neighbors, context), factors),
-            ),
-        ),
-        c.constraint,
-    )
-    @show constraint_variables
-    constraint_bitset = factorization_constraint_to_bitset(neighbors, constraint_variables)
-    model[node].options[:q] = intersect.(model[node].options[:q], constraint_bitset)
-end
-
-function apply!(model::Model, context::Context, node::NodeLabel, c::FactorizationConstraint{V, F}) where {V, F<:MeanField}
-    model[node].options[:q] = Tuple(map(edge -> (edge,), GraphPPL.edges(model, node)))
-end
-
-function apply!(model::Model, context::Context, node::NodeLabel, c::FactorizationConstraint{V, F}) where {V, F<:FullFactorization}
-    model[node].options[:q] = (Tuple(GraphPPL.edges(model, node)),)
-end
-
-
-function apply!(
-    model::Model,
-    context::Context,
-    nodes::AbstractArray{T},
-    constraint::FunctionalFormConstraint,
-) where {T}
-    for node in nodes
-        _store_constraint_data!(model, node, constraint_data(constraint), constraint)
-    end
-end
-
-function materialize_constraints!(model::Model)
-    for node in GraphPPL.vertices(model)
-        materialize_constraints!(model, label_for(model.graph, node))
-    end
-end
-
-materialize_constraints!(model::Model, node::NodeLabel) =
-    materialize_constraints!(model, node, model[node])
-
-materialize_constraints!(model::Model, node_label::NodeLabel, node_data::VariableNodeData) =
-    nothing
-
-function materialize_constraints!(
-    model::Model,
-    node_label::NodeLabel,
-    node_data::FactorNodeData,
+    nodes::AbstractArray{K} where {K<:NodeLabel},
 )
-
-    constraint_set = Set(node_options(node_data)[:q]) #TODO test `unique``
-    edges = GraphPPL.edges(model, node_label)
-    constraint = Tuple(constraint_set)
-    constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
-    if !is_valid_partition(constraint_set)
-        error(
-            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint)",
-        )
-        return
+    constraint = prepare_factorization_constraint(context, constraint)
+    constraint_labels = convert_to_nodelabels(context, constraint)
+    for node in nodes
+        constraint_bitsets =
+            convert_to_bitsets(GraphPPL.neighbors(model, node), constraint_labels)
+        save_constraint!(model, node, constraint_bitsets)
     end
-    node_data.options[:q] = constraint
 end
 
-function is_valid_partition(set::Set)
-    max_element = maximum(Iterators.flatten(set))
-    if !issetequal(union(set...), BitSet(1:max_element))
-        return false
-    end
-    for element = 1:max_element
-        if !(sum(element .∈ set) == 1)
-            return false
-        end
-    end
-    return true
+function apply!(
+    model::Model,
+    context::Context,
+    constraint::FunctionalFormConstraint,
+    nodes::AbstractArray{K} where {K<:NodeLabel},
+)
+    nothing
+end
+
+combine_factorization_constraints(
+    left::AbstractArray{<:BitSet},
+    right::AbstractArray{<:BitSet},
+) = intersect.(left, right)
+
+save_constraint!(model::Model, node::NodeLabel, constraint_data) =
+    save_constraint!(model, node, model[node], constraint_data)
+
+function save_constraint!(
+    model::Model,
+    node::NodeLabel,
+    node_data::FactorNodeData,
+    constraint_data::AbstractArray{T} where {T<:BitSet},
+)
+    model[node].options[:q] =
+        combine_factorization_constraints(model[node].options[:q], constraint_data)
+end
+
+function save_constraint!(
+    model::Model,
+    node::NodeLabel,
+    node_data::FactorNodeData,
+    constraint_data::Tuple,
+)
+    model[node].options[:q] = constraint_data
+end
+
+function save_constraint!(
+    model::Model,
+    node::NodeLabel,
+    node_data::VariableNodeData,
+    constraint_data,
+)
+    nothing
 end

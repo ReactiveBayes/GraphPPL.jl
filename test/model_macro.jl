@@ -1816,14 +1816,14 @@ include("model_zoo.jl")
 
     @testset "model_macro_interior" begin
         import GraphPPL:
-            model_macro_interior, create_model, context, getorcreate!, make_node!
+            model_macro_interior, create_model, getcontext, getorcreate!, make_node!
 
         # Test 1: Test regular node creation input
         @model function test_model(μ, σ)
             x ~ sum(μ, σ)
         end
         __model__ = create_model()
-        __context__ = context(__model__)
+        __context__ = getcontext(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
         σ = getorcreate!(__model__, __context__, :σ, nothing)
         make_node!(
@@ -1847,7 +1847,7 @@ include("model_zoo.jl")
         end
 
         __model__ = create_model()
-        ctx = context(__model__)
+        ctx = getcontext(__model__)
         μ = getorcreate!(__model__, ctx, :μ, nothing)
         σ = getorcreate!(__model__, ctx, :σ, nothing)
         make_node!(
@@ -1875,7 +1875,7 @@ include("model_zoo.jl")
             y ~ x[1] + x[10] + x[11]
         end
         __model__ = create_model()
-        __context__ = context(__model__)
+        __context__ = getcontext(__model__)
         μ = getorcreate!(__model__, __context__, :μ, nothing)
         σ = getorcreate!(__model__, __context__, :σ, nothing)
         @test_throws BoundsError make_node!(
@@ -1899,7 +1899,7 @@ include("model_zoo.jl")
             end
         end
         __model__ = create_model()
-        __context__ = context(__model__)
+        __context__ = getcontext(__model__)
         x = getorcreate!(__model__, __context__, :x, nothing)
         y = getorcreate!(__model__, __context__, :y, nothing)
         make_node!(
@@ -1919,7 +1919,7 @@ include("model_zoo.jl")
             y ~ Normal(z, 1)
         end
         __model__ = create_model()
-        ctx = context(__model__)
+        ctx = getcontext(__model__)
         x = getorcreate!(__model__, ctx, :x, nothing)
         y = getorcreate!(__model__, ctx, :y, nothing)
         x = make_node!(

@@ -10,6 +10,6 @@ function GraphPPL.plot_graph(g::MetaGraph; file_name = "tmp.png")
     return plt
 end
 
-GraphPPL.plot_graph(g::Model; file_name = "tmp.png") = plot_graph(g.graph; file_name = file_name)
+GraphPPL.plot_graph(g::GraphPPL.Model; file_name = "tmp.png") = GraphPPL.plot_graph(g.graph; file_name = file_name)
 
 end

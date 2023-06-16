@@ -49,7 +49,7 @@ GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 
 function create_simple_model()
     model = GraphPPL.create_model()
-    ctx = GraphPPL.context(model)
+    ctx = GraphPPL.getcontext(model)
     x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
     y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
     out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
@@ -67,7 +67,7 @@ end
 
 function create_vector_model()
     model = GraphPPL.create_model()
-    ctx = GraphPPL.context(model)
+    ctx = GraphPPL.getcontext(model)
     local x
     local y
     for i = 1:3
@@ -99,7 +99,7 @@ end
 
 function create_tensor_model()
     model = GraphPPL.create_model()
-    ctx = GraphPPL.context(model)
+    ctx = GraphPPL.getcontext(model)
     local x
     local y
     for i = 1:3
@@ -142,7 +142,7 @@ end
 
 function create_nested_model()
     model = GraphPPL.create_model()
-    ctx = GraphPPL.context(model)
+    ctx = GraphPPL.getcontext(model)
     x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
     y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
     z = GraphPPL.getorcreate!(model, ctx, :z, nothing)

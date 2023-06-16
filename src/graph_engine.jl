@@ -244,7 +244,7 @@ end
 
 
 
-context(model::Model) = model.graph[]
+getcontext(model::Model) = model.graph[]
 
 abstract type NodeType end
 
