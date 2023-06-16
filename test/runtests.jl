@@ -13,7 +13,7 @@ using Test, GraphPPL
     include("resizable_array.jl")
     include("model_macro.jl")
     include("graph_engine.jl")
-    include("constraints_macro.jl")
+    include("constraints_engine.jl")
 
 end
 
