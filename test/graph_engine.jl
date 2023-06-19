@@ -137,7 +137,25 @@ include("model_zoo.jl")
             model[b[i]] = VariableNodeData(:b, nothing)
             model[a[i], b[i]] = EdgeLabel(:edge, i)
         end
-        @test neighbors(model, a) == [b[1], b[2], b[3]]
+        @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
+
+        # Test 2: Test getting sorted neighbors
+        model = create_normal_model()
+        ctx = GraphPPL.getcontext(model)
+        node = ctx[:second_submodel_4][Symbol(
+            "Main.anonymous.test_graph_engine.NormalMeanVariance_6",
+        )]
+        @test neighbors(model, node; sorted = true) == [
+            ctx[:second_submodel_4][:w],
+            ctx[:second_submodel_4][:a],
+            ctx[:second_submodel_4][:b],
+        ]
+
+        # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        node = ctx[:sum_12]
+        @test neighbors(model, node; sorted = true) == [ctx[:out], ctx[:x][4], ctx[:y][3]]
 
     end
 

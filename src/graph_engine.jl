@@ -110,18 +110,72 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-Graphs.neighbors(model::Model, node::NodeLabel) =
+
+function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
+    index = x.index === nothing ? 0 : x.index
+    position = findfirst(isequal(x.name), interfaces)
+    position =
+        position == nothing ?
+        begin
+            @warn(lazy"Interface $(x.name) not found in $interfaces")
+            0
+        end : position
+    return max_length * findfirst(isequal(x.name), interfaces) + index
+end
+
+function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
+    fform = model[node].fform
+    indices = [e.index for e in edges]
+    names = unique([e.name for e in edges])
+    interfaces = GraphPPL.interfaces(fform, Val(length(names)))
+    max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices.!=nothing]) : 1
+    perm =
+        sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
+    return perm
+end
+
+__get_neighbors(model::Model, node::NodeLabel) =
     label_for.(
         (model.graph,),
         collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))),
     )
-Graphs.neighbors(model::Model, nodes::AbstractArray) =
-    union(Graphs.neighbors.(Ref(model), nodes)...)
+__neighbors(model::Model, node::NodeLabel; sorted = false) =
+    __neighbors(model, node, model[node]; sorted = sorted)
+__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+    __get_neighbors(model, node)
+__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+    __neighbors(model, node, Val(sorted))
+__neighbors(model::Model, node::NodeLabel, ::Val{false}) = __get_neighbors(model, node)
+function __neighbors(model::Model, node::NodeLabel, ::Val{true})
+    neighbors = __get_neighbors(model, node)
+    edges = __get_edges(model, node, neighbors)
+    perm = __sortperm(model, node, edges)
+    return neighbors[perm]
+end
+Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) =
+    __neighbors(model, node; sorted = sorted)
+Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) =
+    union(Graphs.neighbors.(Ref(model), nodes; sorted = sorted)...)
 Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
 
 
-Graphs.edges(model::Model, node::NodeLabel) =
-    getindex.(Ref(model), Ref(node), MetaGraphsNext.neighbors(model, node))
+__get_edges(model::Model, node::NodeLabel, neighbors) =
+    getindex.(Ref(model), Ref(node), neighbors)
+__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+    __get_edges(model, node, __get_neighbors(model, node))
+__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+    __edges(model, node, Val(sorted))
+__edges(model::Model, node::NodeLabel, ::Val{false}) =
+    __get_edges(model, node, __get_neighbors(model, node))
+function __edges(model::Model, node::NodeLabel, ::Val{true})
+    neighbors = __get_neighbors(model, node)
+    edges = __get_edges(model, node, neighbors)
+    perm = __sortperm(model, node, edges)
+    return edges[perm]
+end
+Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
+    __edges(model, node, model[node]; sorted = sorted)
+
 
 
 
@@ -453,7 +507,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = nothing,
+    __options__ = Dict(),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -590,7 +644,7 @@ end
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface =
         GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
-    @assert length(missing_interface) == 1 "Expected only one missing interface, got $missing_interface of length $(length(missing_interface))"
+    @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(missing_interface)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,

@@ -92,7 +92,7 @@ end
 
 function vec(array::ResizableArray{T,V,N}) where {T,V,N}
     size = Base.size(array)
-    result = []
+    result = T[]
     for index in Tuple.(CartesianIndices(size))
         if isassigned(array, index...)
             push!(result, array[index...])

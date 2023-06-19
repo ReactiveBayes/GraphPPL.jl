@@ -219,15 +219,7 @@ struct FactorizationConstraint{V,F}
     constraint::F
 end
 
-function Base.show(
-    io::IO,
-    constraint::FactorizationConstraint{V,F} where {V,F<:AbstractArray},
-)
-    print(io, "q(")
-    print(io, join(constraint.variables, ", "))
-    print(io, ") = ")
-    print(io, join(constraint.constraint), ", ")
-end
+
 
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
@@ -241,6 +233,21 @@ const MaterializedConstraints = Union{FactorizationConstraint,FunctionalFormCons
 
 getvariables(c::MaterializedConstraints) = c.variables
 getconstraint(c::MaterializedConstraints) = c.constraint
+
+function Base.show(
+    io::IO,
+    constraint::FactorizationConstraint{V,F} where {V,F<:AbstractArray},
+)
+    print(io, "q(")
+    print(io, join(getvariables(constraint), ", "))
+    print(io, ") = ")
+    print(io, join(getvariables(constraint)), ", ")
+end
+
+Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:AbstractArray,F}) =
+    print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F}) =
+    print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
 
 struct GeneralSubModelConstraints
@@ -273,22 +280,46 @@ function applicable_nodes(
     context::Context,
     constraint::FactorizationConstraint,
 )
-    union(neighbors.(Ref(model), collect(Iterators.flatten(vec.(getindex.(Ref(context), constraint.variables)))))...)
+    return union(
+        neighbors.(
+            Ref(model),
+            collect(Iterators.flatten(vec.(getindex.(Ref(context), constraint.variables)))),
+        )...,
+    )
 end
 
 function applicable_nodes(
     model::Model,
     context::Context,
-    constraint::FunctionalFormConstraint,
+    constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F},
 )
-    nothing
+    return vec(context[getvariables(constraint)])
+end
+
+function applicable_nodes(
+    model::Model,
+    context::Context,
+    constraint::FunctionalFormConstraint{V,F} where {V<:AbstractArray,F},
+)
+    return intersect(
+        neighbors.(
+            Ref(model),
+            collect(Iterators.flatten(vec.(getindex.(Ref(context), constraint.variables)))),
+        )...,
+    )
 end
 
 __meanfield_split(name::Symbol, var::NodeLabel) = IndexedVariable(name, nothing)
-__meanfield_split(name::Symbol, var::ResizableArray{<:NodeLabel, V, N}) where {V, N} = begin @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays." ; IndexedVariable(
-    name,
-    SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex)),
-) end
+__meanfield_split(name::Symbol, var::ResizableArray{<:NodeLabel,V,N}) where {V,N} = begin
+    @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays."
+    IndexedVariable(
+        name,
+        SplittedRange(
+            FunctionalIndex{:begin}(firstindex),
+            FunctionalIndex{:end}(lastindex),
+        ),
+    )
+end
 
 
 prepare_factorization_constraint(
@@ -380,8 +411,9 @@ function convert_to_nodelabels(context::Context, constraint_data::FactorizationC
         result = vcat(result, variables)
     end
     all_variables = collect(Iterators.flatten(result))
-    
-    length(unique(all_variables)) == length(all_variables) || error(lazy"Factorization constraint $constraint_data contains duplicate variables.")
+
+    length(unique(all_variables)) == length(all_variables) ||
+        error(lazy"Factorization constraint $constraint_data contains duplicate variables.")
     return result
 end
 
@@ -418,8 +450,23 @@ function apply!(model::Model, context::Context, constraints::Constraints)
     end
 end
 
-apply!(model::Model, context::Context, constraint::GeneralSubModelConstraints) = nothing
-apply!(model::Model, context::Context, constraint::SpecificSubModelConstraints) = nothing
+function apply!(model::Model, context::Context, constraint::GeneralSubModelConstraints)
+    for (_, factor_context) in context.factor_nodes
+        if isdefined(factor_context, :fform)
+            if factor_context.fform == constraint.fform
+                apply!(model, factor_context, constraint.constraints)
+            end
+        end
+    end
+end
+
+function apply!(model::Model, context::Context, constraint::SpecificSubModelConstraints)
+    for (tag, factor_context) in context.factor_nodes
+        if tag == constraint.tag
+            apply!(model, factor_context, constraint.constraints)
+        end
+    end
+end
 
 function apply!(model::Model, context::Context, constraint::MaterializedConstraints)
     nodes = applicable_nodes(model, context, constraint)
@@ -435,19 +482,23 @@ function apply!(
     constraint = prepare_factorization_constraint(context, constraint)
     constraint_labels = convert_to_nodelabels(context, constraint)
     for node in nodes
-        constraint_bitsets =
-            convert_to_bitsets(GraphPPL.neighbors(model, node), constraint_labels)
-        save_constraint!(model, node, constraint_bitsets)
+        constraint_bitsets = convert_to_bitsets(
+            GraphPPL.neighbors(model, node; sorted = true),
+            constraint_labels,
+        )
+        save_constraint!(model, node, constraint_bitsets, :q)
     end
 end
 
 function apply!(
     model::Model,
     context::Context,
-    constraint::FunctionalFormConstraint,
+    constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F},
     nodes::AbstractArray{K} where {K<:NodeLabel},
 )
-    nothing
+    for node in nodes
+        save_constraint!(model, node, getconstraint(constraint), :q)
+    end
 end
 
 combine_factorization_constraints(
@@ -455,17 +506,19 @@ combine_factorization_constraints(
     right::AbstractArray{<:BitSet},
 ) = intersect.(left, right)
 
-save_constraint!(model::Model, node::NodeLabel, constraint_data) =
-    save_constraint!(model, node, model[node], constraint_data)
+save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
+    save_constraint!(model, node, model[node], constraint_data, symbol)
 
 function save_constraint!(
     model::Model,
     node::NodeLabel,
     node_data::FactorNodeData,
     constraint_data::AbstractArray{T} where {T<:BitSet},
+    symbol::Symbol,
 )
-    model[node].options[:q] =
-        combine_factorization_constraints(model[node].options[:q], constraint_data)
+    node_data_options = node_options(node_data)
+    node_data_options[symbol] =
+        combine_factorization_constraints(node_data_options[:q], constraint_data)
 end
 
 function save_constraint!(
@@ -473,8 +526,9 @@ function save_constraint!(
     node::NodeLabel,
     node_data::FactorNodeData,
     constraint_data::Tuple,
+    symbol::Symbol,
 )
-    model[node].options[:q] = constraint_data
+    node_options(model[node])[symbol] = constraint_data
 end
 
 function save_constraint!(
@@ -482,6 +536,50 @@ function save_constraint!(
     node::NodeLabel,
     node_data::VariableNodeData,
     constraint_data,
+    symbol::Symbol,
 )
+    node_options(model[node])[symbol] = constraint_data
+end
+
+function is_valid_partition(set::Set)
+    max_element = maximum(Iterators.flatten(set))
+    if !issetequal(union(set...), BitSet(1:max_element))
+        return false
+    end
+    for element = 1:max_element
+        if !(sum(element .∈ set) == 1)
+            return false
+        end
+    end
+    return true
+end
+
+function materialize_constraints!(model::Model)
+    for node in Graphs.vertices(model.graph)
+        materialize_constraints!(model, MetaGraphsNext.label_for(model.graph, node))
+    end
+end
+
+materialize_constraints!(model::Model, node::NodeLabel) =
+    materialize_constraints!(model, node, model[node])
+materialize_constraints!(model::Model, node::NodeLabel, node_data::VariableNodeData) =
     nothing
+
+function materialize_constraints!(
+    model::Model,
+    node_label::NodeLabel,
+    node_data::FactorNodeData,
+)
+    constraint_set = Set(node_options(node_data)[:q]) #TODO test `unique``
+    edges = GraphPPL.edges(model, node_label; sorted = true)
+    constraint = SA[constraint_set...]
+    constraint = Tuple(sort(constraint, by = first))
+    constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
+    if !is_valid_partition(constraint_set)
+        error(
+            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint)",
+        )
+        return
+    end
+    node_options(node_data)[:q] = constraint
 end

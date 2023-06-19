@@ -185,3 +185,21 @@ function create_nested_model()
     )
     return model
 end
+
+function create_normal_model()
+    model = GraphPPL.create_model()
+    ctx = GraphPPL.getcontext(model)
+    x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
+    y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
+    z = GraphPPL.getorcreate!(model, ctx, :z, nothing)
+    GraphPPL.make_node!(
+        model,
+        ctx,
+        second_submodel,
+        z,
+        (a = x, b = y);
+        __debug__ = false,
+        __parent_options__ = nothing,
+    )
+    return model
+end
