@@ -219,8 +219,6 @@ struct FactorizationConstraint{V,F}
     constraint::F
 end
 
-
-
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
 
@@ -229,7 +227,12 @@ struct FunctionalFormConstraint{V,F}
     constraint::F
 end
 
-const MaterializedConstraints = Union{FactorizationConstraint,FunctionalFormConstraint}
+struct MessageConstraint
+    variables::Symbol
+    constraint
+end
+
+const MaterializedConstraints = Union{FactorizationConstraint,FunctionalFormConstraint, MessageConstraint}
 
 getvariables(c::MaterializedConstraints) = c.variables
 getconstraint(c::MaterializedConstraints) = c.constraint
@@ -263,6 +266,7 @@ end
 const Constraint = Union{
     FactorizationConstraint,
     FunctionalFormConstraint,
+    MessageConstraint,
     GeneralSubModelConstraints,
     SpecificSubModelConstraints,
 }
@@ -291,7 +295,7 @@ end
 function applicable_nodes(
     model::Model,
     context::Context,
-    constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F},
+    constraint::Union{FunctionalFormConstraint{V,F} where {V<:Symbol,F}, MessageConstraint},
 )
     return vec(context[getvariables(constraint)])
 end
@@ -501,6 +505,17 @@ function apply!(
     end
 end
 
+function apply!(
+    model::Model,
+    context::Context,
+    constraint::MessageConstraint,
+    nodes::AbstractArray{K} where {K<:NodeLabel},
+)
+    for node in nodes
+        save_constraint!(model, node, getconstraint(constraint), :μ)
+    end
+end
+
 combine_factorization_constraints(
     left::AbstractArray{<:BitSet},
     right::AbstractArray{<:BitSet},
@@ -519,16 +534,6 @@ function save_constraint!(
     node_data_options = node_options(node_data)
     node_data_options[symbol] =
         combine_factorization_constraints(node_data_options[:q], constraint_data)
-end
-
-function save_constraint!(
-    model::Model,
-    node::NodeLabel,
-    node_data::FactorNodeData,
-    constraint_data::Tuple,
-    symbol::Symbol,
-)
-    node_options(model[node])[symbol] = constraint_data
 end
 
 function save_constraint!(

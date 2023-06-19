@@ -338,7 +338,7 @@ include("model_zoo.jl")
 
     @testset "applicable_nodes(::Model, ::Context, ::Constraint)" begin
         import GraphPPL:
-            applicable_nodes, Constraint, FactorizationConstraint, FunctionalFormConstraint
+            applicable_nodes, Constraint, FactorizationConstraint, FunctionalFormConstraint, MessageConstraint
 
         # Test 1: Test applicable_nodes with FactorizationConstraint
         model = create_simple_model()
@@ -419,6 +419,28 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         constraint = FunctionalFormConstraint([:x, :y], Normal)
         @test applicable_nodes(model, ctx, constraint) == [ctx[:sum_4]]
+
+        # Test 8: Test applicable_nodes with MessageConstraint applied to a variable
+
+        model = create_simple_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = MessageConstraint(:x, Normal)
+        @test applicable_nodes(model, ctx, constraint) == [ctx[:x]]
+
+        # Test 9: Test applicable_nodes with MessageConstraint applied to a variable in vector model
+
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = MessageConstraint(:x, Normal)
+        @test applicable_nodes(model, ctx, constraint) == [ctx[:x]...]
+
+        # Test 10: Test applicable_nodes with MessageConstraint applied to a variable in tensor model
+
+        model = create_tensor_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = MessageConstraint(:x, Normal)
+        @test applicable_nodes(model, ctx, constraint) == vec(ctx[:x])
+
     end
 
     @testset "prepare_factorization_constraint(::Context, ::FactorizationConstraint)" begin
@@ -871,7 +893,8 @@ include("model_zoo.jl")
             GeneralSubModelConstraints,
             SpecificSubModelConstraints,
             Constraints,
-            SubModelConstraints
+            SubModelConstraints,
+            node_options
 
         # Test 1: Test apply!  with a factorization constraint on a single node
         model = create_simple_model()
@@ -885,7 +908,7 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, [node])
-        @test model[node].options[:q] ==
+        @test node_options(model[node])[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
 
         # Test 2: Test apply!  with a splitted range constraint
@@ -908,6 +931,7 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, [node])
+        @test node_options(model[node])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
 
         # Test 3: Test apply!  with a splitted range constraint and multiple nodes
         model = create_vector_model()
@@ -929,10 +953,10 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, nodes)
-        @test model[nodes[1]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[2]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[3]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[4]].options[:q] ==
+        @test node_options(model[nodes[1]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[2]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[3]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[4]])[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
 
         # Test 4: Test apply! with MeanField constraint
@@ -950,10 +974,10 @@ include("model_zoo.jl")
         nodes = [ctx[:sum_4], ctx[:sum_7], ctx[:sum_10], ctx[:sum_12]]
         constraint = FactorizationConstraint([:x, :y], MeanField())
         apply!(model, ctx, constraint, nodes)
-        @test model[nodes[1]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[2]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[3]].options[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test model[nodes[4]].options[:q] ==
+        @test node_options(model[nodes[1]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[2]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[3]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[4]])[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
 
         # Test 6: Test apply! with a factorization constraint with duplicate entries
@@ -979,7 +1003,7 @@ include("model_zoo.jl")
         node = ctx[:x]
         constraint = FunctionalFormConstraint(:x, Normal)
         apply!(model, ctx, constraint, [node])
-        @test model[node].options[:q] == Normal
+        @test node_options(model[node])[:q] == Normal
 
         # Test 8: Test apply! with GeneralSubModelConstraints
         model = create_nested_model()
@@ -1000,13 +1024,13 @@ include("model_zoo.jl")
             ),
         )
         apply!(model, ctx, constraint)
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]])[:q] ==
               BitSet[BitSet(1), BitSet(2)]
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]])[:q] ==
               Normal
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]])[:q] ==
               BitSet[BitSet(1), BitSet(2)]
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]])[:q] ==
               Normal
 
         # Test 9: Test apply! with SpecificSubModelConstraints
@@ -1028,16 +1052,24 @@ include("model_zoo.jl")
             ),
         )
         apply!(model, ctx, constraint)
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]])[:q] ==
               BitSet[BitSet(1), BitSet(2)]
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]])[:q] ==
               Normal
-        @test model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]].options[:q] ==
+        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]])[:q] ==
               BitSet[BitSet([1, 2]), BitSet([1, 2])]
         @test !haskey(
-            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]].options,
+            node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]]),
             :q,
         )
+
+        # Test 10: Test apply! with a message constraint on an edge (variable)
+        model = create_simple_model()
+        ctx = GraphPPL.getcontext(model)
+        node = ctx[:x]
+        constraint = MessageConstraint(:x, Normal)
+        apply!(model, ctx, constraint, [node])
+        @test node_options(model[node])[:μ] == Normal
     end
 
     @testset "combine_factorization_constraints(::AbstractArray{<:BitSet}, ::AbstractArray{<:BitSet})" begin
