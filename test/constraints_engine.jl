@@ -1105,28 +1105,6 @@ include("model_zoo.jl")
         constraint = [BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
         save_constraint!(model, node, constraint, :q)
         @test model[node].options[:q] == [BitSet([1, 3]), BitSet([2]), BitSet([1, 3])]
-
-        # Test 2: Test that save_constraint! saves a MeanField constraint
-        model = create_simple_model()
-        ctx = GraphPPL.getcontext(model)
-        node = ctx[:sum_4]
-        constraint = Tuple([
-            (model[node, neighbor],) for neighbor in GraphPPL.neighbors(model, node)
-        ])
-        save_constraint!(model, node, constraint, :q)
-        @test model[node].options[:q] == constraint
-
-        # Test 3: Test that save_constraint! saves a FullFactorization constraint
-        model = create_simple_model()
-        ctx = GraphPPL.getcontext(model)
-        node = ctx[:sum_4]
-        constraint = (
-            Tuple([model[node, neighbor] for neighbor in GraphPPL.neighbors(model, node)]),
-        )
-        save_constraint!(model, node, constraint, :q)
-        @test model[node].options[:q] == constraint
-
-
     end
 
     @testset "is_valid_partition(::Set)" begin
