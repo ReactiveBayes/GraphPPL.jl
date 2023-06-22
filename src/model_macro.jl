@@ -301,8 +301,7 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     return Expr(:tuple, result...)
 end
 
-combine_args(args::Vector, kwargs::Nothing) =
-    length(args) == 0 ? :nothing : Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
     :(GraphPPL.MixedArguments(
@@ -389,7 +388,7 @@ function options_vector_to_dict(options::AbstractArray)
     if length(options) == 0
         return nothing
     end
-    result = Dict()
+    result = Dict{Any,Any}()
     for option in options
         if option.head != :(=)
             error("Invalid option $(option)")
@@ -482,7 +481,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             )
             __parent_options__ =
                 __parent_options__ == nothing ? nothing :
-                Dict("parent_options" => __parent_options__)
+                Dict{Any,Any}("parent_options" => __parent_options__)
 
             $ms_body
             return __lhs_interface__
@@ -492,15 +491,15 @@ function get_make_node_function(ms_body, ms_args, ms_name)
 end
 
 
-function model_macro_interior(__model___specification)
+function model_macro_interior(model_specification)
     @capture(
-        __model___specification,
+        model_specification,
         (function ms_name_(ms_args__; ms_kwargs__)
             ms_body_
         end) | (function ms_name_(ms_args__)
             ms_body_
         end)
-    ) || error("__model__ specification language requires full function definition")
+    ) || error("Model specification language requires full function definition")
 
     ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)

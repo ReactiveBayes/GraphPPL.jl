@@ -1,8 +1,7 @@
 using Graphs
 using MetaGraphsNext
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!
-using GraphPlot, Compose
-import Cairo
+import Base:
+    put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 
 """
 The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
@@ -26,15 +25,22 @@ struct NodeLabel
     index::Int64
 end
 
+Base.length(label::NodeLabel) = 1
+
 name(label::NodeLabel) = label.name
+vec(label::NodeLabel) = [label]
+iterate(label::NodeLabel) = (label, nothing)
+iterate(label::NodeLabel, any) = nothing
+
+Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
 
 
-struct VariableNodeData
+mutable struct VariableNodeData
     name::Symbol
     options::Union{Nothing,Dict,NamedTuple}
 end
 
-struct FactorNodeData
+mutable struct FactorNodeData
     fform::Any
     options::Union{Nothing,Dict,NamedTuple}
 end
@@ -46,9 +52,17 @@ node_options(node::NodeData) = node.options
 
 struct EdgeLabel
     name::Symbol
-    index::Val
+    index::Union{Int64,Nothing}
 end
-EdgeLabel(name::Symbol, index::Int64) = EdgeLabel(name, Val(index))
+
+to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
+to_symbol(label::EdgeLabel, ::Nothing) = label.name
+to_symbol(label::EdgeLabel, ::Int64) =
+    Symbol(string(label.name) * "[" * string(label.index) * "]")
+
+Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
+
+
 
 
 """ 
@@ -96,17 +110,72 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-MetaGraphsNext.neighbors(model::Model, node::NodeLabel) =
+
+function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
+    index = x.index === nothing ? 0 : x.index
+    position = findfirst(isequal(x.name), interfaces)
+    position =
+        position == nothing ?
+        begin
+            @warn(lazy"Interface $(x.name) not found in $interfaces")
+            0
+        end : position
+    return max_length * findfirst(isequal(x.name), interfaces) + index
+end
+
+function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
+    fform = model[node].fform
+    indices = [e.index for e in edges]
+    names = unique([e.name for e in edges])
+    interfaces = GraphPPL.interfaces(fform, Val(length(names)))
+    max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices.!=nothing]) : 1
+    perm =
+        sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
+    return perm
+end
+
+__get_neighbors(model::Model, node::NodeLabel) =
     label_for.(
         (model.graph,),
         collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))),
     )
-
-
-function Graphs.edges(model::Model, node::NodeLabel)
-    neighbors = MetaGraphsNext.neighbors(model, node)
-    return [model.graph[node, neighbor] for neighbor in neighbors]
+__neighbors(model::Model, node::NodeLabel; sorted = false) =
+    __neighbors(model, node, model[node]; sorted = sorted)
+__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+    __get_neighbors(model, node)
+__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+    __neighbors(model, node, Val(sorted))
+__neighbors(model::Model, node::NodeLabel, ::Val{false}) = __get_neighbors(model, node)
+function __neighbors(model::Model, node::NodeLabel, ::Val{true})
+    neighbors = __get_neighbors(model, node)
+    edges = __get_edges(model, node, neighbors)
+    perm = __sortperm(model, node, edges)
+    return neighbors[perm]
 end
+Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) =
+    __neighbors(model, node; sorted = sorted)
+Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) =
+    union(Graphs.neighbors.(Ref(model), nodes; sorted = sorted)...)
+Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
+
+
+__get_edges(model::Model, node::NodeLabel, neighbors) =
+    getindex.(Ref(model), Ref(node), neighbors)
+__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+    __get_edges(model, node, __get_neighbors(model, node))
+__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+    __edges(model, node, Val(sorted))
+__edges(model::Model, node::NodeLabel, ::Val{false}) =
+    __get_edges(model, node, __get_neighbors(model, node))
+function __edges(model::Model, node::NodeLabel, ::Val{true})
+    neighbors = __get_neighbors(model, node)
+    edges = __get_edges(model, node, neighbors)
+    perm = __sortperm(model, node, edges)
+    return edges[perm]
+end
+Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
+    __edges(model, node, model[node]; sorted = sorted)
+
 
 
 
@@ -140,6 +209,7 @@ to_symbol(id::NodeLabel) = Symbol(String(Symbol(name(id))) * "_" * string(id.ind
 
 struct Context
     depth::Int64
+    fform::Function
     prefix::String
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
@@ -181,11 +251,14 @@ end
 
 name(f::Function) = String(Symbol(f))
 
-Context(depth::Int, prefix::String) = Context(depth, prefix, Dict(), Dict(), Dict(), Dict())
-Context(parent::Context, model_name::String) =
-    Context(parent.depth + 1, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * model_name)
-Context(parent::Context, model_name::Function) = Context(parent, name(model_name))
-Context() = Context(0, "")
+Context(depth::Int, fform::Function, prefix::String) =
+    Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
+Context(parent::Context, model_fform::Function) = Context(
+    parent.depth + 1,
+    model_fform,
+    (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * name(model_fform),
+)
+Context() = Context(0, identity, "")
 
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
@@ -225,7 +298,7 @@ end
 
 
 
-context(model::Model) = model.graph[]
+getcontext(model::Model) = model.graph[]
 
 abstract type NodeType end
 
@@ -434,7 +507,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = nothing,
+    __options__ = Dict(),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -460,8 +533,9 @@ function add_atomic_factor_node!(
     model::Model,
     context::Context,
     fform;
-    __options__ = nothing,
+    __options__ = Dict(),
 )
+    __options__ = __options__ === nothing ? Dict() : __options__
     node_id = generate_nodelabel(model, fform)
     model[node_id] = FactorNodeData(fform, __options__)
     context.factor_nodes[to_symbol(node_id)] = node_id
@@ -515,7 +589,7 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_node_id::NodeLabel,
     interface_name::Symbol;
-    index = 1,
+    index = nothing,
 )
     model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
 end
@@ -570,7 +644,7 @@ end
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface =
         GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
-    @assert length(missing_interface) == 1 "Expected only one missing interface, got $missing_interface of length $(length(missing_interface))"
+    @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(missing_interface)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,
@@ -808,7 +882,32 @@ make_node!(
     ctx::Context,
     fform,
     lhs_interface,
-    rhs_interfaces;
+    rhs_interfaces::AbstractArray;
+    __parent_options__ = nothing,
+    __debug__ = false,
+) =
+    length(rhs_interfaces) == 0 ?
+    make_node!(
+        Composite(),
+        model,
+        ctx,
+        fform,
+        lhs_interface,
+        NamedTuple{}();
+        __parent_options__ = __parent_options__,
+        __debug__ = __debug__,
+    ) :
+    error(
+        lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple",
+    )
+
+make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(
@@ -838,12 +937,7 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    node_id = add_atomic_factor_node!(
-        model,
-        ctx,
-        fform;
-        __options__ = __parent_options__,
-    )
+    node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
     for (interface_name, interface_value) in iterator(interfaces)
         add_edge!(
             model,
@@ -852,19 +946,10 @@ function make_node!(
             interface_name,
         )
     end
+    out_degree = outdegree(model.graph, code_for(model.graph, node_id))
+    model[node_id].options[:q] = [BitSet(1:out_degree) for _ = 1:out_degree]
     return lhs_interface
 end
-
-
-function plot_graph(g::MetaGraph; file_name = "tmp.png")
-    node_labels =
-        [label[2].name for label in sort(collect(g.vertex_labels), by = x -> x[1])]
-    plt = gplot(g, nodelabel = node_labels)
-    draw(PNG(file_name, 16cm, 16cm), plt)
-    return plt
-end
-
-plot_graph(g::Model; file_name = "tmp.png") = plot_graph(g.graph; file_name = file_name)
 
 function prune!(m::Model)
     degrees = degree(m.graph)
@@ -873,3 +958,5 @@ function prune!(m::Model)
         rem_vertex!(m.graph, node)
     end
 end
+
+function plot_graph end

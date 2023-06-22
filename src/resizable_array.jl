@@ -1,4 +1,4 @@
-import Base: size, setindex!, getindex, show
+import Base: size, setindex!, getindex, show, vec
 
 struct ResizableArray{T,V<:AbstractVector,N} <: AbstractArray{T,N}
     data::V
@@ -88,6 +88,17 @@ function Base.show(io::IO, array::ResizableArray{T,V,N}) where {T,V,N}
     print(io, "ResizableArray{$T,$N}(")
     show(io, array.data)
     print(io, ")")
+end
+
+function vec(array::ResizableArray{T,V,N}) where {T,V,N}
+    size = Base.size(array)
+    result = T[]
+    for index in Tuple.(CartesianIndices(size))
+        if isassigned(array, index...)
+            push!(result, array[index...])
+        end
+    end
+    return result
 end
 
 Base.iterate(array::ResizableArray{T,V,N}, state = 1) where {T,V,N} =

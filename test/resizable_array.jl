@@ -38,6 +38,7 @@ using Test
     let v = ResizableArray(Float64, Val(2))
         @test size(v) === (0, 0)
 
+        v[2, 1] = 1.0
         v[3, 2] = 1.0
 
         @test size(v) === (3, 2)
@@ -138,5 +139,26 @@ using Test
             GraphPPL.NodeLabel(:x, 9),
             GraphPPL.NodeLabel(:x, 10),
         )
+    end
+
+    let v = ResizableArray(GraphPPL.NodeLabel, Val(2))
+        for i = 1:10
+            v[i, i] = GraphPPL.NodeLabel(:x, i)
+        end
+        @test isassigned(v, 1, 1)
+        @test !isassigned(v, 2, 1)
+        @test vec(v) == [
+            GraphPPL.NodeLabel(:x, 1),
+            GraphPPL.NodeLabel(:x, 2),
+            GraphPPL.NodeLabel(:x, 3),
+            GraphPPL.NodeLabel(:x, 4),
+            GraphPPL.NodeLabel(:x, 5),
+            GraphPPL.NodeLabel(:x, 6),
+            GraphPPL.NodeLabel(:x, 7),
+            GraphPPL.NodeLabel(:x, 8),
+            GraphPPL.NodeLabel(:x, 9),
+            GraphPPL.NodeLabel(:x, 10),
+        ]
+        @test GraphPPL.NodeLabel(:x, 1) ∈ vec(v)
     end
 end
