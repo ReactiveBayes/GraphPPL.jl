@@ -301,8 +301,7 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     return Expr(:tuple, result...)
 end
 
-combine_args(args::Vector, kwargs::Nothing) =
-    length(args) == 0 ? :nothing : Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
     :(GraphPPL.MixedArguments(

@@ -64,6 +64,10 @@ struct IndexedVariable{T}
     index::T
 end
 
+Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
+Base.getindex(context::Context, index::IndexedVariable) =
+    context[index.variable][index.index]
+
 Base.:(==)(left::IndexedVariable, right::IndexedVariable) =
     (left.variable == right.variable && left.index == right.index)
 
@@ -228,11 +232,12 @@ struct FunctionalFormConstraint{V,F}
 end
 
 struct MessageConstraint
-    variables::Symbol
-    constraint
+    variables::IndexedVariable
+    constraint::Any
 end
 
-const MaterializedConstraints = Union{FactorizationConstraint,FunctionalFormConstraint, MessageConstraint}
+const MaterializedConstraints =
+    Union{FactorizationConstraint,FunctionalFormConstraint,MessageConstraint}
 
 getvariables(c::MaterializedConstraints) = c.variables
 getconstraint(c::MaterializedConstraints) = c.constraint
@@ -244,7 +249,7 @@ function Base.show(
     print(io, "q(")
     print(io, join(getvariables(constraint), ", "))
     print(io, ") = ")
-    print(io, join(getvariables(constraint)), ", ")
+    print(io, join(getconstraint(constraint)), ", ")
 end
 
 Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:AbstractArray,F}) =
@@ -295,7 +300,7 @@ end
 function applicable_nodes(
     model::Model,
     context::Context,
-    constraint::Union{FunctionalFormConstraint{V,F} where {V<:Symbol,F}, MessageConstraint},
+    constraint::Union{FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F},MessageConstraint},
 )
     return vec(context[getvariables(constraint)])
 end
@@ -313,11 +318,11 @@ function applicable_nodes(
     )
 end
 
-__meanfield_split(name::Symbol, var::NodeLabel) = IndexedVariable(name, nothing)
-__meanfield_split(name::Symbol, var::ResizableArray{<:NodeLabel,V,N}) where {V,N} = begin
+__meanfield_split(name::IndexedVariable, var::NodeLabel) = name
+__meanfield_split(name::IndexedVariable, var::ResizableArray{<:NodeLabel,V,N}) where {V,N} = begin
     @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays."
     IndexedVariable(
-        name,
+        name.variable,
         SplittedRange(
             FunctionalIndex{:begin}(firstindex),
             FunctionalIndex{:end}(lastindex),
@@ -355,7 +360,7 @@ function prepare_factorization_constraint(
         constraint.variables,
         [
             FactorizationConstraintEntry([
-                IndexedVariable(v, nothing) for v in constraint.variables
+                v for v in constraint.variables
             ]),
         ],
     )
@@ -497,7 +502,7 @@ end
 function apply!(
     model::Model,
     context::Context,
-    constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F},
+    constraint::FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F},
     nodes::AbstractArray{K} where {K<:NodeLabel},
 )
     for node in nodes

@@ -1,4 +1,4 @@
-module test_constraints_macro
+module test_constraints_engine
 
 using Test
 using TestSetExtensions
@@ -338,7 +338,11 @@ include("model_zoo.jl")
 
     @testset "applicable_nodes(::Model, ::Context, ::Constraint)" begin
         import GraphPPL:
-            applicable_nodes, Constraint, FactorizationConstraint, FunctionalFormConstraint, MessageConstraint
+            applicable_nodes,
+            Constraint,
+            FactorizationConstraint,
+            FunctionalFormConstraint,
+            MessageConstraint
 
         # Test 1: Test applicable_nodes with FactorizationConstraint
         model = create_simple_model()
@@ -403,14 +407,14 @@ include("model_zoo.jl")
 
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = FunctionalFormConstraint(:x, Normal)
+        constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         @test applicable_nodes(model, ctx, constraint) == [ctx[:x]]
 
         # Test 6: Test applicable_nodes with FunctionalFormConstraint in vector model
 
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = FunctionalFormConstraint(:x, Normal)
+        constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         @test applicable_nodes(model, ctx, constraint) == [ctx[:x]...]
 
         # Test 7: Test applicable_nodes with FunctionalFormConstraint applied to a variational posterior joint
@@ -424,21 +428,21 @@ include("model_zoo.jl")
 
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = MessageConstraint(:x, Normal)
+        constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         @test applicable_nodes(model, ctx, constraint) == [ctx[:x]]
 
         # Test 9: Test applicable_nodes with MessageConstraint applied to a variable in vector model
 
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = MessageConstraint(:x, Normal)
+        constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         @test applicable_nodes(model, ctx, constraint) == [ctx[:x]...]
 
         # Test 10: Test applicable_nodes with MessageConstraint applied to a variable in tensor model
 
         model = create_tensor_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = MessageConstraint(:x, Normal)
+        constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         @test applicable_nodes(model, ctx, constraint) == vec(ctx[:x])
 
     end
@@ -457,7 +461,7 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),
@@ -468,9 +472,9 @@ include("model_zoo.jl")
         @test prepare_factorization_constraint(ctx, constraint) == constraint
 
         # Test 2: Test prepare_factorization_constraint with FactorizationConstraint with MeanField
-        constraint = FactorizationConstraint([:x, :y], MeanField())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], MeanField())
         @test prepare_factorization_constraint(ctx, constraint) == FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -478,9 +482,9 @@ include("model_zoo.jl")
         )
 
         # Test 3: Test prepare_factorization_constraint with FactorizationConstraint with FullFactorization
-        constraint = FactorizationConstraint([:x, :y], FullFactorization())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], FullFactorization())
         @test prepare_factorization_constraint(ctx, constraint) == FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, nothing),
@@ -492,9 +496,9 @@ include("model_zoo.jl")
         # Test 4: Test prepare_factorization_constraint with FactorizationConstraint with MeanField and SplittedRange output
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = FactorizationConstraint([:x, :y], MeanField())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], MeanField())
         @test prepare_factorization_constraint(ctx, constraint) == FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -520,10 +524,10 @@ include("model_zoo.jl")
         # Test 5: Test prepare_factorization_constraint with FactorizationConstraint with MeanField on tensors
         model = create_tensor_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = FactorizationConstraint([:x, :y], MeanField())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], MeanField())
         @test_broken prepare_factorization_constraint(ctx, constraint) ==
                      FactorizationConstraint(
-            [:x, :y],
+                        IndexedVariable(:x, nothing), IndexedVariable(:y, nothing),
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -594,7 +598,7 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, nothing),
@@ -610,7 +614,7 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -624,7 +628,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, nothing),
@@ -640,7 +644,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, 1),
@@ -656,7 +660,7 @@ include("model_zoo.jl")
         model = create_tensor_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, [1, 1]),
@@ -672,7 +676,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -700,7 +704,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -730,7 +734,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, CombinedRange(1, 2)),
@@ -750,7 +754,7 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
                 FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
@@ -761,7 +765,7 @@ include("model_zoo.jl")
         @test_throws ErrorException convert_to_nodelabels(ctx, constraint)
 
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, CombinedRange(1, 2))]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -772,7 +776,7 @@ include("model_zoo.jl")
         @test_throws ErrorException convert_to_nodelabels(ctx, constraint)
 
         constraint = FactorizationConstraint(
-            [:x, :y, :out],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, SplittedRange(1, 4))]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -901,7 +905,7 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
         constraint = FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -916,7 +920,7 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
         constraint = FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -938,7 +942,7 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         nodes = [ctx[:sum_4], ctx[:sum_7], ctx[:sum_10], ctx[:sum_12]]
         constraint = FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([
                     IndexedVariable(
@@ -953,9 +957,12 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, nodes)
-        @test node_options(model[nodes[1]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test node_options(model[nodes[2]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test node_options(model[nodes[3]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[1]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[2]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[3]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
         @test node_options(model[nodes[4]])[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
 
@@ -963,7 +970,7 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
-        constraint = FactorizationConstraint([:x, :y], MeanField())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], MeanField())
         apply!(model, ctx, constraint, [node])
         @test model[node].options[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
@@ -972,11 +979,14 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         nodes = [ctx[:sum_4], ctx[:sum_7], ctx[:sum_10], ctx[:sum_12]]
-        constraint = FactorizationConstraint([:x, :y], MeanField())
+        constraint = FactorizationConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], MeanField())
         apply!(model, ctx, constraint, nodes)
-        @test node_options(model[nodes[1]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test node_options(model[nodes[2]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
-        @test node_options(model[nodes[3]])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[1]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[2]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[nodes[3]])[:q] ==
+              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
         @test node_options(model[nodes[4]])[:q] ==
               BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
 
@@ -985,7 +995,7 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
         constraint = FactorizationConstraint(
-            [:x, :y],
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
                 FactorizationConstraintEntry([IndexedVariable(:x, 1)]),
                 FactorizationConstraintEntry([
@@ -1001,7 +1011,7 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         node = ctx[:x]
-        constraint = FunctionalFormConstraint(:x, Normal)
+        constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:q] == Normal
 
@@ -1013,25 +1023,29 @@ include("model_zoo.jl")
             Constraints(
                 [
                     FactorizationConstraint(
-                        [:z, :w],
+                        [IndexedVariable(:z, nothing), IndexedVariable(:w, nothing)],
                         [
                             FactorizationConstraintEntry([IndexedVariable(:z, nothing)]),
                             FactorizationConstraintEntry([IndexedVariable(:w, nothing)]),
                         ],
                     )
-                    FunctionalFormConstraint(:x, Normal)
+                    FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
                 ],
             ),
         )
         apply!(model, ctx, constraint)
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]])[:q] ==
-              BitSet[BitSet(1), BitSet(2)]
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]])[:q] ==
-              Normal
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]])[:q] ==
-              BitSet[BitSet(1), BitSet(2)]
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]])[:q] ==
-              Normal
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]],
+        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]],
+        )[:q] == Normal
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]],
+        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]],
+        )[:q] == Normal
 
         # Test 9: Test apply! with SpecificSubModelConstraints
         model = create_nested_model()
@@ -1041,25 +1055,30 @@ include("model_zoo.jl")
             Constraints(
                 [
                     FactorizationConstraint(
-                        [:z, :w],
+                        [IndexedVariable(:z, nothing), IndexedVariable(:w, nothing)],
                         [
                             FactorizationConstraintEntry([IndexedVariable(:z, nothing)]),
                             FactorizationConstraintEntry([IndexedVariable(:w, nothing)]),
                         ],
                     )
-                    FunctionalFormConstraint(:x, Normal)
+                    FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
                 ],
             ),
         )
         apply!(model, ctx, constraint)
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]])[:q] ==
-              BitSet[BitSet(1), BitSet(2)]
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]])[:q] ==
-              Normal
-        @test node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]])[:q] ==
-              BitSet[BitSet([1, 2]), BitSet([1, 2])]
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]],
+        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]],
+        )[:q] == Normal
+        @test node_options(
+            model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]],
+        )[:q] == BitSet[BitSet([1, 2]), BitSet([1, 2])]
         @test !haskey(
-            node_options(model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]]),
+            node_options(
+                model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]],
+            ),
             :q,
         )
 
@@ -1067,9 +1086,71 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         node = ctx[:x]
-        constraint = MessageConstraint(:x, Normal)
+        constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:μ] == Normal
+
+        # Test 11: Test apply! with a FunctionalFormConstraint that goes over multiple variables
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        nodes = [ctx[:sum_4], ctx[:sum_7], ctx[:sum_10], ctx[:sum_12]]
+        constraint = FunctionalFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
+        @test_broken apply!(model, ctx, constraint, nodes)
+
+        # Test 12: Test apply! with a FactorizationConstraint that indexes a variable on the lhs
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:x, 1), IndexedVariable(:x, 2)],
+            [
+                FactorizationConstraintEntry([IndexedVariable(:x, 1)]),
+                FactorizationConstraintEntry([IndexedVariable(:x, 2)]),
+            ],
+        )
+        apply!(model, ctx, constraint)
+        @test node_options(model[ctx[:sum_4]])[:q] == BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+
+        # Test 12: Test apply! with a FactorizationConstraint that indexes a variable on the lhs
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        node = ctx[:sum_4]
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        SplittedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                ]),
+                FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
+            ],
+        )
+        apply!(model, ctx, constraint, [node])
+        @test node_options(model[node])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+
+        # Test 13: Test apply! with a FactorizationConstraint that has a vector with a single element on lhs
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:x, nothing), ],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        SplittedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                ]),
+            ],)
+        apply!(model, ctx, constraint)
+        @test node_options(model[ctx[:sum_4]])[:q] == BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+
     end
 
     @testset "combine_factorization_constraints(::AbstractArray{<:BitSet}, ::AbstractArray{<:BitSet})" begin
@@ -1145,44 +1226,52 @@ include("model_zoo.jl")
         materialize_constraints!(model, node)
         @test node_options(model[node])[:q] ==
               ((EdgeLabel(:out, nothing), EdgeLabel(:in, 1), EdgeLabel(:in, 2)),)
-            
+
         # Test 2: Test materialize with a MeanField Factorization constraint
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
-        constraint = FactorizationConstraint((:x, :y, :out), MeanField())
+        constraint = FactorizationConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)), MeanField())
         apply!(model, ctx, constraint)
         materialize_constraints!(model, node)
         @test node_options(model[node])[:q] ==
-              ((EdgeLabel(:out, nothing),), (EdgeLabel(:in, 1),), (EdgeLabel(:in, 2),),)
+              ((EdgeLabel(:out, nothing),), (EdgeLabel(:in, 1),), (EdgeLabel(:in, 2),))
     end
 
     @testset "full_pipeline" begin
-        import GraphPPL: apply!, FactorizationConstraint, materialize_constraints!, EdgeLabel,
-                        node_options, NodeLabel, FunctionalFormConstraint, FactorizationConstraintEntry
-        
+        import GraphPPL:
+            apply!,
+            FactorizationConstraint,
+            materialize_constraints!,
+            EdgeLabel,
+            node_options,
+            NodeLabel,
+            FunctionalFormConstraint,
+            FactorizationConstraintEntry
+
         # Test 1: Test that the full pipeline works with a MeanField constraint
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = Constraints([FactorizationConstraint((:x, :y, :out), MeanField())])
+        constraint = Constraints([FactorizationConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)), MeanField())])
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
         @test node_options(model[ctx[:sum_4]])[:q] ==
-              ((EdgeLabel(:out, nothing),), (EdgeLabel(:in, 1),), (EdgeLabel(:in, 2),),)
+              ((EdgeLabel(:out, nothing),), (EdgeLabel(:in, 1),), (EdgeLabel(:in, 2),))
 
         # Test 2: Test that the full pipeline works with a FullFactorization constraint
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = Constraints([FactorizationConstraint((:x, :y, :out), FullFactorization())])
+        constraint =
+            Constraints([FactorizationConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing), IndexedVariable(:out, nothing)), FullFactorization())])
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
         @test node_options(model[ctx[:sum_4]])[:q] ==
               ((EdgeLabel(:out, nothing), EdgeLabel(:in, 1), EdgeLabel(:in, 2)),)
-        
+
         # Test 3: Test that the full pipeline works with a FunctionalForm constraint
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = Constraints([FunctionalFormConstraint(:x, Normal)])
+        constraint = Constraints([FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)])
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
         @test node_options(model[ctx[:x][1]])[:q] == Normal
@@ -1190,10 +1279,34 @@ include("model_zoo.jl")
         # Test 4: Test model with fixed order of indices
         model = create_normal_model()
         ctx = GraphPPL.getcontext(model)
-        constraints = Constraints([FunctionalFormConstraint(:x, Normal), GeneralSubModelConstraints(second_submodel, Constraints([FactorizationConstraint((:w, :a, :b), [FactorizationConstraintEntry([IndexedVariable(:a, nothing), IndexedVariable(:b, nothing)]), FactorizationConstraintEntry([IndexedVariable(:w, nothing)])])]))])
+        constraints = Constraints([
+            FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal),
+            GeneralSubModelConstraints(
+                second_submodel,
+                Constraints([
+                    FactorizationConstraint(
+                        (IndexedVariable(:w, nothing), IndexedVariable(:a, nothing), IndexedVariable(:b, nothing)),
+                        [
+                            FactorizationConstraintEntry([
+                                IndexedVariable(:a, nothing),
+                                IndexedVariable(:b, nothing),
+                            ]),
+                            FactorizationConstraintEntry([IndexedVariable(:w, nothing)]),
+                        ],
+                    ),
+                ]),
+            ),
+        ])
         apply!(model, ctx, constraints)
         materialize_constraints!(model)
-        @test node_options(model[ctx[:second_submodel_4][Symbol("Main.anonymous.test_constraints_macro.NormalMeanVariance_6")]])[:q] == ((EdgeLabel(:out, nothing),), (EdgeLabel(:μ, nothing), EdgeLabel(:σ, nothing)))
+        @test node_options(
+            model[ctx[:second_submodel_4][Symbol(
+                "Main.anonymous.test_constraints_engine.NormalMeanVariance_6",
+            )]],
+        )[:q] == (
+            (EdgeLabel(:out, nothing),),
+            (EdgeLabel(:μ, nothing), EdgeLabel(:σ, nothing)),
+        )
         @test node_options(model[ctx[:x]])[:q] == Normal
 
     end

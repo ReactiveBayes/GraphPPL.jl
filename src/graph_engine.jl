@@ -882,7 +882,32 @@ make_node!(
     ctx::Context,
     fform,
     lhs_interface,
-    rhs_interfaces;
+    rhs_interfaces::AbstractArray;
+    __parent_options__ = nothing,
+    __debug__ = false,
+) =
+    length(rhs_interfaces) == 0 ?
+    make_node!(
+        Composite(),
+        model,
+        ctx,
+        fform,
+        lhs_interface,
+        NamedTuple{}();
+        __parent_options__ = __parent_options__,
+        __debug__ = __debug__,
+    ) :
+    error(
+        lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple",
+    )
+
+make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(

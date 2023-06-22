@@ -961,6 +961,23 @@ include("model_zoo.jl")
 
     end
 
+    @testset "make_node!(::Composite)" begin
+
+        #test make node for priors
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        make_node!(model, ctx, prior, x, [])
+        @test GraphPPL.nv(model) == 4
+
+        #test make node for other composite models
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        @test ErrorException make_node!(model, ctx, second_submodel, x, [0, 1])
+
+    end
+
     @testset "prune!(m::Model)" begin
         import GraphPPL: prune!, create_model, getorcreate!, add_edge!
 

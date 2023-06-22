@@ -140,6 +140,11 @@ GraphPPL.@model function second_submodel(a, b, c)
     d := exp(c)
 end
 
+GraphPPL.@model function prior()
+    a ~ Normal(0, 1)
+    return a
+end
+
 function create_nested_model()
     model = GraphPPL.create_model()
     ctx = GraphPPL.getcontext(model)

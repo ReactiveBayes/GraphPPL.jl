@@ -1673,6 +1673,25 @@ include("model_zoo.jl")
             )
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+        input = quote
+            y ~ prior() where {created_by=(y~prior())}
+        end
+        output = quote
+            y = GraphPPL.make_node!(
+                __model__,
+                __context__,
+                prior,
+                y,
+                [];
+                __parent_options__ = GraphPPL.prepare_options(
+                    __parent_options__,
+                    $(Dict{Any,Any}(:created_by => :(y ~ prior()))),
+                    __debug__,
+                ),
+                __debug__ = __debug__,
+            )
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     end
 

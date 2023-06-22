@@ -14,6 +14,7 @@ using Test, GraphPPL
     include("model_macro.jl")
     include("graph_engine.jl")
     include("constraints_engine.jl")
+    include("constraints_macro.jl")
 
 end
 
