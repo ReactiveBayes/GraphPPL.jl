@@ -76,7 +76,7 @@ end
 
 function create_factorization_combinedrange(e::Expr)
     if @capture(e, a_:b_)
-        return :(CombinedRange($a, $b))
+        return :(GraphPPL.CombinedRange($a, $b))
     end
     return e
 end
@@ -89,6 +89,7 @@ function __convert_to_indexed_statement(e::Expr)
     elseif @capture(e, (var_[index__]))
         return :(GraphPPL.IndexedVariable($(QuoteNode(var)), $(Expr(:vect, index...))))
     end
+    return e
 end
 
 function convert_variable_statements(e::Expr)
@@ -156,7 +157,6 @@ function convert_factorization_constraints(e::Expr)
 end
 
 function constraints_macro_interior(cs_body::Expr)
-
     cs_body = apply_pipeline(cs_body, check_for_returns)
     cs_body = add_constraints_construction(cs_body)
     cs_body = apply_pipeline(cs_body, replace_begin_end)

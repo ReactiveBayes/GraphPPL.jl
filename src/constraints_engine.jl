@@ -64,9 +64,9 @@ struct IndexedVariable{T}
     index::T
 end
 
-Base.length(index::IndexedVariable{T} where T) = 1
-Base.iterate(index::IndexedVariable{T} where T) = (index, nothing)
-Base.iterate(index::IndexedVariable{T} where T, any) = nothing
+Base.length(index::IndexedVariable{T} where {T}) = 1
+Base.iterate(index::IndexedVariable{T} where {T}) = (index, nothing)
+Base.iterate(index::IndexedVariable{T} where {T}, any) = nothing
 getvariable(index::IndexedVariable) = index.variable
 
 Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
@@ -196,7 +196,7 @@ Base.:(*)(
 Base.:(*)(
     left::AbstractArray{<:FactorizationConstraintEntry},
     right::AbstractArray{<:FactorizationConstraintEntry},
-) = [left, right...]
+) = [left..., right...]
 
 
 function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
@@ -270,7 +270,7 @@ struct FactorizationConstraint{V,F}
         variables::V,
         constraint::Vector{<:FactorizationConstraintEntry},
     ) where {V}
-        
+
         if !issetequal(
             Set(getvariable.(variables)),
             unique(collect(Iterators.flatten(getvariables.(constraint)))),
@@ -279,7 +279,9 @@ struct FactorizationConstraint{V,F}
         end
         rhs_variables = collect(Iterators.flatten(constraint))
         if length(rhs_variables) != length(unique(rhs_variables))
-            error("Variables in right hand side of constraint ($(constraint...)) can only occur once")
+            error(
+                "Variables in right hand side of constraint ($(constraint...)) can only occur once",
+            )
         end
         return new{V,typeof(constraint)}(variables, constraint)
     end
@@ -319,9 +321,14 @@ end
 
 Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:AbstractArray,F}) =
     print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:Symbol,F}) =
+Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F}) =
     print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
+FactorizationConstraint(
+    variables::V,
+    constraint::F,
+) where {V,F<:FactorizationConstraintEntry} =
+    FactorizationConstraint(variables, [constraint])
 
 struct GeneralSubModelConstraints
     fform::Function

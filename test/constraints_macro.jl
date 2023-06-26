@@ -122,12 +122,12 @@ include("model_zoo.jl")
 
         # Test 4: replace_begin_end with composite index 
         input = quote
-            q(x) = q(x[begin + 1])q(x[end - 1])q(x[1])q(x[end])
+            q(x) = q(x[begin+1])q(x[end-1])q(x[1])q(x[end])
         end
         output = quote
             q(x) =
-                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex) + 1]) *
-                q(x[GraphPPL.FunctionalIndex{:end}(lastindex) - 1]) *
+                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)+1]) *
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex)-1]) *
                 q(x[1]) *
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
         end
@@ -256,7 +256,7 @@ include("model_zoo.jl")
             q(x) = q(x[begin:end])
         end
         output = quote
-            q(x) = q(x[CombinedRange(begin, end)])
+            q(x) = q(x[GraphPPL.CombinedRange(begin, end)])
         end
         @test_expression_generating apply_pipeline(
             input,
@@ -325,6 +325,16 @@ include("model_zoo.jl")
         end
         output = quote
             μ(GraphPPL.IndexedVariable(:x, CombinedRange(1, 2)))::PointMass
+        end
+        @test_expression_generating apply_pipeline(input, convert_variable_statements) output
+
+        # Test 6: convert_variable_statements with a CombinedRange
+        input = quote
+            q(x) = q(x[CombinedRange(1, 2)])
+        end
+        output = quote
+            q(GraphPPL.IndexedVariable(:x, nothing)) =
+                q(GraphPPL.IndexedVariable(:x, CombinedRange(1, 2)))
         end
         @test_expression_generating apply_pipeline(input, convert_variable_statements) output
 
@@ -667,32 +677,43 @@ include("model_zoo.jl")
             end
         end
         output = quote
-            GraphPPL.Constraints([
-                FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal),
-                GraphPPL.GeneralSubModelConstraints(
-                    second_submodel,
-                    GraphPPL.Constraints([
-                        FactorizationConstraint(
+            __constraints__ = GraphPPL.Constraints()
+            push!(
+                __constraints__,
+                GraphPPL.FunctionalFormConstraint(
+                    GraphPPL.IndexedVariable(:x, nothing),
+                    Normal,
+                ),
+            )
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = try
+                        GraphPPL.SubModelConstraints(second_submodel)
+                    catch
+                        GraphPPL.SubModelConstraints(:second_submodel)
+                    end
+                    push!(
+                        __constraints__,
+                        GraphPPL.FactorizationConstraint(
                             [
                                 GraphPPL.IndexedVariable(:w, nothing),
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
                             ],
-                            [
-                                FactorizationConstraintEntry([
-                                    GraphPPL.IndexedVariable(:a, nothing),
-                                    GraphPPL.IndexedVariable(:b, nothing),
-                                ]),
-                                FactorizationConstraintEntry([
-                                    GraphPPL.IndexedVariable(:w, nothing),
-                                ]),
-                            ],
+                            GraphPPL.FactorizationConstraintEntry([
+                                GraphPPL.IndexedVariable(:a, nothing),
+                                GraphPPL.IndexedVariable(:b, nothing),
+                            ]) * GraphPPL.FactorizationConstraintEntry([
+                                GraphPPL.IndexedVariable(:w, nothing),
+                            ]),
                         ),
-                    ]),
-                ),
-            ])
+                    )
+                    push!(__outer_constraints__, __constraints__)
+                end
+            end
+            return __constraints__
         end
-        @test_broken prettify(constraints_macro_interior(input)) == prettify(output)
+
+        @test_expression_generating constraints_macro_interior(input) output
     end
 end
 

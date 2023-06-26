@@ -560,6 +560,21 @@ include("model_zoo.jl")
         )
     end
 
+    @testset "multiply(::FactorisationConstraintEntry, ::FactorisationConstraintEntry)" begin
+        import GraphPPL: FactorizationConstraintEntry, IndexedVariable
+
+        entry = FactorizationConstraintEntry([
+            IndexedVariable(:x, nothing),
+            IndexedVariable(:y, nothing),
+        ])
+        x = entry
+        for i = 1:3
+            x = x * x
+            @test x == [entry for _ = 1:(2^i)]
+        end
+
+    end
+
     @testset "push!(::Constraints, ::Constraint)" begin
         import GraphPPL:
             Constraints,
