@@ -324,12 +324,6 @@ Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:AbstractAr
 Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F}) =
     print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
-FactorizationConstraint(
-    variables::V,
-    constraint::F,
-) where {V,F<:FactorizationConstraintEntry} =
-    FactorizationConstraint(variables, [constraint])
-
 struct GeneralSubModelConstraints
     fform::Function
     constraints::Any
@@ -522,7 +516,7 @@ prepare_factorization_constraint(
     constraint::FactorizationConstraint{
         V,
         F,
-    } where {V,F<:AbstractArray{<:FactorizationConstraintEntry}},
+    } where {V,F},
 ) = constraint
 
 function prepare_factorization_constraint(
@@ -595,12 +589,18 @@ function get_variables(
     return result
 end
 
-function convert_to_nodelabels(context::Context, constraint_data::FactorizationConstraint)
+function entries_to_nodelabel(context::Context, entries::AbstractArray{<:FactorizationConstraintEntry})
     result = Vector{GraphPPL.NodeLabel}[]
-    for entry in getconstraint(constraint_data)
+    for entry in entries
         variables = get_variables(context, entry)
         result = vcat(result, variables)
     end
+    return result
+end
+entries_to_nodelabel(context::Context, entry::FactorizationConstraintEntry) = get_variables(context, entry)
+
+function convert_to_nodelabels(context::Context, constraint_data::FactorizationConstraint)
+    result = entries_to_nodelabel(context, getconstraint(constraint_data))
     all_variables = collect(Iterators.flatten(result))
 
     length(unique(all_variables)) == length(all_variables) ||

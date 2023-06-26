@@ -572,7 +572,6 @@ include("model_zoo.jl")
             x = x * x
             @test x == [entry for _ = 1:(2^i)]
         end
-
     end
 
     @testset "push!(::Constraints, ::Constraint)" begin
@@ -1670,6 +1669,25 @@ include("model_zoo.jl")
         apply!(model, constraint)
         node = model[label_for(model.graph, 5)]
         @test node_options(node)[:q] == [BitSet(1), BitSet(2), BitSet(3)]
+
+        # Test 15: Test apply! with a factorization constraint with a single entry
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        SplittedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                ]),
+        )
+        apply!(model, ctx, constraint)
+        @test node_options(model[ctx[:sum_4]])[:q] ==
+              BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
 
     end
 
