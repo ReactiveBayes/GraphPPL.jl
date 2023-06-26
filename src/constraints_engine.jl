@@ -176,6 +176,22 @@ struct FactorizationConstraintEntry{T<:IndexedVariable}
     entries::Vector{T}
 end
 
+Base.:(*)(left::FactorizationConstraintEntry, right::FactorizationConstraintEntry) =
+    [left, right]
+Base.:(*)(
+    left::AbstractArray{<:FactorizationConstraintEntry},
+    right::FactorizationConstraintEntry,
+) = [left..., right]
+Base.:(*)(
+    left::FactorizationConstraintEntry,
+    right::AbstractArray{<:FactorizationConstraintEntry},
+) = [left, right...]
+Base.:(*)(
+    left::AbstractArray{<:FactorizationConstraintEntry},
+    right::AbstractArray{<:FactorizationConstraintEntry},
+) = [left, right...]
+
+
 function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, "q(")
     print(io, join(constraint_entry.entries, ", "))
@@ -192,28 +208,50 @@ getnames(entry::FactorizationConstraintEntry) = [e.variable for e in entry.entri
 getindices(entry::FactorizationConstraintEntry) = Tuple([e.index for e in entry.entries])
 
 function factorization_split(
+    left::FactorizationConstraintEntry,
+    right::FactorizationConstraintEntry,
+)
+    (getnames(left) == getnames(right)) || error(
+        "Cannot split $(left_last) and $(right_first). Names or their order does not match.",
+    )
+    (length(getnames(left)) === length(Set(getnames(left)))) ||
+        error("Cannot split $(left) and $(right). Names should be unique.")
+    lindices = getindices(left)
+    rindices = getindices(right)
+    split_merged = unrolled_map(__factorization_split_merge_range, lindices, rindices)
+    return FactorizationConstraintEntry([
+        IndexedVariable(var, split) for (var, split) in zip(getnames(left), split_merged)
+    ])
+end
+
+function factorization_split(
+    left::AbstractArray{<:FactorizationConstraintEntry},
+    right::FactorizationConstraintEntry,
+)
+    left_last = last(left)
+    entry = factorization_split(left_last, right)
+    return [left[1:(end-1)]..., entry]
+end
+
+function factorization_split(
+    left::FactorizationConstraintEntry,
+    right::AbstractArray{<:FactorizationConstraintEntry},
+)
+    right_first = first(right)
+    entry = factorization_split(left, right_first)
+    return [entry, right[(begin+1):end]...]
+end
+
+
+function factorization_split(
     left::AbstractArray{<:FactorizationConstraintEntry},
     right::AbstractArray{<:FactorizationConstraintEntry},
 )
     left_last = last(left)
     right_first = first(right)
-    (getnames(left_last) == getnames(right_first)) || error(
-        "Cannot split $(left_last) and $(right_first). Names or their order does not match.",
-    )
-    (length(getnames(left_last)) === length(Set(getnames(left_last)))) ||
-        error("Cannot split $(left_last) and $(right_first). Names should be unique.")
-    lindices = getindices(left_last)
-    rindices = getindices(right_first)
-    split_merged = unrolled_map(__factorization_split_merge_range, lindices, rindices)
+    entry = factorization_split(left_last, right_first)
 
-    return [
-        left[1:(end-1)]...,
-        FactorizationConstraintEntry([
-            IndexedVariable(var, split) for
-            (var, split) in zip(getnames(left_last), split_merged)
-        ]),
-        right[(begin+1):end]...,
-    ]
+    return [left[1:(end-1)]..., entry, right[(begin+1):end]...]
 end
 
 
@@ -262,11 +300,14 @@ struct GeneralSubModelConstraints
     fform::Function
     constraints::Any
 end
+getconstraint(c::GeneralSubModelConstraints) = c.constraints
+
 
 struct SpecificSubModelConstraints
     tag::Symbol
     constraints::Any
 end
+getconstraint(c::SpecificSubModelConstraints) = c.constraints
 
 const Constraint = Union{
     FactorizationConstraint,
@@ -277,11 +318,16 @@ const Constraint = Union{
 }
 const Constraints = Vector{Constraint}
 
+Base.push!(c_set::GeneralSubModelConstraints, c::Constraint) =
+    Base.push!(getconstraint(c_set), c)
+Base.push!(c_set::SpecificSubModelConstraints, c::Constraint) =
+    Base.push!(getconstraint(c_set), c)
 
 
-SubModelConstraints(x::Symbol, constraints::Constraints) =
+
+SubModelConstraints(x::Symbol, constraints = Constraints()::Constraints) =
     SpecificSubModelConstraints(x, constraints)
-SubModelConstraints(fform::Function, constraints::Constraints) =
+SubModelConstraints(fform::Function, constraints = Constraints()::Constraints) =
     GeneralSubModelConstraints(fform, constraints)
 
 function applicable_nodes(
@@ -300,7 +346,10 @@ end
 function applicable_nodes(
     model::Model,
     context::Context,
-    constraint::Union{FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F},MessageConstraint},
+    constraint::Union{
+        FunctionalFormConstraint{V,F} where {V<:IndexedVariable,F},
+        MessageConstraint,
+    },
 )
     return vec(context[getvariables(constraint)])
 end
@@ -319,16 +368,17 @@ function applicable_nodes(
 end
 
 __meanfield_split(name::IndexedVariable, var::NodeLabel) = name
-__meanfield_split(name::IndexedVariable, var::ResizableArray{<:NodeLabel,V,N}) where {V,N} = begin
-    @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays."
-    IndexedVariable(
-        name.variable,
-        SplittedRange(
-            FunctionalIndex{:begin}(firstindex),
-            FunctionalIndex{:end}(lastindex),
-        ),
-    )
-end
+__meanfield_split(name::IndexedVariable, var::ResizableArray{<:NodeLabel,V,N}) where {V,N} =
+    begin
+        @assert N == 1 "MeanField factorization only implemented for 1-dimensional arrays."
+        IndexedVariable(
+            name.variable,
+            SplittedRange(
+                FunctionalIndex{:begin}(firstindex),
+                FunctionalIndex{:end}(lastindex),
+            ),
+        )
+    end
 
 
 prepare_factorization_constraint(
@@ -358,11 +408,7 @@ function prepare_factorization_constraint(
 )
     return FactorizationConstraint(
         constraint.variables,
-        [
-            FactorizationConstraintEntry([
-                v for v in constraint.variables
-            ]),
-        ],
+        [FactorizationConstraintEntry([v for v in constraint.variables])],
     )
 end
 
@@ -408,7 +454,7 @@ function get_variables(
     range_start_indices = firstindex.(ranges)
     for i = 1:range_lengths[1]
         indices = range_start_indices .+ (i - 1)
-        push!(result, [variables[j][indices[j]] for j = 1:length(variables)])
+        Base.push!(result, [variables[j][indices[j]] for j = 1:length(variables)])
     end
     return result
 end
@@ -439,7 +485,7 @@ function convert_to_bitsets(neighbors::AbstractArray, constraint_labels::Abstrac
     constraint_sets = BitSet.(label_indices)
     for (node, _) in enumerate(neighbors)
         if !any(node .∈ constraint_sets)    #If a variable does not occur in any group
-            push!.(constraint_sets, node)   #Add it to all groups
+            Base.push!.(constraint_sets, node)   #Add it to all groups
         end
     end
     result = map(
@@ -450,7 +496,7 @@ function convert_to_bitsets(neighbors::AbstractArray, constraint_labels::Abstrac
 end
 
 function apply!(model::Model, constraints::Constraints)
-    apply!(model, GraphPPL.context(model), constraints)
+    apply!(model, GraphPPL.get_principal_submodel(model), constraints)
 end
 
 function apply!(model::Model, context::Context, constraints::Constraints)

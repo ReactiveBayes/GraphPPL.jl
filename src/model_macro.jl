@@ -56,7 +56,7 @@ function apply_pipeline(e::Expr, pipeline)
     return walk(x -> __guard_f(pipeline, x), e)
 end
 
-function check_reserved_variable_names(e::Expr)
+function check_reserved_variable_names_model(e::Expr)
     if any(
         reserved_name -> MacroTools.inexpr(e, reserved_name),
         [
@@ -70,7 +70,9 @@ function check_reserved_variable_names(e::Expr)
             :(__interfaces__),
         ],
     )
-        error("Variable name in $(prettify(e)) is reserved.")
+        error(
+            "Variable name in $(prettify(e)) cannot be used as it is a reserved variable name in the model macro.",
+        )
     end
     return e
 end
@@ -506,7 +508,7 @@ function model_macro_interior(model_specification)
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
-    ms_body = apply_pipeline(ms_body, check_reserved_variable_names)
+    ms_body = apply_pipeline(ms_body, check_reserved_variable_names_model)
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
     ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)

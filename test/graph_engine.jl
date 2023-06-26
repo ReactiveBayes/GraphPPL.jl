@@ -5,6 +5,7 @@ using GraphPPL
 using Graphs
 using MetaGraphsNext
 using TestSetExtensions
+using StaticArrays
 include("model_zoo.jl")
 
 @testset ExtendedTestSet "graph_engine" begin
@@ -142,9 +143,7 @@ include("model_zoo.jl")
         # Test 2: Test getting sorted neighbors
         model = create_normal_model()
         ctx = GraphPPL.getcontext(model)
-        node = ctx[:second_submodel_4][Symbol(
-            "Main.anonymous.test_graph_engine.NormalMeanVariance_6",
-        )]
+        node = label_for(model.graph, 5)
         @test neighbors(model, node; sorted = true) == [
             ctx[:second_submodel_4][:w],
             ctx[:second_submodel_4][:a],
@@ -974,7 +973,7 @@ include("model_zoo.jl")
         model = create_model()
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        @test ErrorException make_node!(model, ctx, second_submodel, x, [0, 1])
+        @test_throws ErrorException make_node!(model, ctx, second_submodel, x, [0, 1])
 
     end
 

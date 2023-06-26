@@ -299,6 +299,11 @@ end
 
 
 getcontext(model::Model) = model.graph[]
+function get_principal_submodel(model::Model)
+    context = getcontext(model)
+    @assert length(context.factor_nodes) == 1
+    return first(values(context.factor_nodes))
+end
 
 abstract type NodeType end
 

@@ -46,10 +46,10 @@ include("model_zoo.jl")
             q(x)::PointMass
         end
         output = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
-            return constraints
+            return __constraints__
         end
         @test_expression_generating add_constraints_construction(input) output
 
@@ -63,14 +63,14 @@ include("model_zoo.jl")
             end
         end
         output = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             for q in submodel
                 q(x, y) = q(x)q(y)
                 q(x)::PointMass
             end
-            return constraints
+            return __constraints__
         end
         @test_expression_generating add_constraints_construction(input) output
     end
@@ -83,7 +83,9 @@ include("model_zoo.jl")
             q(x) = q(x[begin]) .. q(x[end])
         end
         output = quote
-            q(x) = q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]) .. q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+            q(x) =
+                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]) ..
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -92,7 +94,18 @@ include("model_zoo.jl")
             q(x) = q(x[begin, begin]) .. q(x[end, end])
         end
         output = quote
-            q(x) = q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:begin}(firstindex)]) .. q(x[GraphPPL.FunctionalIndex{:end}(lastindex), GraphPPL.FunctionalIndex{:end}(lastindex)])
+            q(x) =
+                q(
+                    x[
+                        GraphPPL.FunctionalIndex{:begin}(firstindex),
+                        GraphPPL.FunctionalIndex{:begin}(firstindex),
+                    ],
+                ) .. q(
+                    x[
+                        GraphPPL.FunctionalIndex{:end}(lastindex),
+                        GraphPPL.FunctionalIndex{:end}(lastindex),
+                    ],
+                )
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -101,7 +114,9 @@ include("model_zoo.jl")
             q(x) = q(x[begin, 1]) .. q(x[end, 2])
         end
         output = quote
-            q(x) = q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), 1]) .. q(x[GraphPPL.FunctionalIndex{:end}(lastindex), 2])
+            q(x) =
+                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), 1]) ..
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex), 2])
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
     end
@@ -111,33 +126,39 @@ include("model_zoo.jl")
 
         # Test 1: create_submodel_constraints with one nested layer
         input = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             for q in submodel
                 q(z) = q(z[begin]) .. q(z[end])
             end
             q(a, b, c) = q(a)q(b)q(c)
-            return constraints
+            return __constraints__
         end
         output = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
+                        end
+                    end
                     q(z) = q(z[begin]) .. q(z[end])
-                    push!(outer_constraints, constraints)
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
             q(a, b, c) = q(a)q(b)q(c)
-            return constraints
+            return __constraints__
         end
         @test_expression_generating apply_pipeline(input, create_submodel_constraints) output
 
         # Test 2: create_submodel_constraints with two nested layers
         input = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             for q in submodel
                 q(z) = q(z[begin]) .. q(z[end])
@@ -146,25 +167,37 @@ include("model_zoo.jl")
                 end
             end
             q(a, b, c) = q(a)q(b)q(c)
-            return constraints
+            return __constraints__
         end
         output = quote
-            constraints = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
-                    q(z) = q(z[begin]) .. q(z[end])
-                    let outer_constraints = constraints
-                        let constraints = GraphPPL.SubModelConstraints(subsubmodel)
-                            q(w) = q(w[begin]) .. q(w[end])
-                            push!(outer_constraints, constraints)
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
                         end
                     end
-                    push!(outer_constraints, constraints)
+                    q(z) = q(z[begin]) .. q(z[end])
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = begin
+                                try
+                                    GraphPPL.SubModelConstraints(subsubmodel)
+                                catch
+                                    GraphPPL.SubModelConstraints(:subsubmodel)
+                                end
+                            end
+                            q(w) = q(w[begin]) .. q(w[end])
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
             q(a, b, c) = q(a)q(b)q(c)
-            return constraints
+            return __constraints__
         end
         @test_expression_generating apply_pipeline(input, create_submodel_constraints) output
     end
@@ -177,7 +210,7 @@ include("model_zoo.jl")
             q(x) = q(x[begin]) .. q(x[end])
         end
         output = quote
-            q(x) = GraphPPL.factorization_split([q(x[begin]),], [q(x[end]),])
+            q(x) = GraphPPL.factorization_split(q(x[begin]), q(x[end]))
         end
         @test_expression_generating apply_pipeline(input, create_factorization_split) output
 
@@ -186,9 +219,20 @@ include("model_zoo.jl")
             q(x, y) = q(x[begin], y[begin]) .. q(x[end], y[end])
         end
         output = quote
-            q(x, y) = GraphPPL.factorization_split([q(x[begin], y[begin])], [q(x[end], y[end])])
+            q(x, y) = GraphPPL.factorization_split(q(x[begin], y[begin]), q(x[end], y[end]))
         end
         @test_expression_generating apply_pipeline(input, create_factorization_split) output
+
+        # Test 3: create_factorization_split with two a factorization split and more entries
+        input = quote
+            q(x, y, z) = q(y)q(x[begin]) .. q(x[end])q(z)
+        end
+        output = quote
+            q(x, y, z) = GraphPPL.factorization_split(q(y)q(x[begin]), q(x[end])q(z))
+        end
+        @test_expression_generating apply_pipeline(input, create_factorization_split) output
+
+        # Test 4: create_factorization_split with two factorization splits and more entries
     end
 
     @testset "create_factorization_combinedrange" begin
@@ -201,7 +245,10 @@ include("model_zoo.jl")
         output = quote
             q(x) = q(x[CombinedRange(begin, end)])
         end
-        @test_expression_generating apply_pipeline(input, create_factorization_combinedrange) output
+        @test_expression_generating apply_pipeline(
+            input,
+            create_factorization_combinedrange,
+        ) output
     end
 
     @testset "convert_variable_statements" begin
@@ -209,10 +256,21 @@ include("model_zoo.jl")
 
         # Test 1: convert_variable_statements with a single variable statement
         input = quote
-            q(x) = factorization_split(q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]), q(x[GraphPPL.FunctionalIndex{:end}(lastindex)]))
+            q(x) = factorization_split(
+                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]),
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex)]),
+            )
         end
         output = quote
-            q(GraphPPL.IndexedVariable(:x, nothing)) = factorization_split(q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:begin}(firstindex))), q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex))))
+            q(GraphPPL.IndexedVariable(:x, nothing)) = factorization_split(
+                q(
+                    GraphPPL.IndexedVariable(
+                        :x,
+                        GraphPPL.FunctionalIndex{:begin}(firstindex),
+                    ),
+                ),
+                q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex))),
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_variable_statements) output
 
@@ -221,22 +279,27 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y[1, 1])q(y[2, 2])
         end
         output = quote
-            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = q(GraphPPL.IndexedVariable(:x, nothing))q(GraphPPL.IndexedVariable(:y, [1, 1]))q(GraphPPL.IndexedVariable(:y, [2, 2]))
+            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) =
+                q(
+                    GraphPPL.IndexedVariable(:x, nothing),
+                )q(
+                    GraphPPL.IndexedVariable(:y, [1, 1]),
+                )q(GraphPPL.IndexedVariable(:y, [2, 2]))
         end
         @test_expression_generating apply_pipeline(input, convert_variable_statements) output
 
         # Test 3: convert_variable_statements with a message constraint
         input = quote
-            μ(x) :: PointMass
+            μ(x)::PointMass
         end
         output = quote
-            μ(GraphPPL.IndexedVariable(:x, nothing)) :: PointMass
+            μ(GraphPPL.IndexedVariable(:x, nothing))::PointMass
         end
         @test_expression_generating apply_pipeline(input, convert_variable_statements) output
 
         # Test 4: convert_variable_statements with a message constraint with indcides
         input = quote
-            μ(x[1, 1]) :: PointMass
+            μ(x[1, 1])::PointMass
         end
         output = quote
             μ(GraphPPL.IndexedVariable(:x, [1, 1]))::PointMass
@@ -245,7 +308,7 @@ include("model_zoo.jl")
 
         # Test 5: convert_variable_statements with a CombinedRange
         input = quote
-            μ(x[CombinedRange(1, 2)]) :: PointMass
+            μ(x[CombinedRange(1, 2)])::PointMass
         end
         output = quote
             μ(GraphPPL.IndexedVariable(:x, CombinedRange(1, 2)))::PointMass
@@ -254,79 +317,146 @@ include("model_zoo.jl")
 
     end
 
-    @testset "convert_rhs_multiplication" begin
-        import GraphPPL: convert_rhs_multiplication, apply_pipeline
-
-        input = quote 
-            q(a, b, c) = q(a)q(b)q(c)
-        end
-        output = quote
-            q(a, b, c) = [q(a), q(b), q(c)]
-        end
-        @test_expression_generating apply_pipeline(input, convert_rhs_multiplication) output
-
-        input = quote
-            q(a) = q(a)
-        end
-        output = quote
-            q(a) = [q(a)]
-        end
-        @test_expression_generating apply_pipeline(input, convert_rhs_multiplication) output
-    end
-
     @testset "convert_functionalform_constraints" begin
         import GraphPPL: convert_functionalform_constraints, apply_pipeline, IndexedVariable
 
         # Test 1: convert_functionalform_constraints with a single functional form constraint
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing)) :: PointMass
+            q(GraphPPL.IndexedVariable(:x, nothing))::PointMass
         end
         output = quote
-            push!(constraints, GraphPPL.FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
+            push!(
+                __constraints__,
+                GraphPPL.FunctionalFormConstraint(
+                    GraphPPL.IndexedVariable(:x, nothing),
+                    PointMass,
+                ),
+            )
         end
-        @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
+        @test_expression_generating apply_pipeline(
+            input,
+            convert_functionalform_constraints,
+        ) output
 
         # Test 2: convert_functionalform_constraints with a functional form constraint over multiple variables
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
+            q(
+                GraphPPL.IndexedVariable(:x, nothing),
+                GraphPPL.IndexedVariable(:y, nothing),
+            )::PointMass
         end
         output = quote
-            push!(constraints, GraphPPL.FunctionalFormConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
+            push!(
+                __constraints__,
+                GraphPPL.FunctionalFormConstraint(
+                    [
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    ],
+                    PointMass,
+                ),
+            )
         end
-        @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
+        @test_expression_generating apply_pipeline(
+            input,
+            convert_functionalform_constraints,
+        ) output
 
         # Test 3: convert_functionalform_constraints with a functional form constraint in a nested constraint specification
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
-                    q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-                    let outer_constraints = constraints
-                        let constraints = GraphPPL.SubModelConstraints(subsubmodel)
-                            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-                            push!(outer_constraints, constraints)
+            q(
+                GraphPPL.IndexedVariable(:x, nothing),
+                GraphPPL.IndexedVariable(:y, nothing),
+            )::PointMass
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
                         end
                     end
-                    push!(outer_constraints, constraints)
+                    q(
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    )::PointMass
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = begin
+                                try
+                                    GraphPPL.SubModelConstraints(subsubmodel)
+                                catch
+                                    GraphPPL.SubModelConstraints(:subsubmodel)
+                                end
+                            end
+                            q(
+                                GraphPPL.IndexedVariable(:x, nothing),
+                                GraphPPL.IndexedVariable(:y, nothing),
+                            )::PointMass
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
         end
         output = quote
-            push!(constraints, GraphPPL.FunctionalFormConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
-                    push!(constraints, GraphPPL.FunctionalFormConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-                    let outer_constraints = constraints
-                        let constraints = GraphPPL.SubModelConstraints(subsubmodel)
-                            push!(constraints, GraphPPL.FunctionalFormConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-                            push!(outer_constraints, constraints)
+            push!(
+                __constraints__,
+                GraphPPL.FunctionalFormConstraint(
+                    [
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    ],
+                    PointMass,
+                ),
+            )
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
                         end
                     end
-                    push!(outer_constraints, constraints)
+                    push!(
+                        __constraints__,
+                        GraphPPL.FunctionalFormConstraint(
+                            [
+                                GraphPPL.IndexedVariable(:x, nothing),
+                                GraphPPL.IndexedVariable(:y, nothing),
+                            ],
+                            PointMass,
+                        ),
+                    )
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = begin
+                                try
+                                    GraphPPL.SubModelConstraints(subsubmodel)
+                                catch
+                                    GraphPPL.SubModelConstraints(:subsubmodel)
+                                end
+                            end
+                            push!(
+                                __constraints__,
+                                GraphPPL.FunctionalFormConstraint(
+                                    [
+                                        GraphPPL.IndexedVariable(:x, nothing),
+                                        GraphPPL.IndexedVariable(:y, nothing),
+                                    ],
+                                    PointMass,
+                                ),
+                            )
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
         end
-        @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
+        @test_expression_generating apply_pipeline(
+            input,
+            convert_functionalform_constraints,
+        ) output
     end
 
     @testset "convert_message_constraints" begin
@@ -334,50 +464,128 @@ include("model_zoo.jl")
 
         # Test 1: convert_message_constraints with a single functional form constraint
         input = quote
-            μ(GraphPPL.IndexedVariable(:x, nothing)) :: PointMass
+            μ(GraphPPL.IndexedVariable(:x, nothing))::PointMass
         end
         output = quote
-            push!(constraints, GraphPPL.MessageConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
+            push!(
+                __constraints__,
+                GraphPPL.MessageConstraint(
+                    GraphPPL.IndexedVariable(:x, nothing),
+                    PointMass,
+                ),
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_message_constraints) output
 
         # Test 2: convert_message_constraints with a functional form constraint over multiple variables
         input = quote
-            μ(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
+            μ(
+                GraphPPL.IndexedVariable(:x, nothing),
+                GraphPPL.IndexedVariable(:y, nothing),
+            )::PointMass
         end
         output = quote
-            push!(constraints, GraphPPL.MessageConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
+            push!(
+                __constraints__,
+                GraphPPL.MessageConstraint(
+                    [
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    ],
+                    PointMass,
+                ),
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_message_constraints) output
 
         # Test 3: convert_message_constraints with a functional form constraint in a nested constraint specification
         input = quote
-            μ(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
-                    μ(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-                    let outer_constraints = constraints
-                        let constraints = GraphPPL.SubModelConstraints(subsubmodel)
-                            μ(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) :: PointMass
-                            push!(outer_constraints, constraints)
+            μ(
+                GraphPPL.IndexedVariable(:x, nothing),
+                GraphPPL.IndexedVariable(:y, nothing),
+            )::PointMass
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
                         end
                     end
-                    push!(outer_constraints, constraints)
+                    μ(
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    )::PointMass
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = begin
+                                try
+                                    GraphPPL.SubModelConstraints(subsubmodel)
+                                catch
+                                    GraphPPL.SubModelConstraints(:subsubmodel)
+                                end
+                            end
+                            μ(
+                                GraphPPL.IndexedVariable(:x, nothing),
+                                GraphPPL.IndexedVariable(:y, nothing),
+                            )::PointMass
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
         end
         output = quote
-            push!(constraints, GraphPPL.MessageConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-            let outer_constraints = constraints
-                let constraints = GraphPPL.SubModelConstraints(submodel)
-                    push!(constraints, GraphPPL.MessageConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-                    let outer_constraints = constraints
-                        let constraints = GraphPPL.SubModelConstraints(subsubmodel)
-                            push!(constraints, GraphPPL.MessageConstraint([GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)], PointMass))
-                            push!(outer_constraints, constraints)
+            push!(
+                __constraints__,
+                GraphPPL.MessageConstraint(
+                    [
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    ],
+                    PointMass,
+                ),
+            )
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = begin
+                        try
+                            GraphPPL.SubModelConstraints(submodel)
+                        catch
+                            GraphPPL.SubModelConstraints(:submodel)
                         end
                     end
-                    push!(outer_constraints, constraints)
+                    push!(
+                        __constraints__,
+                        GraphPPL.MessageConstraint(
+                            [
+                                GraphPPL.IndexedVariable(:x, nothing),
+                                GraphPPL.IndexedVariable(:y, nothing),
+                            ],
+                            PointMass,
+                        ),
+                    )
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = begin
+                                try
+                                    GraphPPL.SubModelConstraints(subsubmodel)
+                                catch
+                                    GraphPPL.SubModelConstraints(:subsubmodel)
+                                end
+                            end
+                            push!(
+                                __constraints__,
+                                GraphPPL.MessageConstraint(
+                                    [
+                                        GraphPPL.IndexedVariable(:x, nothing),
+                                        GraphPPL.IndexedVariable(:y, nothing),
+                                    ],
+                                    PointMass,
+                                ),
+                            )
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
                 end
             end
         end
@@ -389,30 +597,49 @@ include("model_zoo.jl")
 
         # Test 1: convert_factorization_constraints with a single factorization constraint
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = [q(GraphPPL.IndexedVariable(:x, nothing)), q(GraphPPL.IndexedVariable(:y, nothing))]
+            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = [
+                q(GraphPPL.IndexedVariable(:x, nothing)),
+                q(GraphPPL.IndexedVariable(:y, nothing)),
+            ]
         end
         output = quote
-            push!(constraints, GraphPPL.FactorizationConstraint(
-                [GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)],
-                [
-                    GraphPPL.FactorizationConstraintEntry([GraphPPL.IndexedVariable(:x, nothing)]),
-                    GraphPPL.FactorizationConstraintEntry([GraphPPL.IndexedVariable(:y, nothing)]),
-                ],
-            ))
+            push!(
+                __constraints__,
+                GraphPPL.FactorizationConstraint(
+                    [
+                        GraphPPL.IndexedVariable(:x, nothing),
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    ],
+                    [
+                        GraphPPL.FactorizationConstraintEntry([
+                            GraphPPL.IndexedVariable(:x, nothing),
+                        ]),
+                        GraphPPL.FactorizationConstraintEntry([
+                            GraphPPL.IndexedVariable(:y, nothing),
+                        ]),
+                    ],
+                ),
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_factorization_constraints) output
 
         # Test 2: convert_factorization_constraints with a factorization constraint that has no multiplication
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing)) = [q(GraphPPL.IndexedVariable(:x, nothing))]
+            q(GraphPPL.IndexedVariable(:x, nothing)) =
+                [q(GraphPPL.IndexedVariable(:x, nothing))]
         end
         output = quote
-            push!(constraints, GraphPPL.FactorizationConstraint(
-                [GraphPPL.IndexedVariable(:x, nothing)],
-                [
-                    GraphPPL.FactorizationConstraintEntry([GraphPPL.IndexedVariable(:x, nothing)]),
-                ],
-            ))
+            push!(
+                __constraints__,
+                GraphPPL.FactorizationConstraint(
+                    [GraphPPL.IndexedVariable(:x, nothing)],
+                    [
+                        GraphPPL.FactorizationConstraintEntry([
+                            GraphPPL.IndexedVariable(:x, nothing),
+                        ]),
+                    ],
+                ),
+            )
         end
         @test_expression_generating apply_pipeline(input, convert_factorization_constraints) output
     end
@@ -420,31 +647,37 @@ include("model_zoo.jl")
     @testset "constraints_macro_interior" begin
         import GraphPPL: constraints_macro_interior
 
-        input = quote 
-            q(x) :: Normal
+        input = quote
+            q(x)::Normal
             for q in second_submodel
                 q(w, a, b) = q(a, b)q(w)
             end
         end
-        output = quote 
+        output = quote
             GraphPPL.Constraints([
-            FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal),
-            GraphPPL.GeneralSubModelConstraints(
-                second_submodel,
-                GraphPPL.Constraints([
-                    FactorizationConstraint(
-                        [GraphPPL.IndexedVariable(:w, nothing), GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)],
-                        [
-                            FactorizationConstraintEntry([
+                FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal),
+                GraphPPL.GeneralSubModelConstraints(
+                    second_submodel,
+                    GraphPPL.Constraints([
+                        FactorizationConstraint(
+                            [
+                                GraphPPL.IndexedVariable(:w, nothing),
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
-                            ]),
-                            FactorizationConstraintEntry([GraphPPL.IndexedVariable(:w, nothing)]),
-                        ],
-                    ),
-                ]),
-            ),
-        ])
+                            ],
+                            [
+                                FactorizationConstraintEntry([
+                                    GraphPPL.IndexedVariable(:a, nothing),
+                                    GraphPPL.IndexedVariable(:b, nothing),
+                                ]),
+                                FactorizationConstraintEntry([
+                                    GraphPPL.IndexedVariable(:w, nothing),
+                                ]),
+                            ],
+                        ),
+                    ]),
+                ),
+            ])
         end
         @test_broken prettify(constraints_macro_interior(input)) == prettify(output)
     end
