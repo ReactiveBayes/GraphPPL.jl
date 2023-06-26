@@ -9,7 +9,13 @@ using MacroTools
 
     @test issymbol(:(f(1))) === false
     @test issymbol(:(f(1))) === false
-    @test issymbol(:(if true 1 else 2 end)) === false
+    @test issymbol(:(
+        if true
+            1
+        else
+            2
+        end
+    )) === false
     @test issymbol(:hello) === true
     @test issymbol(:a) === true
     @test issymbol(123) === false
@@ -20,7 +26,13 @@ end
 
     @test isexpr(:(f(1))) === true
     @test isexpr(:(f(1))) === true
-    @test isexpr(:(if true 1 else 2 end)) === true
+    @test isexpr(:(
+        if true
+            1
+        else
+            2
+        end
+    )) === true
     @test isexpr(:hello) === false
     @test isexpr(123) === false
 end
@@ -30,39 +42,73 @@ end
 
     @test ishead(:(f(1)), :call) === true
     @test ishead(:(f(1)), :if) === false
-    @test ishead(:(begin end), :if) === false
-    @test ishead(:(if true 1 else 2 end), :if) === true
-    @test ishead(:(begin end), :block) === true
+    @test ishead(:(
+        begin end
+    ), :if) === false
+    @test ishead(:(
+        if true
+            1
+        else
+            2
+        end
+    ), :if) === true
+    @test ishead(:(
+        begin end
+    ), :block) === true
 end
 
-@testset "isblock tests" begin 
+@testset "isblock tests" begin
     import GraphPPL: isblock
 
     @test isblock(:(f(1))) === false
-    @test isblock(:(if true 1 else 2 end)) === false
-    @test isblock(:(begin end)) === true
+    @test isblock(:(
+        if true
+            1
+        else
+            2
+        end
+    )) === false
+    @test isblock(:(
+        begin end
+    )) === true
 end
 
 
-@testset "iscall tests" begin 
+@testset "iscall tests" begin
     import GraphPPL: iscall
 
     @test iscall(:(f(1))) === true
     @test iscall(:(f(1)), :f) === true
     @test iscall(:(f(1)), :g) === false
-    @test iscall(:(if true 1 else 2 end)) === false
-    @test iscall(:(begin end)) === false
+    @test iscall(:(
+        if true
+            1
+        else
+            2
+        end
+    )) === false
+    @test iscall(:(
+        begin end
+    )) === false
 
 end
 
-@testset "isbroadcastedcall tests" begin 
+@testset "isbroadcastedcall tests" begin
     import GraphPPL: isbroadcastedcall
 
     @test isbroadcastedcall(:(f(1))) === false
     @test isbroadcastedcall(:(f(1)), :f) === false
     @test isbroadcastedcall(:(f(1)), :g) === false
-    @test isbroadcastedcall(:(if true 1 else 2 end)) === false
-    @test isbroadcastedcall(:(begin end)) === false
+    @test isbroadcastedcall(:(
+        if true
+            1
+        else
+            2
+        end
+    )) === false
+    @test isbroadcastedcall(:(
+        begin end
+    )) === false
 
     @test isbroadcastedcall(:(a .+ b)) === true
     @test isbroadcastedcall(:(a .+ b), :(+)) === true
@@ -77,7 +123,7 @@ end
 
 end
 
-@testset "ensure_type tests" begin 
+@testset "ensure_type tests" begin
     import GraphPPL: ensure_type
 
     @test ensure_type(Int) === true
@@ -86,7 +132,7 @@ end
     @test ensure_type(1.0) === false
 end
 
-@testset "fold_linear_operator_call" begin 
+@testset "fold_linear_operator_call" begin
     import GraphPPL: fold_linear_operator_call
 
     @test @capture(fold_linear_operator_call(:(+a)), +a)

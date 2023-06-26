@@ -1,8 +1,15 @@
 
 import MacroTools: @capture, postwalk, prewalk, walk
 
-function conditioned_walk(f, condition_skip, condition_apply, x) 
-    walk(x, x -> condition_skip(x) ? x : condition_apply(x) ? f(x) : conditioned_walk(f, condition_skip, condition_apply, x), identity)
+function conditioned_walk(f, condition_skip, condition_apply, x)
+    walk(
+        x,
+        x ->
+            condition_skip(x) ? x :
+            condition_apply(x) ? f(x) :
+            conditioned_walk(f, condition_skip, condition_apply, x),
+        identity,
+    )
 end
 
 """
@@ -11,11 +18,8 @@ end
 This function forces `Expr` or `Symbol` to be quoted.
 """
 fquote(expr::Symbol) = Expr(:quote, expr)
-fquote(expr::Int)    = expr
-fquote(expr::Expr)   = expr
-
-is_kwargs_expression(x)       = false
-is_kwargs_expression(x::Expr) = x.head === :parameters
+fquote(expr::Int) = expr
+fquote(expr::Expr) = expr
 
 """
     parse_varexpr(varexpr)
@@ -26,9 +30,9 @@ This function parses variable id and returns a tuple of 3 different representati
 3. Full variable identificator (used in model as a variable id)
 """
 function parse_varexpr(varexpr::Symbol)
-    varexpr  = varexpr
+    varexpr = varexpr
     short_id = varexpr
-    full_id  = varexpr
+    full_id = varexpr
     return varexpr, short_id, full_id
 end
 
@@ -36,15 +40,23 @@ function parse_varexpr(varexpr::Expr)
 
     # TODO: It might be handy to have this feature in the future for e.g. interacting with UnPack.jl package
     # TODO: For now however we fallback to a more informative error message since it is not obvious how to parse such expressions yet
-    @capture(varexpr, (tupled_ids__, )) && 
-        error("Multiple variable declarations, definitions and assigments are forbidden within @model macro. Try to split $(varexpr) into several independent statements.")
+    @capture(varexpr, (tupled_ids__,)) && error(
+        "Multiple variable declarations, definitions and assigments are forbidden within @model macro. Try to split $(varexpr) into several independent statements.",
+    )
 
-    @capture(varexpr, id_[idx__]) || 
-        error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
-   
-    varexpr  = varexpr
+    @capture(varexpr, id_[idx__]) || error(
+        "Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)",
+    )
+
+    varexpr = varexpr
     short_id = id
-    full_id  = Expr(:call, :Symbol, fquote(id), Expr(:quote, :_), Expr(:quote, Symbol(join(idx, :_))))
+    full_id = Expr(
+        :call,
+        :Symbol,
+        fquote(id),
+        Expr(:quote, :_),
+        Expr(:quote, Symbol(join(idx, :_))),
+    )
 
     return varexpr, short_id, full_id
 end
@@ -69,42 +81,53 @@ end
 
 function __normalize_arg(backend, model, arg)
     if @capture(arg, constvar(arguments__))
-        return write_constvar_expression(backend, model, gensym(:anonymous_constvar), arguments)
+        return write_constvar_expression(
+            backend,
+            model,
+            gensym(:anonymous_constvar),
+            arguments,
+        )
     elseif @capture(arg, constvar.(arguments__))
-        return error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
-    elseif @capture(arg, (f_(v__) where { options__ }) | (f_(v__)) | (f_.(v__) where { options__ }) | (f_.(v__) ))
+        return error(
+            "Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.",
+        )
+    elseif @capture(
+        arg,
+        (f_(v__) where {options__}) | (f_(v__)) | (f_.(v__) where {options__}) | (f_.(v__))
+    )
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
             f = v[2]
-            v = [ v[1] ]
+            v = [v[1]]
         end
-        nvarexpr  = gensym(:nvar)
+        nvarexpr = gensym(:nvar)
         nnodeexpr = gensym(:nnode)
-        options  = options !== nothing ? options : []
+        options = options !== nothing ? options : []
         v = normalize_tilde_arguments(backend, model, v)
         if isbroadcastedcall(arg)
             # Strip dot call from broadcasting dot operators, like `.+` and define `BroadcastFunction` explicitly to avoid UndefVarError
-            f = first(string(f)) === '.' ? Symbol(string(f)[2:end]) : f 
+            f = first(string(f)) === '.' ? Symbol(string(f)[2:end]) : f
             # broadcasting variables
             broadcasting_locals = map((_) -> gensym(:bv), v)
-            return quote 
+            return quote
                 # Here we manually unroll anonymous broadcasting calls
                 # Later on GraphPPL does not distinguish between local broadcasting `~` expression and a regular `~` expression
-                begin 
+                begin
                     Base.broadcast($(v...)) do $(broadcasting_locals...)
                         # $initf
-                        ($nnodeexpr, $nvarexpr) ~ $f($(broadcasting_locals...); $(options...)); 
-                        $(write_anonymous_variable(backend, model, nvarexpr)); 
-                        $(write_undo_as_variable(backend, nvarexpr));
+                        ($nnodeexpr, $nvarexpr) ~
+                            $f($(broadcasting_locals...); $(options...))
+                        $(write_anonymous_variable(backend, model, nvarexpr))
+                        $(write_undo_as_variable(backend, nvarexpr))
                     end
                 end
             end
-            
+
         else
-            return quote 
-                ($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...)); 
-                $(write_anonymous_variable(backend, model, nvarexpr)); 
-                $(write_undo_as_variable(backend, nvarexpr));
+            return quote
+                ($nnodeexpr, $nvarexpr) ~ $f($(v...); $(options...))
+                $(write_anonymous_variable(backend, model, nvarexpr))
+                $(write_undo_as_variable(backend, nvarexpr))
             end
         end
     else
@@ -113,7 +136,7 @@ function __normalize_arg(backend, model, arg)
 end
 
 argument_write_default_value(arg, default::Nothing) = arg
-argument_write_default_value(arg, default)          = Expr(:kw, arg, default)
+argument_write_default_value(arg, default) = Expr(:kw, arg, default)
 
 """ 
     write_model_structure(backend, 
@@ -228,43 +251,51 @@ struct GraphPPLImplicitNode end
 
 function generate_model_expression(backend, model_specification)
 
-    @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__) ms_body_ end) | (function ms_name_(ms_args__) ms_body_ end)) || 
-        error("Model specification language requires full function definition")
+    @capture(
+        model_specification,
+        (function ms_name_(ms_args__; ms_kwargs__)
+            ms_body_
+        end) | (function ms_name_(ms_args__)
+            ms_body_
+        end)
+    ) || error("Model specification language requires full function definition")
 
     model = gensym(:model)
 
-    ms_args_ids       = Vector{Symbol}()
+    ms_args_ids = Vector{Symbol}()
     ms_args_guard_ids = Vector{Symbol}()
-    ms_args_const_ids = Vector{Tuple{Symbol, Symbol}}()
+    ms_args_const_ids = Vector{Tuple{Symbol,Symbol}}()
 
-    ms_arg_expression_converter = (ms_arg) -> begin
-        arg = nothing
-        smth = nothing
-        if @capture(ms_arg, arg_::ConstVariable = smth_) || @capture(ms_arg, arg_::ConstVariable)
-            # rc_arg = gensym(:constvar) 
-            push!(ms_args_const_ids, (arg, arg)) # backward compatibility for old behaviour with gensym
-            push!(ms_args_guard_ids, arg)
-            push!(ms_args_ids, arg)
-            return argument_write_default_value(arg, smth)
-        elseif @capture(ms_arg, arg_::T_ = smth_) || @capture(ms_arg, arg_::T_)
-            push!(ms_args_guard_ids, arg)
-            push!(ms_args_ids, arg)
-            return argument_write_default_value(:($(arg)::$(T)), smth)
-        elseif @capture(ms_arg, arg_Symbol = smth_) || @capture(ms_arg, arg_Symbol)
-            push!(ms_args_guard_ids, arg)
-            push!(ms_args_ids, arg)
-            return argument_write_default_value(arg, smth)
-        elseif @capture(ms_arg, ::T_ = smth_) || @capture(ms_arg, ::T_)
-            arg = gensym(:ms_arg)
-            push!(ms_args_guard_ids, arg)
-            push!(ms_args_ids, arg)
-            return argument_write_default_value(:($(arg)::$(T)), smth)
-        else
-            error("Invalid argument specification: $(ms_arg)")
+    ms_arg_expression_converter =
+        (ms_arg) -> begin
+            arg = nothing
+            smth = nothing
+            if @capture(ms_arg, arg_::ConstVariable = smth_) ||
+               @capture(ms_arg, arg_::ConstVariable)
+                # rc_arg = gensym(:constvar) 
+                push!(ms_args_const_ids, (arg, arg)) # backward compatibility for old behaviour with gensym
+                push!(ms_args_guard_ids, arg)
+                push!(ms_args_ids, arg)
+                return argument_write_default_value(arg, smth)
+            elseif @capture(ms_arg, arg_::T_ = smth_) || @capture(ms_arg, arg_::T_)
+                push!(ms_args_guard_ids, arg)
+                push!(ms_args_ids, arg)
+                return argument_write_default_value(:($(arg)::$(T)), smth)
+            elseif @capture(ms_arg, arg_Symbol = smth_) || @capture(ms_arg, arg_Symbol)
+                push!(ms_args_guard_ids, arg)
+                push!(ms_args_ids, arg)
+                return argument_write_default_value(arg, smth)
+            elseif @capture(ms_arg, ::T_ = smth_) || @capture(ms_arg, ::T_)
+                arg = gensym(:ms_arg)
+                push!(ms_args_guard_ids, arg)
+                push!(ms_args_ids, arg)
+                return argument_write_default_value(:($(arg)::$(T)), smth)
+            else
+                error("Invalid argument specification: $(ms_arg)")
+            end
         end
-    end
 
-    ms_args   = ms_args === nothing ? [] : map(ms_arg_expression_converter, ms_args)
+    ms_args = ms_args === nothing ? [] : map(ms_arg_expression_converter, ms_args)
     ms_kwargs = ms_kwargs === nothing ? [] : map(ms_arg_expression_converter, ms_kwargs)
 
     if length(Set(ms_args_ids)) !== length(ms_args_ids)
@@ -272,36 +303,57 @@ function generate_model_expression(backend, model_specification)
     end
 
     ms_args_const_init_block = map(ms_args_const_ids) do ms_arg_const_id
-        return write_constvar_expression(backend, model, first(ms_arg_const_id), [ last(ms_arg_const_id) ])
+        return write_constvar_expression(
+            backend,
+            model,
+            first(ms_arg_const_id),
+            [last(ms_arg_const_id)],
+        )
     end
 
     # Step 0: Check that all inputs are not AbstractVariables
     # It is highly recommended not to create AbstractVariables outside of the model creation macro
     # Doing so can lead to undefined behaviour
-    ms_args_checks = map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_guard_ids)
+    ms_args_checks =
+        map((ms_arg) -> write_argument_guard(backend, ms_arg), ms_args_guard_ids)
 
     # Step 1: Inject node's aliases 
-    ms_body = postwalk(ms_body) do expression 
-        if @capture(expression,  lhs_ ~ rhs_ where { options__ })
-            return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)) where { $(options...) })
-        elseif @capture(expression, lhs_ .~ rhs_ where { options__ })
-            return :($lhs .~ $(write_inject_tilderhs_aliases(backend, model, rhs)) where { $(options...) })
+    ms_body = postwalk(ms_body) do expression
+        if @capture(expression, lhs_ ~ rhs_ where {options__})
+            return :(
+                $lhs ~ $(write_inject_tilderhs_aliases(
+                    backend,
+                    model,
+                    rhs,
+                )) where {$(options...)}
+            )
+        elseif @capture(expression, lhs_ .~ rhs_ where {options__})
+            return :(
+                $lhs .~ $(write_inject_tilderhs_aliases(
+                    backend,
+                    model,
+                    rhs,
+                )) where {$(options...)}
+            )
         elseif @capture(expression, lhs_ ~ rhs_)
             return :($lhs ~ $(write_inject_tilderhs_aliases(backend, model, rhs)))
         elseif @capture(expression, lhs_ .~ rhs_)
             return :($lhs .~ $(write_inject_tilderhs_aliases(backend, model, rhs)))
-        else 
+        else
             return expression
         end
     end
 
     # Step 2: Probabilistic arguments normalisation
     ms_body = prewalk(ms_body) do expression
-        if @capture(expression, 
-            (varexpr_ ~ fform_(arguments__) where { options__ }) | (varexpr_ ~ fform_(arguments__)) |
-            (varexpr_ .~ fform_(arguments__) where { options__ }) | (varexpr_ .~ fform_(arguments__))
+        if @capture(
+            expression,
+            (varexpr_ ~ fform_(arguments__) where {options__}) |
+            (varexpr_ ~ fform_(arguments__)) |
+            (varexpr_ .~ fform_(arguments__) where {options__}) |
+            (varexpr_ .~ fform_(arguments__))
         )
-            options   = options === nothing ? [] : options
+            options = options === nothing ? [] : options
 
             # Filter out keywords arguments to options array
             arguments = filter(arguments) do arg
@@ -312,23 +364,35 @@ function generate_model_expression(backend, model_specification)
                 return !ifparameters
             end
 
-            varexpr =  @capture(varexpr, (nodeid_, varid_)) ? varexpr : :(($(gensym(:nnode)), $varexpr))
+            varexpr =
+                @capture(varexpr, (nodeid_, varid_)) ? varexpr :
+                :(($(gensym(:nnode)), $varexpr))
             operator = isbroadcastedcall(expression) ? Symbol(".~") : :(~)
-            return :($operator($varexpr, $(fform)($((normalize_tilde_arguments(backend, model, arguments))...); $(options...))))
-        elseif @capture(expression, varexpr_ = randomvar(arguments__) where { options__ })
+            return :($operator(
+                $varexpr,
+                $(fform)(
+                    $((normalize_tilde_arguments(backend, model, arguments))...);
+                    $(options...),
+                ),
+            ))
+        elseif @capture(expression, varexpr_ = randomvar(arguments__) where {options__})
             return :($varexpr = randomvar($(arguments...); $(options...)))
-        elseif @capture(expression, varexpr_ = datavar(arguments__) where { options__ })
+        elseif @capture(expression, varexpr_ = datavar(arguments__) where {options__})
             return :($varexpr = datavar($(arguments...); $(options...)))
-        elseif @capture(expression, varexpr_ = constvar(arguments__) where { options__ })
-            return error("Error in the expression $(expression). `constvar()` call does not support `where {  }` syntax.")
+        elseif @capture(expression, varexpr_ = constvar(arguments__) where {options__})
+            return error(
+                "Error in the expression $(expression). `constvar()` call does not support `where {  }` syntax.",
+            )
         elseif @capture(expression, varexpr_ = randomvar(arguments__))
-            return :($varexpr = randomvar($(arguments...); ))
+            return :($varexpr = randomvar($(arguments...);))
         elseif @capture(expression, varexpr_ = datavar(arguments__))
-            return :($varexpr = datavar($(arguments...); ))
+            return :($varexpr = datavar($(arguments...);))
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return :($varexpr = constvar($(arguments...)))
         elseif @capture(expression, constvar.(arguments__))
-            error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
+            error(
+                "Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.",
+            )
         else
             return expression
         end
@@ -338,60 +402,112 @@ function generate_model_expression(backend, model_specification)
 
     ms_body = postwalk(ms_body) do expression
         if @capture(expression, lhs_ = rhs_)
-            if !(@capture(rhs, datavar(args__))) && !(@capture(rhs, randomvar(args__))) && !(@capture(rhs, constvar(args__)))
+            if !(@capture(rhs, datavar(args__))) &&
+               !(@capture(rhs, randomvar(args__))) &&
+               !(@capture(rhs, constvar(args__)))
                 varexpr, short_id, full_id = parse_varexpr(lhs)
                 push!(bannedids, short_id)
             end
         end
         return expression
     end
-       
+
     # Step 3: Main pass
     ms_body = postwalk(ms_body) do expression
         # Step 3.1 Convert datavar calls
-        if @capture(expression, varexpr_ = datavar(arguments__; options__)) 
+        if @capture(expression, varexpr_ = datavar(arguments__; options__))
             @assert length(arguments) >= 1 "The expression `$expression` is incorrect. datavar(::Type, [ dims... ]) requires `Type` as a first argument."
 
-            type_argument  = arguments[1]
+            type_argument = arguments[1]
             tail_arguments = arguments[2:end]
-            dvoptions      = write_datavar_options(backend, varexpr, type_argument, options)
+            dvoptions = write_datavar_options(backend, varexpr, type_argument, options)
 
-            return write_datavar_expression(backend, model, varexpr, dvoptions, type_argument, tail_arguments)
-        # Step 3.2 Convert randomvar calls
+            return write_datavar_expression(
+                backend,
+                model,
+                varexpr,
+                dvoptions,
+                type_argument,
+                tail_arguments,
+            )
+            # Step 3.2 Convert randomvar calls
         elseif @capture(expression, varexpr_ = randomvar(arguments__; options__))
             rvoptions = write_randomvar_options(backend, varexpr, options)
             return write_randomvar_expression(backend, model, varexpr, rvoptions, arguments)
-        # Step 3.3 Convert constvar calls 
+            # Step 3.3 Convert constvar calls 
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
-        # Step 3.2 Convert tilde expressions
-        elseif @capture(expression, ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) | ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__)))
-            
+            # Step 3.2 Convert tilde expressions
+        elseif @capture(
+            expression,
+            ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) |
+            ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__))
+        )
+
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
             if short_id ∈ bannedids
-                error("Invalid name '$(short_id)' for new random variable. '$(short_id)' has been already initialized with '=' operator.")
+                error(
+                    "Invalid name '$(short_id)' for new random variable. '$(short_id)' has been already initialized with '=' operator.",
+                )
             end
 
-            variables = map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
-            options = write_node_options(backend, model, fform, [ varexpr, arguments... ], kwarguments)
+            variables =
+                map((argexpr) -> write_as_variable(backend, model, argexpr), arguments)
+            options = write_node_options(
+                backend,
+                model,
+                fform,
+                [varexpr, arguments...],
+                kwarguments,
+            )
 
             if isbroadcastedcall(expression)
                 # Strip dot call from broadcasting dot operators, like `.+`
-                fform = first(string(fform)) === '.' ? Symbol(string(fform)[2:end]) : fform 
-                return quote 
+                fform = first(string(fform)) === '.' ? Symbol(string(fform)[2:end]) : fform
+                return quote
                     # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
-                    $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
-                    $(write_broadcasted_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr))
+                    $(write_check_variable_existence(
+                        backend,
+                        model,
+                        short_id,
+                        "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance.",
+                    ))
+                    $(write_broadcasted_make_node_expression(
+                        backend,
+                        model,
+                        fform,
+                        variables,
+                        options,
+                        nodeexpr,
+                        varexpr,
+                    ))
                 end
             else
                 # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
                 # Single variables like `y` can be created on the fly with the `AutoVar` marker
                 # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
                 if isref(varexpr)
-                    return write_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr)
+                    return write_make_node_expression(
+                        backend,
+                        model,
+                        fform,
+                        variables,
+                        options,
+                        nodeexpr,
+                        varexpr,
+                    )
                 else
-                    return write_autovar_make_node_expression(backend, model, fform, variables, options, nodeexpr, varexpr, full_id)
+                    return write_autovar_make_node_expression(
+                        backend,
+                        model,
+                        fform,
+                        variables,
+                        options,
+                        nodeexpr,
+                        varexpr,
+                        full_id,
+                    )
                 end
             end
         else
@@ -402,33 +518,58 @@ function generate_model_expression(backend, model_specification)
     # Step 4: Auto nodes pass
     # If there are still unprocessed `~` expressions left we assume these are coming from the input arguments 
     # We refer to such `~` usage as `auto` nodes
-    ms_body = postwalk(ms_body) do expression 
-        if @capture(expression, lhs_ ~ rhs_ where { options__ }) || @capture(expression, lhs_ .~ rhs_ where { options__ })
+    ms_body = postwalk(ms_body) do expression
+        if @capture(expression, lhs_ ~ rhs_ where {options__}) ||
+           @capture(expression, lhs_ .~ rhs_ where {options__})
             errmsg = "Implicit `~` usage in the `$expression` expression does not support `where {}` block."
             return :(error($errmsg))
         elseif @capture(expression, lhs_ ~ rhs_) || @capture(expression, lhs_ .~ rhs_)
 
             if !@capture(lhs, (nodeexpr_, varexpr_))
                 nodeexpr = gensym(:inode)
-                varexpr  = lhs
+                varexpr = lhs
             end
 
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
             if isbroadcastedcall(expression)
-                return quote 
+                return quote
                     # In case of broadcasted call we assume that variable has been created before otherwise it should throw an error
-                    $(write_check_variable_existence(backend, model, short_id, "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance."))
-                    $(write_broadcasted_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr))
+                    $(write_check_variable_existence(
+                        backend,
+                        model,
+                        short_id,
+                        "Cannot use variables named `$(short_id)` in the broadcasting call. `$(short_id)` sequence of variables must be created in advance.",
+                    ))
+                    $(write_broadcasted_make_auto_node_expression(
+                        backend,
+                        model,
+                        rhs,
+                        nodeexpr,
+                        varexpr,
+                    ))
                 end
             else
                 # Indexed variables like `y[1]` cannot be created on the fly and should be pre-initialised with `y = randomvar(n)`
                 # Single variables like `y` can be created on the fly with the `AutoVar` marker
                 # In the second case if variable `y` has been initialised before `AutoVar` should simply return it
                 if isref(varexpr)
-                    return write_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr)
+                    return write_make_auto_node_expression(
+                        backend,
+                        model,
+                        rhs,
+                        nodeexpr,
+                        varexpr,
+                    )
                 else
-                    return write_autovar_make_auto_node_expression(backend, model, rhs, nodeexpr, varexpr, full_id)
+                    return write_autovar_make_auto_node_expression(
+                        backend,
+                        model,
+                        rhs,
+                        nodeexpr,
+                        varexpr,
+                        full_id,
+                    )
                 end
             end
         else
@@ -438,23 +579,30 @@ function generate_model_expression(backend, model_specification)
 
 
     # Step 5: Final pass
-    final_pass_exceptions = (x) -> @capture(x, (some_ -> body_) | (function some_(args__) body_ end) | (some_(args__) = body_))
-    final_pass_target     = (x) -> @capture(x, return ret_)
+    final_pass_exceptions =
+        (x) -> @capture(
+            x,
+            (some_ -> body_) | (function some_(args__)
+                body_
+            end) | (some_(args__) = body_)
+        )
+    final_pass_target = (x) -> @capture(x, return ret_)
 
-    ms_body = quote 
+    ms_body = quote
         $ms_body
         return nothing
     end
 
-    ms_structure = write_model_structure(backend, 
-        ms_name, 
+    ms_structure = write_model_structure(
+        backend,
+        ms_name,
         model,
-        ms_args_checks, 
+        ms_args_checks,
         ms_args_const_init_block,
         ms_args,
         ms_kwargs,
-        ms_body
-    ) 
-        
+        ms_body,
+    )
+
     return esc(ms_structure)
 end
