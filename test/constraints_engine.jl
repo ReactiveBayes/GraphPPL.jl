@@ -435,6 +435,17 @@ include("model_zoo.jl")
         )
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:x, 1), IndexedVariable(:y, 1)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        )
+        push!(constraints, constraint)
+        @test_throws ErrorException push!(constraints, constraint)
 
         # Test 2: Test push! with FunctionalFormConstraint
         constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
@@ -446,9 +457,21 @@ include("model_zoo.jl")
         )
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
+        constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), Normal)
+        push!(constraints, constraint)
+        @test_throws ErrorException push!(constraints, constraint)
+        constraint = FunctionalFormConstraint(
+            [IndexedVariable(:x, 1), IndexedVariable(:y, 1)],
+            Normal,
+        )
+        push!(constraints, constraint)
+        @test_throws ErrorException push!(constraints, constraint)
 
         # Test 3: Test push! with MessageConstraint
         constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+        push!(constraints, constraint)
+        @test_throws ErrorException push!(constraints, constraint)
+        constraint = MessageConstraint(IndexedVariable(:x, 2), Normal)
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
 
