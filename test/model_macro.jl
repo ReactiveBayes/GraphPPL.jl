@@ -38,29 +38,35 @@ include("model_zoo.jl")
         @test_expression_generating apply_pipeline(input, pipeline) output
     end
 
-    @testset "check_reserved_variable_names" begin
-        import GraphPPL: apply_pipeline, check_reserved_variable_names
+    @testset "check_reserved_variable_names_model" begin
+        import GraphPPL: apply_pipeline, check_reserved_variable_names_model
 
         # Test 1: test that reserved variable name __parent_options__ throws an error
         input = quote
             __parent_options__ = 1
             x ~ Normal(0, 1)
         end
-        @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names)
+        @test_throws ErrorException apply_pipeline(
+            input,
+            check_reserved_variable_names_model,
+        )
 
         # Test 2: test that reserved variable name __debug__ throws an error
         input = quote
             __debug__ = 1
             x ~ Normal(0, 1)
         end
-        @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names)
+        @test_throws ErrorException apply_pipeline(
+            input,
+            check_reserved_variable_names_model,
+        )
 
         # Test 3: test that other variable names do not throw an error
         input = quote
             x = 1
             x ~ Normal(0, 1)
         end
-        @test apply_pipeline(input, check_reserved_variable_names) == input
+        @test apply_pipeline(input, check_reserved_variable_names_model) == input
     end
 
     @testset "warn_datavar_constvar_randomvar" begin
