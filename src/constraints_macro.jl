@@ -28,24 +28,18 @@ function add_constraints_construction(e::Expr)
     end
 end
 
-function replace_begin_end(e::Expr)
-    if @capture(e, var_[index_])
-        if index == :begin
-            return :($var[GraphPPL.FunctionalIndex{:begin}(firstindex)])
-        elseif index === :end
-            return :($var[GraphPPL.FunctionalIndex{:end}(lastindex)])
-        end
-    elseif @capture(e, var_[index__])
-        index = map(
-            i ->
-                i === :begin ? :(GraphPPL.FunctionalIndex{:begin}(firstindex)) :
-                i === :end ? :(GraphPPL.FunctionalIndex{:end}(lastindex)) : i,
-            index,
-        )
-        return :($var[$(index...)])
+function replace_begin_end(e::Symbol)
+    if e == :begin
+        return :(GraphPPL.FunctionalIndex{:begin}(firstindex))
+    elseif e == :end
+        return :(GraphPPL.FunctionalIndex{:end}(lastindex))
     end
     return e
 end
+
+__guard_f(f::typeof(replace_begin_end), x::Symbol) = f(x)
+__guard_f(f::typeof(replace_begin_end), x::Expr) = x
+
 
 function create_submodel_constraints(e::Expr)
     if @capture(e, (

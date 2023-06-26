@@ -119,6 +119,19 @@ include("model_zoo.jl")
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex), 2])
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
+
+        # Test 4: replace_begin_end with composite index 
+        input = quote
+            q(x) = q(x[begin + 1])q(x[end - 1])q(x[1])q(x[end])
+        end
+        output = quote
+            q(x) =
+                q(x[GraphPPL.FunctionalIndex{:begin}(firstindex) + 1]) *
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex) - 1]) *
+                q(x[1]) *
+                q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+        end
+        @test_expression_generating apply_pipeline(input, replace_begin_end) output
     end
 
     @testset "create_submodel_constraints" begin
