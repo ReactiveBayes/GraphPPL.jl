@@ -300,6 +300,7 @@ struct GeneralSubModelConstraints
     fform::Function
     constraints::Any
 end
+getsubmodel(c::GeneralSubModelConstraints) = c.fform
 getconstraint(c::GeneralSubModelConstraints) = c.constraints
 
 
@@ -307,6 +308,7 @@ struct SpecificSubModelConstraints
     tag::Symbol
     constraints::Any
 end
+getsubmodel(c::SpecificSubModelConstraints) = c.tag
 getconstraint(c::SpecificSubModelConstraints) = c.constraints
 
 const Constraint = Union{
@@ -316,7 +318,63 @@ const Constraint = Union{
     GeneralSubModelConstraints,
     SpecificSubModelConstraints,
 }
-const Constraints = Vector{Constraint}
+struct Constraints 
+    factorization_constraints::Vector{FactorizationConstraint}
+    functional_form_constraints::Vector{FunctionalFormConstraint}
+    message_constraints::Vector{MessageConstraint}
+    submodel_constraints::Vector{Constraint}
+end
+
+Constraints() = Constraints([], [], [], [])
+Constraints(constraints :: Vector{<:Constraint}) = begin c=Constraints(); for constraint in constraints Base.push!(c, constraint) end; return c end
+function Base.push!(c::Constraints, constraint::FactorizationConstraint{V, F} where {V, F}) 
+    if any(getvariables.(c.factorization_constraints) .== Ref(getvariables(constraint)))
+        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+    end
+    Base.push!(c.factorization_constraints, constraint)
+end
+
+function Base.push!(c::Constraints, constraint::FunctionalFormConstraint)
+    if any(getvariables.(c.functional_form_constraints) .== Ref(getvariables(constraint)))
+        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+    end
+    Base.push!(c.functional_form_constraints, constraint)
+end
+
+function Base.push!(c::Constraints, constraint::MessageConstraint)
+    if any(getvariables.(c.message_constraints) .== Ref(getvariables(constraint)))
+        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+    end
+    Base.push!(c.message_constraints, constraint)
+end
+
+function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
+    if any(getsubmodel.(c.submodel_constraints) .== Ref(getsubmodel(constraint)))
+        error("Cannot add $(constraint) to $(c). Submodel names should be unique.")
+    end
+    Base.push!(c.submodel_constraints, constraint)
+end
+
+function Base.push!(c::Constraints, constraint::SpecificSubModelConstraints)
+    if any(getsubmodel.(c.submodel_constraints) .== Ref(getsubmodel(constraint)))
+        error("Cannot add $(constraint) to $(c). Submodel names should be unique.")
+    end
+    Base.push!(c.submodel_constraints, constraint)
+end
+
+
+
+Base.:(==)(left::Constraints, right::Constraints) =
+    left.factorization_constraints == right.factorization_constraints &&
+    left.functional_form_constraints == right.functional_form_constraints &&
+    left.message_constraints == right.message_constraints &&
+    left.submodel_constraints == right.submodel_constraints
+getconstraints(c::Constraints) = vcat(
+    c.factorization_constraints,
+    c.functional_form_constraints,
+    c.message_constraints,
+    c.submodel_constraints,
+)
 
 Base.push!(c_set::GeneralSubModelConstraints, c::Constraint) =
     Base.push!(getconstraint(c_set), c)
@@ -500,7 +558,7 @@ function apply!(model::Model, constraints::Constraints)
 end
 
 function apply!(model::Model, context::Context, constraints::Constraints)
-    for constraint in constraints
+    for constraint in getconstraints(constraints)
         apply!(model, context, constraint)
     end
 end
