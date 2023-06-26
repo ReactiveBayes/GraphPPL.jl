@@ -318,7 +318,7 @@ const Constraint = Union{
     GeneralSubModelConstraints,
     SpecificSubModelConstraints,
 }
-struct Constraints 
+struct Constraints
     factorization_constraints::Vector{FactorizationConstraint}
     functional_form_constraints::Vector{FunctionalFormConstraint}
     message_constraints::Vector{MessageConstraint}
@@ -326,8 +326,14 @@ struct Constraints
 end
 
 Constraints() = Constraints([], [], [], [])
-Constraints(constraints :: Vector{<:Constraint}) = begin c=Constraints(); for constraint in constraints Base.push!(c, constraint) end; return c end
-function Base.push!(c::Constraints, constraint::FactorizationConstraint{V, F} where {V, F}) 
+Constraints(constraints::Vector{<:Constraint}) = begin
+    c = Constraints()
+    for constraint in constraints
+        Base.push!(c, constraint)
+    end
+    return c
+end
+function Base.push!(c::Constraints, constraint::FactorizationConstraint{V,F} where {V,F})
     if any(getvariables.(c.factorization_constraints) .== Ref(getvariables(constraint)))
         error("Cannot add $(constraint) to $(c). Variable names should be unique.")
     end

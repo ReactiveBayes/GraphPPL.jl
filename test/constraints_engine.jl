@@ -421,7 +421,7 @@ include("model_zoo.jl")
             SpecificSubModelConstraints,
             GeneralSubModelConstraints,
             IndexedVariable
-        
+
         # Test 1: Test push! with FactorizationConstraint
         constraints = Constraints()
         constraint = FactorizationConstraint(
@@ -440,7 +440,10 @@ include("model_zoo.jl")
         constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
-        constraint = FunctionalFormConstraint([IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)], Normal)
+        constraint = FunctionalFormConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            Normal,
+        )
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
 
@@ -452,7 +455,7 @@ include("model_zoo.jl")
         # Test 4: Test push! with SpecificSubModelConstraints
         constraint = SpecificSubModelConstraints(:first_submodel_3, Constraints())
         push!(constraints, constraint)
-        @test_throws ErrorException push!(constraints, constraint) 
+        @test_throws ErrorException push!(constraints, constraint)
 
         # Test 5: Test push! with GeneralSubModelConstraints
         constraint = GeneralSubModelConstraints(second_submodel, Constraints())
@@ -482,8 +485,8 @@ include("model_zoo.jl")
             ],
         )
         push!(constraints, constraint)
-        @test getconstraint(constraints) == Constraints(GraphPPL.Constraint[
-            FactorizationConstraint(
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[FactorizationConstraint(
                 [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
                 [
                     FactorizationConstraintEntry([
@@ -491,24 +494,29 @@ include("model_zoo.jl")
                         IndexedVariable(:y, nothing),
                     ]),
                 ],
-            ),
-        ])
+            ),],
+        )
         @test_throws MethodError push!(constraints, "string")
 
         # Test 2: Test push! with FunctionalFormConstraint
         constraints = SubModelConstraints(second_submodel)
         constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         push!(constraints, constraint)
-        @test getconstraint(constraints) ==
-        Constraints(GraphPPL.Constraint[FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)])
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[FunctionalFormConstraint(
+                IndexedVariable(:x, nothing),
+                Normal,
+            )],
+        )
         @test_throws MethodError push!(constraints, "string")
 
         # Test 3: Test push! with MessageConstraint
         constraints = SubModelConstraints(second_submodel)
         constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         push!(constraints, constraint)
-        @test getconstraint(constraints) ==
-        Constraints(GraphPPL.Constraint[MessageConstraint(IndexedVariable(:x, nothing), Normal)])
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[MessageConstraint(IndexedVariable(:x, nothing), Normal)],
+        )
         @test_throws MethodError push!(constraints, "string")
 
         # Test 4: Test push! with SpecificSubModelConstraints
@@ -523,8 +531,8 @@ include("model_zoo.jl")
             ],
         )
         push!(constraints, constraint)
-        @test getconstraint(constraints) == Constraints(GraphPPL.Constraint[
-            FactorizationConstraint(
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[FactorizationConstraint(
                 [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
                 [
                     FactorizationConstraintEntry([
@@ -532,24 +540,29 @@ include("model_zoo.jl")
                         IndexedVariable(:y, nothing),
                     ]),
                 ],
-            ),
-        ])
+            ),],
+        )
         @test_throws MethodError push!(constraints, "string")
 
         # Test 5: Test push! with FunctionalFormConstraint
         constraints = SubModelConstraints(:second_submodel)
         constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
         push!(constraints, constraint)
-        @test getconstraint(constraints) ==
-        Constraints(GraphPPL.Constraint[FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)])
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[FunctionalFormConstraint(
+                IndexedVariable(:x, nothing),
+                Normal,
+            )],
+        )
         @test_throws MethodError push!(constraints, "string")
 
         # Test 6: Test push! with MessageConstraint
         constraints = SubModelConstraints(:second_submodel)
         constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
         push!(constraints, constraint)
-        @test getconstraint(constraints) ==
-        Constraints(GraphPPL.Constraint[MessageConstraint(IndexedVariable(:x, nothing), Normal)])
+        @test getconstraint(constraints) == Constraints(
+            GraphPPL.Constraint[MessageConstraint(IndexedVariable(:x, nothing), Normal)],
+        )
         @test_throws MethodError push!(constraints, "string")
 
     end
@@ -1574,16 +1587,18 @@ include("model_zoo.jl")
         # Test 1: Test that the full pipeline works with a MeanField constraint
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = Constraints([
-            FactorizationConstraint(
-                (
-                    IndexedVariable(:x, nothing),
-                    IndexedVariable(:y, nothing),
-                    IndexedVariable(:out, nothing),
+        constraint = Constraints(
+            GraphPPL.Constraint[
+                FactorizationConstraint(
+                    (
+                        IndexedVariable(:x, nothing),
+                        IndexedVariable(:y, nothing),
+                        IndexedVariable(:out, nothing),
+                    ),
+                    MeanField(),
                 ),
-                MeanField(),
-            ),
-        ], [], [],[])
+            ]
+        )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
         @test node_options(model[ctx[:sum_4]])[:q] ==
@@ -1592,16 +1607,18 @@ include("model_zoo.jl")
         # Test 2: Test that the full pipeline works with a FullFactorization constraint
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
-        constraint = Constraints([
-            FactorizationConstraint(
-                (
-                    IndexedVariable(:x, nothing),
-                    IndexedVariable(:y, nothing),
-                    IndexedVariable(:out, nothing),
+        constraint = Constraints(
+            GraphPPL.Constraint[
+                FactorizationConstraint(
+                    (
+                        IndexedVariable(:x, nothing),
+                        IndexedVariable(:y, nothing),
+                        IndexedVariable(:out, nothing),
+                    ),
+                    FullFactorization(),
                 ),
-                FullFactorization(),
-            ),
-        ], [], [],[])
+            ]
+        )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
         @test node_options(model[ctx[:sum_4]])[:q] ==
@@ -1619,28 +1636,32 @@ include("model_zoo.jl")
         # Test 4: Test model with fixed order of indices
         model = create_normal_model()
         ctx = GraphPPL.getcontext(model)
-        constraints = Constraints(GraphPPL.Constraint[
-            FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal),
-            GeneralSubModelConstraints(
-                second_submodel,
-                Constraints([
-                    FactorizationConstraint(
-                        (
-                            IndexedVariable(:w, nothing),
-                            IndexedVariable(:a, nothing),
-                            IndexedVariable(:b, nothing),
-                        ),
-                        [
-                            FactorizationConstraintEntry([
+        constraints = Constraints(
+            GraphPPL.Constraint[
+                FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal),
+                GeneralSubModelConstraints(
+                    second_submodel,
+                    Constraints([
+                        FactorizationConstraint(
+                            (
+                                IndexedVariable(:w, nothing),
                                 IndexedVariable(:a, nothing),
                                 IndexedVariable(:b, nothing),
-                            ]),
-                            FactorizationConstraintEntry([IndexedVariable(:w, nothing)]),
-                        ],
-                    ),
-                ]),
-            ),
-        ])
+                            ),
+                            [
+                                FactorizationConstraintEntry([
+                                    IndexedVariable(:a, nothing),
+                                    IndexedVariable(:b, nothing),
+                                ]),
+                                FactorizationConstraintEntry([
+                                    IndexedVariable(:w, nothing),
+                                ]),
+                            ],
+                        ),
+                    ]),
+                ),
+            ],
+        )
         apply!(model, ctx, constraints)
         materialize_constraints!(model)
         node = label_for(model.graph, 5)
