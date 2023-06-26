@@ -411,6 +411,155 @@ include("model_zoo.jl")
         ]
     end
 
+    @testset "FactorizationConstraint" begin
+        import GraphPPL:
+            FactorizationConstraint,
+            FactorizationConstraintEntry,
+            IndexedVariable,
+            FunctionalIndex,
+            CombinedRange,
+            SplittedRange
+
+        # Test 1: Test FactorizationConstraint with single variables
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        ) isa Any
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            [
+                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
+                FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
+            ],
+        ) isa Any
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            [FactorizationConstraintEntry([IndexedVariable(:x, nothing)])],
+        )
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        )
+
+        # Test 2: Test FactorizationConstraint with indexed variables
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, 1),
+                    IndexedVariable(:y, 1),
+                ]),
+            ],
+        ) isa Any
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, 1), IndexedVariable(:y, 1)],
+            [
+                FactorizationConstraintEntry([IndexedVariable(:x, 1)]),
+                FactorizationConstraintEntry([IndexedVariable(:y, 1)]),
+            ],
+        ) isa Any
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, 1), IndexedVariable(:y, 1)],
+            [FactorizationConstraintEntry([IndexedVariable(:x, 1)])],
+        )
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, 1)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, 1),
+                    IndexedVariable(:y, 1),
+                ]),
+            ],
+        )
+
+        # Test 3: Test FactorizationConstraint with SplittedRanges
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        SplittedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                ]),
+            ],
+        ) isa Any
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        SplittedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        )
+
+        # Test 4: Test FactorizationConstraint with CombinedRanges
+        @test FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        CombinedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                ]),
+            ],
+        ) isa Any
+        @test_throws ErrorException FactorizationConstraint(
+            [IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(
+                        :x,
+                        CombinedRange(
+                            FunctionalIndex{:begin}(firstindex),
+                            FunctionalIndex{:end}(lastindex),
+                        ),
+                    ),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        )
+
+        # Test 5: Test FactorizationConstraint  with duplicate entries
+        @test_throws ErrorException constraint = FactorizationConstraint(
+            [
+                IndexedVariable(:x, nothing),
+                IndexedVariable(:y, nothing),
+                IndexedVariable(:out, nothing),
+            ],
+            [
+                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
+                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
+                FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
+                FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
+            ],
+        )
+    end
+
     @testset "push!(::Constraints, ::Constraint)" begin
         import GraphPPL:
             Constraints,
@@ -430,7 +579,7 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([
                     IndexedVariable(:x, nothing),
                     IndexedVariable(:y, nothing),
-                ]),
+                ],),
             ],
         )
         push!(constraints, constraint)
@@ -445,6 +594,16 @@ include("model_zoo.jl")
             ],
         )
         push!(constraints, constraint)
+        @test_throws ErrorException push!(constraints, constraint)
+        constraint = FactorizationConstraint(
+            [IndexedVariable(:y, nothing), IndexedVariable(:x, nothing)],
+            [
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                ]),
+            ],
+        )
         @test_throws ErrorException push!(constraints, constraint)
 
         # Test 2: Test push! with FunctionalFormConstraint
@@ -466,6 +625,12 @@ include("model_zoo.jl")
         )
         push!(constraints, constraint)
         @test_throws ErrorException push!(constraints, constraint)
+
+        constraint = FunctionalFormConstraint(
+            [IndexedVariable(:y, 1), IndexedVariable(:x, 1)],
+            Normal,
+        )
+        @test_broken @test_throws ErrorException push!(constraints, constraint)
 
         # Test 3: Test push! with MessageConstraint
         constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
@@ -1050,23 +1215,6 @@ include("model_zoo.jl")
         ]
 
         # Test convert_to_nodelabels with duplicate entries
-        model = create_vector_model()
-        ctx = GraphPPL.getcontext(model)
-        constraint = FactorizationConstraint(
-            [
-                IndexedVariable(:x, nothing),
-                IndexedVariable(:y, nothing),
-                IndexedVariable(:out, nothing),
-            ],
-            [
-                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
-                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
-                FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
-                FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
-            ],
-        )
-        @test_throws ErrorException convert_to_nodelabels(ctx, constraint)
-
         constraint = FactorizationConstraint(
             [
                 IndexedVariable(:x, nothing),
@@ -1222,13 +1370,16 @@ include("model_zoo.jl")
                 IndexedVariable(:out, nothing),
             ],
             [
-                FactorizationConstraintEntry([IndexedVariable(:x, nothing)]),
+                FactorizationConstraintEntry([
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:out, nothing),
+                ]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
             ],
         )
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:q] ==
-              BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
+              BitSet[BitSet([1, 2]), BitSet([1, 2]), BitSet([3])]
 
         # Test 2: Test apply!  with a splitted range constraint
         model = create_vector_model()
@@ -1250,7 +1401,10 @@ include("model_zoo.jl")
                         ),
                     ),
                 ]),
-                FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
+                FactorizationConstraintEntry([
+                    IndexedVariable(:y, nothing),
+                    IndexedVariable(:out, nothing),
+                ]),
             ],
         )
         apply!(model, ctx, constraint, [node])
@@ -1322,9 +1476,9 @@ include("model_zoo.jl")
         constraint = FactorizationConstraint(
             [IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)],
             [
-                FactorizationConstraintEntry([IndexedVariable(:x, 1)]),
+                FactorizationConstraintEntry([IndexedVariable(:x, CombinedRange(1, 3))]),
                 FactorizationConstraintEntry([
-                    IndexedVariable(:x, 1),
+                    IndexedVariable(:x, CombinedRange(2, 3)),
                     IndexedVariable(:x, 3),
                 ]),
                 FactorizationConstraintEntry([IndexedVariable(:y, nothing)]),
@@ -1611,16 +1765,14 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = Constraints(
-            GraphPPL.Constraint[
-                FactorizationConstraint(
-                    (
-                        IndexedVariable(:x, nothing),
-                        IndexedVariable(:y, nothing),
-                        IndexedVariable(:out, nothing),
-                    ),
-                    MeanField(),
+            GraphPPL.Constraint[FactorizationConstraint(
+                (
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                    IndexedVariable(:out, nothing),
                 ),
-            ]
+                MeanField(),
+            ),],
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
@@ -1631,16 +1783,14 @@ include("model_zoo.jl")
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = Constraints(
-            GraphPPL.Constraint[
-                FactorizationConstraint(
-                    (
-                        IndexedVariable(:x, nothing),
-                        IndexedVariable(:y, nothing),
-                        IndexedVariable(:out, nothing),
-                    ),
-                    FullFactorization(),
+            GraphPPL.Constraint[FactorizationConstraint(
+                (
+                    IndexedVariable(:x, nothing),
+                    IndexedVariable(:y, nothing),
+                    IndexedVariable(:out, nothing),
                 ),
-            ]
+                FullFactorization(),
+            ),],
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)

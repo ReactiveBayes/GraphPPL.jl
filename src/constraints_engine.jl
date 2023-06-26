@@ -64,6 +64,11 @@ struct IndexedVariable{T}
     index::T
 end
 
+Base.length(index::IndexedVariable{T} where T) = 1
+Base.iterate(index::IndexedVariable{T} where T) = (index, nothing)
+Base.iterate(index::IndexedVariable{T} where T, any) = nothing
+getvariable(index::IndexedVariable) = index.variable
+
 Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
 Base.getindex(context::Context, index::IndexedVariable) =
     context[index.variable][index.index]
@@ -176,6 +181,8 @@ struct FactorizationConstraintEntry{T<:IndexedVariable}
     entries::Vector{T}
 end
 
+getvariables(entry::FactorizationConstraintEntry{T} where {T}) = getvariable.(entry.entries)
+
 Base.:(*)(left::FactorizationConstraintEntry, right::FactorizationConstraintEntry) =
     [left, right]
 Base.:(*)(
@@ -259,6 +266,26 @@ end
 struct FactorizationConstraint{V,F}
     variables::V
     constraint::F
+    function FactorizationConstraint(
+        variables::V,
+        constraint::Vector{<:FactorizationConstraintEntry},
+    ) where {V}
+        
+        if !issetequal(
+            Set(getvariable.(variables)),
+            unique(collect(Iterators.flatten(getvariables.(constraint)))),
+        )
+            error("Variables in constraint and variables should be the same")
+        end
+        rhs_variables = collect(Iterators.flatten(constraint))
+        if length(rhs_variables) != length(unique(rhs_variables))
+            error("Variables in right hand side of constraint ($(constraint...)) can only occur once")
+        end
+        return new{V,typeof(constraint)}(variables, constraint)
+    end
+    function FactorizationConstraint(variables::V, constraint::F) where {V,F}
+        return new{V,F}(variables, constraint)
+    end
 end
 
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
@@ -287,7 +314,7 @@ function Base.show(
     print(io, "q(")
     print(io, join(getvariables(constraint), ", "))
     print(io, ") = ")
-    print(io, join(getconstraint(constraint)), ", ")
+    print(io, join(getconstraint(constraint), ""))
 end
 
 Base.show(io::IO, constraint::FunctionalFormConstraint{V,F} where {V<:AbstractArray,F}) =
@@ -300,6 +327,10 @@ struct GeneralSubModelConstraints
     fform::Function
     constraints::Any
 end
+
+Base.show(io::IO, constraint::GeneralSubModelConstraints) =
+    print(io, "q(", getsubmodel(constraint), ") :: ", getconstraint(constraint))
+
 getsubmodel(c::GeneralSubModelConstraints) = c.fform
 getconstraint(c::GeneralSubModelConstraints) = c.constraints
 
@@ -308,6 +339,10 @@ struct SpecificSubModelConstraints
     tag::Symbol
     constraints::Any
 end
+
+Base.show(io::IO, constraint::SpecificSubModelConstraints) =
+    print(io, "q(", getsubmodel(constraint), ") :: ", getconstraint(constraint))
+
 getsubmodel(c::SpecificSubModelConstraints) = c.tag
 getconstraint(c::SpecificSubModelConstraints) = c.constraints
 
@@ -333,37 +368,67 @@ Constraints(constraints::Vector{<:Constraint}) = begin
     end
     return c
 end
+
+function Base.show(io::IO, c::Constraints)
+    print(io, "Constraints: \n")
+    for constraint in getconstraints(c)
+        print(io, "    ")
+        print(io, constraint)
+        print(io, "\n")
+    end
+end
+
 function Base.push!(c::Constraints, constraint::FactorizationConstraint{V,F} where {V,F})
-    if any(getvariables.(c.factorization_constraints) .== Ref(getvariables(constraint)))
-        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+    if any(
+        issetequal.(
+            Set(getvariables.(c.factorization_constraints)),
+            Ref(getvariables(constraint)),
+        ),
+    )
+        error(
+            "Cannot add $(constraint) to constraint set as this combination of variable names is already in use.",
+        )
     end
     Base.push!(c.factorization_constraints, constraint)
 end
 
 function Base.push!(c::Constraints, constraint::FunctionalFormConstraint)
-    if any(getvariables.(c.functional_form_constraints) .== Ref(getvariables(constraint)))
-        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+    if any(
+        issetequal.(
+            Set(getvariables.(c.functional_form_constraints)),
+            Ref(getvariables(constraint)),
+        ),
+    )
+        error(
+            "Cannot add $(constraint) to constraint set as these variables already have a functional form constraint applied.",
+        )
     end
     Base.push!(c.functional_form_constraints, constraint)
 end
 
 function Base.push!(c::Constraints, constraint::MessageConstraint)
     if any(getvariables.(c.message_constraints) .== Ref(getvariables(constraint)))
-        error("Cannot add $(constraint) to $(c). Variable names should be unique.")
+        error(
+            "Cannot add $(constraint) to constraint set as message on edge $(getvariables(constraint)) is already defined.",
+        )
     end
     Base.push!(c.message_constraints, constraint)
 end
 
 function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
     if any(getsubmodel.(c.submodel_constraints) .== Ref(getsubmodel(constraint)))
-        error("Cannot add $(constraint) to $(c). Submodel names should be unique.")
+        error(
+            "Cannot add $(constraint) to constraint set as constraints are already specified for submodels of type $(getsubmodel(constraint)).",
+        )
     end
     Base.push!(c.submodel_constraints, constraint)
 end
 
 function Base.push!(c::Constraints, constraint::SpecificSubModelConstraints)
     if any(getsubmodel.(c.submodel_constraints) .== Ref(getsubmodel(constraint)))
-        error("Cannot add $(constraint) to $(c). Submodel names should be unique.")
+        error(
+            "Cannot add $(constraint) to $(c) to constraint set as constraints are already specified for submodel $(getsubmodel(constraint)).",
+        )
     end
     Base.push!(c.submodel_constraints, constraint)
 end
