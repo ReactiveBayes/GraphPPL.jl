@@ -956,12 +956,16 @@ function make_node!(
     return lhs_interface
 end
 
+"""
+    prune!(m::Model)
+
+Remove all nodes from the model that are not connected to any other node.
+"""
 function prune!(m::Model)
     degrees = degree(m.graph)
     nodes_to_remove = keys(degrees)[degrees.==0]
-    for node in sort(nodes_to_remove, rev = true)
-        rem_vertex!(m.graph, node)
-    end
+    nodes_to_remove = sort(nodes_to_remove, rev = true)
+    rem_vertex!.(Ref(m.graph), nodes_to_remove)
 end
 
 function plot_graph end
