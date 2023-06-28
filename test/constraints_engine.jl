@@ -1009,16 +1009,23 @@ include("model_zoo.jl")
         )
     end
 
-    @testset "get_variables(::Context, ::FactorizationConstraintEntry)" begin
+    @testset "get_factorization_constraint_variables(::Context, ::FactorizationConstraintEntry)" begin
         import GraphPPL:
-            get_variables,
+            get_factorization_constraint_variables,
             FactorizationConstraintEntry,
             IndexedVariable,
             FunctionalIndex,
             CombinedRange,
-            SplittedRange
+            SplittedRange,
+            Context
 
-        # Test 1: Test get_variables with single variables
+        # Test 1: empty FactorizationConstraintEntry
+        @test get_factorization_constraint_variables(
+            Context(),
+            FactorizationConstraintEntry(IndexedVariable[]),
+        ) == Vector{GraphPPL.NodeLabel}[[]]
+
+        # Test 2: Test get_factorization_constraint_variables with single variables
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         entry = FactorizationConstraintEntry([
@@ -1026,12 +1033,50 @@ include("model_zoo.jl")
             IndexedVariable(:y, nothing),
             IndexedVariable(:out, nothing),
         ])
-        @test get_variables(ctx, entry) == [[ctx[:x], ctx[:y], ctx[:out]]]
+        @test get_factorization_constraint_variables(ctx, entry) ==
+              [[ctx[:x], ctx[:y], ctx[:out]]]
+
+        # Test 3: Test get_factorization_constraint_variables with single variables and SplittedRange
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        entry = FactorizationConstraintEntry([
+            IndexedVariable(
+                :x,
+                SplittedRange(
+                    FunctionalIndex{:begin}(firstindex),
+                    FunctionalIndex{:end}(lastindex),
+                ),
+            ),
+        ])
+        @test get_factorization_constraint_variables(ctx, entry) == [[e] for e in ctx[:x]]
+
+        # Test 4: Test get_factorization_constraint_variables with single variables and CombinedRange
+        model = create_vector_model()
+        ctx = GraphPPL.getcontext(model)
+        entry = FactorizationConstraintEntry([
+            IndexedVariable(
+                :x,
+                CombinedRange(
+                    FunctionalIndex{:begin}(firstindex),
+                    FunctionalIndex{:end}(lastindex),
+                ),
+            ),
+            IndexedVariable(
+                :y,
+                CombinedRange(
+                    FunctionalIndex{:begin}(firstindex),
+                    FunctionalIndex{:end}(lastindex),
+                ),
+            ),
+        ])
+        @test get_factorization_constraint_variables(ctx, entry) ==
+              [[ctx[:x]..., ctx[:y]...]]
+
     end
 
-    @testset "convert_to_nodelabels(::Model, ::Context, ::FactorizationConstraint)" begin
+    @testset "factorization_constraint_to_nodelabels(::Model, ::Context, ::FactorizationConstraint)" begin
         import GraphPPL:
-            convert_to_nodelabels,
+            factorization_constraint_to_nodelabels,
             NodeLabel,
             FactorizationConstraint,
             FactorizationConstraintEntry,
@@ -1040,7 +1085,7 @@ include("model_zoo.jl")
             SplittedRange,
             FunctionalIndex
 
-        # Test 1: Test convert_to_nodelabels with single variables and full factorization
+        # Test 1: Test factorization_constraint_to_nodelabels with single variables and full factorization
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1057,10 +1102,10 @@ include("model_zoo.jl")
                 ]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) ==
+        @test factorization_constraint_to_nodelabels(ctx, constraint) ==
               [[NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:out, 3)]]
 
-        # Test 2: Test convert_to_nodelabels with single variables and MeanField
+        # Test 2: Test factorization_constraint_to_nodelabels with single variables and MeanField
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1075,10 +1120,10 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) ==
+        @test factorization_constraint_to_nodelabels(ctx, constraint) ==
               [[NodeLabel(:x, 1)], [NodeLabel(:y, 2)], [NodeLabel(:out, 3)]]
 
-        # Test 3: Test convert_to_nodelabels with vector of variables and full factorization
+        # Test 3: Test factorization_constraint_to_nodelabels with vector of variables and full factorization
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1095,10 +1140,10 @@ include("model_zoo.jl")
                 ]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) ==
+        @test factorization_constraint_to_nodelabels(ctx, constraint) ==
               [[ctx[:x]..., ctx[:y]..., ctx[:out]]]
 
-        # Test 4: Test convert_to_nodelabels with vector of variables and full factorization
+        # Test 4: Test factorization_constraint_to_nodelabels with vector of variables and full factorization
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1115,10 +1160,10 @@ include("model_zoo.jl")
                 ]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) ==
+        @test factorization_constraint_to_nodelabels(ctx, constraint) ==
               [[ctx[:x][1], ctx[:y]..., ctx[:out]]]
 
-        # Test 5: Test convert_to_nodelabels with tensor of variables and full factorization
+        # Test 5: Test factorization_constraint_to_nodelabels with tensor of variables and full factorization
         model = create_tensor_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1135,10 +1180,10 @@ include("model_zoo.jl")
                 ]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) ==
+        @test factorization_constraint_to_nodelabels(ctx, constraint) ==
               [[ctx[:x][1, 1], vec(ctx[:y])..., ctx[:out]]]
 
-        # Test 6: Test convert_to_nodelabels with vector of variables and splitted range mean field in x
+        # Test 6: Test factorization_constraint_to_nodelabels with vector of variables and splitted range mean field in x
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1161,7 +1206,7 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) == [
+        @test factorization_constraint_to_nodelabels(ctx, constraint) == [
             [ctx[:x][1]],
             [ctx[:x][2]],
             [ctx[:x][3]],
@@ -1170,7 +1215,7 @@ include("model_zoo.jl")
             [ctx[:out]],
         ]
 
-        # Test 7: Test convert_to_nodelabels with tensor of variables and splitted range mean field in x and y
+        # Test 7: Test factorization_constraint_to_nodelabels with tensor of variables and splitted range mean field in x and y
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
@@ -1196,14 +1241,14 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) == [
+        @test factorization_constraint_to_nodelabels(ctx, constraint) == [
             [ctx[:x][1], ctx[:y][1]],
             [ctx[:x][2], ctx[:y][2]],
             [ctx[:x][3], ctx[:y][3]],
             [ctx[:out]],
         ]
 
-        # Test 8: Test convert_to_nodelabels with vector of variables and combined range
+        # Test 8: Test factorization_constraint_to_nodelabels with vector of variables and combined range
 
         model = create_vector_model()
         ctx = GraphPPL.getcontext(model)
@@ -1222,13 +1267,13 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:x, CombinedRange(3, 4))]),
             ],
         )
-        @test convert_to_nodelabels(ctx, constraint) == [
+        @test factorization_constraint_to_nodelabels(ctx, constraint) == [
             [ctx[:x][1], ctx[:x][2], vec(ctx[:y])...],
             [ctx[:out]],
             [ctx[:x][3], ctx[:x][4]],
         ]
 
-        # Test convert_to_nodelabels with duplicate entries
+        # Test factorization_constraint_to_nodelabels with duplicate entries
         constraint = FactorizationConstraint(
             [
                 IndexedVariable(:x, nothing),
@@ -1242,7 +1287,7 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
             ],
         )
-        @test_throws ErrorException convert_to_nodelabels(ctx, constraint)
+        @test_throws ErrorException factorization_constraint_to_nodelabels(ctx, constraint)
 
         constraint = FactorizationConstraint(
             [
@@ -1257,7 +1302,7 @@ include("model_zoo.jl")
                 FactorizationConstraintEntry([IndexedVariable(:out, nothing)]),
             ],
         )
-        @test_throws ErrorException convert_to_nodelabels(ctx, constraint)
+        @test_throws ErrorException factorization_constraint_to_nodelabels(ctx, constraint)
     end
 
     @testset "convert_to_bitsets(::AbstractArray, ::AbstractArray)" begin
@@ -1675,15 +1720,15 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         constraint = FactorizationConstraint(
             [IndexedVariable(:x, nothing)],
-                FactorizationConstraintEntry([
-                    IndexedVariable(
-                        :x,
-                        SplittedRange(
-                            FunctionalIndex{:begin}(firstindex),
-                            FunctionalIndex{:end}(lastindex),
-                        ),
+            FactorizationConstraintEntry([
+                IndexedVariable(
+                    :x,
+                    SplittedRange(
+                        FunctionalIndex{:begin}(firstindex),
+                        FunctionalIndex{:end}(lastindex),
                     ),
-                ]),
+                ),
+            ]),
         )
         apply!(model, ctx, constraint)
         @test node_options(model[ctx[:sum_4]])[:q] ==

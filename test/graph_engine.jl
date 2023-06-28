@@ -999,7 +999,6 @@ include("model_zoo.jl")
         prune!(model)
         @test GraphPPL.nv(model) == 2
 
-
     end
 end
 
