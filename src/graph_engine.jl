@@ -27,7 +27,8 @@ end
 
 Base.length(label::NodeLabel) = 1
 
-name(label::NodeLabel) = label.name
+getname(label::NodeLabel) = label.name
+getname(labels::ResizableArray{T,V,N} where {T<:NodeLabel,V,N}) = getname(first(labels))
 vec(label::NodeLabel) = [label]
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
@@ -205,7 +206,7 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(Symbol(name(id))) * "_" * string(id.index))
+to_symbol(id::NodeLabel) = Symbol(String(Symbol(getname(id))) * "_" * string(id.index))
 
 struct Context
     depth::Int64
@@ -249,14 +250,14 @@ function Base.show(io::IO, context::Context)
     end
 end
 
-name(f::Function) = String(Symbol(f))
+getname(f::Function) = String(Symbol(f))
 
 Context(depth::Int, fform::Function, prefix::String) =
     Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1,
     model_fform,
-    (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * name(model_fform),
+    (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform),
 )
 Context() = Context(0, identity, "")
 
@@ -485,7 +486,7 @@ getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
     gensym(model, :constvar);
-    __options__ = (value = var,),
+    __options__ = NamedTuple{(:value,)}((var,)),
 )
 
 
@@ -512,8 +513,9 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = Dict(),
+    __options__ = NamedTuple(),
 )
+    __options__ = NamedTuple{(keys(__options__)..., :index)}((__options__..., index))
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
     model[variable_symbol] = VariableNodeData(variable_id, __options__)
@@ -952,7 +954,7 @@ function make_node!(
         )
     end
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
-    model[node_id].options[:q] = [BitSet(1:out_degree) for _ = 1:out_degree]
+    model[node_id].options[:q] = BitSetTuple(out_degree)
     return lhs_interface
 end
 
