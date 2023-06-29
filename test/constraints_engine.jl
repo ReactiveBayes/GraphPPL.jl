@@ -1306,53 +1306,61 @@ include("model_zoo.jl")
     end
 
     @testset "convert_to_bitsets(::AbstractArray, ::AbstractArray)" begin
-        import GraphPPL: convert_to_bitsets, NodeLabel
+        import GraphPPL: convert_to_bitsets, NodeLabel, BitSetTuple
 
         # Test 1: Test convert_to_bitsets with single variables
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:z, 3)]
         constraint_variables =
             [(NodeLabel(:x, 1),), (NodeLabel(:y, 2),), (NodeLabel(:z, 3),)]
         @test convert_to_bitsets(neighbors, constraint_variables) ==
-              [BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
 
         # Test 2: Test convert_to_bitsets with a missing variable
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:z, 3)]
         constraint_variables = [(NodeLabel(:x, 1),), (NodeLabel(:y, 2),)]
         @test convert_to_bitsets(neighbors, constraint_variables) ==
-              [BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
         # Test 3: Test that convert_to_bitsets returns the correct factorization constraint
         neighbors =
             [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:z, 1), NodeLabel(:out, 1)]
         fc = [(NodeLabel(:x, 1),), (NodeLabel(:y, 1), NodeLabel(:z, 1), NodeLabel(:out, 1))]
-        @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1]), BitSet([2, 3, 4]), BitSet([2, 3, 4]), BitSet([2, 3, 4])]
+        @test convert_to_bitsets(neighbors, fc) == BitSetTuple([
+            BitSet([1]),
+            BitSet([2, 3, 4]),
+            BitSet([2, 3, 4]),
+            BitSet([2, 3, 4]),
+        ])
 
         # Test 4: Test that convert_to_bitsets returns the correct factorization constraint
         neighbors =
             [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:z, 1), NodeLabel(:out, 1)]
         fc = [(NodeLabel(:x, 1), NodeLabel(:y, 1)), (NodeLabel(:z, 1), NodeLabel(:out, 1))]
         @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1, 2]), BitSet([1, 2]), BitSet([3, 4]), BitSet([3, 4])]
+              BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3, 4]), BitSet([3, 4])])
 
         # Test 5: Test that convert_to_bitsets returns the correct factorization constraint
         neighbors =
             [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:z, 1), NodeLabel(:out, 1)]
         fc = [(NodeLabel(:x, 1), NodeLabel(:y, 1)), (NodeLabel(:z, 1),)]
-        @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1, 2, 4]), BitSet([1, 2, 4]), BitSet([3, 4]), BitSet([1, 2, 3, 4])]
+        @test convert_to_bitsets(neighbors, fc) == BitSetTuple([
+            BitSet([1, 2, 4]),
+            BitSet([1, 2, 4]),
+            BitSet([3, 4]),
+            BitSet([1, 2, 3, 4]),
+        ])
 
         # Test 6: Test that convert_to_bitsets returns the correct factorization constraint when we have indexed statements
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:out, 1)]
         fc = [(NodeLabel(:x, 1),), (NodeLabel(:y, 1), NodeLabel(:out, 1))]
         @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1]), BitSet([2, 3]), BitSet([2, 3])]
+              BitSetTuple([BitSet([1]), BitSet([2, 3]), BitSet([2, 3])])
 
         # Test 7: Test that convert_to_bitsets with empty inputs returns full joint
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:out, 1)]
         fc = [[], []]
         @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1, 2, 3]), BitSet([1, 2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2, 3]), BitSet([1, 2, 3])])
 
         # Test 8: Test that convert_to_bitsets with duplicates returns the least factorized constraint possible
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 1), NodeLabel(:out, 1)]
@@ -1362,12 +1370,12 @@ include("model_zoo.jl")
             (NodeLabel(:out, 1),),
         ]
         @test convert_to_bitsets(neighbors, fc) ==
-              [BitSet([1, 2]), BitSet([1, 2]), BitSet([3])]
+              BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
 
         # Test 9: Test that convert_to_bitsets with duplicates returns the least factorized constraint possible
         neighbors = [NodeLabel(:x, 1)]
         fc = [(NodeLabel(:x, 1),), (NodeLabel(:x, 1),)]
-        @test convert_to_bitsets(neighbors, fc) == [BitSet([1])]
+        @test convert_to_bitsets(neighbors, fc) == BitSetTuple([BitSet([1])])
 
         # Test 10: Test that convert_to_bitsets with vector entries returns the correct factorization constraint for the node in question
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:x, 3)]
@@ -1378,7 +1386,8 @@ include("model_zoo.jl")
             [NodeLabel(:x, 9)],
             [NodeLabel(:y, 2), NodeLabel(:y, 5), NodeLabel(:y, 8)],
         ]
-        @test convert_to_bitsets(neighbors, fc) == [BitSet(1), BitSet(2), BitSet(3)]
+        @test convert_to_bitsets(neighbors, fc) ==
+              BitSetTuple([BitSet(1), BitSet(2), BitSet(3)])
 
 
         ## Exact same test set, only with array elements instead of tuples in the factorization constraints
@@ -1387,18 +1396,18 @@ include("model_zoo.jl")
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:z, 3)]
         constraint_variables = [[NodeLabel(:x, 1)], [NodeLabel(:y, 2)], [NodeLabel(:z, 3)]]
         @test convert_to_bitsets(neighbors, constraint_variables) ==
-              [BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
 
         # Test 11: Test convert_to_bitsets with a missing variable
         neighbors = [NodeLabel(:x, 1), NodeLabel(:y, 2), NodeLabel(:z, 3)]
         constraint_variables = [[NodeLabel(:x, 1)], [NodeLabel(:y, 2)]]
         @test convert_to_bitsets(neighbors, constraint_variables) ==
-              [BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
         neighbors = SVector{3}(neighbors)
         constraint_variables = SVector{2}(constraint_variables)
         @test convert_to_bitsets(neighbors, constraint_variables) ==
-              [BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
     end
 
@@ -1438,7 +1447,11 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:q] ==
-              BitSet[BitSet([1, 2]), BitSet([1, 2]), BitSet([3])]
+              BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
+
+        apply!(model, ctx, constraint, [node])
+        @test node_options(model[node])[:q] ==
+            BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
 
         # Test 2: Test apply!  with a splitted range constraint
         model = create_vector_model()
@@ -1467,7 +1480,8 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, [node])
-        @test node_options(model[node])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[node])[:q] ==
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
 
         # Test 3: Test apply!  with a splitted range constraint and multiple nodes
         model = create_vector_model()
@@ -1490,13 +1504,13 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint, nodes)
         @test node_options(model[nodes[1]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[2]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[3]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[4]])[:q] ==
-              BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
+              BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])])
 
         # Test 4: Test apply! with MeanField constraint
         model = create_simple_model()
@@ -1508,7 +1522,7 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint, [node])
         @test model[node].options[:q] ==
-              BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
+              BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])])
 
         # Test 5: Test apply! with MeanField constraint and multiple nodes
         model = create_vector_model()
@@ -1520,13 +1534,13 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint, nodes)
         @test node_options(model[nodes[1]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[2]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[3]])[:q] ==
-              BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
         @test node_options(model[nodes[4]])[:q] ==
-              BitSet[BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
+              BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])])
 
         # Test 6: Test apply! with a factorization constraint with duplicate entries
         model = create_vector_model()
@@ -1553,6 +1567,14 @@ include("model_zoo.jl")
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:q] == Normal
 
+        # Test functional form constraint applied twice
+
+        @test_logs (
+            :warn,
+            "Node $node already has functional form constraint $Normal applied, therefore $Normal will not be applied",
+        ) apply!(model, ctx, constraint, [node])
+        @test node_options(model[node])[:q] == Normal
+
         # Test 8: Test apply! with GeneralSubModelConstraints
         model = create_nested_model()
         ctx = GraphPPL.getcontext(model)
@@ -1574,13 +1596,13 @@ include("model_zoo.jl")
         apply!(model, ctx, constraint)
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]],
-        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        )[:q] == BitSetTuple([BitSet(1), BitSet(2)])
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]],
         )[:q] == Normal
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]],
-        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        )[:q] == BitSetTuple([BitSet(1), BitSet(2)])
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]],
         )[:q] == Normal
@@ -1606,13 +1628,13 @@ include("model_zoo.jl")
         apply!(model, ctx, constraint)
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:exp_15]],
-        )[:q] == BitSet[BitSet(1), BitSet(2)]
+        )[:q] == BitSetTuple([BitSet(1), BitSet(2)])
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_10][:x]],
         )[:q] == Normal
         @test node_options(
             model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:exp_9]],
-        )[:q] == BitSet[BitSet([1, 2]), BitSet([1, 2])]
+        )[:q] == BitSetTuple([BitSet([1, 2]), BitSet([1, 2])])
         @test !haskey(
             node_options(
                 model[ctx[:submodel_with_deterministic_functions_and_anonymous_variables_4][:x]],
@@ -1650,7 +1672,7 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         @test node_options(model[ctx[:sum_4]])[:q] ==
-              BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
         # Test 12: Test apply! with a FactorizationConstraint that indexes a variable on the lhs
         model = create_vector_model()
@@ -1672,7 +1694,8 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, [node])
-        @test node_options(model[node])[:q] == BitSet[BitSet([1]), BitSet([2]), BitSet([3])]
+        @test node_options(model[node])[:q] ==
+              BitSetTuple([BitSet([1]), BitSet([2]), BitSet([3])])
 
         # Test 13: Test apply! with a FactorizationConstraint that has a vector with a single element on lhs
         model = create_vector_model()
@@ -1693,7 +1716,7 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         @test node_options(model[ctx[:sum_4]])[:q] ==
-              BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
         # Test 14: Test apply! with a full constraint set
         model = create_normal_model()
@@ -1713,7 +1736,7 @@ include("model_zoo.jl")
         ])
         apply!(model, constraint)
         node = model[label_for(model.graph, 5)]
-        @test node_options(node)[:q] == [BitSet(1), BitSet(2), BitSet(3)]
+        @test node_options(node)[:q] == BitSetTuple([BitSet(1), BitSet(2), BitSet(3)])
 
         # Test 15: Test apply! with a factorization constraint with a single entry
         model = create_vector_model()
@@ -1732,7 +1755,7 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         @test node_options(model[ctx[:sum_4]])[:q] ==
-              BitSet[BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+              BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
 
     end
 
@@ -1762,13 +1785,14 @@ include("model_zoo.jl")
         model = create_simple_model()
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
-        constraint = [BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])]
+        constraint = BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
         save_constraint!(model, node, constraint, :q)
         @test model[node].options[:q] == constraint
 
-        constraint = [BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])]
+        constraint = BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])])
         save_constraint!(model, node, constraint, :q)
-        @test model[node].options[:q] == [BitSet([1, 3]), BitSet([2]), BitSet([1, 3])]
+        @test model[node].options[:q] ==
+              BitSetTuple([BitSet([1, 3]), BitSet([2]), BitSet([1, 3])])
     end
 
     @testset "is_valid_partition(::Set)" begin

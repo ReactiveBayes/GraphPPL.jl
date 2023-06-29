@@ -25,6 +25,21 @@ include("model_zoo.jl")
         @test_throws MethodError Model()
     end
 
+    @testset "name(::NodeLabel)" begin
+        import GraphPPL: ResizableArray, NodeLabel, getname
+
+        x = NodeLabel(:x, 1)
+        @test getname(x) == :x
+
+        x = ResizableArray(NodeLabel, Val(1))
+        x[1] = NodeLabel(:x, 1)
+        @test getname(x) == :x
+
+        x = ResizableArray(NodeLabel, Val(1))
+        x[2] = NodeLabel(:x, 1)
+        @test getname(x) == :x
+    end
+
 
     @testset "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
         import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData
@@ -180,13 +195,13 @@ include("model_zoo.jl")
         @test to_symbol(NodeLabel(:b, 2)) == :b_2
     end
 
-    @testset "name" begin
-        import GraphPPL: name
-        @test name(+) == "+"
-        @test name(-) == "-"
-        @test name(sin) == "sin"
-        @test name(cos) == "cos"
-        @test name(exp) == "exp"
+    @testset "getname" begin
+        import GraphPPL: getname
+        @test getname(+) == "+"
+        @test getname(-) == "-"
+        @test getname(sin) == "sin"
+        @test getname(cos) == "cos"
+        @test getname(exp) == "exp"
     end
 
     @testset "Context" begin
@@ -645,11 +660,17 @@ include("model_zoo.jl")
         # Test 11: Add a variable with options
         model = create_model()
         ctx = getcontext(model)
-        var = add_variable_node!(model, ctx, :x, __options__ = Dict(:isconstrained => true))
+        var = add_variable_node!(
+            model,
+            ctx,
+            :x,
+            __options__ = NamedTuple((:isconstrained => true,)),
+        )
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
               ctx[:x] == var &&
-              node_options(model[var]) == Dict(:isconstrained => true)
+              node_options(model[var]) ==
+              NamedTuple((:isconstrained => true, :index => nothing))
 
     end
 

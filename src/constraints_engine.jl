@@ -67,6 +67,7 @@ struct IndexedVariable{T}
     index::T
 end
 getvariable(index::IndexedVariable) = index.variable
+getindex(index::IndexedVariable) = index.index
 
 Base.length(index::IndexedVariable{T} where {T}) = 1
 Base.iterate(index::IndexedVariable{T} where {T}) = (index, nothing)
@@ -132,7 +133,7 @@ placeholders in a form of the `FunctionalIndex` structure. This function correct
 function __factorization_specification_resolve_index end
 
 __factorization_specification_resolve_index(index::Any, collection::NodeLabel) =
-    error("Attempt to access a single variable $(name(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
+    error("Attempt to access a single variable $(getname(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
 __factorization_specification_resolve_index(index::Nothing, collection::NodeLabel) = nothing
 __factorization_specification_resolve_index(
     index::Nothing,
@@ -144,7 +145,7 @@ __factorization_specification_resolve_index(
 ) =
     (firstindex(collection) <= index <= lastindex(collection)) ? index :
     error(
-        "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(name(first(collection))) at index [$(index)].",
+        "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(getname(collection)) at index [$(index)].",
     )
 __factorization_specification_resolve_index(
     index::FunctionalIndex,
@@ -348,7 +349,10 @@ getconstraint(c::MaterializedConstraints) = c.constraint
 
 function Base.show(
     io::IO,
-    constraint::FactorizationConstraint{V,F} where {V,F<:AbstractArray},
+    constraint::FactorizationConstraint{
+        V,
+        F,
+    } where {V,F<:Union{AbstractArray,FactorizationConstraintEntry}},
 )
     print(io, "q(")
     print(io, join(getvariables(constraint), ", "))
@@ -766,19 +770,9 @@ function convert_to_bitsets(neighbors::AbstractArray, constraint_labels::Abstrac
     num_neighbors = length(neighbors)
     mapping = Dict(neighbors .=> 1:num_neighbors)
     label_indices = map(group -> map(x -> mapping[x], group), constraint_labels)        #Apparently this is faster than calling findall, but be sure to benchmark this in actual production code.
-    # @show label_indices
-    constraint_sets = BitSet.(label_indices)
-    for node = 1:num_neighbors
-        if !any(node .∈ constraint_sets)    #If a variable does not occur in any group
-            Base.push!.(constraint_sets, node)   #Add it to all groups
-        end
-    end
-    # @show constraint_sets
-    result = map(
-        node -> union(constraint_sets[findall(node .∈ constraint_sets)]...),
-        1:num_neighbors,
-    )
-    return result
+    constraint_sets = BitSetTuple(label_indices)
+    complete!(constraint_sets, num_neighbors)
+    return convert_to_constraint(constraint_sets, num_neighbors)
 end
 
 """
@@ -907,12 +901,11 @@ function save_constraint!(
     model::Model,
     node::NodeLabel,
     node_data::FactorNodeData,
-    constraint_data::AbstractArray{T} where {T<:BitSet},
+    constraint_data::BitSetTuple,
     symbol::Symbol,
 )
     node_data_options = node_options(node_data)
-    node_data_options[symbol] =
-        combine_factorization_constraints(node_data_options[:q], constraint_data)
+    intersect!(node_data_options[:q], constraint_data)
 end
 
 function save_constraint!(
@@ -922,7 +915,12 @@ function save_constraint!(
     constraint_data,
     symbol::Symbol,
 )
-    node_options(model[node])[symbol] = constraint_data
+    opt = node_options(node_data)
+    if haskey(opt, :q)
+        @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+        return
+    end
+    node_data.options = NamedTuple{(keys(opt)..., symbol)}((opt..., constraint_data))
 end
 
 """
@@ -973,7 +971,7 @@ function materialize_constraints!(
     node_label::NodeLabel,
     node_data::FactorNodeData,
 )
-    constraint_set = Set(node_options(node_data)[:q]) #TODO test `unique``
+    constraint_set = Set(getconstraint(node_options(node_data)[:q])) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label; sorted = true)
     constraint = SA[constraint_set...]
     constraint = Tuple(sort(constraint, by = first))

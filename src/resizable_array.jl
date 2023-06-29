@@ -91,9 +91,8 @@ function Base.show(io::IO, array::ResizableArray{T,V,N}) where {T,V,N}
 end
 
 function vec(array::ResizableArray{T,V,N}) where {T,V,N}
-    size = Base.size(array)
     result = T[]
-    for index in Tuple.(CartesianIndices(size))
+    for index in Tuple.(CartesianIndices(size(array)))
         if isassigned(array, index...)
             push!(result, array[index...])
         end
@@ -103,3 +102,11 @@ end
 
 Base.iterate(array::ResizableArray{T,V,N}, state = 1) where {T,V,N} =
     iterate(array.data, state)
+
+function Base.first(array::ResizableArray{T,V,N}) where {T,V,N}
+    for index in Tuple.(CartesianIndices(size(array)))
+        if isassigned(array, index...)
+            return array[index...]
+        end
+    end
+end
