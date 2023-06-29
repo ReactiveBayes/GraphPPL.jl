@@ -25,7 +25,7 @@ include("model_zoo.jl")
         @test_throws MethodError Model()
     end
 
-    @testset "name(::NodeLabel)" begin
+    @testset "getname(::NodeLabel)" begin
         import GraphPPL: ResizableArray, NodeLabel, getname
 
         x = NodeLabel(:x, 1)
@@ -527,7 +527,7 @@ include("model_zoo.jl")
 
     @testset "getifcreated" begin
         import GraphPPL:
-            create_model, getifcreated, getorcreate!, getcontext, name, value, getorcreate!
+            create_model, getifcreated, getorcreate!, getcontext, getname, value, getorcreate!
         model = create_model()
         ctx = getcontext(model)
 
@@ -682,11 +682,11 @@ include("model_zoo.jl")
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = add_atomic_factor_node!(model, ctx, sum)
-        @test nv(model) == 2 && label_for(model.graph, 2).name == sum
+        @test nv(model) == 2 && getname(label_for(model.graph, 2)) == sum
 
         # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
         node_id = add_atomic_factor_node!(model, ctx, sum)
-        @test nv(model) == 3 && label_for(model.graph, 3).name == sum
+        @test nv(model) == 3 && getname(label_for(model.graph, 3)) == sum
 
         # Test 3: Add an atomic factor node with options
         node_id = add_atomic_factor_node!(
@@ -705,7 +705,7 @@ include("model_zoo.jl")
             sum;
             __options__ = Dict(:isconstrained => true),
         )
-        @test node_id.name == sum
+        @test getname(node_id)== sum
 
         # Test 5: Test that creating a node with an instantiated object is supported
 
@@ -713,7 +713,7 @@ include("model_zoo.jl")
         ctx = getcontext(model)
         prior = Normal(0, 1)
         node_id = add_atomic_factor_node!(model, ctx, prior)
-        @test GraphPPL.nv(model) == 1 && label_for(model.graph, 1).name == Normal(0, 1)
+        @test GraphPPL.nv(model) == 1 && getname(label_for(model.graph, 1)) == Normal(0, 1)
     end
 
     @testset "add_composite_factor_node!" begin
