@@ -143,6 +143,25 @@ end
 what_walk(::typeof(convert_deterministic_statement)) =
     walk_until_occurrence(:(lhs_ := rhs_ where {options__}))
 
+function convert_broadcasted_call(e::Expr)
+    if @capture(e, (lhs_ .~ fform_(args__) where {options__}))
+        invar = MacroTools.gensym_ids.(gensym.(args))
+        outvar = MacroTools.gensym_ids(gensym(:var))
+        return quote
+            $lhs = broadcast(
+                ($(invar...)) -> begin
+                    outvar = nothing ~ $fform($(invar...)) where {$(options...)}
+
+                end,
+                $(args...),
+            )
+            $lhs = GraphPPL.ResizableArray($lhs)
+        end
+    else
+        return e
+    end
+end
+
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
         return quote
@@ -153,6 +172,8 @@ function convert_local_statement(e::Expr)
             )
             $lhs ~ $rhs where {$(options...)}
         end
+    elseif @capture(e, (local lhs_ .~ rhs_ where {options__}))
+        return :($lhs .~ $rhs where {$(options...)})
     else
         return e
     end
@@ -224,20 +245,30 @@ end
 convert_to_anonymous(e, created_by) = e
 
 function convert_function_argument_in_rhs(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(nargs__) where {options__}))
+    if @capture(
+        e,
+        (lhs_ ~ fform_(nargs__) where {options__}) |
+        (lhs_ .~ fform_(nargs__) where {options__})
+    )
         created_by = get_created_by(options)
         for (i, narg) in enumerate(nargs)
             nargs[i] = GraphPPL.not_enter_indexed_walk(narg) do argument
                 convert_to_anonymous(argument, created_by)
             end
         end
-        return :($lhs ~ $fform($(nargs...)) where {$(options...)})
+        if @capture(e, (lhs_ ~ fform_(args__) where {options__}))
+            return :($lhs ~ $fform($(nargs...)) where {$(options...)})
+        elseif @capture(e, (lhs_ .~ fform_(args__) where {options__}))
+            return :($lhs .~ $fform($(nargs...)) where {$(options...)})
+        end
     end
     return e
 end
 
-what_walk(::typeof(convert_function_argument_in_rhs)) =
-    walk_until_occurrence(:(lhs_ ~ rhs_ where {options__}))
+what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence((
+    :(lhs_ ~ rhs_ where {options__}),
+    :(lhs_ .~ rhs_ where {options__}),
+))
 
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
@@ -312,6 +343,29 @@ combine_args(args::Vector, kwargs::Vector) =
     ))
 combine_args(args::Nothing, kwargs::Nothing) = nothing
 
+function combine_broadcast_args(args::Vector, kwargs::Nothing)
+    invars = MacroTools.gensym_ids.(gensym.(args))
+    return invars, Expr(:vect, invars...)
+end
+
+function combine_broadcast_args(args::Vector, kwargs::Vector)
+    kwargs_keys = Tuple([arg.args[1] for arg in kwargs])
+    kwargs_values = [arg.args[2] for arg in kwargs]
+    invars_kwargs = MacroTools.gensym_ids.(gensym.(kwargs_values))
+    kwargs_tuple = Expr(
+        :tuple,
+        [Expr(:(=), key, val) for (key, val) in zip(kwargs_keys, invars_kwargs)]...,
+    )
+    if length(args) == 0
+        return invars_kwargs, kwargs_tuple
+    else
+        invars_args = MacroTools.gensym_ids.(gensym.(args))
+        return vcat(invars_args, invars_kwargs),
+        :(GraphPPL.MixedArguments($(Expr(:vect, invars_args...)), $kwargs_tuple))
+    end
+end
+
+combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 
 """
@@ -357,6 +411,33 @@ function convert_tilde_expression(e::Expr)
                 ),
                 __debug__ = __debug__,
             )
+        end
+    elseif @capture(
+        e,
+        (lhs_ .~ fform_(args__; kwargs__) where {options__}) |
+        (lhs_ .~ fform_(args__) where {options__})
+    )
+        (invars, parsed_args) = combine_broadcast_args(args, kwargs)
+        options = GraphPPL.options_vector_to_dict(options)
+        vars = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+        return quote
+            $lhs = broadcast($(vars...)) do $(invars...)
+                return GraphPPL.make_node!(
+                    __model__,
+                    __context__,
+                    $fform,
+                    nothing,
+                    $parsed_args;
+                    __parent_options__ = GraphPPL.prepare_options(
+                        __parent_options__,
+                        $(options),
+                        __debug__,
+                    ),
+                    __debug__ = __debug__,
+                )
+            end
+            $lhs = GraphPPL.ResizableArray($lhs)
+            __context__[$(QuoteNode(lhs))] = $lhs
         end
     else
         return e
@@ -521,10 +602,8 @@ function model_macro_interior(model_specification)
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
 
     result = quote
-
         $boilerplate_functions
         $make_node_function
-
         nothing
     end
     return result

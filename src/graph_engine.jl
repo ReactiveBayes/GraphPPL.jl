@@ -297,6 +297,11 @@ function Base.setindex!(
     return c.tensor_variables[key][index...] = val
 end
 
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel,T,1} where {T}, key::Symbol) =
+    c.vector_variables[key] = val
+
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel,T,N} where {T,N}, key::Symbol) =
+    c.tensor_variables[key] = val
 
 
 getcontext(model::Model) = model.graph[]
@@ -956,6 +961,33 @@ function make_node!(
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
     model[node_id].options[:q] = BitSetTuple(out_degree)
     return lhs_interface
+end
+
+function make_node!(
+    ::Val{true},
+    ::Atomic,
+    behaviour::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface::Nothing,
+    rhs_interfaces::NamedTuple;
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
+)
+    lhs_interface = add_variable_node!(model, ctx, gensym(:var))
+    make_node!(
+        Val(true),
+        Atomic(),
+        behaviour,
+        model,
+        ctx,
+        fform,
+        lhs_interface,
+        rhs_interfaces;
+        __parent_options__ = __parent_options__,
+        __debug__ = __debug__,
+    )
 end
 
 """

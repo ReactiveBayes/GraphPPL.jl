@@ -74,6 +74,17 @@ include("model_zoo.jl")
         @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1)
     end
 
+    @testset "setindex!(::Context, ::ResizableArray{NodeLabel}, ::Symbol)" begin
+        import GraphPPL: ResizableArray, Context
+
+        context = Context()
+        context[:x] = ResizableArray(NodeLabel, Val(1))
+        @test haskey(context.vector_variables, :x)
+
+        context[:y] = ResizableArray(NodeLabel, Val(2))
+        @test haskey(context.tensor_variables, :y)
+    end
+
     @testset "getindex(::Model, ::NodeLabel)" begin
         import GraphPPL: create_model, NodeLabel, VariableNodeData
 
@@ -527,7 +538,13 @@ include("model_zoo.jl")
 
     @testset "getifcreated" begin
         import GraphPPL:
-            create_model, getifcreated, getorcreate!, getcontext, getname, value, getorcreate!
+            create_model,
+            getifcreated,
+            getorcreate!,
+            getcontext,
+            getname,
+            value,
+            getorcreate!
         model = create_model()
         ctx = getcontext(model)
 
@@ -705,7 +722,7 @@ include("model_zoo.jl")
             sum;
             __options__ = Dict(:isconstrained => true),
         )
-        @test getname(node_id)== sum
+        @test getname(node_id) == sum
 
         # Test 5: Test that creating a node with an instantiated object is supported
 
@@ -1019,6 +1036,66 @@ include("model_zoo.jl")
         add_edge!(model, y, z, :test)
         prune!(model)
         @test GraphPPL.nv(model) == 2
+
+    end
+
+    @testset "broadcast" begin
+        import GraphPPL: NodeLabel, ResizableArray
+
+        # Test 1: Broadcast a vector node
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, 1)
+        x = getorcreate!(model, ctx, :x, 2)
+        y = getorcreate!(model, ctx, :y, 1)
+        y = getorcreate!(model, ctx, :y, 2)
+        z = broadcast(
+            (x_, y_) -> begin
+                var = make_node!(model, ctx, +, nothing, [x_, y_])
+            end,
+            x,
+            y,
+        )
+        @test size(z) == (2,)
+
+        # Test 2: Broadcast a matrix node
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, 1, 1)
+        x = getorcreate!(model, ctx, :x, 1, 2)
+        x = getorcreate!(model, ctx, :x, 2, 1)
+        x = getorcreate!(model, ctx, :x, 2, 2)
+
+        y = getorcreate!(model, ctx, :y, 1, 1)
+        y = getorcreate!(model, ctx, :y, 1, 2)
+        y = getorcreate!(model, ctx, :y, 2, 1)
+        y = getorcreate!(model, ctx, :y, 2, 2)
+        z = broadcast(
+            (x_, y_) -> begin
+                var = make_node!(model, ctx, +, nothing, [x_, y_])
+            end,
+            x,
+            y,
+        )
+        @test size(z) == (2, 2)
+
+        # Test 3: Broadcast a vector node with a matrix node
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, 1)
+        x = getorcreate!(model, ctx, :x, 2)
+        y = getorcreate!(model, ctx, :y, 1, 1)
+        y = getorcreate!(model, ctx, :y, 1, 2)
+        y = getorcreate!(model, ctx, :y, 2, 1)
+        y = getorcreate!(model, ctx, :y, 2, 2)
+        z = broadcast(
+            (x_, y_) -> begin
+                var = make_node!(model, ctx, +, nothing, [x_, y_])
+            end,
+            x,
+            y,
+        )
+        @test size(z) == (2, 2)
 
     end
 end

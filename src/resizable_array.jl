@@ -12,6 +12,24 @@ function ResizableArray(::Type{T}, ::Val{N}) where {T,N}
     return ResizableArray{T,V,N}(data)
 end
 
+function get_recursive_depth(v::AbstractVector)
+    return 1 + get_recursive_depth(first(v))
+end
+
+get_recursive_depth(any) = 0
+
+function reltype(v::AbstractVector)
+    return reltype(first(v))
+end
+reltype(any::T) where {T} = T
+
+function ResizableArray(array::AbstractVector{T}) where {T}
+    V = reltype(array)
+    return ResizableArray{V,Vector{T},get_recursive_depth(array)}(array)
+end
+
+ResizableArray(A::AbstractArray) = ResizableArray([A[:, i] for i = 1:size(A, 2)])
+
 function make_recursive_vector(::Type{T}, ::Val{1}) where {T}
     return T[]
 end
@@ -71,9 +89,13 @@ function recursive_setindex!(
     return nothing
 end
 
-function getindex(array::ResizableArray{T,V,N}, index...) where {T,V,N}
+function getindex(array::ResizableArray{T,V,N}, index::Vararg{Int}) where {T,V,N}
     @assert N >= length(index) "Invalid index $(index) for $(array) of shape $(size(array)))"
     return recursive_getindex(Val(length(index)), array.data, index...)
+end
+
+function getindex(array::ResizableArray{T,V,N}, index::Vararg{CartesianIndex}) where {T,V,N}
+    return getindex(array, first(index).I...)
 end
 
 function recursive_getindex(::Val{1}, array::Vector, index)

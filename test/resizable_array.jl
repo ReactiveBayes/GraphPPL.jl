@@ -1,8 +1,9 @@
 using Test
+using TestSetExtensions
 
-@testset "ResizableArray.jl" begin
+@testset ExtendedTestSet "ResizableArray.jl" begin
     # Write your tests here.
-    import GraphPPL: ResizableArray
+    import GraphPPL: ResizableArray, get_recursive_depth
 
     @test ResizableArray(Float64) isa ResizableArray{Float64}
     @test ResizableArray(Float64, Val(1)) isa ResizableArray{Float64,Vector{Float64},1}
@@ -161,4 +162,25 @@ using Test
         ]
         @test GraphPPL.NodeLabel(:x, 1) ∈ vec(v)
     end
+
+    let v = ResizableArray(GraphPPL.NodeLabel, Val(2))
+        v[1, 1] = GraphPPL.NodeLabel(:x, 1)
+        v[1, 2] = GraphPPL.NodeLabel(:x, 2)
+        v[1, 3] = GraphPPL.NodeLabel(:x, 3)
+        v[2, 1] = GraphPPL.NodeLabel(:x, 4)
+        v[2, 2] = GraphPPL.NodeLabel(:x, 5)
+        v[2, 3] = GraphPPL.NodeLabel(:x, 6)
+
+        broadcast(x -> 1, v)
+    end
+
+    data = [i for i = 1:10]
+    @test get_recursive_depth(data) == 1
+    @test ResizableArray(data) isa ResizableArray{Int,Vector{Int},1}
+
+    data = [[i for i = 1:10] for j = 1:10]
+    @test get_recursive_depth(data) == 2
+    @test ResizableArray(data) isa ResizableArray{Int,Vector{Vector{Int}},2}
+
+
 end

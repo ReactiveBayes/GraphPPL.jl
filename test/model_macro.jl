@@ -570,6 +570,15 @@ include("model_zoo.jl")
             ) where {q=q(x)q(a)q(b),created_by=(x~Normal(a, b) where {q=q(x)q(a)q(b)})}
         end
         @test_expression_generating apply_pipeline(input, convert_local_statement) output
+
+        # Test 5: local statement with broadcasting statement
+        input = quote
+            local x .~ Normal(μ, σ) where {created_by=(x.~Normal(μ, σ))}
+        end
+        output = quote
+            x .~ Normal(μ, σ) where {created_by=(x.~Normal(μ, σ))}
+        end
+        @test_expression_generating apply_pipeline(input, convert_local_statement) output
     end
 
     @testset "is_kwargs_expression(::AbstractArray)" begin
@@ -1083,6 +1092,51 @@ include("model_zoo.jl")
             x ~ Normal(x[i-1], 1) where {created_by=(x~Normal(y[i-1], 1))}
         end
         output = input
+        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+
+        # Test 10: Input expression with broadcasted call
+        input = quote
+            x .~ Normal(
+                Normal(Normal(0, 1), 1),
+                1,
+            ) where {
+                q=MeanField(),
+                created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
+            }
+        end
+        sym1 = MacroTools.gensym_ids(gensym(:tmp))
+        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        output = quote
+            x .~ Normal(
+                begin
+                    $sym1 ~ Normal(
+                        begin
+                            $sym2 ~ Normal(
+                                0,
+                                1,
+                            ) where {
+                                anonymous=true,
+                                created_by=x~Normal(
+                                    Normal(Normal(0, 1), 1),
+                                    1,
+                                ) where {q=MeanField()},
+                            }
+                        end,
+                        1,
+                    ) where {
+                        anonymous=true,
+                        created_by=x~Normal(
+                            Normal(Normal(0, 1), 1),
+                            1,
+                        ) where {q=MeanField()},
+                    }
+                end,
+                1,
+            ) where {
+                q=MeanField(),
+                created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
+            }
+        end
         @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
 
     end
@@ -1696,6 +1750,96 @@ include("model_zoo.jl")
                 ),
                 __debug__ = __debug__,
             )
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 11: Test node creation with broadcasting call
+        input = quote
+            a .~ (Normal(μ, σ) where {(created_by = (a .~ Normal(μ, σ)))})
+        end
+        invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
+        output = quote
+            a = broadcast(μ, σ) do $(invars...)
+                return GraphPPL.make_node!(
+                    __model__,
+                    __context__,
+                    Normal,
+                    nothing,
+                    [$(invars...)];
+                    __parent_options__ = GraphPPL.prepare_options(
+                        __parent_options__,
+                        $(Dict{Any,Any}(:created_by => :(a .~ Normal(μ, σ)))),
+                        __debug__,
+                    ),
+                    __debug__ = __debug__,
+                )
+            end
+            a = GraphPPL.ResizableArray(a)
+            __context__[:a] = a
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 12: Test node creation with broadcasting call with kwargs
+        input = quote
+            a .~ (Normal(; μ = μ, σ = σ) where {(created_by = (a .~ Normal(μ = μ, σ = σ)))})
+        end
+        invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
+        output = quote
+            a = broadcast(μ, σ) do $(invars...)
+                return GraphPPL.make_node!(
+                    __model__,
+                    __context__,
+                    Normal,
+                    nothing,
+                    (μ = $(invars[1]), σ = $(invars[2]));
+                    __parent_options__ = GraphPPL.prepare_options(
+                        __parent_options__,
+                        $(Dict{Any,Any}(:created_by => :(a .~ Normal(μ = μ, σ = σ)))),
+                        __debug__,
+                    ),
+                    __debug__ = __debug__,
+                )
+            end
+            a = GraphPPL.ResizableArray(a)
+            __context__[:a] = a
+        end
+        @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+        # Test 13: Test node creation with broadcasting call with mixed args and kwargs
+        input = quote
+            a .~ (
+                some_node(
+                    a,
+                    b;
+                    μ = μ,
+                    σ = σ,
+                ) where {(created_by = (a .~ some_node(a, b; μ = μ, σ = σ)))}
+            )
+        end
+        invars = MacroTools.gensym_ids.(gensym.((:a, :b, :μ, :σ)))
+        output = quote
+            a = broadcast(a, b, μ, σ) do $(invars...)
+                return GraphPPL.make_node!(
+                    __model__,
+                    __context__,
+                    some_node,
+                    nothing,
+                    GraphPPL.MixedArguments(
+                        [$(invars[1:2]...)],
+                        (μ = $(invars[3]), σ = $(invars[4])),
+                    );
+                    __parent_options__ = GraphPPL.prepare_options(
+                        __parent_options__,
+                        $(Dict{Any,Any}(
+                            :created_by => :(a .~ some_node(a, b; μ = μ, σ = σ)),
+                        )),
+                        __debug__,
+                    ),
+                    __debug__ = __debug__,
+                )
+            end
+            a = GraphPPL.ResizableArray(a)
+            __context__[:a] = a
         end
         @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 

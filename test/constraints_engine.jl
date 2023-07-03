@@ -1451,7 +1451,7 @@ include("model_zoo.jl")
 
         apply!(model, ctx, constraint, [node])
         @test node_options(model[node])[:q] ==
-            BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
+              BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
 
         # Test 2: Test apply!  with a splitted range constraint
         model = create_vector_model()
