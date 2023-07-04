@@ -60,7 +60,7 @@ function create_simple_model()
         out,
         [x, y];
         __debug__ = false,
-        __parent_options__ = nothing,
+        __parent_options__ = NamedTuple{}(),
     )
     return model
 end

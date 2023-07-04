@@ -982,5 +982,7 @@ function materialize_constraints!(
         )
         return
     end
-    node_options(node_data)[:q] = constraint
+    noptions = delete(node_options(node_data), :q)
+    node_data.options = NamedTuple{(keys(noptions)..., :q)}((noptions..., constraint))
+    # node_options(node_data)[:q] = constraint
 end

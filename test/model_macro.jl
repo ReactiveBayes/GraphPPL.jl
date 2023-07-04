@@ -1462,7 +1462,7 @@ include("model_zoo.jl")
                 [0, 1];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(x ~ Normal(0, 1)))),
+                    $((created_by = :(x ~ Normal(0, 1)),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1483,7 +1483,7 @@ include("model_zoo.jl")
                 (μ = 0, σ = 1);
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(Symbol("created_by") => :(x ~ sum(μ = 0, σ = 1)))),
+                    $((created_by = :(x ~ sum(μ = 0, σ = 1)),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1505,7 +1505,7 @@ include("model_zoo.jl")
                 [μ[i], σ[i]];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(x[i] ~ sum(μ[i], σ[i])))),
+                    $((created_by = :(x[i] ~ sum(μ[i], σ[i])),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1576,10 +1576,9 @@ include("model_zoo.jl")
                             [0, 1];
                             __parent_options__ = GraphPPL.prepare_options(
                                 __parent_options__,
-                                $(Dict{Any,Any}(
-                                    Symbol("anonymous") => true,
-                                    Symbol("created_by") =>
-                                        :(x ~ Normal(Normal(0, 1), 0)),
+                                $((
+                                    anonymous = true,
+                                    created_by = :(x ~ Normal(Normal(0, 1), 0)),
                                 )),
                                 __debug__,
                             ),
@@ -1590,9 +1589,7 @@ include("model_zoo.jl")
                 ];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(
-                        Symbol("created_by") => :(x ~ Normal(Normal(0, 1), 0)),
-                    )),
+                    $((created_by = :(x ~ Normal(Normal(0, 1), 0)),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1614,7 +1611,7 @@ include("model_zoo.jl")
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict(:created_by => :(x := y), :is_deterministic => true)),
+                    $((created_by = :(x := y), is_deterministic = true)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1636,7 +1633,7 @@ include("model_zoo.jl")
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict(:created_by => :(x[i] := y), :is_deterministic => true)),
+                    $((created_by = :(x[i] := y), is_deterministic = true)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1658,7 +1655,7 @@ include("model_zoo.jl")
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict(:created_by => :(x[i, j] := y), :is_deterministic => true)),
+                    $((created_by = :(x[i, j] := y), is_deterministic = true)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1679,9 +1676,7 @@ include("model_zoo.jl")
                 GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(
-                        Symbol("created_by") => :(x ~ sum(1, 2; σ = 1, μ = 2)),
-                    )),
+                    $((created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1702,10 +1697,7 @@ include("model_zoo.jl")
                 [μ, σ];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(
-                        :created_by => :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}),
-                        :q => :(q(μ)q(σ)),
-                    )),
+                    $((created_by = :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}), q = :(q(μ)q(σ)))),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1726,7 +1718,7 @@ include("model_zoo.jl")
                 (μ = x, σ = σ);
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(y ~ Normal(μ = x, σ = σ)))),
+                    $((created_by = :(y ~ Normal(μ = x, σ = σ)),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1745,7 +1737,7 @@ include("model_zoo.jl")
                 [];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $(Dict{Any,Any}(:created_by => :(y ~ prior()))),
+                    $((created_by = :(y ~ prior()),)),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1768,7 +1760,7 @@ include("model_zoo.jl")
                     [$(invars...)];
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
-                        $(Dict{Any,Any}(:created_by => :(a .~ Normal(μ, σ)))),
+                        $((created_by = :(a .~ Normal(μ, σ)),)),
                         __debug__,
                     ),
                     __debug__ = __debug__,
@@ -1794,7 +1786,7 @@ include("model_zoo.jl")
                     (μ = $(invars[1]), σ = $(invars[2]));
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
-                        $(Dict{Any,Any}(:created_by => :(a .~ Normal(μ = μ, σ = σ)))),
+                        $((created_by = :(a .~ Normal(μ = μ, σ = σ)),)),
                         __debug__,
                     ),
                     __debug__ = __debug__,
@@ -1813,7 +1805,7 @@ include("model_zoo.jl")
                     b;
                     μ = μ,
                     σ = σ,
-                ) where {(created_by = (a .~ some_node(a, b; μ = μ, σ = σ)))}
+                ) where {(created_by = (a .~ some_node(a, b; μ = μ, σ = σ),))}
             )
         end
         invars = MacroTools.gensym_ids.(gensym.((:a, :b, :μ, :σ)))
@@ -1830,9 +1822,7 @@ include("model_zoo.jl")
                     );
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
-                        $(Dict{Any,Any}(
-                            :created_by => :(a .~ some_node(a, b; μ = μ, σ = σ)),
-                        )),
+                        $((created_by = :((a .~ some_node(a, b; μ = μ, σ = σ)),),)),
                         __debug__,
                     ),
                     __debug__ = __debug__,
@@ -1878,48 +1868,24 @@ include("model_zoo.jl")
 
     end
 
-    @testset "options_vector_to_dict" begin
-        import GraphPPL: options_vector_to_dict
+    @testset "options_vector_to_named_tuple" begin
+        import GraphPPL: options_vector_to_named_tuple
 
         # Test 1: Test with empty input
         input = []
         output = nothing
-        @test options_vector_to_dict(input) == output
+        @test options_vector_to_named_tuple(input) == output
 
         # Test 2: Test with input with two clauses
 
         input = [:(anonymous = true), :(created_by = (x ~ Normal(Normal(0, 1), 0)))]
-        output = Dict(:anonymous => true, :created_by => :(x ~ Normal(Normal(0, 1), 0)))
-        @test options_vector_to_dict(input) == output
+        output = (anonymous = true, created_by = :(x ~ Normal(Normal(0, 1), 0)))
+        @test options_vector_to_named_tuple(input) == output
 
         # Test 3: Test with factorized input on rhs
         input = [:(q = q(y_mean)q(y_var)q(y))]
-        output = Dict(:q => :(q(y_mean)q(y_var)q(y)))
-        @test options_vector_to_dict(input) == output
-    end
-
-    @testset "remove_debug_options!" begin
-        import GraphPPL: remove_debug_options!
-
-        # Test 1: Test with empty input
-        input = Dict()
-        output = nothing
-        @test remove_debug_options!(input) == output
-
-        # Test 2: Test with created_by input
-        input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
-        output = nothing
-        @test remove_debug_options!(input) == output
-
-        # Test 3: Test with created_by and anonymous input
-        input = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :anonymous => true)
-        output = Dict(:anonymous => true)
-        @test remove_debug_options!(input) == output
-
-        # Test 4: Test without created_by input
-        input = Dict(:anonymous => true)
-        output = Dict(:anonymous => true)
-        @test remove_debug_options!(input) == output
+        output = (q = :(q(y_mean)q(y_var)q(y)),)
+        @test options_vector_to_named_tuple(input) == output
     end
 
     @testset "prepare_options" begin
@@ -1933,52 +1899,47 @@ include("model_zoo.jl")
 
         # Test 2: Test if parent options are nothing and node options have value
         parent_options = nothing
-        node_options = Dict(:q => :(MeanField()))
-        @test prepare_options(parent_options, node_options, true) ==
-              Dict(:q => :(MeanField()))
-        @test prepare_options(parent_options, node_options, false) ==
-              Dict(:q => :(MeanField()))
+        node_options = (q = :(MeanField()),)
+        @test prepare_options(parent_options, node_options, true) == (q = :(MeanField()),)
+        @test prepare_options(parent_options, node_options, false) == (q = :(MeanField()),)
 
         # Test 3: Test if parent options have value and node options are nothing
-        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
+        parent_options = (prod_1 = (q = :(MeanField()),))
         node_options = nothing
         @test prepare_options(parent_options, node_options, true) ==
-              Dict(:prod_1 => Dict(:q => :(MeanField())))
+              (prod_1 = (q = :(MeanField()),))
         @test prepare_options(parent_options, node_options, false) ==
-              Dict(:prod_1 => Dict(:q => :(MeanField())))
+              (prod_1 = (q = :(MeanField()),))
 
         # Test 4: Test if parent options and node options have value
-        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
-        node_options = Dict(:q => :(MeanField()))
-        output = Dict(:prod_1 => Dict(:q => :(MeanField())), :q => :(MeanField()))
+        parent_options = (prod_1 = (q = :(MeanField()),),)
+        node_options = (q = :(MeanField()),)
+        output = (prod_1 = (q = :(MeanField()),), q = :(MeanField()))
         @test prepare_options(parent_options, node_options, true) == output
 
         # Test 5: Test if parent options are nothing, node options have value and created_by clause exists
         parent_options = nothing
-        node_options =
-            Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
+        node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
         @test prepare_options(parent_options, node_options, true) ==
-              Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
-        @test prepare_options(parent_options, node_options, false) ==
-              Dict(:q => :(MeanField()))
+              (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
+        @test prepare_options(parent_options, node_options, false) == (q = :(MeanField()),)
 
         # Test 6: Test if parent options are nothing and node options only has created_by clause
         parent_options = nothing
-        node_options = Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
+        node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)),)
         @test prepare_options(parent_options, node_options, true) ==
-              Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)))
+              (created_by = :(x ~ Normal(Normal(0, 1), 0)),)
         @test prepare_options(parent_options, node_options, false) == nothing
 
         # Test 7: Test if parent options and node_options have value and created_by clause exists
-        parent_options = Dict(:prod_1 => Dict(:q => :(MeanField())))
-        node_options =
-            Dict(:created_by => :(x ~ Normal(Normal(0, 1), 0)), :q => :(MeanField()))
-        output_debug = Dict(
-            :prod_1 => Dict(:q => :(MeanField())),
-            :created_by => :(x ~ Normal(Normal(0, 1), 0)),
-            :q => :(MeanField()),
+        parent_options = (prod_1 = (q = :(MeanField()),),)
+        node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
+        output_debug = (
+            prod_1 = (q = :(MeanField()),),
+            created_by = :(x ~ Normal(Normal(0, 1), 0)),
+            q = :(MeanField()),
         )
-        output_no_debug = Dict(:prod_1 => Dict(:q => :(MeanField())), :q => :(MeanField()))
+        output_no_debug = (prod_1 = (q = :(MeanField()),), q = :(MeanField()))
         @test prepare_options(parent_options, node_options, true) == output_debug
         @test prepare_options(parent_options, node_options, false) == output_no_debug
     end
