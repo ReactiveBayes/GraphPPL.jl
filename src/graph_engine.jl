@@ -38,12 +38,12 @@ Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
 
 mutable struct VariableNodeData
     name::Symbol
-    options::Union{Nothing,Dict,NamedTuple}
+    options::NamedTuple
 end
 
 mutable struct FactorNodeData
     fform::Any
-    options::Union{Nothing,Dict,NamedTuple}
+    options::Dict
 end
 
 const NodeData = Union{FactorNodeData,VariableNodeData}

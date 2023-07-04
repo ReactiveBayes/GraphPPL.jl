@@ -188,8 +188,9 @@ using TestSetExtensions
             v[i] = GraphPPL.NodeLabel(:x, i)
         end
         @test v[2:6] isa ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
-        @test v[begin:end] isa ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
-    
+        @test v[begin:end] isa
+              ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
+
     end
 
 end

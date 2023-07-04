@@ -349,7 +349,7 @@ function combine_broadcast_args(args::Vector, kwargs::Nothing)
 end
 
 function combine_broadcast_args(args::Vector, kwargs::Vector)
-    kwargs_keys = Tuple([arg.args[1] for arg in kwargs])
+    kwargs_keys = [arg.args[1] for arg in kwargs]
     kwargs_values = [arg.args[2] for arg in kwargs]
     invars_kwargs = MacroTools.gensym_ids.(gensym.(kwargs_values))
     kwargs_tuple = Expr(
