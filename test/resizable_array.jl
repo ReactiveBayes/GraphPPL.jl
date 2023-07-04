@@ -182,5 +182,14 @@ using TestSetExtensions
     @test get_recursive_depth(data) == 2
     @test ResizableArray(data) isa ResizableArray{Int,Vector{Vector{Int}},2}
 
+    let v = ResizableArray(GraphPPL.NodeLabel, Val(1))
+
+        for i = 1:10
+            v[i] = GraphPPL.NodeLabel(:x, i)
+        end
+        @test v[2:6] isa ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
+        @test v[begin:end] isa ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
+    
+    end
 
 end

@@ -89,6 +89,10 @@ function recursive_setindex!(
     return nothing
 end
 
+function getindex(array::ResizableArray{T,V,N}, index::UnitRange) where {T,V,N}
+    return ResizableArray(array.data[index])
+end
+
 function getindex(array::ResizableArray{T,V,N}, index::Vararg{Int}) where {T,V,N}
     @assert N >= length(index) "Invalid index $(index) for $(array) of shape $(size(array)))"
     return recursive_getindex(Val(length(index)), array.data, index...)
