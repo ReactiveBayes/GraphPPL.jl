@@ -145,6 +145,21 @@ GraphPPL.@model function prior()
     return a
 end
 
+GraphPPL.@model function broadcastable(μ, σ, out)
+    out ~ Normal(μ, σ)
+end
+
+GraphPPL.@model function broadcaster(out)
+    local μ
+    local σ
+    for i in 1:10
+        μ[i] ~ Normal(0, 1)
+        σ[i] ~ Gamma(1, 1)
+    end
+    z .~ broadcastable(μ = μ,σ =  σ)
+    out ~ Normal(z[10], 1)
+end
+
 function create_nested_model()
     model = GraphPPL.create_model()
     ctx = GraphPPL.getcontext(model)

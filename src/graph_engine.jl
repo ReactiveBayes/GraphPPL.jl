@@ -718,6 +718,30 @@ make_node!(
     __debug__ = __debug__,
 )
 
+#if it is composite, we assume it should be materialized and it is stochastic
+make_node!(
+    nodetype::Composite,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = make_node!(
+    Val(true),
+    nodetype,
+    Stochastic(),
+    model,
+    ctx,
+    fform,
+    lhs_interface,
+    rhs_interfaces;
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
+)
+
+# If a node is an object and not a function, we materialize it as a stochastic atomic node
 make_node!(
     model::Model,
     ctx::Context,
@@ -760,6 +784,7 @@ make_node!(
     __parent_options__ = __parent_options__,
     __debug__ = __debug__,
 )
+
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
     atomic::Atomic,
@@ -825,6 +850,7 @@ make_node!(
 ) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
 
 # If a node is Stochastic, we always materialize.
+
 make_node!(
     atomic::Atomic,
     stochastic::Stochastic,
@@ -848,6 +874,34 @@ make_node!(
     __debug__ = __debug__,
 )
 
+# If we have to materialize but lhs_interface is nothing, we create a variable for it
+function make_node!(
+    ::Val{true},
+    node_type::NodeType,
+    behaviour::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    fform,
+    lhs_interface::Nothing,
+    rhs_interfaces;
+    __parent_options__ = nothing,
+    __debug__ = false,
+)
+    lhs_interface = lhs_interface = add_variable_node!(model, ctx, gensym(:var))
+    return make_node!(
+        Val(true),
+        node_type,
+        behaviour,
+        model,
+        ctx,
+        fform,
+        lhs_interface,
+        rhs_interfaces;
+        __parent_options__ = __parent_options__,
+        __debug__ = __debug__,
+    )
+end
+
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
 make_node!(
     ::Val{true},
@@ -856,7 +910,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface,
+    lhs_interface::NodeLabel,
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -889,18 +943,22 @@ make_node!(
 )
 
 make_node!(
+    ::Val{true},
     ::Composite,
+    ::Stochastic,
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface,
+    lhs_interface::NodeLabel,
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
 ) =
     length(rhs_interfaces) == 0 ?
     make_node!(
+        Val(true),
         Composite(),
+        Stochastic(),
         model,
         ctx,
         fform,
@@ -914,11 +972,13 @@ make_node!(
     )
 
 make_node!(
+    ::Val{true},
     ::Composite,
+    ::Stochastic,
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface,
+    lhs_interface::NodeLabel,
     rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -961,33 +1021,6 @@ function make_node!(
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
     model[node_id].options[:q] = BitSetTuple(out_degree)
     return lhs_interface
-end
-
-function make_node!(
-    ::Val{true},
-    ::Atomic,
-    behaviour::NodeBehaviour,
-    model::Model,
-    ctx::Context,
-    fform,
-    lhs_interface::Nothing,
-    rhs_interfaces::NamedTuple;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
-)
-    lhs_interface = add_variable_node!(model, ctx, gensym(:var))
-    make_node!(
-        Val(true),
-        Atomic(),
-        behaviour,
-        model,
-        ctx,
-        fform,
-        lhs_interface,
-        rhs_interfaces;
-        __parent_options__ = __parent_options__,
-        __debug__ = __debug__,
-    )
 end
 
 """

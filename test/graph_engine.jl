@@ -1013,6 +1013,13 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         @test_throws ErrorException make_node!(model, ctx, second_submodel, x, [0, 1])
 
+        # test make node of broadcastable composite model
+        model = create_model()
+        ctx = getcontext(model)
+        out = getorcreate!(model, ctx, :out, nothing)
+        make_node!(model, ctx, broadcaster, out, [])
+        @test GraphPPL.nv(model) == 103
+
     end
 
     @testset "prune!(m::Model)" begin
