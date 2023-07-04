@@ -6,6 +6,7 @@ using Graphs
 using MetaGraphsNext
 using TestSetExtensions
 using StaticArrays
+using NamedTupleTools
 include("model_zoo.jl")
 
 @testset ExtendedTestSet "graph_engine" begin
@@ -54,7 +55,7 @@ include("model_zoo.jl")
         model[NodeLabel(:x, 2)] = VariableNodeData(:x, NamedTuple{}())
         @test GraphPPL.nv(model) == 2 && GraphPPL.ne(model) == 0
 
-        model[NodeLabel(sum, 3)] = FactorNodeData(sum, Dict())
+        model[NodeLabel(sum, 3)] = FactorNodeData(sum, NamedTuple{}())
         @test GraphPPL.nv(model) == 3 && GraphPPL.ne(model) == 0
     end
 
@@ -710,9 +711,9 @@ include("model_zoo.jl")
             model,
             ctx,
             sum;
-            __options__ = Dict(:isconstrained => true),
+            __options__ = namedtuple((:isconstrained,), (true,)),
         )
-        @test node_options(model[node_id]) == Dict(:isconstrained => true)
+        @test node_options(model[node_id]) == namedtuple((:isconstrained,), (true,))
 
 
         #Test 4: Make sure alias is added
@@ -720,7 +721,7 @@ include("model_zoo.jl")
             model,
             ctx,
             sum;
-            __options__ = Dict(:isconstrained => true),
+            __options__ = namedtuple((:isconstrained,), (true,)),
         )
         @test getname(node_id) == sum
 

@@ -43,7 +43,7 @@ end
 
 mutable struct FactorNodeData
     fform::Any
-    options::Dict
+    options::NamedTuple
 end
 
 const NodeData = Union{FactorNodeData,VariableNodeData}
@@ -545,9 +545,9 @@ function add_atomic_factor_node!(
     model::Model,
     context::Context,
     fform;
-    __options__ = Dict(),
+    __options__ = NamedTuple{}(),
 )
-    __options__ = __options__ === nothing ? Dict() : __options__
+    __options__ = __options__ === nothing ? NamedTuple{}() : __options__
     node_id = generate_nodelabel(model, fform)
     model[node_id] = FactorNodeData(fform, __options__)
     context.factor_nodes[to_symbol(node_id)] = node_id
@@ -1004,8 +1004,8 @@ function make_node!(
     fform,
     lhs_interface::NodeLabel,
     rhs_interfaces::NamedTuple;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__ = nothing,
+    __debug__ = false,
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
@@ -1019,7 +1019,8 @@ function make_node!(
         )
     end
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
-    model[node_id].options[:q] = BitSetTuple(out_degree)
+    model[node_id].options =
+        merge(node_options(model[node_id]), namedtuple((:q,), (BitSetTuple(out_degree),)))
     return lhs_interface
 end
 

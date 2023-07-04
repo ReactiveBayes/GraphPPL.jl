@@ -1,5 +1,6 @@
 export @model
 import MacroTools: postwalk, @capture, walk
+using NamedTupleTools
 
 
 
@@ -396,7 +397,7 @@ function convert_tilde_expression(e::Expr)
         (lhs_ ~ fform_ where {options__})
     )
         args = combine_args(args, kwargs)
-        options = GraphPPL.options_vector_to_dict(options)
+        options = GraphPPL.options_vector_to_named_tuple(options)
         return quote
             $lhs = GraphPPL.make_node!(
                 __model__,
@@ -418,7 +419,7 @@ function convert_tilde_expression(e::Expr)
         (lhs_ .~ fform_(args__) where {options__})
     )
         (invars, parsed_args) = combine_broadcast_args(args, kwargs)
-        options = GraphPPL.options_vector_to_dict(options)
+        options = GraphPPL.options_vector_to_named_tuple(options)
         vars = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         return quote
             $lhs = broadcast($(vars...)) do $(invars...)
@@ -467,47 +468,44 @@ function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     return ms_args
 end
 
-function options_vector_to_dict(options::AbstractArray)
+function options_vector_to_named_tuple(options::AbstractArray)
     if length(options) == 0
         return nothing
     end
-    result = Dict{Any,Any}()
-    for option in options
-        if option.head != :(=)
-            error("Invalid option $(option)")
-        end
-        result[option.args[1]] = option.args[2]
-    end
+    result = namedtuple(
+        [option.args[1] for option in options],
+        [option.args[2] for option in options],
+    )
     return result
-end
-
-function remove_debug_options!(options::Dict)
-    options = delete!(options, :created_by)
-    if length(options) == 0
-        return nothing
-    end
-    return options
 end
 
 
 prepare_options(parent_options::Nothing, node_options::Nothing, debug::Bool) = nothing
 
-function prepare_options(parent_options::Dict, node_options::Nothing, debug::Bool)
+function prepare_options(parent_options::NamedTuple, node_options::Nothing, debug::Bool)
     return parent_options
 end
 
-function prepare_options(parent_options::Nothing, node_options::Dict, debug::Bool)
+function prepare_options(parent_options::Nothing, node_options::NamedTuple, debug::Bool)
     if !debug
-        return remove_debug_options!(deepcopy(node_options))
+        result = delete(node_options, :created_by)
+        if length(result) == 0
+            return nothing
+        end
+        return result
     else
         return node_options
     end
 end
 
-function prepare_options(parent_options::Dict, node_options::Dict, debug::Bool)
+function prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
     result = merge(parent_options, node_options)
     if !debug
-        return remove_debug_options!(deepcopy(result))
+        result = delete(result, :created_by)
+        if length(result) == 0
+            return nothing
+        end
+        return result
     else
         return result
     end
@@ -564,7 +562,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             )
             __parent_options__ =
                 __parent_options__ == nothing ? nothing :
-                Dict{Any,Any}("parent_options" => __parent_options__)
+                (parent_options = __parent_options__,)
 
             $ms_body
             return __lhs_interface__
