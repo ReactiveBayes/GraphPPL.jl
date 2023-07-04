@@ -152,11 +152,11 @@ end
 GraphPPL.@model function broadcaster(out)
     local μ
     local σ
-    for i in 1:10
+    for i = 1:10
         μ[i] ~ Normal(0, 1)
         σ[i] ~ Gamma(1, 1)
     end
-    z .~ broadcastable(μ = μ,σ =  σ)
+    z .~ broadcastable(μ = μ, σ = σ)
     out ~ Normal(z[10], 1)
 end
 
