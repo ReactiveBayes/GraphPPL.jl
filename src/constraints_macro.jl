@@ -15,7 +15,7 @@ end
 
 function check_for_returns(e::Expr)
     if e.head == :return
-        error("The constraints macro does not support return statements.")
+        error("The constraints and meta macros do not support return statements.")
     end
     return e
 end
