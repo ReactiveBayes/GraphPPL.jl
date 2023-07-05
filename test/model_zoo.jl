@@ -1,4 +1,5 @@
 using GraphPPL
+using MacroTools
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -15,6 +16,7 @@ struct Normal
     μ::Number
     σ::Number
 end
+struct SomeMeta end
 
 GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
 GraphPPL.interfaces(::Type{Normal}, ::Val{3}) = (:out, :μ, :σ)
