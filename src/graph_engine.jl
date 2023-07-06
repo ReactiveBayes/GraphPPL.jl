@@ -116,7 +116,7 @@ function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
     index = x.index === nothing ? 0 : x.index
     position = findfirst(isequal(x.name), interfaces)
     position =
-        position == nothing ?
+        position === nothing ?
         begin
             @warn(lazy"Interface $(x.name) not found in $interfaces")
             0
@@ -1035,5 +1035,3 @@ function prune!(m::Model)
     nodes_to_remove = sort(nodes_to_remove, rev = true)
     rem_vertex!.(Ref(m.graph), nodes_to_remove)
 end
-
-function plot_graph end

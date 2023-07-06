@@ -57,6 +57,27 @@ function apply_pipeline(e::Expr, pipeline)
     return walk(x -> __guard_f(pipeline, x), e)
 end
 
+"""
+    check_reserved_variable_names_model(expr::Expr)
+
+Check if any of the variable names in the given expression are reserved in the model macro. Reserved variable names are:
+- `__parent_options__`
+- `__debug__`
+- `__model__`
+- `__context__`
+- `__parent_context__`
+- `__lhs_interface__`
+- `__rhs_interfaces__`
+- `__interfaces__`
+
+# Arguments
+- `expr::Expr`: The expression to check for reserved variable names.
+
+# Examples
+```julia
+julia> check_reserved_variable_names_model(:(__parent_options__ ~ Normal(μ, σ))
+ERROR: ariable name in __parent_options__ ~ Normal(μ, σ) cannot be used as it is a reserved variable name in the model macro.
+"""
 function check_reserved_variable_names_model(e::Expr)
     if any(
         reserved_name -> MacroTools.inexpr(e, reserved_name),
@@ -78,6 +99,11 @@ function check_reserved_variable_names_model(e::Expr)
     return e
 end
 
+"""
+    warn_datavar_constvar_randomvar(expr::Expr)
+
+Warn the user that the datavar, constvar and randomvar syntax is deprecated and will not be supported in the future.
+"""
 function warn_datavar_constvar_randomvar(e::Expr)
     if @capture(
         e,
@@ -89,6 +115,11 @@ function warn_datavar_constvar_randomvar(e::Expr)
     return e
 end
 
+"""
+    save_expression_in_tilde(expr::Expr)
+
+Saves the expression found in the tilde syntax in the `created_by` field of the expression. This function also ensures that the `where` clause is always present in the tilde syntax.
+"""
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
         options = options === nothing ? [] : options
@@ -113,6 +144,8 @@ function save_expression_in_tilde(e::Expr)
     end
 end
 
+# For save_expression_in_tilde, we have to walk until we find the tilde syntax once, since we otherwise find tilde syntax twice in the following setting:
+# local x ~ Normal(0, 1)
 what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((
     :(lhs_ ~ rhs_),
     :(local lhs_ ~ rhs_),
@@ -122,6 +155,11 @@ what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((
     :(local lhs_ := rhs_),
 ))
 
+"""
+    get_created_by(options::AbstractArray)
+
+Retrieves the `created_by` option from the given options. Expects the options to be retrieved using the `MacroTools.@capture` macro.
+"""
 function get_created_by(options::AbstractArray)
     for option in options
         if @capture(option, (name_ = expr_))
@@ -133,6 +171,11 @@ function get_created_by(options::AbstractArray)
     error("Contains no `created_by` option.")
 end
 
+"""
+    convert_deterministic_statement(expr::Expr)
+
+Converts a deterministic statement to a tilde statement with the `is_deterministic` option set to `true`.
+"""
 function convert_deterministic_statement(e::Expr)
     if @capture(e, (lhs_ := rhs_ where {options__}))
         return :($lhs ~ $rhs where {$(options...),is_deterministic=true})
@@ -141,28 +184,15 @@ function convert_deterministic_statement(e::Expr)
     end
 end
 
+# Ensures that we don't change the `created_by` option as well. This could happen if we have a where clause in the original node definition and it therefore also occcurs in the `created_by` clause
 what_walk(::typeof(convert_deterministic_statement)) =
     walk_until_occurrence(:(lhs_ := rhs_ where {options__}))
 
-function convert_broadcasted_call(e::Expr)
-    if @capture(e, (lhs_ .~ fform_(args__) where {options__}))
-        invar = MacroTools.gensym_ids.(gensym.(args))
-        outvar = MacroTools.gensym_ids(gensym(:var))
-        return quote
-            $lhs = broadcast(
-                ($(invar...)) -> begin
-                    outvar = nothing ~ $fform($(invar...)) where {$(options...)}
+"""
+    convert_local_statement(expr::Expr)
 
-                end,
-                $(args...),
-            )
-            $lhs = GraphPPL.ResizableArray($lhs)
-        end
-    else
-        return e
-    end
-end
-
+Converts a statement with the `local` keyword to the creation of an additional variable and the inclusion of thie variable in the subsequent tilde expression.
+"""
 function convert_local_statement(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}))
         return quote
@@ -180,10 +210,21 @@ function convert_local_statement(e::Expr)
     end
 end
 
+
+"""
+    is_kwargs_expression(e::Expr)
+
+Returns `true` if the given expression `e` is a keyword argument expression, i.e., if its head is either `:kw` or `:parameters`.
+"""
 function is_kwargs_expression(e::Expr)
     return e.head == :kw || e.head == :parameters
 end
 
+"""
+    is_kwargs_expression(e::Vector)
+
+Returns `true` if all elements in the given vector `e` are keyword argument expressions, i.e., if their heads are either `:kw` or `:parameters`.
+"""
 
 function is_kwargs_expression(e::Vector)
     if length(e) > 0
@@ -195,6 +236,11 @@ end
 
 is_kwargs_expression(e) = false
 
+"""
+    convert_to_kwargs_expression(expr::Expr)
+
+Converts an expression to a keyword argument expression. This function is used in the conversion of tilde and dot-tilde expressions to ensure that the arguments are passed as keyword arguments.
+"""
 function convert_to_kwargs_expression(e::Expr)
     # Logic for ~ operator
     if @capture(e, (lhs_ ~ f_(; kwargs__) where {options__}))
@@ -228,12 +274,18 @@ function convert_to_kwargs_expression(e::Expr)
     end
 end
 
+# This is necessary to ensure that we don't change the `created_by` option as well. 
 what_walk(::typeof(convert_to_kwargs_expression)) =
     guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
+"""
+    convert_to_anonymous(e::Expr, created_by)
+
+Converts an expression to an anonymous variable. This function is used to convert function calls in the arguments of node creations to anonymous variables in the graph.
+"""
 function convert_to_anonymous(e::Expr, created_by)
     if @capture(e, f_(args__))
-        sym = MacroTools.gensym_ids(gensym(:tmp))
+        sym = MacroTools.gensym_ids(gensym(:anon))
         return quote
             begin
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
@@ -245,6 +297,18 @@ end
 
 convert_to_anonymous(e, created_by) = e
 
+"""
+    convert_function_argument_in_rhs(e::Expr)
+
+Converts a function argument in the right-hand side of an expression to an anonymous variable. This function is used to convert function calls in the arguments of node creations to anonymous variables in the graph.
+
+# Example
+    
+    ```julia
+    julia> convert_function_argument_in_rhs(:(x ~ Normal(μ, sqrt(σ2)) where {created_by=:(Normal(μ, sqrt(σ2)))}))
+    :(x ~ (Normal(μ, anon_1 ~ (sqrt(σ2) where {anonymous = true, created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2)))))})) where (created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2))))))))
+    ```
+"""
 function convert_function_argument_in_rhs(e::Expr)
     if @capture(
         e,
@@ -266,11 +330,24 @@ function convert_function_argument_in_rhs(e::Expr)
     return e
 end
 
+# This is necessary to ensure that we don't change the `created_by` option as well.
 what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence((
     :(lhs_ ~ rhs_ where {options__}),
     :(lhs_ .~ rhs_ where {options__}),
 ))
 
+
+"""
+    add_get_or_create_expression(e::Expr)
+
+Adds code to get or create a variable in the graph. The code generated by this function ensures that the left-hand-side is always defined in the local scope and can be used in `make_node!` afterwards.
+
+# Arguments
+- `e::Expr`: The expression to modify.
+
+# Returns
+A `quote` block with the modified expression.
+"""
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         @capture(lhs, (var_[index__]) | (var_))
@@ -285,6 +362,19 @@ end
 what_walk(::typeof(add_get_or_create_expression)) =
     guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
+"""
+    generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
+
+Generates code to get or create a variable in the graph. This function is used to generate code for variables that are not indexed.
+
+# Arguments
+- `s::Symbol`: The symbol representing the variable.
+- `lhs::Symbol`: The symbol representing the left-hand side of the expression.
+- `index::Nothing`: The index of the variable. This argument is always `nothing`.
+
+# Returns
+A `quote` block with the code to get or create the variable in the graph.
+"""
 function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
     return quote
         $s =
@@ -298,6 +388,19 @@ function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
 end
 
 
+"""
+    generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
+
+Generates code to get or create a variable in the graph. This function is used to generate code for variables that are indexed.
+
+# Arguments
+- `s::Symbol`: The symbol representing the variable.
+- `lhs::Expr`: The expression representing the left-hand side of the assignment.
+- `index::AbstractArray`: The index of the variable.
+
+# Returns
+A `quote` block with the code to get or create the variable in the graph.
+"""
 function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     return quote
         $s =
@@ -335,13 +438,48 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
     return Expr(:tuple, result...)
 end
 
+"""
+    combine_args(args::Vector, kwargs::Nothing)
+
+Combines a vector of arguments into a single expression.
+
+# Arguments
+- `args::Vector`: The vector of arguments.
+- `kwargs::Nothing`: The keyword arguments. This argument is always `nothing`.
+
+# Returns
+An `Expr` with the combined arguments.
+"""
 combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
+
+"""
+    combine_args(args::Vector, kwargs::Vector)
+
+Combines a vector of arguments and a vector of keyword arguments into a single expression.
+
+# Arguments
+- `args::Vector`: The vector of arguments.
+- `kwargs::Vector`: The vector of keyword arguments.
+
+# Returns
+An `Expr` with the combined arguments and keyword arguments.
+"""
 combine_args(args::Vector, kwargs::Vector) =
     length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) :
     :(GraphPPL.MixedArguments(
         $(Expr(:vect, args...)),
         $(keyword_expressions_to_named_tuple(kwargs)),
     ))
+
+"""
+    combine_args(args::Nothing, kwargs::Nothing)
+
+Returns `nothing`.
+
+# Arguments
+- `args::Nothing`: The arguments. This argument is always `nothing`.
+- `kwargs::Nothing`: The keyword arguments. This argument is always `nothing`.
+"""
 combine_args(args::Nothing, kwargs::Nothing) = nothing
 
 function combine_broadcast_args(args::Vector, kwargs::Nothing)
@@ -372,7 +510,7 @@ combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 """
     convert_tilde_expression(e::Expr)
 
-Converts a tilde expression to a `make_node!` call.
+Converts a tilde expression to a `make_node!` call. Converts broadcasted tile expressions to `make_node!` calls with nothing as the lhs to indicate that a variable should be created on every broadcasted pass.
 
 # Arguments
 - `e::Expr`: The expression to convert.
@@ -418,11 +556,11 @@ function convert_tilde_expression(e::Expr)
         (lhs_ .~ fform_(args__; kwargs__) where {options__}) |
         (lhs_ .~ fform_(args__) where {options__})
     )
-        (invars, parsed_args) = combine_broadcast_args(args, kwargs)
+        (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
         options = GraphPPL.options_vector_to_named_tuple(options)
-        vars = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+        broadcastable_variables = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         return quote
-            $lhs = broadcast($(vars...)) do $(invars...)
+            $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
                     __context__,
@@ -454,6 +592,18 @@ what_walk(::typeof(convert_tilde_expression)) =
 extend(ms_args::AbstractArray, new_interface::Symbol) = vcat(ms_args, new_interface)
 extend(ms_args::AbstractArray, new_interface::Expr) = vcat(ms_args, new_interface.args)
 
+"""
+    extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
+
+Extracts the output interfaces from a model macro expression body and appends them to the `ms_args` array.
+
+# Arguments
+- `ms_args::AbstractArray`: An array of model macro arguments.
+- `ms_body::Expr`: The expression body of a model macro.
+
+# Returns
+- `ms_args::AbstractArray`: The updated array of model macro arguments.
+"""
 function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     prewalk(ms_body) do (expression)
         if @capture(expression, return)
@@ -468,6 +618,18 @@ function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
     return ms_args
 end
 
+
+"""
+    options_vector_to_named_tuple(options::AbstractArray)
+
+Converts the array found by pattern matching on the where clause in a tilde expression into a named tuple.
+
+# Arguments
+- `options::AbstractArray`: An array of options.
+
+# Returns
+- `result`: A named tuple of options.
+"""
 function options_vector_to_named_tuple(options::AbstractArray)
     if length(options) == 0
         return nothing
@@ -498,6 +660,19 @@ function prepare_options(parent_options::Nothing, node_options::NamedTuple, debu
     end
 end
 
+"""
+    prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
+
+Merges the `parent_options` and `node_options` named tuples and returns the result. If `debug` is `false`, the `created_by` field is deleted from the result. If the resulting named tuple is empty, `nothing` is returned. This function is used to generate `__parent_options__` in a call to `make_node!`.
+
+# Arguments
+- `parent_options::NamedTuple`: The named tuple of parent options.
+- `node_options::NamedTuple`: The named tuple of node options.
+- `debug::Bool`: A boolean indicating whether debug mode is enabled.
+
+# Returns
+- `result`: The merged named tuple of options, with the `created_by` field removed if `debug` is `false`. If the resulting named tuple is empty, `nothing` is returned.
+"""
 function prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
     result = merge(parent_options, node_options)
     if !debug
@@ -511,6 +686,19 @@ function prepare_options(parent_options::NamedTuple, node_options::NamedTuple, d
     end
 end
 
+"""
+    get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+
+Returns a quote block containing boilerplate functions for a model macro.
+
+# Arguments
+- `ms_name`: The name of the model macro.
+- `ms_args`: The arguments of the model macro.
+- `num_interfaces`: The number of interfaces of the model macro.
+
+# Returns
+- `quote`: A quote block containing the boilerplate functions for the model macro.
+"""
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     return quote
@@ -521,7 +709,6 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
 end
-
 
 function get_make_node_function(ms_body, ms_args, ms_name)
     # TODO (bvdmitri): prettify

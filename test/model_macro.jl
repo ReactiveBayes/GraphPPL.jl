@@ -849,7 +849,7 @@ include("model_zoo.jl")
             Normal(0, 1)
         end
         created_by = :(x ~ Normal(0, 1))
-        anon = MacroTools.gensym_ids(gensym(:tmp))
+        anon = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             begin
                 $anon ~ Normal(0, 1) where {anonymous=true,created_by=x~Normal(0, 1)}
@@ -881,7 +881,7 @@ include("model_zoo.jl")
         input = quote
             x ~ Normal(Normal(0, 1), 1) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
-        sym = MacroTools.gensym_ids(gensym(:tmp))
+        sym = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(
                 begin
@@ -911,7 +911,7 @@ include("model_zoo.jl")
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
         end
-        sym = MacroTools.gensym_ids(gensym(:tmp))
+        sym = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(;
                 μ = begin
@@ -944,8 +944,8 @@ include("model_zoo.jl")
                 Normal(0, 1),
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
-        sym1 = MacroTools.gensym_ids(gensym(:tmp))
-        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        sym1 = MacroTools.gensym_ids(gensym(:anon))
+        sym2 = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(
                 begin
@@ -979,8 +979,8 @@ include("model_zoo.jl")
                 σ = Normal(0, 1),
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
-        sym1 = MacroTools.gensym_ids(gensym(:tmp))
-        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        sym1 = MacroTools.gensym_ids(gensym(:anon))
+        sym2 = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(;
                 μ = begin
@@ -1014,8 +1014,8 @@ include("model_zoo.jl")
                 1,
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
-        sym1 = MacroTools.gensym_ids(gensym(:tmp))
-        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        sym1 = MacroTools.gensym_ids(gensym(:anon))
+        sym2 = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(
                 begin
@@ -1052,8 +1052,8 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        sym1 = MacroTools.gensym_ids(gensym(:tmp))
-        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        sym1 = MacroTools.gensym_ids(gensym(:anon))
+        sym2 = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x ~ Normal(
                 begin
@@ -1104,8 +1104,8 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        sym1 = MacroTools.gensym_ids(gensym(:tmp))
-        sym2 = MacroTools.gensym_ids(gensym(:tmp))
+        sym1 = MacroTools.gensym_ids(gensym(:anon))
+        sym2 = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             x .~ Normal(
                 begin
@@ -1222,7 +1222,7 @@ include("model_zoo.jl")
         @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
         #Test 4: test function call  in parameters on rhs
-        sym = gensym(:tmp)
+        sym = gensym(:anon)
         input = quote
             x ~ Normal(
                 begin
