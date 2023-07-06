@@ -604,6 +604,7 @@ function add_edge!(
     index = nothing,
 )
     model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
+    return 1
 end
 
 function add_edge!(
@@ -617,6 +618,7 @@ function add_edge!(
         add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
         index += increase_index(variable_node)
     end
+    return index
 end
 increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
@@ -1010,17 +1012,18 @@ function make_node!(
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
     node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
+    index = 0
     for (interface_name, interface_value) in iterator(interfaces)
-        add_edge!(
+        index += add_edge!(
             model,
             node_id,
             GraphPPL.getifcreated(model, ctx, interface_value),
             interface_name,
         )
     end
-    out_degree = outdegree(model.graph, code_for(model.graph, node_id))
+    # out_degree = outdegree(model.graph, code_for(model.graph, node_id))
     model[node_id].options =
-        merge(node_options(model[node_id]), NamedTuple{(:q,)}((BitSetTuple(out_degree),)))
+        merge(node_options(model[node_id]), NamedTuple{(:q,)}((BitSetTuple(index),)))
     return lhs_interface
 end
 
