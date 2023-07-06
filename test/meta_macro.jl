@@ -220,5 +220,126 @@ include("model_zoo.jl")
         end
         @test_expression_generating apply_pipeline(input, convert_meta_object) output
     end
+
+    @testset "meta_macro_interior" begin
+        import GraphPPL: meta_macro_interior
+
+        # Test 1: meta_macro_interor with one statement
+        input = quote
+            x -> some_meta()
+        end
+        output = quote
+            __meta__ = GraphPPL.MetaSpecification()
+            push!(
+                __meta__,
+                GraphPPL.MetaObject(
+                    GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
+                    some_meta(),
+                ),
+            )
+            return __meta__
+        end
+        @test_expression_generating meta_macro_interior(input) output
+
+        # Test 2: meta_macro_interor with multiple statements
+        input = quote
+            x -> some_meta()
+            Normal(x, y) -> some_other_meta()
+        end
+        output = quote
+            __meta__ = GraphPPL.MetaSpecification()
+            push!(
+                __meta__,
+                GraphPPL.MetaObject(
+                    GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
+                    some_meta(),
+                ),
+            )
+            push!(
+                __meta__,
+                GraphPPL.MetaObject(
+                    GraphPPL.FactorMetaDescriptor(
+                        Normal,
+                        (
+                            GraphPPL.IndexedVariable(:x, nothing),
+                            GraphPPL.IndexedVariable(:y, nothing),
+                        ),
+                    ),
+                    some_other_meta(),
+                ),
+            )
+            return __meta__
+        end
+        @test_expression_generating meta_macro_interior(input) output
+
+        # Test 3: meta_macro_interor with multiple statements and a submodel definition
+        input = quote
+            x -> some_meta()
+            Normal(x, y) -> some_other_meta()
+            for meta in submodel
+                x -> some_meta()
+                Normal(x, y) -> some_other_meta()
+            end
+        end
+        output = quote
+            __meta__ = GraphPPL.MetaSpecification()
+            push!(
+                __meta__,
+                GraphPPL.MetaObject(
+                    GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
+                    some_meta(),
+                ),
+            )
+            push!(
+                __meta__,
+                GraphPPL.MetaObject(
+                    GraphPPL.FactorMetaDescriptor(
+                        Normal,
+                        (
+                            GraphPPL.IndexedVariable(:x, nothing),
+                            GraphPPL.IndexedVariable(:y, nothing),
+                        ),
+                    ),
+                    some_other_meta(),
+                ),
+            )
+            let __outer_meta__ = __meta__
+                let __meta__ = begin
+                        try
+                            GraphPPL.SubModelMeta(submodel)
+                        catch
+                            GraphPPL.SubModelMeta(:submodel)
+                        end
+                    end
+                    push!(
+                        __meta__,
+                        GraphPPL.MetaObject(
+                            GraphPPL.VariableMetaDescriptor(
+                                GraphPPL.IndexedVariable(:x, nothing),
+                            ),
+                            some_meta(),
+                        ),
+                    )
+                    push!(
+                        __meta__,
+                        GraphPPL.MetaObject(
+                            GraphPPL.FactorMetaDescriptor(
+                                Normal,
+                                (
+                                    GraphPPL.IndexedVariable(:x, nothing),
+                                    GraphPPL.IndexedVariable(:y, nothing),
+                                ),
+                            ),
+                            some_other_meta(),
+                        ),
+                    )
+                    push!(__outer_meta__, __meta__)
+                end
+            end
+            return __meta__
+        end
+        @test_expression_generating meta_macro_interior(input) output
+    end
+
 end
 end

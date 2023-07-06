@@ -1,3 +1,4 @@
+export @meta
 using MacroTools
 
 function add_meta_construction(e::Expr)
@@ -74,4 +75,17 @@ function convert_meta_object(e::Expr)
     else
         return e
     end
+end
+
+function meta_macro_interior(meta_body::Expr)
+    meta_body = apply_pipeline(meta_body, check_for_returns)
+    meta_body = add_meta_construction(meta_body)
+    meta_body = apply_pipeline(meta_body, create_submodel_meta)
+    meta_body = apply_pipeline(meta_body, convert_meta_variables)
+    meta_body = apply_pipeline(meta_body, convert_meta_object)
+    return meta_body
+end
+
+macro meta(meta_body)
+    return esc(GraphPPL.meta_macro_interior(meta_body))
 end
