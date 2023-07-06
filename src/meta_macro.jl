@@ -15,9 +15,15 @@ and assigns it to the `__meta__` variable. It then evaluates the given expressio
 
 # Returns
 - `e::Expr`: The expression that will generate the `GraphPPL.MetaSpecification` object.
-
-# Examples
 """
+function add_meta_construction(e::Expr)
+    return quote
+        __meta__ = GraphPPL.MetaSpecification()
+        $e
+        return __meta__
+    end
+end
+
 function create_submodel_meta(e::Expr)
     if @capture(e, (
         for meta in submodel_

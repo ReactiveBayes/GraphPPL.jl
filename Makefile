@@ -11,6 +11,6 @@ format: scripts_init ## Code formating run
 	julia --startup-file=no --project=scripts/ scripts/format.jl --overwrite
 
 
-BRANCH = "benchmark"
+BRANCH = "dev-4.0.0"
 bench: 
 	julia --startup-file=no --project=. scripts/bench.jl $(BRANCH)
