@@ -336,7 +336,6 @@ Returns:
 A `Model` object representing the probabilistic graphical model.
 """
 function create_model()
-    sleep(0.01)
     model = MetaGraph(
         Graph(),
         label_type = NodeLabel,
