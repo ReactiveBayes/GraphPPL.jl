@@ -934,7 +934,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface,
+    lhs_interface::NodeLabel,
     rhs_interfaces::MixedArguments;
     __parent_options__ = nothing,
     __debug__ = false,
