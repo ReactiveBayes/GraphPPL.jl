@@ -10,9 +10,9 @@ end
 @model function hgf(κ, ω, θ, x_begin, y_end, depth)
     local means
     means[1] ~ gcv(κ = κ, ω = ω, θ = θ, x = x_begin)
-    means[depth + 1] = y_end
-    for i = 1:depth
-        means[i + 1] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i])
+    means[depth] = y_end
+    for i = 2:depth
+        means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i - 1])
     end
 end
 
