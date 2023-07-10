@@ -56,6 +56,8 @@ function variable_node_creation()
         SUITE["getorcreate $j variable nodes descending"] = @benchmarkable getorcreate_n_nodes($j, m, c; asc=false) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
         getorcreate_n_nodes(j, model, ctx)
         SUITE["getorcreate $j variable nodes that exist"] = @benchmarkable getorcreate_n_nodes($j, m, c) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
+        SUITE["get ResizableArray of $j variables from context"] = @benchmarkable getindex($ctx, :x)
+        SUITE["get element from ResizableArray of length $j"] = @benchmarkable getindex($x, $j - 1)
     end
     return SUITE
 end
