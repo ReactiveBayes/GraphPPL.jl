@@ -971,7 +971,11 @@ function materialize_constraints!(
     node_label::NodeLabel,
     node_data::FactorNodeData,
 )
-    constraint_set = Set(getconstraint(node_options(node_data)[:q])) #TODO test `unique``
+    materialize_constraints!(model, node_label, node_data, node_options(node_data)[:q])
+end
+
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::FactorNodeData, constraint::BitSetTuple)
+    constraint_set = Set(getconstraint(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label; sorted = true)
     constraint = SA[constraint_set...]
     constraint = Tuple(sort(constraint, by = first))
@@ -984,5 +988,6 @@ function materialize_constraints!(
     end
     noptions = delete(node_options(node_data), :q)
     node_data.options = NamedTuple{(keys(noptions)..., :q)}((noptions..., constraint))
-    # node_options(node_data)[:q] = constraint
 end
+
+materialize_constraints!(model::Model, node_label::NodeLabel, node_data::FactorNodeData, constraint) = nothing

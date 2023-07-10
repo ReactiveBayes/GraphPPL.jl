@@ -20,7 +20,7 @@ function factor_node_creation()
             x = GraphPPL.getorcreate!(model, ctx, :x, j)
         end
         y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-        SUITE["Create factor node with $i edges"] = @benchmarkable GraphPPL.make_node!(m, c, sum, $y, [$x]) setup=(m=$model;c=$ctx) evals=1
+        SUITE["Create factor node with $i edges"] = @benchmarkable GraphPPL.make_node!(m, c, sum, $y, [$x]) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
     end
     return SUITE
 end
@@ -43,7 +43,7 @@ function variable_node_creation()
     SUITE = BenchmarkGroup(["node_creation"])
     model = GraphPPL.create_model()
     ctx = GraphPPL.getcontext(model)
-    SUITE["add_variable_node"] = @benchmarkable GraphPPL.add_variable_node!($model, $ctx, :x)
+    SUITE["add_variable_node"] = @benchmarkable GraphPPL.add_variable_node!(m, c, :x) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
 
     for j in 10 .^ range(1, stop=3)
         j = convert(Int, j)
