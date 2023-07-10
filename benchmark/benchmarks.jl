@@ -2,6 +2,8 @@ using BenchmarkTools
 
 const SUITE = BenchmarkGroup()
 include("graph_engine.jl")
-SUITE["graph_engine"] = benchmark_graph_engine()
 include("model_creation.jl")
-SUITE["model_creation"] = model_creation_benchmarks()
+include("constraints_engine.jl")
+SUITE["constraints_engine"] = benchmark_constraints_engine()
+SUITE["graph_engine"] = benchmark_graph_engine()
+SUITE["model_creation"] = benchmark_model_creation()

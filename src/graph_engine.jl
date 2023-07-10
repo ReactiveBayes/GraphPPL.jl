@@ -1020,7 +1020,7 @@ function make_node!(
     end
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
     model[node_id].options =
-        merge(node_options(model[node_id]), namedtuple((:q,), (BitSetTuple(out_degree),)))
+        merge(node_options(model[node_id]), NamedTuple{(:q,)}((BitSetTuple(out_degree),)))
     return lhs_interface
 end
 

@@ -856,6 +856,7 @@ include("model_zoo.jl")
             GraphPPL.EdgeLabel(:μ, nothing),
             GraphPPL.EdgeLabel(:σ, nothing),
         ]
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] == GraphPPL.BitSetTuple(3)
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -863,6 +864,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         make_node!(model, ctx, Normal, x, [0, 1])
         @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] == GraphPPL.BitSetTuple(3)
 
         # Test 4: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -872,6 +874,7 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, +, out, [in1, in2])
         @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 4)])[:q] == GraphPPL.BitSetTuple(3)
 
         # Test 5: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -881,6 +884,7 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, +, out, (in = [in1, in2],))
         @test GraphPPL.nv(model) == 4
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 4)])[:q] == GraphPPL.BitSetTuple(3)
 
         # Test 6: Stochastic node with default arguments
         model = create_model()
@@ -894,6 +898,7 @@ include("model_zoo.jl")
             GraphPPL.EdgeLabel(:μ, nothing),
             GraphPPL.EdgeLabel(:σ, nothing),
         ]
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] == GraphPPL.BitSetTuple(3)
 
         # Test 7: Stochastic node with instantiated object
         model = create_model()
@@ -902,6 +907,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, prior, x, nothing)
         @test GraphPPL.nv(model) == 2
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] == GraphPPL.BitSetTuple(1)
 
         # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
         model = create_model()
@@ -976,6 +982,7 @@ include("model_zoo.jl")
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
+        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] == GraphPPL.BitSetTuple(3)
 
         model = create_model()
         ctx = getcontext(model)
