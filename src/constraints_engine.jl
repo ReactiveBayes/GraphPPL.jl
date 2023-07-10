@@ -966,15 +966,15 @@ materialize_constraints!(model::Model, node::NodeLabel, node_data::VariableNodeD
 
 Materializes the factorization constraint in `node_data` in `model` at `node_label`. This function converts the BitSet representation of a constraint in `node_data` to the tuple representation containing all interface names.
 """
+materialize_constraints!(model::Model, node_label::NodeLabel, node_data::FactorNodeData) =
+    materialize_constraints!(model, node_label, node_data, node_options(node_data)[:q])
+
 function materialize_constraints!(
     model::Model,
     node_label::NodeLabel,
     node_data::FactorNodeData,
+    constraint::BitSetTuple,
 )
-    materialize_constraints!(model, node_label, node_data, node_options(node_data)[:q])
-end
-
-function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::FactorNodeData, constraint::BitSetTuple)
     constraint_set = Set(getconstraint(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label; sorted = true)
     constraint = SA[constraint_set...]
@@ -990,4 +990,9 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     node_data.options = NamedTuple{(keys(noptions)..., :q)}((noptions..., constraint))
 end
 
-materialize_constraints!(model::Model, node_label::NodeLabel, node_data::FactorNodeData, constraint) = nothing
+materialize_constraints!(
+    model::Model,
+    node_label::NodeLabel,
+    node_data::FactorNodeData,
+    constraint,
+) = nothing
