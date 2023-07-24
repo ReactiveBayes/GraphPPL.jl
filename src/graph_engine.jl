@@ -664,8 +664,8 @@ function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     ))
 end
 
-rhs_to_named_tuple(::Atomic, fform, rhs) = (in = Tuple(rhs),)
-rhs_to_named_tuple(::Composite, fform, rhs) =
+default_parametrization(::Atomic, fform, rhs) = (in = Tuple(rhs),)
+default_parametrization(::Composite, fform, rhs) =
     error("Composite nodes always have to be initialized with named arguments")
 
 is_nodelabel(x) = false
@@ -922,7 +922,7 @@ make_node!(
     ctx,
     fform,
     lhs_interface,
-    GraphPPL.rhs_to_named_tuple(node_type, fform, rhs_interfaces);
+    GraphPPL.default_parametrization(node_type, fform, rhs_interfaces);
     __parent_options__ = __parent_options__,
     __debug__ = __debug__,
 )

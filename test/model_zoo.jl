@@ -20,7 +20,7 @@ struct SomeMeta end
 
 GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
 GraphPPL.interfaces(::Type{Normal}, ::Val{3}) = (:out, :μ, :σ)
-GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Normal}, interface_values) =
+GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Normal}, interface_values) =
     NamedTuple{(:μ, :σ)}(interface_values)
 
 struct NormalMeanVariance end
@@ -38,7 +38,7 @@ end
 
 GraphPPL.NodeBehaviour(::Type{Gamma}) = GraphPPL.Stochastic()
 GraphPPL.interfaces(::Type{Gamma}, ::Val{3}) = (:out, :α, :β)
-GraphPPL.rhs_to_named_tuple(::GraphPPL.Atomic, ::Type{Gamma}, interface_values) =
+GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Gamma}, interface_values) =
     NamedTuple{(:α, :β)}(interface_values)
 
 struct GammaShapeRate end

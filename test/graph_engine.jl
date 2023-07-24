@@ -815,21 +815,21 @@ include("model_zoo.jl")
               model.graph[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
     end
 
-    @testset "rhs_to_named_tuple()" begin
-        import GraphPPL: rhs_to_named_tuple
+    @testset "default_parametrization" begin
+        import GraphPPL: default_parametrization
 
         # Test 1: Add default arguments to Normal call
-        @test rhs_to_named_tuple(Atomic(), Normal, [0, 1]) == (μ = 0, σ = 1)
+        @test default_parametrization(Atomic(), Normal, [0, 1]) == (μ = 0, σ = 1)
 
         # Test 2: Add :in to function call that has default behaviour 
-        @test rhs_to_named_tuple(Atomic(), +, [1, 2]) == (in = (1, 2),)
+        @test default_parametrization(Atomic(), +, [1, 2]) == (in = (1, 2),)
 
         # Test 3: Add :in to function call that has default behaviour with nested interfaces
-        @test rhs_to_named_tuple(Atomic(), +, [[1, 1], 2]) == (in = ([1, 1], 2),)
+        @test default_parametrization(Atomic(), +, [[1, 1], 2]) == (in = ([1, 1], 2),)
 
         struct CompositeNode end
         GraphPPL.NodeType(::Type{CompositeNode}) = GraphPPL.Composite()
-        @test_throws ErrorException GraphPPL.rhs_to_named_tuple(
+        @test_throws ErrorException GraphPPL.default_parametrization(
             Composite(),
             CompositeNode,
             [1, 2],
