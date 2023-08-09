@@ -738,9 +738,12 @@ default_parametrization(::Atomic, fform, rhs) = (in = Tuple(rhs),)
 default_parametrization(::Composite, fform, rhs) =
     error("Composite nodes always have to be initialized with named arguments")
 
+# maybe change name
+
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
 is_nodelabel(x::GraphPPL.NodeLabel) = true
+is_nodelabel(x::ProxyLabel) = true
 
 function contains_nodelabel(collection::AbstractArray)
     if any(element -> is_nodelabel(element), collection)
