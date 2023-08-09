@@ -26,6 +26,47 @@ include("model_zoo.jl")
         @test_throws MethodError Model()
     end
 
+    @testset "proxy labels" begin
+        y = NodeLabel(:y, 1)
+    
+        let p = GraphPPL.ProxyLabel(:x, nothing, y)
+            @test last(p) === y
+            @test GraphPPL.getname(p) === :x
+            @test GraphPPL.getname(last(p)) === :y
+        end
+    
+        let p = GraphPPL.ProxyLabel(:r, nothing, GraphPPL.ProxyLabel(:x, nothing, y))
+            @test last(p) === y
+            @test GraphPPL.getname(p) === :r
+            @test GraphPPL.getname(last(p)) === :y
+        end
+    
+        for n = (5, 10)
+            s = ResizableArray(NodeLabel, Val(1))
+
+            for i in 1:n
+                s[i] = NodeLabel(:s, i)
+            end
+
+            let p = GraphPPL.ProxyLabel(:x, nothing, s)
+                @test last(p) === s
+                @test all(i -> p[i] === s[i], 1:length(s))
+                @test GraphPPL.unroll(p) === s
+            end
+        
+            for i in 1:5
+                let p = GraphPPL.ProxyLabel(:r, nothing, GraphPPL.ProxyLabel(:x, i, s))
+                    @test GraphPPL.unroll(p) === s[i]
+                end
+        
+                let p = GraphPPL.ProxyLabel(:r, 2, GraphPPL.ProxyLabel(:x, (2:4, ), s))
+                    @test GraphPPL.unroll(p) === s[3]
+                end
+            end
+        end
+    
+    end
+
     @testset "getname(::NodeLabel)" begin
         import GraphPPL: ResizableArray, NodeLabel, getname
 
@@ -227,7 +268,7 @@ include("model_zoo.jl")
 
         function test end
 
-        ctx2 = Context(0, test, "test")
+        ctx2 = Context(0, test, "test", nothing)
         @test typeof(ctx2) == Context &&
               ctx2.prefix == "test" &&
               length(ctx2.individual_variables) == 0 &&
@@ -735,7 +776,7 @@ include("model_zoo.jl")
     end
 
     @testset "add_composite_factor_node!" begin
-        import GraphPPL: create_model, add_composite_factor_node!, getcontext, to_symbol
+        import GraphPPL: create_model, add_composite_factor_node!, getcontext, to_symbol, children
 
         # Add a composite factor node to the model
         model = create_model()
@@ -746,8 +787,8 @@ include("model_zoo.jl")
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :f)
         node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_name) &&
-              parent_ctx.factor_nodes[node_name] === child_ctx &&
+              haskey(children(parent_ctx), node_name) &&
+              children(parent_ctx)[node_name] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
 
@@ -755,8 +796,8 @@ include("model_zoo.jl")
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :g)
         node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_name) &&
-              parent_ctx.factor_nodes[node_name] === child_ctx &&
+            haskey(children(parent_ctx), node_name) &&
+            children(parent_ctx)[node_name] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
         # Add a composite factor node with an empty child context
@@ -764,8 +805,8 @@ include("model_zoo.jl")
         node_id = add_composite_factor_node!(model, parent_ctx, empty_ctx, :h)
         node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(parent_ctx.factor_nodes, node_name) &&
-              parent_ctx.factor_nodes[node_name] === empty_ctx &&
+        haskey(children(parent_ctx), node_name) &&
+        children(parent_ctx)[node_name] === empty_ctx &&
               length(empty_ctx.individual_variables) == 0
     end
 

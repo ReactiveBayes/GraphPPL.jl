@@ -439,6 +439,41 @@ function keyword_expressions_to_named_tuple(keywords::Vector)
 end
 
 """
+Converts an expression into its proxied equivalent. Used to pass variables in sub-models and create a chain of proxied labels.
+
+```jldoctest
+julia> x = GraphPPL.NodeLabel(:x, 1)
+
+julia> GraphPPL.proxy_args(:(y = x))
+GraphPPL.ProxyLabel(:y, nothing, GraphPPL.NodeLabel(:x, 1))
+```
+"""
+function proxy_args end
+
+function proxy_args(arg)
+    if @capture(arg, lhs_ = rhs_)
+        return proxy_args(lhs, rhs)
+    elseif @capture(arg, [ args__ ])
+        return Expr(:vect, map(proxy_args, args)...)
+    elseif @capture(arg, (args__, ))
+        return Expr(:tuple, map(proxy_args, args)...)
+    elseif @capture(arg, GraphPPL.MixedArguments(first_, second_))
+        return :(GraphPPL.MixedArguments($(proxy_args(first)), $(proxy_args(second))))
+    end
+    return arg
+end
+
+function proxy_args(lhs, rhs)
+    @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    if isa(rhs, Symbol)
+        return :($lhs = GraphPPL.ProxyLabel($(QuoteNode(rhs)), nothing, $rhs))
+    elseif @capture(rhs, rlabel_[index__])
+        return :($lhs = GraphPPL.ProxyLabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+    end
+    return :($lhs = $rhs)
+end
+
+"""
     combine_args(args::Vector, kwargs::Nothing)
 
 Combines a vector of arguments into a single expression.
@@ -534,7 +569,7 @@ function convert_tilde_expression(e::Expr)
         (lhs_ ~ fform_(args__) where {options__}) |
         (lhs_ ~ fform_ where {options__})
     )
-        args = combine_args(args, kwargs)
+        args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
         return quote
             $lhs = GraphPPL.make_node!(

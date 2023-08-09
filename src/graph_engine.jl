@@ -25,6 +25,7 @@ struct NodeLabel
     index::Int64
 end
 
+
 Base.length(label::NodeLabel) = 1
 
 getname(label::NodeLabel) = label.name
@@ -32,6 +33,7 @@ getname(labels::ResizableArray{T,V,N} where {T<:NodeLabel,V,N}) = getname(first(
 vec(label::NodeLabel) = [label]
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
+unroll(label::NodeLabel) = label
 
 Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
 
@@ -51,9 +53,48 @@ const NodeData = Union{FactorNodeData,VariableNodeData}
 value(node::VariableNodeData) = node.options[:value]
 node_options(node::NodeData) = node.options
 
+
+
+struct ProxyLabel
+    name::Symbol
+    index
+    proxied
+end
+
+getname(label::ProxyLabel) = label.name
+
+unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
+
+__proxy_unroll(something) = something
+__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
+__proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
+__proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
+
+
+Base.getindex(proxy::ProxyLabel, indices...) = getindex(last(proxy), indices...)
+
+Base.last(label::ProxyLabel) = last(label.proxied, label)
+
+Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
+Base.last(proxied, ::ProxyLabel) = proxied
+
+# Base.last(label::ProxyLabel, butlast::Int) = last(label.proxied, label, butlast)
+#
+# function Base.last(proxied::ProxyLabel, ::ProxyLabel, butlast::Int) 
+#     return __last_decorator(last(proxied, butlast), proxied, butlast)
+# end
+#
+# function Base.last(proxied, ::ProxyLabel, butlast::Int)
+#     return 1
+# end
+#
+# __last_decorator(x::Int64, label::ProxyLabel, butlast::Int) = x >= butlast ? label : x + 1
+# __last_decorator(x, label::ProxyLabel, butlast::Int) = x
+
 struct EdgeLabel
     name::Symbol
     index::Union{Int64,Nothing}
+    interface_value
 end
 
 to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
@@ -62,9 +103,6 @@ to_symbol(label::EdgeLabel, ::Int64) =
     Symbol(string(label.name) * "[" * string(label.index) * "]")
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
-
-
-
 
 """ 
     Model(graph::MetaGraph)
@@ -212,11 +250,23 @@ struct Context
     depth::Int64
     fform::Function
     prefix::String
+    parent::Union{Context, Nothing}
+    children::Dict{Symbol, Context}
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
     tensor_variables::Dict{Symbol,ResizableArray}
-    factor_nodes::Dict{Symbol,Union{NodeLabel,Context}}
+    factor_nodes::Dict{Symbol, NodeLabel}
+    proxies::Dict{Symbol, ProxyLabel}
 end
+
+fform(context::Context) = context.fform
+parent(context::Context) = context.parent
+individual_variables(context::Context) = context.individual_variables
+vector_variables(context::Context) = context.vector_variables
+tensor_variables(context::Context) = context.tensor_variables
+factor_nodes(context::Context) = context.factor_nodes
+proxies(context::Context) = context.proxies
+children(context::Context) = context.children
 
 function Base.show(io::IO, context::Context)
     indentation = 2 * context.depth
@@ -252,20 +302,23 @@ end
 
 getname(f::Function) = String(Symbol(f))
 
-Context(depth::Int, fform::Function, prefix::String) =
-    Context(depth, fform, prefix, Dict(), Dict(), Dict(), Dict())
+Context(depth::Int, fform::Function, prefix::String, parent) =
+    Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
+    
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1,
     model_fform,
     (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform),
+    parent
 )
-Context() = Context(0, identity, "")
+Context() = Context(0, identity, "", nothing)
 
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
     haskey(context.vector_variables, key) ||
     haskey(context.tensor_variables, key) ||
-    haskey(context.factor_nodes, key)
+    haskey(context.factor_nodes, key) || 
+    haskey(context.children, key)
 
 function Base.getindex(c::Context, key::Symbol)
     if haskey(c.individual_variables, key)
@@ -276,6 +329,8 @@ function Base.getindex(c::Context, key::Symbol)
         return c.tensor_variables[key]
     elseif haskey(c.factor_nodes, key)
         return c.factor_nodes[key]
+    elseif haskey(c.children, key)
+        return c.children[key]
     end
     throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
 end
@@ -372,21 +427,24 @@ add_to_child_context(
     name_in_child::Symbol,
     object_in_parent::NodeLabel,
 ) = child_context.individual_variables[name_in_child] = object_in_parent
-function add_to_child_context(
+
+add_to_child_context(
     child_context::Context,
     name_in_child::Symbol,
-    object_in_parent::ResizableArray{NodeLabel},
-)
-    # Using if-statement here instead of dispatching is approx. 4x faster
-    if length(size(object_in_parent)) == 1
-        child_context.vector_variables[name_in_child] = object_in_parent
-    else
-        child_context.tensor_variables[name_in_child] = object_in_parent
-    end
-end
+    object_in_parent::ResizableArray{NodeLabel, V, 1},
+) where {V} = child_context.vector_variables[name_in_child] = object_in_parent
+
+add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::ResizableArray{NodeLabel, V, N},
+) where {V, N} = child_context.tensor_variables[name_in_child] = object_in_parent
+
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
+    child_context.proxies[name_in_child] = object_in_parent
+
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) =
     nothing
-
 
 check_if_individual_variable(context::Context, name::Symbol) =
     haskey(context.individual_variables, name) ?
@@ -398,10 +456,19 @@ check_if_tensor_variable(context::Context, name::Symbol) =
     haskey(context.tensor_variables, name) ?
     error("Variable $name is already a tensor variable in the model") : nothing
 
+
+""" 
+    check_variabe_compatability(node, index)
+
+Will check if the index is compatible with the node object that is passed.
+
+"""
 check_variate_compatability(node::NodeLabel, index::Nothing) = true
 check_variate_compatability(node::NodeLabel, index) = error(
     "Cannot call single random variable on the left-hand-side by an indexed statement",
 )
+
+check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
 
 function check_variate_compatability(
     node::ResizableArray{NodeLabel,V,N},
@@ -487,6 +554,7 @@ getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple,AbstractArray{NodeLabel}}) =
     map((v) -> getifcreated(model, context, v), var)
+getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
@@ -583,7 +651,7 @@ function add_composite_factor_node!(
     node_name::Symbol,
 )
     node_id = generate_nodelabel(model, node_name)
-    parent_context.factor_nodes[to_symbol(node_id)] = context
+    parent_context.children[to_symbol(node_id)] = context
     return node_id
 end
 
@@ -599,22 +667,24 @@ iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
-    variable_node_id::NodeLabel,
-    interface_name::Symbol;
+    variable_node_id::Union{ProxyLabel, NodeLabel},
+    interface_name::Symbol,
+    interface_value;
     index = nothing,
 )
-    model.graph[variable_node_id, factor_node_id] = EdgeLabel(interface_name, index)
+    model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index, interface_value)
 end
 
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
-    variable_nodes::Union{AbstractArray{NodeLabel},Tuple,NamedTuple},
-    interface_name::Symbol;
+    variable_nodes::Union{AbstractArray,Tuple,NamedTuple},
+    interface_name::Symbol,
+    interface_value;
     index = 1,
 )
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
+        add_edge!(model, factor_node_id, variable_node, interface_name, interface_value; index = index)
         index += increase_index(variable_node)
     end
 end
@@ -910,7 +980,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -934,7 +1004,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::MixedArguments;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -949,7 +1019,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -978,7 +1048,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1002,7 +1072,7 @@ function make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::NodeLabel,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1016,6 +1086,7 @@ function make_node!(
             node_id,
             GraphPPL.getifcreated(model, ctx, interface_value),
             interface_name,
+            interface_value
         )
     end
     out_degree = outdegree(model.graph, code_for(model.graph, node_id))
