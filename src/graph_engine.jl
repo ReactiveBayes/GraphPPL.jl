@@ -340,6 +340,8 @@ function Base.getindex(c::Context, key::Symbol)
         return c.factor_nodes[key]
     elseif haskey(c.children, key)
         return c.children[key]
+    elseif haskey(c.proxies, key)
+        return unroll(c.proxies[key])
     end
     throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
 end
