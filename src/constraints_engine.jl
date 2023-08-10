@@ -378,6 +378,7 @@ struct GeneralSubModelConstraints
     constraints::Any
 end
 
+fform(c::GeneralSubModelConstraints) = c.fform
 Base.show(io::IO, constraint::GeneralSubModelConstraints) =
     print(io, "q(", getsubmodel(constraint), ") :: ", getconstraint(constraint))
 
@@ -804,9 +805,9 @@ end
 Applies the constraints in `GeneralSubModelConstraints` to all instances of `GeneralSubModelConstraints.fform` in `Model` in the context of `Context`.
 """
 function apply!(model::Model, context::Context, constraint::GeneralSubModelConstraints)
-    for (_, factor_context) in context.factor_nodes
+    for (_, factor_context) in children(context)
         if isdefined(factor_context, :fform)
-            if factor_context.fform == constraint.fform
+            if fform(factor_context) == fform(constraint)
                 apply!(model, factor_context, constraint.constraints)
             end
         end
@@ -819,7 +820,7 @@ end
 Applies the constraints in `SpecificSubModelConstraints` to the submodel with tag `SpecificSubModelConstraints.tag` in `Model` in the context of `Context`.
 """
 function apply!(model::Model, context::Context, constraint::SpecificSubModelConstraints)
-    for (tag, factor_context) in context.factor_nodes
+    for (tag, factor_context) in children(context)
         if tag == constraint.tag
             apply!(model, factor_context, constraint.constraints)
         end

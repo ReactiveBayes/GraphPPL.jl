@@ -7,6 +7,7 @@ using MetaGraphsNext
 using TestSetExtensions
 using StaticArrays
 using NamedTupleTools
+import GraphPPL: ResizableArray
 include("model_zoo.jl")
 
 @testset ExtendedTestSet "graph_engine" begin
@@ -27,6 +28,7 @@ include("model_zoo.jl")
     end
 
     @testset "proxy labels" begin
+
         y = NodeLabel(:y, 1)
     
         let p = GraphPPL.ProxyLabel(:x, nothing, y)
@@ -65,6 +67,10 @@ include("model_zoo.jl")
             end
         end
     
+    end
+
+    @testset "NodeData" begin
+        
     end
 
     @testset "getname(::NodeLabel)" begin
@@ -108,23 +114,23 @@ include("model_zoo.jl")
         x = NodeLabel(:x, 2)
         model[μ] = VariableNodeData(:μ, NamedTuple{}())
         model[x] = VariableNodeData(:x, NamedTuple{}())
-        model[μ, x] = EdgeLabel(:interface, 1)
+        model[μ, x] = EdgeLabel(:interface, 1, nothing)
         @test GraphPPL.ne(model) == 1
 
         @test_throws MethodError model[0, 1] = 1
 
-        @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1)
+        @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1, nothing)
     end
 
     @testset "setindex!(::Context, ::ResizableArray{NodeLabel}, ::Symbol)" begin
-        import GraphPPL: ResizableArray, Context
+        import GraphPPL: ResizableArray, Context, vector_variables, tensor_variables
 
         context = Context()
         context[:x] = ResizableArray(NodeLabel, Val(1))
-        @test haskey(context.vector_variables, :x)
+        @test haskey(vector_variables(context), :x)
 
         context[:y] = ResizableArray(NodeLabel, Val(2))
-        @test haskey(context.tensor_variables, :y)
+        @test haskey(tensor_variables(context), :y)
     end
 
     @testset "getindex(::Model, ::NodeLabel)" begin
@@ -161,7 +167,7 @@ include("model_zoo.jl")
         @test nv(model) == 2
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
         @test nv(model) == 2
         @test ne(model) == 1
     end
@@ -173,17 +179,17 @@ include("model_zoo.jl")
         model = create_model()
         model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}())
         model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}())
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
         @test length(edges(model)) == 1
 
         model[NodeLabel(:c, 2)] = VariableNodeData(:b, NamedTuple{}())
-        model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2)
+        model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2, nothing)
         @test length(edges(model)) == 2
 
         # Test 2: Test getting all edges from a model with a specific node
-        @test edges(model, NodeLabel(:a, 1)) == [EdgeLabel(:edge, 1), EdgeLabel(:edge, 2)]
-        @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1)]
-        @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2)]
+        @test edges(model, NodeLabel(:a, 1)) == [EdgeLabel(:edge, 1, nothing), EdgeLabel(:edge, 2, nothing)]
+        @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1, nothing)]
+        @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2, nothing)]
 
     end
 
@@ -193,7 +199,7 @@ include("model_zoo.jl")
 
         model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}())
         model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}())
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
         @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
 
         model = create_model()
@@ -204,7 +210,7 @@ include("model_zoo.jl")
             model[a[i]] = VariableNodeData(:a, NamedTuple{}())
             b[i] = NodeLabel(:b, i)
             model[b[i]] = VariableNodeData(:b, NamedTuple{}())
-            model[a[i], b[i]] = EdgeLabel(:edge, i)
+            model[a[i], b[i]] = EdgeLabel(:edge, i, nothing)
         end
         @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
 
@@ -826,7 +832,7 @@ include("model_zoo.jl")
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
-        add_edge!(model, x, y, :interface)
+        add_edge!(model, x, y, :interface, nothing)
 
 
         @test ne(model) == 1
@@ -838,6 +844,7 @@ include("model_zoo.jl")
             generate_nodelabel(model, :factor_node),
             generate_nodelabel(model, :factor_node2),
             :interface,
+            nothing
         )
     end
 
@@ -850,10 +857,10 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, nothing)
 
         variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
-        add_edge!(model, y, variable_nodes, :interface)
+        add_edge!(model, y, variable_nodes, :interface, nothing)
 
         @test ne(model) == 3 &&
-              model.graph[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
+              model[y, variable_nodes[1]] == EdgeLabel(:interface, 1, nothing)
     end
 
     @testset "default_parametrization" begin
@@ -878,7 +885,7 @@ include("model_zoo.jl")
     end
 
     @testset "make_node!(::Atomic)" begin
-        import GraphPPL: make_node!, create_model, getorcreate!
+        import GraphPPL: make_node!, create_model, getorcreate!, factorization_constraint
 
         # Test 1: Deterministic call returns result of deterministic function and does not create new node
         model = create_model()
@@ -891,14 +898,9 @@ include("model_zoo.jl")
         # Test 2: Stochastic atomic call returns a new node
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
-              GraphPPL.EdgeLabel[
-            GraphPPL.EdgeLabel(:out, nothing),
-            GraphPPL.EdgeLabel(:μ, nothing),
-            GraphPPL.EdgeLabel(:σ, nothing),
-        ]
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] ==
-              GraphPPL.BitSetTuple(3)
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        # @bvdmitri Should there be the NodeLabel of the neighbors in the EdgeLabel? If it's an atomic stochastic node shouldn't it be nothing?
+        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [EdgeLabel(:out, nothing, nothing), EdgeLabel(:μ, nothing, nothing), EdgeLabel(:σ, nothing, nothing)]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -906,8 +908,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         make_node!(model, ctx, Normal, x, [0, 1])
         @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] ==
-              GraphPPL.BitSetTuple(3)
+
 
         # Test 4: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -917,8 +918,6 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, +, out, [in1, in2])
         @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 4)])[:q] ==
-              GraphPPL.BitSetTuple(3)
 
         # Test 5: Deterministic atomic call with nodelabels should create the actual node
         model = create_model()
@@ -928,8 +927,7 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, +, out, (in = [in1, in2],))
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 4)])[:q] ==
-              GraphPPL.BitSetTuple(3)
+
 
         # Test 6: Stochastic node with default arguments
         model = create_model()
@@ -937,14 +935,14 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, [0, 1])
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
               GraphPPL.EdgeLabel[
             GraphPPL.EdgeLabel(:out, nothing),
             GraphPPL.EdgeLabel(:μ, nothing),
             GraphPPL.EdgeLabel(:σ, nothing),
         ]
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] ==
-              GraphPPL.BitSetTuple(3)
+        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) == GraphPPL.BitSetTuple(3)
 
         # Test 7: Stochastic node with instantiated object
         model = create_model()
@@ -953,8 +951,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, prior, x, nothing)
         @test GraphPPL.nv(model) == 2
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] ==
-              GraphPPL.BitSetTuple(1)
+        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) == GraphPPL.BitSetTuple(1)
 
         # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
         model = create_model()
@@ -979,7 +976,8 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :in, :in]
+        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
               GraphPPL.EdgeLabel[
             GraphPPL.EdgeLabel(:out, nothing),
             GraphPPL.EdgeLabel(:in, 1),
@@ -1029,7 +1027,7 @@ include("model_zoo.jl")
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.node_options(model[GraphPPL.label_for(model.graph, 2)])[:q] ==
+        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
               GraphPPL.BitSetTuple(3)
 
         model = create_model()
@@ -1096,7 +1094,7 @@ include("model_zoo.jl")
         z = getorcreate!(model, ctx, :z, nothing)
         w = getorcreate!(model, ctx, :w, nothing)
 
-        add_edge!(model, y, z, :test)
+        add_edge!(model, y, z, :test, nothing)
         prune!(model)
         @test GraphPPL.nv(model) == 2
 

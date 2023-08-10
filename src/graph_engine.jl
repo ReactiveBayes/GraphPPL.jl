@@ -43,15 +43,22 @@ mutable struct VariableNodeData
     options::NamedTuple
 end
 
+value(node::VariableNodeData) = node.options[:value]
+fform_constraint(node::VariableNodeData) = node.options[:q]
+
 mutable struct FactorNodeData
     fform::Any
     options::NamedTuple
 end
 
+factorization_constraint(node::FactorNodeData) = node.options[:q]
+
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
-value(node::VariableNodeData) = node.options[:value]
 node_options(node::NodeData) = node.options
+
+# TODO: Benchmark NamedTuple{(name,)}((value,)))
+add_to_node_options!(node::NodeData, name::Symbol, value) = node.options = merge(node_options(node), (name => value,))
 
 
 
@@ -96,6 +103,8 @@ struct EdgeLabel
     index::Union{Int64,Nothing}
     interface_value
 end
+
+getname(label::EdgeLabel) = label.name
 
 to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
 to_symbol(label::EdgeLabel, ::Nothing) = label.name
@@ -362,8 +371,8 @@ Base.setindex!(c::Context, val::ResizableArray{NodeLabel,T,N} where {T,N}, key::
 getcontext(model::Model) = model.graph[]
 function get_principal_submodel(model::Model)
     context = getcontext(model)
-    @assert length(context.factor_nodes) == 1
-    return first(values(context.factor_nodes))
+    @assert length(children(context)) === 1
+    return first(values(children(context)))
 end
 
 abstract type NodeType end
@@ -690,6 +699,11 @@ function add_edge!(
 end
 increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
+
+function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
+    out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
+    add_to_node_options!(model[factor_node_id], :q, BitSetTuple(out_degree))
+end
 
 
 struct MixedArguments
@@ -1082,19 +1096,17 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
+    factor_node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
     for (interface_name, interface_value) in iterator(interfaces)
         add_edge!(
             model,
-            node_id,
+            factor_node_id,
             GraphPPL.getifcreated(model, ctx, interface_value),
             interface_name,
             interface_value
         )
     end
-    out_degree = outdegree(model.graph, code_for(model.graph, node_id))
-    model[node_id].options =
-        merge(node_options(model[node_id]), NamedTuple{(:q,)}((BitSetTuple(out_degree),)))
+    add_factorization_constraint!(model, factor_node_id)
     return lhs_interface
 end
 
