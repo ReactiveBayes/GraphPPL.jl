@@ -30,23 +30,23 @@ include("model_zoo.jl")
     @testset "proxy labels" begin
 
         y = NodeLabel(:y, 1)
-    
+
         let p = GraphPPL.ProxyLabel(:x, nothing, y)
             @test last(p) === y
             @test GraphPPL.getname(p) === :x
             @test GraphPPL.getname(last(p)) === :y
         end
-    
+
         let p = GraphPPL.ProxyLabel(:r, nothing, GraphPPL.ProxyLabel(:x, nothing, y))
             @test last(p) === y
             @test GraphPPL.getname(p) === :r
             @test GraphPPL.getname(last(p)) === :y
         end
-    
-        for n = (5, 10)
+
+        for n in (5, 10)
             s = ResizableArray(NodeLabel, Val(1))
 
-            for i in 1:n
+            for i = 1:n
                 s[i] = NodeLabel(:s, i)
             end
 
@@ -55,22 +55,22 @@ include("model_zoo.jl")
                 @test all(i -> p[i] === s[i], 1:length(s))
                 @test GraphPPL.unroll(p) === s
             end
-        
-            for i in 1:5
+
+            for i = 1:5
                 let p = GraphPPL.ProxyLabel(:r, nothing, GraphPPL.ProxyLabel(:x, i, s))
                     @test GraphPPL.unroll(p) === s[i]
                 end
-        
-                let p = GraphPPL.ProxyLabel(:r, 2, GraphPPL.ProxyLabel(:x, (2:4, ), s))
+
+                let p = GraphPPL.ProxyLabel(:r, 2, GraphPPL.ProxyLabel(:x, (2:4,), s))
                     @test GraphPPL.unroll(p) === s[3]
                 end
             end
         end
-    
+
     end
 
     @testset "NodeData" begin
-        
+
     end
 
     @testset "getname(::NodeLabel)" begin
@@ -187,7 +187,8 @@ include("model_zoo.jl")
         @test length(edges(model)) == 2
 
         # Test 2: Test getting all edges from a model with a specific node
-        @test edges(model, NodeLabel(:a, 1)) == [EdgeLabel(:edge, 1, nothing), EdgeLabel(:edge, 2, nothing)]
+        @test edges(model, NodeLabel(:a, 1)) ==
+              [EdgeLabel(:edge, 1, nothing), EdgeLabel(:edge, 2, nothing)]
         @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1, nothing)]
         @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2, nothing)]
 
@@ -356,7 +357,12 @@ include("model_zoo.jl")
 
     @testset "copy_markov_blanket_to_child_context" begin
         import GraphPPL:
-            create_model, copy_markov_blanket_to_child_context, Context, getorcreate!
+            create_model,
+            copy_markov_blanket_to_child_context,
+            Context,
+            getorcreate!,
+            ProxyLabel,
+            unroll
 
 
         # Test 1: Copy individual variables
@@ -404,6 +410,17 @@ include("model_zoo.jl")
         child_context = Context(ctx, child)
         copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
         @test !haskey(child_context, :in)
+
+
+        # Test 6: Copy ProxyLabel variables to child context
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        x = ProxyLabel(:x, nothing, x)
+        child_context = Context(ctx, child)
+        copy_markov_blanket_to_child_context(child_context, (in = x,))
+        # @bvdmitri I'm not sure if you want to return the ProxyLabel or the unrolled variable here. If we query the context for the variable, right now we get the underlying global NodeLabel. We could also return the ProxyLabel.
+        @test child_context[:in] == unroll(x)
     end
 
     @testset "check_variate_compatability" begin
@@ -782,7 +799,8 @@ include("model_zoo.jl")
     end
 
     @testset "add_composite_factor_node!" begin
-        import GraphPPL: create_model, add_composite_factor_node!, getcontext, to_symbol, children
+        import GraphPPL:
+            create_model, add_composite_factor_node!, getcontext, to_symbol, children
 
         # Add a composite factor node to the model
         model = create_model()
@@ -802,8 +820,8 @@ include("model_zoo.jl")
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :g)
         node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-            haskey(children(parent_ctx), node_name) &&
-            children(parent_ctx)[node_name] === child_ctx &&
+              haskey(children(parent_ctx), node_name) &&
+              children(parent_ctx)[node_name] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
         # Add a composite factor node with an empty child context
@@ -811,8 +829,8 @@ include("model_zoo.jl")
         node_id = add_composite_factor_node!(model, parent_ctx, empty_ctx, :h)
         node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-        haskey(children(parent_ctx), node_name) &&
-        children(parent_ctx)[node_name] === empty_ctx &&
+              haskey(children(parent_ctx), node_name) &&
+              children(parent_ctx)[node_name] === empty_ctx &&
               length(empty_ctx.individual_variables) == 0
     end
 
@@ -844,7 +862,7 @@ include("model_zoo.jl")
             generate_nodelabel(model, :factor_node),
             generate_nodelabel(model, :factor_node2),
             :interface,
-            nothing
+            nothing,
         )
     end
 
@@ -898,9 +916,15 @@ include("model_zoo.jl")
         # Test 2: Stochastic atomic call returns a new node
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
         # @bvdmitri Should there be the NodeLabel of the neighbors in the EdgeLabel? If it's an atomic stochastic node shouldn't it be nothing?
-        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [EdgeLabel(:out, nothing, nothing), EdgeLabel(:μ, nothing, nothing), EdgeLabel(:σ, nothing, nothing)]
+        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [
+            EdgeLabel(:out, nothing, nothing),
+            EdgeLabel(:μ, nothing, nothing),
+            EdgeLabel(:σ, nothing, nothing),
+        ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -935,14 +959,17 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, [0, 1])
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
         @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
-              GraphPPL.EdgeLabel[
+                     GraphPPL.EdgeLabel[
             GraphPPL.EdgeLabel(:out, nothing),
             GraphPPL.EdgeLabel(:μ, nothing),
             GraphPPL.EdgeLabel(:σ, nothing),
         ]
-        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) == GraphPPL.BitSetTuple(3)
+        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
+              GraphPPL.BitSetTuple(3)
 
         # Test 7: Stochastic node with instantiated object
         model = create_model()
@@ -951,7 +978,8 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, prior, x, nothing)
         @test GraphPPL.nv(model) == 2
-        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) == GraphPPL.BitSetTuple(1)
+        @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
+              GraphPPL.BitSetTuple(1)
 
         # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
         model = create_model()
@@ -976,9 +1004,11 @@ include("model_zoo.jl")
         out = getorcreate!(model, ctx, :out, nothing)
         make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :in, :in]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :in, :in]
         @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
-              GraphPPL.EdgeLabel[
+                     GraphPPL.EdgeLabel[
             GraphPPL.EdgeLabel(:out, nothing),
             GraphPPL.EdgeLabel(:in, 1),
             GraphPPL.EdgeLabel(:in, 2),

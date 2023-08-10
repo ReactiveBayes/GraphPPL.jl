@@ -1451,7 +1451,8 @@ include("model_zoo.jl")
             ],
         )
         apply!(model, ctx, constraint, [node])
-        @test factorization_constraint(model[node]) == BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
+        @test factorization_constraint(model[node]) ==
+              BitSetTuple([BitSet([1, 2]), BitSet([1, 2]), BitSet([3])])
 
         apply!(model, ctx, constraint, [node])
         @test factorization_constraint(model[node]) ==
@@ -1822,8 +1823,11 @@ include("model_zoo.jl")
         # Test 1: Test materialize with a Mean Field constraint
         model = create_simple_model()
         materialize_constraints!(model)
-        @test_broken factorization_constraint(model[NodeLabel(sum, 4)]) ==
-              ((EdgeLabel(:out, nothing, nothing), EdgeLabel(:in, 1, nothing), EdgeLabel(:in, 2, nothing)),)
+        @test_broken factorization_constraint(model[NodeLabel(sum, 4)]) == ((
+            EdgeLabel(:out, nothing, nothing),
+            EdgeLabel(:in, 1, nothing),
+            EdgeLabel(:in, 2, nothing),
+        ),)
 
     end
 
@@ -1835,8 +1839,11 @@ include("model_zoo.jl")
         ctx = GraphPPL.getcontext(model)
         node = ctx[:sum_4]
         materialize_constraints!(model, node)
-        @test_broken factorization_constraint(model[node]) ==
-              ((EdgeLabel(:out, nothing, nothing), EdgeLabel(:in, 1, nothing), EdgeLabel(:in, 2, nothing)),)
+        @test_broken factorization_constraint(model[node]) == ((
+            EdgeLabel(:out, nothing, nothing),
+            EdgeLabel(:in, 1, nothing),
+            EdgeLabel(:in, 2, nothing),
+        ),)
 
         # Test 2: Test materialize with a MeanField Factorization constraint
         model = create_simple_model()
@@ -1852,8 +1859,11 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model, node)
-        @test_broken factorization_constraint(model[node]) ==
-              ((EdgeLabel(:out, nothing, nothing),), (EdgeLabel(:in, 1, nothing),), (EdgeLabel(:in, 2, nothing),))
+        @test_broken factorization_constraint(model[node]) == (
+            (EdgeLabel(:out, nothing, nothing),),
+            (EdgeLabel(:in, 1, nothing),),
+            (EdgeLabel(:in, 2, nothing),),
+        )
     end
 
     @testset "full_pipeline" begin
@@ -1883,8 +1893,11 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
-        @test_broken factorization_constraint(model[ctx[:sum_4]]) ==
-              ((EdgeLabel(:out, nothing, nothing),), (EdgeLabel(:in, 1, nothing),), (EdgeLabel(:in, 2, nothing),))
+        @test_broken factorization_constraint(model[ctx[:sum_4]]) == (
+            (EdgeLabel(:out, nothing, nothing),),
+            (EdgeLabel(:in, 1, nothing),),
+            (EdgeLabel(:in, 2, nothing),),
+        )
 
         # Test 2: Test that the full pipeline works with a FullFactorization constraint
         model = create_vector_model()
@@ -1901,8 +1914,11 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model)
-        @test_broken factorization_constraint(model[ctx[:sum_4]]) ==
-              ((EdgeLabel(:out, nothing, nothing), EdgeLabel(:in, 1, nothing), EdgeLabel(:in, 2, nothing)),)
+        @test_broken factorization_constraint(model[ctx[:sum_4]]) == ((
+            EdgeLabel(:out, nothing, nothing),
+            EdgeLabel(:in, 1, nothing),
+            EdgeLabel(:in, 2, nothing),
+        ),)
 
         # Test 3: Test that the full pipeline works with a FunctionalForm constraint
         model = create_vector_model()
@@ -1945,7 +1961,8 @@ include("model_zoo.jl")
         apply!(model, ctx, constraints)
         materialize_constraints!(model)
         node = label_for(model.graph, 5)
-        @test_broken factorization_constraint(model[node]) == ((EdgeLabel(:out, nothing, nothing),),
+        @test_broken factorization_constraint(model[node]) == (
+            (EdgeLabel(:out, nothing, nothing),),
             (EdgeLabel(:μ, nothing, nothing), EdgeLabel(:σ, nothing, nothing)),
         )
         @test fform_constraint(model[ctx[:x]]) == Normal

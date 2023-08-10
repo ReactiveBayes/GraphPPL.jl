@@ -1715,7 +1715,10 @@ include("model_zoo.jl")
                 __context__,
                 Normal,
                 y,
-                (μ = GraphPPL.ProxyLabel(:x, nothing, x), σ = GraphPPL.ProxyLabel(:σ, nothing, σ));
+                (
+                    μ = GraphPPL.ProxyLabel(:x, nothing, x),
+                    σ = GraphPPL.ProxyLabel(:σ, nothing, σ),
+                );
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
                     $((created_by = :(y ~ Normal(μ = x, σ = σ)),)),

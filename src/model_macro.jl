@@ -453,9 +453,9 @@ function proxy_args end
 function proxy_args(arg)
     if @capture(arg, lhs_ = rhs_)
         return proxy_args(lhs, rhs)
-    elseif @capture(arg, [ args__ ])
+    elseif @capture(arg, [args__])
         return Expr(:vect, map(proxy_args, args)...)
-    elseif @capture(arg, (args__, ))
+    elseif @capture(arg, (args__,))
         return Expr(:tuple, map(proxy_args, args)...)
     elseif @capture(arg, GraphPPL.MixedArguments(first_, second_))
         return :(GraphPPL.MixedArguments($(proxy_args(first)), $(proxy_args(second))))
@@ -468,7 +468,13 @@ function proxy_args(lhs, rhs)
     if isa(rhs, Symbol)
         return :($lhs = GraphPPL.ProxyLabel($(QuoteNode(rhs)), nothing, $rhs))
     elseif @capture(rhs, rlabel_[index__])
-        return :($lhs = GraphPPL.ProxyLabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+        return :(
+            $lhs = GraphPPL.ProxyLabel(
+                $(QuoteNode(rlabel)),
+                $(Expr(:tuple, index...)),
+                $rlabel,
+            )
+        )
     end
     return :($lhs = $rhs)
 end

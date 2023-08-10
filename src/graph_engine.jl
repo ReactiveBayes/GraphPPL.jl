@@ -56,16 +56,14 @@ factorization_constraint(node::FactorNodeData) = node.options[:q]
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
 node_options(node::NodeData) = node.options
-
-# TODO: Benchmark NamedTuple{(name,)}((value,)))
-add_to_node_options!(node::NodeData, name::Symbol, value) = node.options = merge(node_options(node), (name => value,))
-
+add_to_node_options!(node::NodeData, name::Symbol, value) =
+    node.options = merge(node_options(node), (name => value,))
 
 
 struct ProxyLabel
     name::Symbol
-    index
-    proxied
+    index::Any
+    proxied::Any
 end
 
 getname(label::ProxyLabel) = label.name
@@ -101,7 +99,7 @@ Base.last(proxied, ::ProxyLabel) = proxied
 struct EdgeLabel
     name::Symbol
     index::Union{Int64,Nothing}
-    interface_value
+    interface_value::Any
 end
 
 getname(label::EdgeLabel) = label.name
@@ -259,13 +257,13 @@ struct Context
     depth::Int64
     fform::Function
     prefix::String
-    parent::Union{Context, Nothing}
-    children::Dict{Symbol, Context}
+    parent::Union{Context,Nothing}
+    children::Dict{Symbol,Context}
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
     tensor_variables::Dict{Symbol,ResizableArray}
-    factor_nodes::Dict{Symbol, NodeLabel}
-    proxies::Dict{Symbol, ProxyLabel}
+    factor_nodes::Dict{Symbol,NodeLabel}
+    proxies::Dict{Symbol,ProxyLabel}
 end
 
 fform(context::Context) = context.fform
@@ -313,12 +311,12 @@ getname(f::Function) = String(Symbol(f))
 
 Context(depth::Int, fform::Function, prefix::String, parent) =
     Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
-    
+
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1,
     model_fform,
     (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform),
-    parent
+    parent,
 )
 Context() = Context(0, identity, "", nothing)
 
@@ -326,7 +324,7 @@ haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
     haskey(context.vector_variables, key) ||
     haskey(context.tensor_variables, key) ||
-    haskey(context.factor_nodes, key) || 
+    haskey(context.factor_nodes, key) ||
     haskey(context.children, key)
 
 function Base.getindex(c::Context, key::Symbol)
@@ -442,17 +440,20 @@ add_to_child_context(
 add_to_child_context(
     child_context::Context,
     name_in_child::Symbol,
-    object_in_parent::ResizableArray{NodeLabel, V, 1},
+    object_in_parent::ResizableArray{NodeLabel,V,1},
 ) where {V} = child_context.vector_variables[name_in_child] = object_in_parent
 
 add_to_child_context(
     child_context::Context,
     name_in_child::Symbol,
-    object_in_parent::ResizableArray{NodeLabel, V, N},
-) where {V, N} = child_context.tensor_variables[name_in_child] = object_in_parent
+    object_in_parent::ResizableArray{NodeLabel,V,N},
+) where {V,N} = child_context.tensor_variables[name_in_child] = object_in_parent
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
-    child_context.proxies[name_in_child] = object_in_parent
+add_to_child_context(
+    child_context::Context,
+    name_in_child::Symbol,
+    object_in_parent::ProxyLabel,
+) = child_context.proxies[name_in_child] = object_in_parent
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) =
     nothing
@@ -479,7 +480,8 @@ check_variate_compatability(node::NodeLabel, index) = error(
     "Cannot call single random variable on the left-hand-side by an indexed statement",
 )
 
-check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
+check_variate_compatability(label::GraphPPL.ProxyLabel, index) =
+    check_variate_compatability(unroll(label), index)
 
 function check_variate_compatability(
     node::ResizableArray{NodeLabel,V,N},
@@ -678,12 +680,13 @@ iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
-    variable_node_id::Union{ProxyLabel, NodeLabel},
+    variable_node_id::Union{ProxyLabel,NodeLabel},
     interface_name::Symbol,
     interface_value;
     index = nothing,
 )
-    model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index, interface_value)
+    model.graph[unroll(variable_node_id), factor_node_id] =
+        EdgeLabel(interface_name, index, interface_value)
 end
 
 function add_edge!(
@@ -695,7 +698,14 @@ function add_edge!(
     index = 1,
 )
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, variable_node, interface_name, interface_value; index = index)
+        add_edge!(
+            model,
+            factor_node_id,
+            variable_node,
+            interface_name,
+            interface_value;
+            index = index,
+        )
         index += increase_index(variable_node)
     end
 end
@@ -999,7 +1009,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1023,7 +1033,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::MixedArguments;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1038,7 +1048,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1067,7 +1077,7 @@ make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
@@ -1091,21 +1101,22 @@ function make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
     __parent_options__ = nothing,
     __debug__ = false,
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    factor_node_id = add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
+    factor_node_id =
+        add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
     for (interface_name, interface_value) in iterator(interfaces)
         add_edge!(
             model,
             factor_node_id,
             GraphPPL.getifcreated(model, ctx, interface_value),
             interface_name,
-            interface_value
+            interface_value,
         )
     end
     add_factorization_constraint!(model, factor_node_id)
