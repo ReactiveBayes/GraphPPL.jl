@@ -11,7 +11,6 @@ using Test, GraphPPL
 
     include("utils.jl")
     include("resizable_array.jl")
-    include("bitset_tuple.jl")
     include("graph_engine.jl")
     include("model_macro.jl")
     include("constraints_engine.jl")

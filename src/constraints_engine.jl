@@ -2,6 +2,7 @@ export MeanField, FullFactorization
 
 using StaticArrays
 using Unrolled
+using BitSetTuples
 
 struct MeanField end
 
@@ -773,7 +774,7 @@ function convert_to_bitsets(neighbors::AbstractArray, constraint_labels::Abstrac
     label_indices = map(group -> map(x -> mapping[x], group), constraint_labels)        #Apparently this is faster than calling findall, but be sure to benchmark this in actual production code.
     constraint_sets = BitSetTuple(label_indices)
     complete!(constraint_sets, num_neighbors)
-    return convert_to_constraint(constraint_sets, num_neighbors)
+    return get_membership_sets(constraint_sets, num_neighbors)
 end
 
 """
@@ -976,7 +977,7 @@ function materialize_constraints!(
     node_data::FactorNodeData,
     constraint::BitSetTuple,
 )
-    constraint_set = Set(getconstraint(constraint)) #TODO test `unique``
+    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label; sorted = true)
     constraint = SA[constraint_set...]
     constraint = Tuple(sort(constraint, by = first))

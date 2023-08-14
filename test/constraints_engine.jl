@@ -6,6 +6,7 @@ using GraphPPL
 using MacroTools
 using StaticArrays
 using MetaGraphsNext
+using BitSetTuples
 
 include("model_zoo.jl")
 

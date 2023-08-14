@@ -2,6 +2,7 @@ using Graphs
 using MetaGraphsNext
 import Base:
     put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
+using BitSetTuples
 
 """
 The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
