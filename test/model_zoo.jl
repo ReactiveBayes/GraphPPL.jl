@@ -131,27 +131,26 @@ function create_tensor_model()
     return model
 end
 
-GraphPPL.@model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)
+@model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)
     w ~ exp(sin(x))
     z := exp(w)
 end
 
-GraphPPL.@model function second_submodel(a, b, c)
+@model function second_submodel(a, b, c)
     w ~ Normal(a, b)
     c ~ Normal(w, 1)
     d := exp(c)
 end
 
-GraphPPL.@model function prior()
+@model function prior(a)
     a ~ Normal(0, 1)
-    return a
 end
 
-GraphPPL.@model function broadcastable(μ, σ, out)
+@model function broadcastable(μ, σ, out)
     out ~ Normal(μ, σ)
 end
 
-GraphPPL.@model function broadcaster(out)
+@model function broadcaster(out)
     local μ
     local σ
     for i = 1:10

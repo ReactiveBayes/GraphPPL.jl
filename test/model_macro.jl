@@ -1838,39 +1838,6 @@ include("model_zoo.jl")
 
     end
 
-    @testset "extract_interfaces(::AbstractArray, ::Expr)" begin
-        import GraphPPL: extract_interfaces
-
-        interfaces = [:x, :y]
-        ms_body = quote
-            some
-            unimportant
-            lines
-            return z
-        end
-        @test extract_interfaces(interfaces, ms_body) == [:x, :y, :z]
-
-        interfaces = [:x, :y]
-        ms_body = quote
-            some
-            unimportant
-            lines
-            return
-        end
-        @test extract_interfaces(interfaces, ms_body) == [:x, :y]
-
-        interfaces = [:x, :y]
-        ms_body = quote
-            some
-            unimportant
-            lines
-            return z, a, b, c
-        end
-        @test extract_interfaces(interfaces, ms_body) == [:x, :y, :z, :a, :b, :c]
-
-
-    end
-
     @testset "options_vector_to_named_tuple" begin
         import GraphPPL: options_vector_to_named_tuple
 
