@@ -3,6 +3,7 @@ using MetaGraphsNext
 import Base:
     put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 using BitSetTuples
+using Static
 
 """
     Model(graph::MetaGraph)
@@ -184,7 +185,7 @@ function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
     fform = model[node].fform
     indices = [e.index for e in edges]
     names = unique([e.name for e in edges])
-    interfaces = GraphPPL.interfaces(fform, Val(length(names)))
+    interfaces = GraphPPL.interfaces(fform, static(length(names)))
     max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices.!=nothing]) : 1
     perm =
         sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
@@ -201,9 +202,9 @@ __neighbors(model::Model, node::NodeLabel; sorted = false) =
 __neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
     __get_neighbors(model, node)
 __neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
-    __neighbors(model, node, Val(sorted))
-__neighbors(model::Model, node::NodeLabel, ::Val{false}) = __get_neighbors(model, node)
-function __neighbors(model::Model, node::NodeLabel, ::Val{true})
+    __neighbors(model, node, static(sorted))
+__neighbors(model::Model, node::NodeLabel, ::False) = __get_neighbors(model, node)
+function __neighbors(model::Model, node::NodeLabel, ::True)
     neighbors = __get_neighbors(model, node)
     edges = __get_edges(model, node, neighbors)
     perm = __sortperm(model, node, edges)
@@ -221,10 +222,10 @@ __get_edges(model::Model, node::NodeLabel, neighbors) =
 __edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
     __get_edges(model, node, __get_neighbors(model, node))
 __edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
-    __edges(model, node, Val(sorted))
-__edges(model::Model, node::NodeLabel, ::Val{false}) =
+    __edges(model, node, static(sorted))
+__edges(model::Model, node::NodeLabel, ::False) =
     __get_edges(model, node, __get_neighbors(model, node))
-function __edges(model::Model, node::NodeLabel, ::Val{true})
+function __edges(model::Model, node::NodeLabel, ::True)
     neighbors = __get_neighbors(model, node)
     edges = __get_edges(model, node, neighbors)
     perm = __sortperm(model, node, edges)
@@ -746,7 +747,7 @@ end
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
-interfaces(any_f, ::Val{1}) = (:out,)
+interfaces(any_f, ::StaticInt{1}) = (:out,)
 interfaces(any_f, any_val) = (:out, :in)
 
 """
@@ -756,13 +757,13 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 
 # Arguments
 - `node_type`: The type of the node as a Function object.
-- `val`: The value of the amount of interfaces the node is supposed to have. This is a `Val` object.
+- `val`: The value of the amount of interfaces the node is supposed to have. This is a `Static.StaticInt` object.
 - `known_interfaces`: The known interfaces for the node.
 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(node_type, val::Val, known_interfaces)
+function missing_interfaces(node_type, val::StaticInt{N} where N, known_interfaces)
     all_interfaces = GraphPPL.interfaces(node_type, val)
     missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
     return missing_interfaces
@@ -771,10 +772,11 @@ end
 
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface =
-        GraphPPL.missing_interfaces(fform, Val(length(rhs_interfaces) + 1), rhs_interfaces)
+        GraphPPL.missing_interfaces(fform, static(length(rhs_interfaces) + 1), rhs_interfaces)
     @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(missing_interface)
-    return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
+    # TODO check if we can construct NamedTuples a bit faster somewhere.
+    return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}(( 
         lhs_interface,
         values(rhs_interfaces)...,
     ))
@@ -793,30 +795,30 @@ is_nodelabel(x::ProxyLabel) = true
 
 function contains_nodelabel(collection::AbstractArray)
     if any(element -> is_nodelabel(element), collection)
-        return Val(true)
+        return True()
     else
-        return Val(false)
+        return False()
     end
 end
 
 function contains_nodelabel(collection::NamedTuple)
     if any(element -> is_nodelabel(element), values(collection))
-        return Val(true)
+        return True() 
     else
-        return Val(false)
+        return False() 
     end
 end
 
 function contains_nodelabel(collection::MixedArguments)
     if any(element -> is_nodelabel(element), collection.args) ||
        any(element -> is_nodelabel(element), values(collection.kwargs))
-        return Val(true)
+        return True() 
     else
-        return Val(false)
+        return False() 
     end
 end
 
-# Two-level dispatch for make_node!
+# TODO improve documentation
 # First check if node is Composite or Atomic
 make_node!(
     model::Model,
@@ -848,7 +850,7 @@ make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(
-    Val(true),
+    True(),
     nodetype,
     Stochastic(),
     model,
@@ -870,7 +872,7 @@ make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(
-    Val(true),
+    True(),
     Atomic(),
     Stochastic(),
     model,
@@ -930,7 +932,7 @@ make_node!(
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
 make_node!(
-    ::Val{false},
+    ::False,
     ::Atomic,
     ::Deterministic,
     model::Model,
@@ -943,7 +945,7 @@ make_node!(
 ) = fform(rhs_interfaces...)
 
 make_node!(
-    ::Val{false},
+    ::False,
     ::Atomic,
     ::Deterministic,
     model::Model,
@@ -956,7 +958,7 @@ make_node!(
 ) = fform(; rhs_interfaces...)
 
 make_node!(
-    ::Val{false},
+    ::False,
     ::Atomic,
     ::Deterministic,
     model::Model,
@@ -971,8 +973,8 @@ make_node!(
 # If a node is Stochastic, we always materialize.
 
 make_node!(
-    atomic::Atomic,
-    stochastic::Stochastic,
+    node_type::Atomic,
+    behaviour::Stochastic,
     model::Model,
     ctx::Context,
     fform,
@@ -981,9 +983,9 @@ make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(
-    Val(true),
-    atomic,
-    stochastic,
+    True(),
+    Atomic(),
+    Stochastic(),
     model,
     ctx,
     fform,
@@ -995,7 +997,7 @@ make_node!(
 
 # If we have to materialize but lhs_interface is nothing, we create a variable for it
 function make_node!(
-    ::Val{true},
+    materialize::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
     model::Model,
@@ -1008,7 +1010,7 @@ function make_node!(
 )
     lhs_interface = lhs_interface = add_variable_node!(model, ctx, gensym(:var))
     return make_node!(
-        Val(true),
+        True(),
         node_type,
         behaviour,
         model,
@@ -1023,7 +1025,7 @@ end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
 make_node!(
-    ::Val{true},
+    materialize::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
     model::Model,
@@ -1034,7 +1036,7 @@ make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 ) = make_node!(
-    Val(true),
+    True(),
     node_type,
     behaviour,
     model,
@@ -1047,7 +1049,7 @@ make_node!(
 )
 
 make_node!(
-    ::Val{true},
+    ::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
     model::Model,
@@ -1062,9 +1064,9 @@ make_node!(
 )
 
 make_node!(
-    ::Val{true},
-    ::Composite,
-    ::Stochastic,
+    materialize::True,
+    node_type::Composite,
+    behaviour::Stochastic,
     model::Model,
     ctx::Context,
     fform,
@@ -1075,9 +1077,9 @@ make_node!(
 ) =
     length(rhs_interfaces) == 0 ?
     make_node!(
-        Val(true),
+        True(),
         Composite(),
-        Stochastic(),
+        Stochastic(), 
         model,
         ctx,
         fform,
@@ -1091,9 +1093,9 @@ make_node!(
     )
 
 make_node!(
-    ::Val{true},
-    ::Composite,
-    ::Stochastic,
+    materialize::True,
+    node_type::Composite,
+    behaviour::Stochastic,
     model::Model,
     ctx::Context,
     fform,
@@ -1108,7 +1110,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces,
-    Val(length(rhs_interfaces) + 1);
+    static(length(rhs_interfaces) + 1);
     __parent_options__ = __parent_options__,
     __debug__ = __debug__,
 )
@@ -1128,9 +1130,9 @@ Make a new factor node in the Model and specified Context, attach it to the spec
 - `__debug__::Bool = false`: Whether to attach debug information to the factor node.
 """
 function make_node!(
-    ::Val{true},
-    ::Atomic,
-    ::NodeBehaviour,
+    materialize::True,
+    node_type::Atomic,
+    behaviour::NodeBehaviour,
     model::Model,
     ctx::Context,
     fform,

@@ -1,6 +1,7 @@
 export @model
 import MacroTools: postwalk, @capture, walk
 using NamedTupleTools
+using Static
 
 
 
@@ -728,7 +729,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
+        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
@@ -746,6 +747,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
         end
     end
     make_node_function = quote
+
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
             __model__::GraphPPL.Model,
@@ -753,7 +755,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             ::typeof($ms_name),
             __lhs_interface__::GraphPPL.NodeLabel,
             __rhs_interfaces__::NamedTuple,
-            ::Val{$(length(ms_args))};
+            ::GraphPPL.StaticInt{$(length(ms_args))};
             __parent_options__ = nothing,
             __debug__ = false,
         )
