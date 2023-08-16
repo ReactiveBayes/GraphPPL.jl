@@ -120,7 +120,7 @@ function convert_meta_object(e::Expr)
 end
 
 function meta_macro_interior(meta_body::Expr)
-    meta_body = apply_pipeline(meta_body, check_for_returns)
+    meta_body = apply_pipeline(meta_body, (x) -> check_for_returns(x; tag = "meta"))
     meta_body = add_meta_construction(meta_body)
     meta_body = apply_pipeline(meta_body, create_submodel_meta)
     meta_body = apply_pipeline(meta_body, convert_meta_variables)

@@ -99,6 +99,13 @@ function check_reserved_variable_names_model(e::Expr)
     return e
 end
 
+function check_for_returns(e::Expr; tag="model")
+    if e.head == :return
+        error("The $tag macro does not support return statements.")
+    end
+    return e
+end
+
 """
     warn_datavar_constvar_randomvar(expr::Expr)
 
@@ -593,32 +600,6 @@ what_walk(::typeof(convert_tilde_expression)) =
 extend(ms_args::AbstractArray, new_interface::Symbol) = vcat(ms_args, new_interface)
 extend(ms_args::AbstractArray, new_interface::Expr) = vcat(ms_args, new_interface.args)
 
-"""
-    extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
-
-Extracts the output interfaces from a model macro expression body and appends them to the `ms_args` array.
-
-# Arguments
-- `ms_args::AbstractArray`: An array of model macro arguments.
-- `ms_body::Expr`: The expression body of a model macro.
-
-# Returns
-- `ms_args::AbstractArray`: The updated array of model macro arguments.
-"""
-function extract_interfaces(ms_args::AbstractArray, ms_body::Expr)
-    prewalk(ms_body) do (expression)
-        if @capture(expression, return)
-            return expression
-        elseif @capture(expression, return output_interfaces_)
-            ms_args = extend(ms_args, output_interfaces)
-            return expression
-        else
-            return expression
-        end
-    end
-    return ms_args
-end
-
 
 """
     options_vector_to_named_tuple(options::AbstractArray)
@@ -770,12 +751,12 @@ function model_macro_interior(model_specification)
         end)
     ) || error("Model specification language requires full function definition")
 
-    ms_args = extract_interfaces(ms_args, ms_body)
     num_interfaces = Base.length(ms_args)
     boilerplate_functions =
         GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
     ms_body = apply_pipeline(ms_body, check_reserved_variable_names_model)
+    ms_body = apply_pipeline(ms_body, check_for_returns)
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
     ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
