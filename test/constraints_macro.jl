@@ -49,7 +49,7 @@ include("model_zoo.jl")
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
-            return __constraints__
+            __constraints__
         end
         @test_expression_generating add_constraints_construction(input) output
 
@@ -70,7 +70,7 @@ include("model_zoo.jl")
                 q(x, y) = q(x)q(y)
                 q(x)::PointMass
             end
-            return __constraints__
+            __constraints__
         end
         @test_expression_generating add_constraints_construction(input) output
     end
@@ -710,10 +710,24 @@ include("model_zoo.jl")
                     push!(__outer_constraints__, __constraints__)
                 end
             end
-            return __constraints__
+            __constraints__
         end
 
         @test_expression_generating constraints_macro_interior(input) output
+    end
+    
+    @testset "constraints_macro" begin
+        
+        import GraphPPL: Constraints
+        constraints = @constraints begin
+            q(x, y) = q(x)q(y)
+            q(x) = q(x[begin]) .. q(x[end])
+            q(μ) :: PointMass
+            for q  in submodel
+                q(u, v, k) = q(u)q(v)q(k)
+            end
+        end
+        @test constraints isa Constraints
     end
 end
 
