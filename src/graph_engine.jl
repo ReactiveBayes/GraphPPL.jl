@@ -4,8 +4,17 @@ import Base:
     put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 
 """
-The Model struct contains all information about the Factor Graph and contains a MetaGraph object and a counter. 
-The counter is implemented because it allows for an efficient `gensym` implementation
+    Model(graph::MetaGraph)
+
+Materialized Factor Graph type.
+
+A structure representing a probabilistic graphical model. It contains a `MetaGraph` object
+representing the factor graph and a `Base.RefValue{Int64}` object to keep track of the number
+of nodes in the graph.
+
+Fields:
+- `graph`: A `MetaGraph` object representing the factor graph.
+- `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
 struct Model
     graph::MetaGraph
@@ -14,6 +23,8 @@ end
 
 """
     NodeLabel(name::Symbol, index::Int64)
+
+Unique identifier for a node in a probabilistic graphical model.
 
 A structure representing a node in a probabilistic graphical model. It contains a symbol
 representing the name of the node, an integer representing the unique identifier of the node,
@@ -35,12 +46,21 @@ iterate(label::NodeLabel, any) = nothing
 
 Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
 
+"""
+    VariableNodeData(name::Symbol, options::NamedTuple)
 
+Data associated with a variable node in a probabilistic graphical model.
+"""
 mutable struct VariableNodeData
     name::Symbol
     options::NamedTuple
 end
 
+"""
+    FactorNodeData(fform::Any, options::NamedTuple)
+
+Data associated with a factor node in a probabilistic graphical model.
+"""
 mutable struct FactorNodeData
     fform::Any
     options::NamedTuple
@@ -63,20 +83,6 @@ to_symbol(label::EdgeLabel, ::Int64) =
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
-
-
-
-""" 
-    Model(graph::MetaGraph)
-
-A structure representing a probabilistic graphical model. It contains a `MetaGraph` object
-representing the factor graph and a `Base.RefValue{Int64}` object to keep track of the number
-of nodes in the graph.
-
-Fields:
-- `graph`: A `MetaGraph` object representing the factor graph.
-- `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
-"""
 Model(graph::MetaGraph) = Model(graph, Base.RefValue(0))
 
 
@@ -208,6 +214,12 @@ end
 
 to_symbol(id::NodeLabel) = Symbol(String(Symbol(getname(id))) * "_" * string(id.index))
 
+"""
+    Context
+
+Contains all information about a submodel in a probabilistic graphical model.
+
+"""
 struct Context
     depth::Int64
     fform::Function
@@ -352,7 +364,9 @@ copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTu
 
 Copy the variables in the Markov blanket of a parent context to a child context, using a mapping specified by a named tuple.
 
-The Markov blanket of a node or model in a Factor Graph is defined as the set of its outgoing interfaces. This function copies the variables in the Markov blanket of the parent context specified by the named tuple `interfaces` to the child context `child_context`, by setting each child variable in `child_context.individual_variables` to its corresponding parent variable in `interfaces`.
+The Markov blanket of a node or model in a Factor Graph is defined as the set of its outgoing interfaces. 
+This function copies the variables in the Markov blanket of the parent context specified by the named tuple `interfaces` to the child context `child_context`, 
+    by setting each child variable in `child_context.individual_variables` to its corresponding parent variable in `interfaces`.
 
 # Arguments
 - `child_context::Context`: The child context to which to copy the Markov blanket variables.
@@ -429,7 +443,8 @@ check_variate_compatability(
 
 Get or create a variable (edge) from a factor graph model and context, using an index if provided.
 
-This function searches for a variable (edge) in the factor graph model and context specified by the arguments `model` and `context`. If the variable exists, it returns it. Otherwise, it creates a new variable and returns it.
+This function searches for a variable (edge) in the factor graph model and context specified by the arguments `model` and `context`. If the variable exists, 
+it returns it. Otherwise, it creates a new variable and returns it.
 
 # Arguments
 - `model::Model`: The factor graph model to search for or create the variable in.
@@ -994,7 +1009,20 @@ make_node!(
     __debug__ = __debug__,
 )
 
-# If node has to be materialized and rhs_interfaces is a NamedTuple we actually create a node in the FFG. 
+"""
+    make_node!
+
+Make a new factor node in the Model and specified Context, attach it to the specified interfaces, and return the interface that is on the lhs of the `~` operator.
+
+# Arguments
+- `model::Model`: The model to add the node to.
+- `ctx::Context`: The context in which to add the node.
+- `fform`: The function that the node represents.
+- `lhs_interface`: The interface that is on the lhs of the `~` operator.
+- `rhs_interfaces`: The interfaces that are the arguments of fform on the rhs of the `~` operator.
+- `__parent_options__::NamedTuple = nothing`: The options to attach to the node.
+- `__debug__::Bool = false`: Whether to attach debug information to the factor node.
+"""
 function make_node!(
     ::Val{true},
     ::Atomic,
