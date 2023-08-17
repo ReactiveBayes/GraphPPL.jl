@@ -9,7 +9,7 @@ include("model_zoo.jl")
 @testset ExtendedTestSet "constraints_macro.jl" begin
 
     @testset "check_for_returns" begin
-        import GraphPPL: check_for_returns, apply_pipeline
+        import GraphPPL: check_for_returns_constraints, apply_pipeline
 
         # Test 1: check_for_returns with no returns
         input = quote
@@ -17,7 +17,7 @@ include("model_zoo.jl")
             q(x)::PointMass
         end
         output = input
-        @test_expression_generating apply_pipeline(input, check_for_returns) output
+        @test_expression_generating apply_pipeline(input, check_for_returns_constraints) output
 
         # Test 2: check_for_returns with one return
         input = quote
@@ -25,7 +25,7 @@ include("model_zoo.jl")
             q(x)::PointMass
             return q(x)
         end
-        @test_throws ErrorException apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
 
         # Test 3: check_for_returns with two returns
         input = quote
@@ -34,7 +34,7 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
-        @test_throws ErrorException apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
     end
 
     @testset "add_constraints_construction" begin

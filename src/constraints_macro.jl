@@ -13,6 +13,8 @@ function check_reserved_variable_names_constraints(e::Expr)
     return e
 end
 
+check_for_returns_constraints = (x) -> check_for_returns(x; tag="constraints")
+
 function add_constraints_construction(e::Expr)
     return quote
         __constraints__ = GraphPPL.Constraints()
@@ -149,8 +151,10 @@ function convert_factorization_constraints(e::Expr)
     return e
 end
 
+
+
 function constraints_macro_interior(cs_body::Expr)
-    cs_body = apply_pipeline(cs_body, (x) -> check_for_returns(x; tag="constraints"))
+    cs_body = apply_pipeline(cs_body, check_for_returns_constraints)
     cs_body = add_constraints_construction(cs_body)
     cs_body = apply_pipeline(cs_body, replace_begin_end)
     cs_body = apply_pipeline(cs_body, create_submodel_constraints)

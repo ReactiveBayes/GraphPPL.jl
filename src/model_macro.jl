@@ -307,18 +307,18 @@ end
 convert_to_anonymous(e, created_by) = e
 
 """
-    convert_function_argument_in_rhs(e::Expr)
+    convert_anonymous_variables(e::Expr)
 
 Convert a function argument in the right-hand side of an expression to an anonymous variable. This function is used to convert function calls in the arguments of node creations to anonymous variables in the graph.
 
 # Example
     
-    ```julia
-    julia> convert_function_argument_in_rhs(:(x ~ Normal(μ, sqrt(σ2)) where {created_by=:(Normal(μ, sqrt(σ2)))}))
+    ```jldoctest
+    julia> convert_anonymous_variables(:(x ~ Normal(μ, sqrt(σ2)) where {created_by=:(Normal(μ, sqrt(σ2)))}))
     :(x ~ (Normal(μ, anon_1 ~ (sqrt(σ2) where {anonymous = true, created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2)))))})) where (created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2))))))))
     ```
 """
-function convert_function_argument_in_rhs(e::Expr)
+function convert_anonymous_variables(e::Expr)
     if @capture(
         e,
         (lhs_ ~ fform_(nargs__) where {options__}) |
@@ -340,7 +340,7 @@ function convert_function_argument_in_rhs(e::Expr)
 end
 
 # This is necessary to ensure that we don't change the `created_by` option as well.
-what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence((
+what_walk(::typeof(convert_anonymous_variables)) = walk_until_occurrence((
     :(lhs_ ~ rhs_ where {options__}),
     :(lhs_ .~ rhs_ where {options__}),
 ))
@@ -806,7 +806,7 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
-    ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
+    ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
 

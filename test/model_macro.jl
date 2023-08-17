@@ -69,6 +69,28 @@ include("model_zoo.jl")
         end
         @test apply_pipeline(input, check_reserved_variable_names_model) == input
     end
+    
+
+    @testset "check_for_returns" begin
+        import GraphPPL: check_for_returns, apply_pipeline
+
+        input = quote
+            x = 1
+            return x
+        end
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
+
+        input = quote
+            x = 1
+            return
+        end
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
+
+        input = quote
+            x = 1
+        end
+        @test apply_pipeline(input, check_for_returns) == input
+    end
 
     @testset "warn_datavar_constvar_randomvar" begin
         import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
@@ -875,8 +897,8 @@ include("model_zoo.jl")
         @test_expression_generating convert_to_anonymous(input, created_by) output
     end
 
-    @testset "convert_function_argument_in_rhs" begin
-        import GraphPPL: convert_function_argument_in_rhs, apply_pipeline
+    @testset "convert_anonymous_variables" begin
+        import GraphPPL: convert_anonymous_variables, apply_pipeline
 
         #Test 1: Input expression with a function call in rhs arguments
         input = quote
@@ -894,7 +916,7 @@ include("model_zoo.jl")
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 2: Input expression without pattern matching
         input = quote
@@ -903,7 +925,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 3: Input expression with a function call as kwargs
         input = quote
@@ -927,7 +949,7 @@ include("model_zoo.jl")
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 4: Input expression without pattern matching and kwargs
         input = quote
@@ -936,7 +958,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(; μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 5: Input expression with multiple function calls in rhs arguments
         input = quote
@@ -971,7 +993,7 @@ include("model_zoo.jl")
                 end,
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 6: Input expression with multiple function calls in rhs arguments and kwargs
         input = quote
@@ -1006,7 +1028,7 @@ include("model_zoo.jl")
                 end,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 7: Input expression with nested function call in rhs arguments
         input = quote
@@ -1041,7 +1063,7 @@ include("model_zoo.jl")
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
 
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
         input = quote
@@ -1086,14 +1108,14 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         # Test 9: Input expression with arithmetic indexed call on rhs
         input = quote
             x ~ Normal(x[i-1], 1) where {created_by=(x~Normal(y[i-1], 1))}
         end
         output = input
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         # Test 10: Input expression with broadcasted call
         input = quote
@@ -1138,7 +1160,7 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     end
 
