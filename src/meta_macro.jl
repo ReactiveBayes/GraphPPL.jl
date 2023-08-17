@@ -1,7 +1,7 @@
 export @meta
 using MacroTools
 
-check_for_returns_meta = (x) -> check_for_returns(x; tag="meta")
+check_for_returns_meta = (x) -> check_for_returns(x; tag = "meta")
 
 """
     add_meta_construction(e::Expr)

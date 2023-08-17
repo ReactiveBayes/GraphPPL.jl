@@ -13,7 +13,7 @@ function check_reserved_variable_names_constraints(e::Expr)
     return e
 end
 
-check_for_returns_constraints = (x) -> check_for_returns(x; tag="constraints")
+check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 
 function add_constraints_construction(e::Expr)
     return quote

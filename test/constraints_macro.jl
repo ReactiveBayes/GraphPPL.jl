@@ -25,7 +25,9 @@ include("model_zoo.jl")
             q(x)::PointMass
             return q(x)
         end
-        @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
+        @test_throws ErrorException(
+            "The constraints macro does not support return statements.",
+        ) apply_pipeline(input, check_for_returns_constraints)
 
         # Test 3: check_for_returns with two returns
         input = quote
@@ -34,7 +36,9 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
-        @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
+        @test_throws ErrorException(
+            "The constraints macro does not support return statements.",
+        ) apply_pipeline(input, check_for_returns_constraints)
     end
 
     @testset "add_constraints_construction" begin
@@ -715,15 +719,15 @@ include("model_zoo.jl")
 
         @test_expression_generating constraints_macro_interior(input) output
     end
-    
+
     @testset "constraints_macro" begin
-        
+
         import GraphPPL: Constraints
         constraints = @constraints begin
             q(x, y) = q(x)q(y)
             q(x) = q(x[begin]) .. q(x[end])
-            q(μ) :: PointMass
-            for q  in submodel
+            q(μ)::PointMass
+            for q in submodel
                 q(u, v, k) = q(u)q(v)q(k)
             end
         end

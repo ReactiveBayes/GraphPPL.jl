@@ -69,7 +69,7 @@ include("model_zoo.jl")
         end
         @test apply_pipeline(input, check_reserved_variable_names_model) == input
     end
-    
+
 
     @testset "check_for_returns" begin
         import GraphPPL: check_for_returns, apply_pipeline
@@ -78,13 +78,19 @@ include("model_zoo.jl")
             x = 1
             return x
         end
-        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns,
+        )
 
         input = quote
             x = 1
             return
         end
-        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns,
+        )
 
         input = quote
             x = 1
@@ -1439,7 +1445,8 @@ include("model_zoo.jl")
 
         function bar end
         GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = (:in1, :in2, :out)
-        @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+        @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) ==
+              []
     end
 
     @testset "keyword_expressions_to_named_tuple" begin

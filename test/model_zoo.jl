@@ -1,6 +1,7 @@
 using GraphPPL
 using MacroTools
 using Static
+using Distributions
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -13,16 +14,7 @@ struct PointMass end
 struct ArbitraryNode end
 GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
-struct Normal
-    μ::Number
-    σ::Number
-end
 struct SomeMeta end
-
-GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
-GraphPPL.interfaces(::Type{Normal}, ::StaticInt{3}) = (:out, :μ, :σ)
-GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Normal}, interface_values) =
-    NamedTuple{(:μ, :σ)}(interface_values)
 
 struct NormalMeanVariance end
 struct NormalMeanPrecision end
@@ -31,16 +23,6 @@ GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = (:out, :μ, :�
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = (:out, :μ, :τ)
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
-
-struct Gamma
-    α::Number
-    β::Number
-end
-
-GraphPPL.NodeBehaviour(::Type{Gamma}) = GraphPPL.Stochastic()
-GraphPPL.interfaces(::Type{Gamma}, ::StaticInt{3}) = (:out, :α, :β)
-GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Gamma}, interface_values) =
-    NamedTuple{(:α, :β)}(interface_values)
 
 struct GammaShapeRate end
 struct GammaShapeScale end
@@ -130,6 +112,11 @@ function create_tensor_model()
         __parent_options__ = nothing,
     )
     return model
+end
+
+@model function gcv(κ, ω, z, x, y)
+    log_σ = κ * z + ω
+    y ~ Normal(x, exp(log_σ))
 end
 
 @model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)

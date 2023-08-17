@@ -15,13 +15,16 @@ include("model_zoo.jl")
             Normal(x, y) -> some_meta()
         end
         @test_expression_generating apply_pipeline(input, check_for_returns_meta) input
-        
+
         # Test 2: check_for_returns_meta with a return statement
         input = quote
             Normal(x, y) -> some_meta()
             return
         end
-        @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(input, check_for_returns_meta)
+        @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns_meta,
+        )
 
     end
     @testset "add_meta_constructor" begin

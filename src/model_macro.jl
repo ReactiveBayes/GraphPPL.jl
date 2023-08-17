@@ -101,7 +101,7 @@ function check_reserved_variable_names_model(e::Expr)
     return e
 end
 
-function check_for_returns(e::Expr; tag="model")
+function check_for_returns(e::Expr; tag = "model")
     if e.head == :return
         error("The $tag macro does not support return statements.")
     end
@@ -729,7 +729,8 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = Tuple($ms_args)
+        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
+            Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
@@ -780,6 +781,17 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             $ms_body
             return __lhs_interface__
         end
+        function GraphPPL.materialize_factor_node!(
+            __model__::GraphPPL.Model,
+            __context__::GraphPPL.Context,
+            ::typeof($ms_name),
+            __interfaces__::NamedTuple,
+            ::GraphPPL.StaticInt{$(length(ms_args))};
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
+            $ms_body
+        end
     end
     return make_node_function
 end
@@ -809,9 +821,7 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
-
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
-
     result = quote
         $boilerplate_functions
         $make_node_function
