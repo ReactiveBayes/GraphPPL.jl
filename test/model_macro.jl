@@ -2066,6 +2066,19 @@ include("model_zoo.jl")
             __model__[ctx[:model_with_deep_anonymous_call_3][:constvar_6]],
         )[:value] == Matrix{Float64}(Diagonal(ones(4)))
         @test GraphPPL.nv(__model__) == 8 && GraphPPL.ne(__model__) == 6
+
+
+        # Test add_terminated_submodel!
+        __model__ = create_model()
+        __context__ = getcontext(__model__)
+        for i = 1:10
+            y = getorcreate!(__model__, __context__, :y, 1)
+        end
+        GraphPPL.add_terminated_submodel!(__model__, __context__, hgf, (y = y,), static(1))
+        @test haskey(__context__, :ω_2) &&
+              haskey(__context__, :x_1) &&
+              haskey(__context__, :x_2) &&
+              haskey(__context__, :x_3)
     end
 end
 end

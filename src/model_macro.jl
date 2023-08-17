@@ -92,6 +92,7 @@ function check_reserved_variable_names_model(e::Expr)
             :(__lhs_interface__),
             :(__rhs_interfaces__),
             :(__interfaces__),
+            :(__n_interfaces__),
         ],
     )
         error(
@@ -756,7 +757,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             ::typeof($ms_name),
             __lhs_interface__::GraphPPL.NodeLabel,
             __rhs_interfaces__::NamedTuple,
-            ::GraphPPL.StaticInt{$(length(ms_args))};
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))};
             __parent_options__ = nothing,
             __debug__ = false,
         )
@@ -765,7 +766,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __lhs_interface__,
                 __rhs_interfaces__,
             )
-            $(init_input_arguments...)
+            # $(init_input_arguments...)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(
@@ -778,10 +779,18 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __parent_options__ == nothing ? nothing :
                 (parent_options = __parent_options__,)
 
-            $ms_body
+            GraphPPL.add_terminated_submodel!(
+                __model__,
+                __context__,
+                $ms_name,
+                __interfaces__,
+                __n_interfaces__;
+                __parent_options__ = __parent_options__,
+                __debug__ = __debug__,
+            )
             return __lhs_interface__
         end
-        function GraphPPL.materialize_factor_node!(
+        function GraphPPL.add_terminated_submodel!(
             __model__::GraphPPL.Model,
             __context__::GraphPPL.Context,
             ::typeof($ms_name),
@@ -790,6 +799,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __parent_options__ = nothing,
             __debug__ = false,
         )
+            $(init_input_arguments...)
             $ms_body
         end
     end

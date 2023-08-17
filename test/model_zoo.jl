@@ -115,8 +115,35 @@ function create_tensor_model()
 end
 
 @model function gcv(κ, ω, z, x, y)
-    log_σ = κ * z + ω
+    log_σ := κ * z + ω
     y ~ Normal(x, exp(log_σ))
+end
+
+@model function gcv_lm(y, x_prev, x_next, z, ω, κ)
+    x_next ~ gcv(x = x_prev, z = z, ω = ω, κ = κ)
+    y ~ Normal(x_next, 1)
+end
+
+@model function hgf(y)
+
+    # Specify priors
+
+    ξ ~ Gamma(1, 1)
+    ω_1 ~ Normal(0, 1)
+    ω_2 ~ Normal(0, 1)
+    κ_1 ~ Normal(0, 1)
+    κ_2 ~ Normal(0, 1)
+    x_1[1] ~ Normal(0, 1)
+    x_2[1] ~ Normal(0, 1)
+    x_3[1] ~ Normal(0, 1)
+
+    # Specify generative model
+
+    for i = 2:length(y)+1
+        x_3[i] ~ Normal(μ = x_3[i-1], τ = ξ)
+        x_2[i] ~ gcv(x = x_2[i-1], z = x_3[i], ω = ω_2, κ = κ_2)
+        x_1[i] ~ gcv_lm(x_prev = x_1[i-1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i-1])
+    end
 end
 
 @model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)

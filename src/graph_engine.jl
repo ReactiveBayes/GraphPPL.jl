@@ -1179,6 +1179,8 @@ function materialize_factor_node!(
     add_factorization_constraint!(model, factor_node_id)
 end
 
+function add_terminated_submodel! end
+
 """
     prune!(m::Model)
 
