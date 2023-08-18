@@ -802,6 +802,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             )
             return __lhs_interface__
         end
+        
         function GraphPPL.add_terminated_submodel!(
             __model__::GraphPPL.Model,
             __context__::GraphPPL.Context,

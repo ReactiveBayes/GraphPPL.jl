@@ -32,91 +32,41 @@ GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = (:out, :α, :θ)
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :β)}) = GammaShapeRate
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 
-function create_simple_model()
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
-    x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
-    y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-    out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        +,
-        out,
-        [x, y];
-        __debug__ = false,
-        __parent_options__ = NamedTuple{}(),
-    )
-    return model
+function create_terminated_model(fform)
+    __model__ = GraphPPL.create_model()
+    __context__ = GraphPPL.getcontext(__model__)
+    GraphPPL.add_terminated_submodel!(__model__, __context__, fform, NamedTuple())
+    return __model__
 end
 
-function create_vector_model()
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
+@model function simple_model()
+    x ~ Normal(0, 1)
+    y ~ Gamma(1, 1)
+    z ~ Normal(x, y)
+end
+
+@model function vector_model()
     local x
     local y
     for i = 1:3
-        x = GraphPPL.getorcreate!(model, ctx, :x, i)
-        y = GraphPPL.getorcreate!(model, ctx, :y, i)
-        x = GraphPPL.getorcreate!(model, ctx, :x, i + 1)
-        GraphPPL.make_node!(
-            model,
-            ctx,
-            +,
-            x[i+1],
-            [x[i], y[i]];
-            __debug__ = false,
-            __parent_options__ = nothing,
-        )
+        x[i] ~ Normal(0, 1)
+        y[i] ~ Gamma(1, 1)
+        z[i] ~ Normal(x[i], y[i])
     end
-    out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        +,
-        out,
-        [x[4], y[3]];
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    return model
 end
 
-function create_tensor_model()
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
+@model function tensor_model()
     local x
     local y
     for i = 1:3
-        x = GraphPPL.getorcreate!(model, ctx, :x, i, i)
-        y = GraphPPL.getorcreate!(model, ctx, :y, i, i)
-        x = GraphPPL.getorcreate!(model, ctx, :x, i + 1, i + 1)
-        GraphPPL.make_node!(
-            model,
-            ctx,
-            +,
-            x[i+1, i+1],
-            [x[i, i], y[i, i]];
-            __debug__ = false,
-            __parent_options__ = nothing,
-        )
+        x[i, i] ~ Normal(0, 1)
+        y[i, i] ~ Gamma(1, 1)
+        z[i, i] ~ Normal(x[i, i], y[i, i])
     end
-    out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        +,
-        out,
-        [x[4, 4], y[3, 3]];
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    return model
 end
 
-@model function test_anonymous(x, y)
+@model function anonymous_in_loop(x, y)
     x_0 ~ Normal(μ = 0, σ = 1.0)
-
     x_prev = x_0
     for i = 1:length(x)
         x[i] ~ Normal(μ = x_prev + 1, σ = 1.0)
@@ -158,17 +108,6 @@ end
     end
 end
 
-@model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)
-    w ~ exp(sin(x))
-    z := exp(w)
-end
-
-@model function second_submodel(a, b, c)
-    w ~ Normal(a, b)
-    c ~ Normal(w, 1)
-    d := exp(c)
-end
-
 @model function prior(a)
     a ~ Normal(0, 1)
 end
@@ -188,66 +127,3 @@ end
     out ~ Normal(z[10], 1)
 end
 
-function create_nested_model()
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
-    x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
-    y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-    z = GraphPPL.getorcreate!(model, ctx, :z, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        submodel_with_deterministic_functions_and_anonymous_variables,
-        z,
-        (x = x,);
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        submodel_with_deterministic_functions_and_anonymous_variables,
-        z,
-        (x = y,);
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        second_submodel,
-        z,
-        (a = x, b = y);
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    out = GraphPPL.getorcreate!(model, ctx, :out, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        +,
-        out,
-        [z, y];
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    return model
-end
-
-function create_normal_model()
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
-    x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
-    y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-    z = GraphPPL.getorcreate!(model, ctx, :z, nothing)
-    GraphPPL.make_node!(
-        model,
-        ctx,
-        second_submodel,
-        z,
-        (a = x, b = y);
-        __debug__ = false,
-        __parent_options__ = nothing,
-    )
-    return model
-end

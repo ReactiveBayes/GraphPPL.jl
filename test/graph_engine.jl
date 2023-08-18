@@ -81,10 +81,6 @@ include("model_zoo.jl")
 
     end
 
-    @testset "NodeData" begin
-
-    end
-
     @testset "getname(::NodeLabel)" begin
         import GraphPPL: ResizableArray, NodeLabel, getname
 
@@ -199,10 +195,9 @@ include("model_zoo.jl")
         @test length(edges(model)) == 2
 
         # Test 2: Test getting all edges from a model with a specific node
-        @test edges(model, NodeLabel(:a, 1)) ==
-              [EdgeLabel(:edge, 1, nothing), EdgeLabel(:edge, 2, nothing)]
-        @test edges(model, NodeLabel(:b, 2)) == [EdgeLabel(:edge, 1, nothing)]
-        @test edges(model, NodeLabel(:c, 2)) == [EdgeLabel(:edge, 2, nothing)]
+        @test getname.(edges(model, NodeLabel(:a, 1))) == [:edge, :edge]
+        @test getname.(edges(model, NodeLabel(:b, 2))) == [:edge]
+        @test getname.(edges(model, NodeLabel(:c, 2))) == [:edge]
 
     end
 
@@ -228,20 +223,16 @@ include("model_zoo.jl")
         @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
 
         # Test 2: Test getting sorted neighbors
-        model = create_normal_model()
+        model = create_terminated_model(simple_model)
         ctx = GraphPPL.getcontext(model)
-        node = label_for(model.graph, 5)
-        @test neighbors(model, node; sorted = true) == [
-            ctx[:second_submodel_4][:w],
-            ctx[:second_submodel_4][:a],
-            ctx[:second_submodel_4][:b],
-        ]
+        node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
+        @test getname.(neighbors(model, node; sorted = true)) == [:z, :x, :y]
 
         # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
-        model = create_vector_model()
+        model = create_terminated_model(vector_model)
         ctx = GraphPPL.getcontext(model)
-        node = ctx[:sum_12]
-        @test neighbors(model, node; sorted = true) == [ctx[:out], ctx[:x][4], ctx[:y][3]]
+        node = first(neighbors(model, ctx[:z][1]))
+        @test getname.(neighbors(model, node; sorted = true)) == [:z, :x, :y]
 
     end
 
@@ -355,6 +346,7 @@ include("model_zoo.jl")
         @test NodeType(Composite) == Atomic()
         @test NodeType(Atomic) == Atomic()
         @test NodeType(abs) == Atomic()
+        @test NodeType(gcv) === Composite()
     end
 
     @testset "create_model()" begin
@@ -386,7 +378,7 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, nothing)
         z = getorcreate!(model, ctx, :z, nothing)
         copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
-        @test child_context[:in1].name == :x
+        @test child_context[:in1] === x
 
         # Test 2: Copy vector variables
         model = create_model()
@@ -395,7 +387,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, 2)
         child_context = Context(ctx, child)
         copy_markov_blanket_to_child_context(child_context, (in = x,))
-        @test child_context[:in] == x
+        @test child_context[:in] === x
 
         # Test 3: Copy tensor variables
         model = create_model()
@@ -406,7 +398,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, 2, 2)
         child_context = Context(ctx, child)
         copy_markov_blanket_to_child_context(child_context, (in = x,))
-        @test child_context[:in] == x
+        @test child_context[:in] === x
 
         # Test 4: Do not copy constant variables
         model = create_model()
@@ -489,7 +481,7 @@ include("model_zoo.jl")
             )
         @test x == x2 && GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
-        # Test 3: Ensure that calling x another time gives us x benchmark
+        # Test 3: Ensure that calling x another time gives us x
         x =
             !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) :
             (
@@ -691,6 +683,14 @@ include("model_zoo.jl")
         @test GraphPPL.nv(model) == 2 &&
               GraphPPL.value(model[z[1]]) == [1, 1] &&
               GraphPPL.value(model[z[2]]) == 2
+
+        # Test case 15: Test that getifcreated returns a ProxyLabel if called with a ProxyLabel
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        x = ProxyLabel(:x, nothing, x)
+        z = getifcreated(model, ctx, x)
+        @test z === x
 
     end
 
@@ -905,11 +905,9 @@ include("model_zoo.jl")
         # Test 3: Add :in to function call that has default behaviour with nested interfaces
         @test default_parametrization(Atomic(), +, [[1, 1], 2]) == (in = ([1, 1], 2),)
 
-        struct CompositeNode end
-        GraphPPL.NodeType(::Type{CompositeNode}) = GraphPPL.Composite()
         @test_throws ErrorException GraphPPL.default_parametrization(
             Composite(),
-            CompositeNode,
+            gcv,
             [1, 2],
         )
     end
@@ -1171,7 +1169,7 @@ include("model_zoo.jl")
         model = create_model()
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        @test_throws ErrorException make_node!(model, ctx, second_submodel, x, [0, 1])
+        @test_throws ErrorException make_node!(model, ctx, gcv, x, [0, 1])
 
         # test make node of broadcastable composite model
         model = create_model()

@@ -2123,7 +2123,7 @@ include("model_zoo.jl")
             x = getorcreate!(__model__, __context__, :x, i)
         end
         y = getorcreate!(__model__, __context__, :y, nothing)
-        GraphPPL.make_node!(__model__, __context__, test_anonymous, y, (x = x,))
+        GraphPPL.make_node!(__model__, __context__, anonymous_in_loop, y, (x = x,))
         @test GraphPPL.nv(__model__) == 67
     end
 end

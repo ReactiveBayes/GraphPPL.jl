@@ -1190,7 +1190,10 @@ function materialize_factor_node!(
     add_factorization_constraint!(model, factor_node_id)
 end
 
-function add_terminated_submodel! end
+add_terminated_submodel!(__model__::Model, __context__::Context, fform, __interfaces__::NamedTuple; __parent_options__ = nothing,
+    __debug__ = false) =
+    add_terminated_submodel!(__model__, __context__, fform, __interfaces__, static(length(__interfaces__)); __parent_options__ = __parent_options__,
+        __debug__ = __debug__)
 
 """
     prune!(m::Model)
