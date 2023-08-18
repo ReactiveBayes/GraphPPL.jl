@@ -6,7 +6,6 @@ using Graphs
 using MetaGraphsNext
 using TestSetExtensions
 using StaticArrays
-using NamedTupleTools
 import GraphPPL: ResizableArray
 include("model_zoo.jl")
 
@@ -787,9 +786,9 @@ include("model_zoo.jl")
             model,
             ctx,
             sum;
-            __options__ = namedtuple((:isconstrained,), (true,)),
+            __options__ = NamedTuple{(:isconstrained,)}((true,)),
         )
-        @test node_options(model[node_id]) == namedtuple((:isconstrained,), (true,))
+        @test node_options(model[node_id]) == NamedTuple{(:isconstrained,)}((true,))
 
 
         #Test 4: Make sure alias is added
@@ -797,7 +796,7 @@ include("model_zoo.jl")
             model,
             ctx,
             sum;
-            __options__ = namedtuple((:isconstrained,), (true,)),
+            __options__ = NamedTuple{(:isconstrained,)}((true,)),
         )
         @test getname(node_id) == sum
 
