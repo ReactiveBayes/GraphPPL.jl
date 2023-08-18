@@ -1,6 +1,7 @@
 using GraphPPL
 using MacroTools
 using Static
+using Distributions
 
 macro test_expression_generating(lhs, rhs)
     return esc(quote
@@ -13,16 +14,7 @@ struct PointMass end
 struct ArbitraryNode end
 GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
-struct Normal
-    μ::Number
-    σ::Number
-end
 struct SomeMeta end
-
-GraphPPL.NodeBehaviour(::Type{Normal}) = GraphPPL.Stochastic()
-GraphPPL.interfaces(::Type{Normal}, ::StaticInt{3}) = (:out, :μ, :σ)
-GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Normal}, interface_values) =
-    NamedTuple{(:μ, :σ)}(interface_values)
 
 struct NormalMeanVariance end
 struct NormalMeanPrecision end
@@ -31,16 +23,6 @@ GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = (:out, :μ, :�
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = (:out, :μ, :τ)
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
-
-struct Gamma
-    α::Number
-    β::Number
-end
-
-GraphPPL.NodeBehaviour(::Type{Gamma}) = GraphPPL.Stochastic()
-GraphPPL.interfaces(::Type{Gamma}, ::StaticInt{3}) = (:out, :α, :β)
-GraphPPL.default_parametrization(::GraphPPL.Atomic, ::Type{Gamma}, interface_values) =
-    NamedTuple{(:α, :β)}(interface_values)
 
 struct GammaShapeRate end
 struct GammaShapeScale end
@@ -130,6 +112,50 @@ function create_tensor_model()
         __parent_options__ = nothing,
     )
     return model
+end
+
+@model function test_anonymous(x, y)
+    x_0 ~ Normal(μ = 0, σ = 1.0)
+
+    x_prev = x_0
+    for i = 1:length(x)
+        x[i] ~ Normal(μ = x_prev + 1, σ = 1.0)
+        x_prev = x[i]
+    end
+
+    y ~ Normal(μ = x[end], σ = 1.0)
+end
+
+@model function gcv(κ, ω, z, x, y)
+    log_σ := κ * z + ω
+    y ~ Normal(x, exp(log_σ))
+end
+
+@model function gcv_lm(y, x_prev, x_next, z, ω, κ)
+    x_next ~ gcv(x = x_prev, z = z, ω = ω, κ = κ)
+    y ~ Normal(x_next, 1)
+end
+
+@model function hgf(y)
+
+    # Specify priors
+
+    ξ ~ Gamma(1, 1)
+    ω_1 ~ Normal(0, 1)
+    ω_2 ~ Normal(0, 1)
+    κ_1 ~ Normal(0, 1)
+    κ_2 ~ Normal(0, 1)
+    x_1[1] ~ Normal(0, 1)
+    x_2[1] ~ Normal(0, 1)
+    x_3[1] ~ Normal(0, 1)
+
+    # Specify generative model
+
+    for i = 2:length(y)+1
+        x_3[i] ~ Normal(μ = x_3[i-1], τ = ξ)
+        x_2[i] ~ gcv(x = x_2[i-1], z = x_3[i], ω = ω_2, κ = κ_2)
+        x_1[i] ~ gcv_lm(x_prev = x_1[i-1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i-1])
+    end
 end
 
 @model function submodel_with_deterministic_functions_and_anonymous_variables(x, z)

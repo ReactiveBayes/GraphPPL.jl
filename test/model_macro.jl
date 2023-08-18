@@ -7,6 +7,7 @@ using TestSetExtensions
 using MacroTools
 using LinearAlgebra
 using Static
+using MetaGraphsNext
 include("model_zoo.jl")
 
 
@@ -68,6 +69,34 @@ include("model_zoo.jl")
             x ~ Normal(0, 1)
         end
         @test apply_pipeline(input, check_reserved_variable_names_model) == input
+    end
+
+
+    @testset "check_for_returns" begin
+        import GraphPPL: check_for_returns, apply_pipeline
+
+        input = quote
+            x = 1
+            return x
+        end
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns,
+        )
+
+        input = quote
+            x = 1
+            return
+        end
+        @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns,
+        )
+
+        input = quote
+            x = 1
+        end
+        @test apply_pipeline(input, check_for_returns) == input
     end
 
     @testset "warn_datavar_constvar_randomvar" begin
@@ -853,6 +882,7 @@ include("model_zoo.jl")
         anon = MacroTools.gensym_ids(gensym(:anon))
         output = quote
             begin
+                $anon = GraphPPL.create_anonymous_variable!(__model__, __context__)
                 $anon ~ Normal(0, 1) where {anonymous=true,created_by=x~Normal(0, 1)}
             end
         end
@@ -875,8 +905,30 @@ include("model_zoo.jl")
         @test_expression_generating convert_to_anonymous(input, created_by) output
     end
 
-    @testset "convert_function_argument_in_rhs" begin
-        import GraphPPL: convert_function_argument_in_rhs, apply_pipeline
+    @testset "not_enter_indexed_walk" begin
+        import GraphPPL: not_enter_indexed_walk
+
+        # Test 1: not enter indexed walk
+        input = quote
+            x[1] ~ y[10+1]
+        end
+        result = not_enter_indexed_walk(input) do x
+            @test x != 1
+            return x
+        end
+
+        # Test 2: not enter indexed walk with begin or end
+        input = quote
+            x[begin] + x[end]
+        end
+        result = not_enter_indexed_walk(input) do x
+            @test x != :begin && x != :end
+            return x
+        end
+    end
+
+    @testset "convert_anonymous_variables" begin
+        import GraphPPL: convert_anonymous_variables, apply_pipeline
 
         #Test 1: Input expression with a function call in rhs arguments
         input = quote
@@ -886,6 +938,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(
                 begin
+                    $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym ~ Normal(
                         0,
                         1,
@@ -894,7 +947,7 @@ include("model_zoo.jl")
                 1,
             ) where {created_by=(x~Normal(Normal(0, 1), 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 2: Input expression without pattern matching
         input = quote
@@ -903,7 +956,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(0, 1) where {created_by=(x~Normal(0, 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 3: Input expression with a function call as kwargs
         input = quote
@@ -916,6 +969,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(;
                 μ = begin
+                    $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym ~ Normal(
                         0,
                         1,
@@ -927,7 +981,7 @@ include("model_zoo.jl")
                 σ = 1,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 4: Input expression without pattern matching and kwargs
         input = quote
@@ -936,7 +990,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(; μ = 0, σ = 1) where {created_by=(x~Normal(μ = 0, σ = 1))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 5: Input expression with multiple function calls in rhs arguments
         input = quote
@@ -950,6 +1004,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(
                 begin
+                    $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym1 ~ Normal(
                         0,
                         1,
@@ -960,6 +1015,7 @@ include("model_zoo.jl")
 
                 end,
                 begin
+                    $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym2 ~ Normal(
                         0,
                         1,
@@ -971,7 +1027,7 @@ include("model_zoo.jl")
                 end,
             ) where {created_by=(x~Normal(Normal(0, 1), Normal(0, 1)))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 6: Input expression with multiple function calls in rhs arguments and kwargs
         input = quote
@@ -985,6 +1041,7 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(;
                 μ = begin
+                    $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym1 ~ Normal(
                         0,
                         1,
@@ -995,6 +1052,7 @@ include("model_zoo.jl")
 
                 end,
                 σ = begin
+                    $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym2 ~ Normal(
                         0,
                         1,
@@ -1006,7 +1064,7 @@ include("model_zoo.jl")
                 end,
             ) where {created_by=(x~Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 7: Input expression with nested function call in rhs arguments
         input = quote
@@ -1020,8 +1078,10 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(
                 begin
+                    $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym1 ~ Normal(
                         begin
+                            $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                             $sym2 ~ Normal(
                                 0,
                                 1,
@@ -1041,7 +1101,7 @@ include("model_zoo.jl")
             ) where {created_by=(x~Normal(Normal(Normal(0, 1), 1), 1))}
         end
 
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
         input = quote
@@ -1058,8 +1118,10 @@ include("model_zoo.jl")
         output = quote
             x ~ Normal(
                 begin
+                    $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym1 ~ Normal(
                         begin
+                            $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                             $sym2 ~ Normal(
                                 0,
                                 1,
@@ -1086,14 +1148,14 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         # Test 9: Input expression with arithmetic indexed call on rhs
         input = quote
             x ~ Normal(x[i-1], 1) where {created_by=(x~Normal(y[i-1], 1))}
         end
         output = input
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
         # Test 10: Input expression with broadcasted call
         input = quote
@@ -1110,8 +1172,10 @@ include("model_zoo.jl")
         output = quote
             x .~ Normal(
                 begin
+                    $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     $sym1 ~ Normal(
                         begin
+                            $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                             $sym2 ~ Normal(
                                 0,
                                 1,
@@ -1138,7 +1202,7 @@ include("model_zoo.jl")
                 created_by=(x~Normal(Normal(Normal(0, 1), 1), 1) where {q=MeanField()}),
             }
         end
-        @test_expression_generating apply_pipeline(input, convert_function_argument_in_rhs) output
+        @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     end
 
@@ -1417,7 +1481,8 @@ include("model_zoo.jl")
 
         function bar end
         GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = (:in1, :in2, :out)
-        @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+        @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) ==
+              []
     end
 
     @testset "keyword_expressions_to_named_tuple" begin
@@ -2033,10 +2098,33 @@ include("model_zoo.jl")
             __debug__ = false,
         )
         # Test that lhs of deterministic node call gets the corresponding value
-        @test GraphPPL.node_options(
-            __model__[ctx[:model_with_deep_anonymous_call_3][:constvar_6]],
-        )[:value] == Matrix{Float64}(Diagonal(ones(4)))
-        @test GraphPPL.nv(__model__) == 8 && GraphPPL.ne(__model__) == 6
+        @test GraphPPL.node_options(__model__[label_for(__model__.graph, 8)])[:value] ==
+              Matrix{Float64}(Diagonal(ones(4)))
+        GraphPPL.prune!(__model__)
+        @test GraphPPL.nv(__model__) == 7 && GraphPPL.ne(__model__) == 6
+
+
+        # Test add_terminated_submodel!
+        __model__ = create_model()
+        __context__ = getcontext(__model__)
+        for i = 1:10
+            y = getorcreate!(__model__, __context__, :y, 1)
+        end
+        GraphPPL.add_terminated_submodel!(__model__, __context__, hgf, (y = y,), static(1))
+        @test haskey(__context__, :ω_2) &&
+              haskey(__context__, :x_1) &&
+              haskey(__context__, :x_2) &&
+              haskey(__context__, :x_3)
+
+        # Test anonymous variable creation
+        __model__ = create_model()
+        __context__ = getcontext(__model__)
+        for i = 1:10
+            x = getorcreate!(__model__, __context__, :x, i)
+        end
+        y = getorcreate!(__model__, __context__, :y, nothing)
+        GraphPPL.make_node!(__model__, __context__, test_anonymous, y, (x = x,))
+        @test GraphPPL.nv(__model__) == 67
     end
 end
 end

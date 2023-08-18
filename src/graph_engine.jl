@@ -97,6 +97,8 @@ __proxy_unroll(something) = something
 __proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
 __proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
 __proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
+__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) =
+    __proxy_unroll(proxy.proxied)[index]
 
 
 Base.getindex(proxy::ProxyLabel, indices...) = getindex(last(proxy), indices...)
@@ -393,6 +395,10 @@ function get_principal_submodel(model::Model)
     return first(values(children(context)))
 end
 
+Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
+Base.getindex(context::Context, index::IndexedVariable) =
+    context[index.variable][index.index]
+
 abstract type NodeType end
 
 struct Composite <: NodeType end
@@ -629,6 +635,11 @@ function add_variable_node!(
     return variable_symbol
 end
 
+function create_anonymous_variable!(model::Model, context::Context)
+    return add_variable_node!(model, context, :anonymous)
+    # TODO add some proxying here that links "children" of this anonymous variable and this together. Necessary for applying constraints.
+end
+
 """
 Add an atomic factor node to the model with the given name.
 
@@ -703,11 +714,11 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_node_id::Union{ProxyLabel,NodeLabel},
     interface_name::Symbol,
-    interface_value;
+    neighbor_node;
     index = nothing,
 )
     model.graph[unroll(variable_node_id), factor_node_id] =
-        EdgeLabel(interface_name, index, interface_value)
+        EdgeLabel(interface_name, index, neighbor_node)
 end
 
 function add_edge!(
@@ -715,7 +726,7 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_nodes::Union{AbstractArray,Tuple,NamedTuple},
     interface_name::Symbol,
-    interface_value;
+    neighbor_node;
     index = 1,
 )
     for variable_node in variable_nodes
@@ -724,7 +735,7 @@ function add_edge!(
             factor_node_id,
             variable_node,
             interface_name,
-            interface_value;
+            neighbor_node;
             index = index,
         )
         index += increase_index(variable_node)
@@ -763,7 +774,7 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(node_type, val::StaticInt{N} where N, known_interfaces)
+function missing_interfaces(node_type, val::StaticInt{N} where {N}, known_interfaces)
     all_interfaces = GraphPPL.interfaces(node_type, val)
     missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
     return missing_interfaces
@@ -771,12 +782,15 @@ end
 
 
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
-    missing_interface =
-        GraphPPL.missing_interfaces(fform, static(length(rhs_interfaces) + 1), rhs_interfaces)
+    missing_interface = GraphPPL.missing_interfaces(
+        fform,
+        static(length(rhs_interfaces) + 1),
+        rhs_interfaces,
+    )
     @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(missing_interface)
     # TODO check if we can construct NamedTuples a bit faster somewhere.
-    return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}(( 
+    return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,
         values(rhs_interfaces)...,
     ))
@@ -803,18 +817,18 @@ end
 
 function contains_nodelabel(collection::NamedTuple)
     if any(element -> is_nodelabel(element), values(collection))
-        return True() 
+        return True()
     else
-        return False() 
+        return False()
     end
 end
 
 function contains_nodelabel(collection::MixedArguments)
     if any(element -> is_nodelabel(element), collection.args) ||
        any(element -> is_nodelabel(element), values(collection.kwargs))
-        return True() 
+        return True()
     else
-        return False() 
+        return False()
     end
 end
 
@@ -1079,7 +1093,7 @@ make_node!(
     make_node!(
         True(),
         Composite(),
-        Stochastic(), 
+        Stochastic(),
         model,
         ctx,
         fform,
@@ -1134,7 +1148,7 @@ function make_node!(
     node_type::Atomic,
     behaviour::NodeBehaviour,
     model::Model,
-    ctx::Context,
+    context::Context,
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
@@ -1143,20 +1157,40 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
+    materialize_factor_node!(
+        model,
+        context,
+        fform,
+        interfaces;
+        __parent_options__ = __parent_options__,
+        __debug__ = __debug__,
+    )
+    return lhs_interface
+end
+
+function materialize_factor_node!(
+    model::Model,
+    context::Context,
+    fform,
+    interfaces::NamedTuple;
+    __parent_options__ = nothing,
+    __debug__ = false,
+)
     factor_node_id =
-        add_atomic_factor_node!(model, ctx, fform; __options__ = __parent_options__)
-    for (interface_name, interface_value) in iterator(interfaces)
+        add_atomic_factor_node!(model, context, fform; __options__ = __parent_options__)
+    for (interface_name, neighbor_nodelabel) in iterator(interfaces)
         add_edge!(
             model,
             factor_node_id,
-            GraphPPL.getifcreated(model, ctx, interface_value),
+            GraphPPL.getifcreated(model, context, neighbor_nodelabel),
             interface_name,
-            interface_value,
+            neighbor_nodelabel,
         )
     end
     add_factorization_constraint!(model, factor_node_id)
-    return lhs_interface
 end
+
+function add_terminated_submodel! end
 
 """
     prune!(m::Model)

@@ -9,7 +9,7 @@ include("model_zoo.jl")
 @testset ExtendedTestSet "constraints_macro.jl" begin
 
     @testset "check_for_returns" begin
-        import GraphPPL: check_for_returns, apply_pipeline
+        import GraphPPL: check_for_returns_constraints, apply_pipeline
 
         # Test 1: check_for_returns with no returns
         input = quote
@@ -17,7 +17,7 @@ include("model_zoo.jl")
             q(x)::PointMass
         end
         output = input
-        @test_expression_generating apply_pipeline(input, check_for_returns) output
+        @test_expression_generating apply_pipeline(input, check_for_returns_constraints) output
 
         # Test 2: check_for_returns with one return
         input = quote
@@ -25,7 +25,9 @@ include("model_zoo.jl")
             q(x)::PointMass
             return q(x)
         end
-        @test_throws ErrorException apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException(
+            "The constraints macro does not support return statements.",
+        ) apply_pipeline(input, check_for_returns_constraints)
 
         # Test 3: check_for_returns with two returns
         input = quote
@@ -34,7 +36,9 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
-        @test_throws ErrorException apply_pipeline(input, check_for_returns)
+        @test_throws ErrorException(
+            "The constraints macro does not support return statements.",
+        ) apply_pipeline(input, check_for_returns_constraints)
     end
 
     @testset "add_constraints_construction" begin
@@ -76,6 +80,7 @@ include("model_zoo.jl")
     end
 
     @testset "replace_begin_end" begin
+
         import GraphPPL: replace_begin_end, apply_pipeline
 
         # Test 1: replace_begin_end with one begin and end
@@ -130,6 +135,26 @@ include("model_zoo.jl")
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex)-1]) *
                 q(x[1]) *
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+        end
+        @test_expression_generating apply_pipeline(input, replace_begin_end) output
+
+        # Test 5: replace_begin_end with random begin and ends
+
+        input = quote
+            postwalk(x) do expr
+                begin
+                    do_something
+                end
+            end
+        end
+        @test_expression_generating apply_pipeline(input, replace_begin_end) input
+
+        # Test 6: replace_begin_end with model specification begin and ends
+        input = quote
+            y ~ Normal(μ = x[end], σ = 1.0)
+        end
+        output = quote
+            y ~ Normal(μ = x[GraphPPL.FunctionalIndex{:end}(lastindex)], σ = 1.0)
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
     end
@@ -715,15 +740,15 @@ include("model_zoo.jl")
 
         @test_expression_generating constraints_macro_interior(input) output
     end
-    
+
     @testset "constraints_macro" begin
-        
+
         import GraphPPL: Constraints
         constraints = @constraints begin
             q(x, y) = q(x)q(y)
             q(x) = q(x[begin]) .. q(x[end])
-            q(μ) :: PointMass
-            for q  in submodel
+            q(μ)::PointMass
+            for q in submodel
                 q(u, v, k) = q(u)q(v)q(k)
             end
         end

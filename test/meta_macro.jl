@@ -6,6 +6,27 @@ using GraphPPL
 include("model_zoo.jl")
 
 @testset ExtendedTestSet "meta_macro" begin
+    @testset "check_for_returns" begin
+        import GraphPPL: check_for_returns_meta, apply_pipeline
+
+
+        # Test 1: check_for_returns_meta with one statement
+        input = quote
+            Normal(x, y) -> some_meta()
+        end
+        @test_expression_generating apply_pipeline(input, check_for_returns_meta) input
+
+        # Test 2: check_for_returns_meta with a return statement
+        input = quote
+            Normal(x, y) -> some_meta()
+            return
+        end
+        @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(
+            input,
+            check_for_returns_meta,
+        )
+
+    end
     @testset "add_meta_constructor" begin
         import GraphPPL: add_meta_construction
 

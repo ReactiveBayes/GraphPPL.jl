@@ -67,6 +67,18 @@ include("model_zoo.jl")
             end
         end
 
+        for n in (5, 10)
+            s = ResizableArray(NodeLabel, Val(1))
+
+            for i = 1:n
+                s[i] = NodeLabel(:s, i)
+            end
+
+            let p = GraphPPL.ProxyLabel(:x, GraphPPL.FunctionalIndex{:begin}(firstindex), s)
+                @test GraphPPL.unroll(p) === s[begin]
+            end
+        end
+
     end
 
     @testset "NodeData" begin
@@ -1078,6 +1090,70 @@ include("model_zoo.jl")
             (key) -> occursin("NormalMeanVariance", String(key)),
             keys(ctx.factor_nodes),
         )
+        @test GraphPPL.nv(model) == 4
+
+        # Test 14: Make deterministic node with ProxyLabels as arguments
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        x = ProxyLabel(:x, nothing, x)
+        y = getorcreate!(model, ctx, :y, nothing)
+        y = ProxyLabel(:y, nothing, y)
+        z = getorcreate!(model, ctx, :z, nothing)
+        node_id = make_node!(model, ctx, +, z, [x, y])
+        GraphPPL.prune!(model)
+        @test GraphPPL.nv(model) == 4
+
+    end
+
+    @testset "materialize_factor_node!" begin
+        import GraphPPL:
+            materialize_factor_node!, create_model, getorcreate!, factorization_constraint
+
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+
+        # Test 1: Stochastic atomic call returns a new node
+        node_id = materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
+        @test GraphPPL.nv(model) == 4
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
+        # @bvdmitri Should there be the NodeLabel of the neighbors in the EdgeLabel? If it's an atomic stochastic node shouldn't it be nothing?
+        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [
+            EdgeLabel(:out, nothing, nothing),
+            EdgeLabel(:μ, nothing, nothing),
+            EdgeLabel(:σ, nothing, nothing),
+        ]
+
+        # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        materialize_factor_node!(model, ctx, Normal, (out = x, in = (0, 1)))
+        @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
+
+
+        # Test 4: Deterministic atomic call with nodelabels should create the actual node
+        model = create_model()
+        ctx = getcontext(model)
+        in1 = getorcreate!(model, ctx, :in1, nothing)
+        in2 = getorcreate!(model, ctx, :in2, nothing)
+        out = getorcreate!(model, ctx, :out, nothing)
+        materialize_factor_node!(model, ctx, +, (out = out, in = (in1, in2)))
+        @test GraphPPL.nv(model) == 4 && GraphPPL.ne(model) == 3
+
+        # Test 14: Make deterministic node with ProxyLabels as arguments
+        model = create_model()
+        ctx = getcontext(model)
+        x = getorcreate!(model, ctx, :x, nothing)
+        x = ProxyLabel(:x, nothing, x)
+        y = getorcreate!(model, ctx, :y, nothing)
+        y = ProxyLabel(:y, nothing, y)
+        z = getorcreate!(model, ctx, :z, nothing)
+        node_id = materialize_factor_node!(model, ctx, +, (out = z, in = (x, y)))
+        GraphPPL.prune!(model)
         @test GraphPPL.nv(model) == 4
 
     end
