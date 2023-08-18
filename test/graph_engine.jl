@@ -67,6 +67,18 @@ include("model_zoo.jl")
             end
         end
 
+        for n in (5, 10)
+            s = ResizableArray(NodeLabel, Val(1))
+
+            for i = 1:n
+                s[i] = NodeLabel(:s, i)
+            end
+
+            let p = GraphPPL.ProxyLabel(:x, GraphPPL.FunctionalIndex{:begin}(firstindex), s)
+                @test GraphPPL.unroll(p) === s[begin]
+            end
+        end
+
     end
 
     @testset "NodeData" begin

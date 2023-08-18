@@ -298,6 +298,7 @@ function convert_to_anonymous(e::Expr, created_by)
         sym = MacroTools.gensym_ids(gensym(:anon))
         return quote
             begin
+                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
             end
         end
@@ -423,6 +424,17 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     end
 end
 
+function replace_begin_end(e::Symbol)
+    if e == :begin
+        return :(GraphPPL.FunctionalIndex{:begin}(firstindex))
+    elseif e == :end
+        return :(GraphPPL.FunctionalIndex{:end}(lastindex))
+    end
+    return e
+end
+
+__guard_f(f::typeof(replace_begin_end), x::Symbol) = f(x)
+__guard_f(f::typeof(replace_begin_end), x::Expr) = x
 
 
 """
@@ -828,8 +840,9 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
-    ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
+    ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
+    ms_body = apply_pipeline(ms_body, replace_begin_end)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
     result = quote

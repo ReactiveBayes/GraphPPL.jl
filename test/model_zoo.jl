@@ -114,6 +114,18 @@ function create_tensor_model()
     return model
 end
 
+@model function test_anonymous(x, y)
+    x_0 ~ Normal(μ = 0, σ = 1.0)
+
+    x_prev = x_0
+    for i = 1:length(x)
+        x[i] ~ Normal(μ = x_prev + 1, σ = 1.0)
+        x_prev = x[i]
+    end
+
+    y ~ Normal(μ = x[end], σ = 1.0)
+end
+
 @model function gcv(κ, ω, z, x, y)
     log_σ := κ * z + ω
     y ~ Normal(x, exp(log_σ))

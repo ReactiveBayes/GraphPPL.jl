@@ -80,6 +80,7 @@ include("model_zoo.jl")
     end
 
     @testset "replace_begin_end" begin
+
         import GraphPPL: replace_begin_end, apply_pipeline
 
         # Test 1: replace_begin_end with one begin and end
@@ -134,6 +135,26 @@ include("model_zoo.jl")
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex)-1]) *
                 q(x[1]) *
                 q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+        end
+        @test_expression_generating apply_pipeline(input, replace_begin_end) output
+
+        # Test 5: replace_begin_end with random begin and ends
+
+        input = quote
+            postwalk(x) do expr
+                begin
+                    do_something
+                end
+            end
+        end
+        @test_expression_generating apply_pipeline(input, replace_begin_end) input
+
+        # Test 6: replace_begin_end with model specification begin and ends
+        input = quote
+            y ~ Normal(μ = x[end], σ = 1.0)
+        end
+        output = quote
+            y ~ Normal(μ = x[GraphPPL.FunctionalIndex{:end}(lastindex)], σ = 1.0)
         end
         @test_expression_generating apply_pipeline(input, replace_begin_end) output
     end

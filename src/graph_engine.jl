@@ -97,6 +97,8 @@ __proxy_unroll(something) = something
 __proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
 __proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
 __proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
+__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) =
+    __proxy_unroll(proxy.proxied)[index]
 
 
 Base.getindex(proxy::ProxyLabel, indices...) = getindex(last(proxy), indices...)
@@ -393,6 +395,10 @@ function get_principal_submodel(model::Model)
     return first(values(children(context)))
 end
 
+Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
+Base.getindex(context::Context, index::IndexedVariable) =
+    context[index.variable][index.index]
+
 abstract type NodeType end
 
 struct Composite <: NodeType end
@@ -627,6 +633,11 @@ function add_variable_node!(
     context[variable_id, index] = variable_symbol
     model[variable_symbol] = VariableNodeData(variable_id, __options__)
     return variable_symbol
+end
+
+function create_anonymous_variable!(model::Model, context::Context)
+    return add_variable_node!(model, context, :anonymous)
+    # TODO add some proxying here that links "children" of this anonymous variable and this together. Necessary for applying constraints.
 end
 
 """

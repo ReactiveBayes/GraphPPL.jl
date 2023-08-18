@@ -23,19 +23,6 @@ function add_constraints_construction(e::Expr)
     end
 end
 
-function replace_begin_end(e::Symbol)
-    if e == :begin
-        return :(GraphPPL.FunctionalIndex{:begin}(firstindex))
-    elseif e == :end
-        return :(GraphPPL.FunctionalIndex{:end}(lastindex))
-    end
-    return e
-end
-
-__guard_f(f::typeof(replace_begin_end), x::Symbol) = f(x)
-__guard_f(f::typeof(replace_begin_end), x::Expr) = x
-
-
 function create_submodel_constraints(e::Expr)
     if @capture(e, (
         for q in submodel_
