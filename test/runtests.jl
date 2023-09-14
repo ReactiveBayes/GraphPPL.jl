@@ -9,7 +9,6 @@ using Test, GraphPPL
         # @test length(Test.detect_ambiguities(GraphPPL)) == 1
     end
 
-    include("utils.jl")
     include("resizable_array.jl")
     include("indexedvariable.jl")
     include("graph_engine.jl")
