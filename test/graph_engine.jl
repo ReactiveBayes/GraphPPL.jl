@@ -126,7 +126,9 @@ include("model_zoo.jl")
 
         @test_throws MethodError model[0, 1] = 1
 
-        @test_throws KeyError model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1, nothing)
+        # Test that we can't add an edge between two nodes that don't exist
+        model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1, nothing)
+        @test GraphPPL.ne(model) == 1
     end
 
     @testset "setindex!(::Context, ::ResizableArray{NodeLabel}, ::Symbol)" begin
@@ -868,13 +870,14 @@ include("model_zoo.jl")
 
         @test_throws MethodError add_edge!(model, x, y, 123)
 
-        @test_throws KeyError add_edge!(
+         add_edge!(
             model,
             generate_nodelabel(model, :factor_node),
             generate_nodelabel(model, :factor_node2),
             :interface,
             nothing,
         )
+        @test ne(model) == 1
     end
 
     @testset "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
