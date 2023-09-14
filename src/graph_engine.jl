@@ -24,18 +24,18 @@ struct Model
 end
 
 """
-    NodeLabel(name::Symbol, index::Int64)
+    NodeLabel(name::Symbol, global_counter::Int64)
 
 Unique identifier for a node in a probabilistic graphical model.
 
 A structure representing a node in a probabilistic graphical model. It contains a symbol
 representing the name of the node, an integer representing the unique identifier of the node,
 a UInt8 representing the type of the variable, and an integer or tuple of integers representing
-the index of the variable.
+the global_counter of the variable.
 """
 struct NodeLabel
     name::Any
-    index::Int64
+    global_counter::Int64
 end
 
 
@@ -58,11 +58,13 @@ Data associated with a variable node in a probabilistic graphical model.
 mutable struct VariableNodeData
     name::Symbol
     options::NamedTuple
+    index :: Any
 end
 
 
 value(node::VariableNodeData) = node.options[:value]
 fform_constraint(node::VariableNodeData) = node.options[:q]
+index(node::VariableNodeData) = node.index
 
 """
     FactorNodeData(fform::Any, options::NamedTuple)
@@ -266,7 +268,7 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(Symbol(getname(id))) * "_" * string(id.index))
+to_symbol(id::NodeLabel) = Symbol(String(Symbol(getname(id))) * "_" * string(id.global_counter))
 
 """
     Context
@@ -632,7 +634,7 @@ function add_variable_node!(
     __options__ = NamedTuple{(keys(__options__)..., :index)}((__options__..., index))
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, __options__)
+    model[variable_symbol] = VariableNodeData(variable_id, __options__, index)
     return variable_symbol
 end
 
@@ -664,6 +666,7 @@ function add_atomic_factor_node!(
     __options__ = __options__ === nothing ? NamedTuple{}() : __options__
     node_id = generate_nodelabel(model, fform)
     model[node_id] = FactorNodeData(fform, __options__)
+    #TODO Change to NodeLabeL key
     context.factor_nodes[to_symbol(node_id)] = node_id
     return node_id
 end

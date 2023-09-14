@@ -100,13 +100,13 @@ include("model_zoo.jl")
         import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData
 
         model = create_model()
-        model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, NamedTuple{}())
+        model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, NamedTuple{}(), nothing)
         @test GraphPPL.nv(model) == 1 && GraphPPL.ne(model) == 0
 
         @test_throws MethodError model[0] = 1
 
         @test_throws MethodError model["string"] = VariableNodeData(:x, NamedTuple{}())
-        model[NodeLabel(:x, 2)] = VariableNodeData(:x, NamedTuple{}())
+        model[NodeLabel(:x, 2)] = VariableNodeData(:x, NamedTuple{}(), nothing)
         @test GraphPPL.nv(model) == 2 && GraphPPL.ne(model) == 0
 
         model[NodeLabel(sum, 3)] = FactorNodeData(sum, NamedTuple{}())
@@ -119,8 +119,8 @@ include("model_zoo.jl")
         model = create_model()
         μ = NodeLabel(:μ, 1)
         x = NodeLabel(:x, 2)
-        model[μ] = VariableNodeData(:μ, NamedTuple{}())
-        model[x] = VariableNodeData(:x, NamedTuple{}())
+        model[μ] = VariableNodeData(:μ, NamedTuple{}(), nothing)
+        model[x] = VariableNodeData(:x, NamedTuple{}(), nothing)
         model[μ, x] = EdgeLabel(:interface, 1, nothing)
         @test GraphPPL.ne(model) == 1
 
@@ -147,7 +147,7 @@ include("model_zoo.jl")
 
         model = create_model()
         label = NodeLabel(:x, 1)
-        model[label] = VariableNodeData(:x, NamedTuple{}())
+        model[label] = VariableNodeData(:x, NamedTuple{}(), nothing)
         @test isa(model[label], NodeData)
         @test_throws KeyError model[NodeLabel(:x, 10)]
         @test_throws MethodError model[0]
@@ -171,8 +171,8 @@ include("model_zoo.jl")
         @test nv(model) == 0
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}())
-        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}())
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}(), nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
         @test nv(model) == 2
         @test ne(model) == 0
 
@@ -186,12 +186,12 @@ include("model_zoo.jl")
 
         # Test 1: Test getting all edges from a model
         model = create_model()
-        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}())
-        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}())
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}(), nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
         model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
         @test length(edges(model)) == 1
 
-        model[NodeLabel(:c, 2)] = VariableNodeData(:b, NamedTuple{}())
+        model[NodeLabel(:c, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
         model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2, nothing)
         @test length(edges(model)) == 2
 
@@ -206,8 +206,8 @@ include("model_zoo.jl")
         import GraphPPL: create_model, neighbors, VariableNodeData, NodeLabel, EdgeLabel
         model = create_model()
 
-        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}())
-        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}())
+        model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}(), nothing)
+        model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
         model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
         @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
 
@@ -216,9 +216,9 @@ include("model_zoo.jl")
         b = GraphPPL.ResizableArray(NodeLabel, Val(1))
         for i = 1:3
             a[i] = NodeLabel(:a, i)
-            model[a[i]] = VariableNodeData(:a, NamedTuple{}())
+            model[a[i]] = VariableNodeData(:a, NamedTuple{}(), i)
             b[i] = NodeLabel(:b, i)
-            model[b[i]] = VariableNodeData(:b, NamedTuple{}())
+            model[b[i]] = VariableNodeData(:b, NamedTuple{}(), i)
             model[a[i], b[i]] = EdgeLabel(:edge, i, nothing)
         end
         @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
@@ -248,7 +248,7 @@ include("model_zoo.jl")
         @test first_sym != second_sym && first_sym.name == second_sym.name
 
         id = generate_nodelabel(model, :c)
-        @test id.name == :c && id.index == 3
+        @test id.name == :c && id.global_counter == 3
 
     end
 
