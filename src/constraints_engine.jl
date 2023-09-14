@@ -3,6 +3,7 @@ export MeanField, FullFactorization
 using StaticArrays
 using Unrolled
 using BitSetTuples
+using MetaGraphsNext
 
 struct MeanField end
 
@@ -351,6 +352,11 @@ struct Constraints
     message_constraints::Vector{MessageConstraint}
     submodel_constraints::Vector{Constraint}
 end
+
+factorization_constraints(c::Constraints) = c.factorization_constraints
+functional_form_constraints(c::Constraints) = c.functional_form_constraints
+message_constraints(c::Constraints) = c.message_constraints
+submodel_constraints(c::Constraints) = c.submodel_constraints
 
 Constraints() = Constraints([], [], [], [])
 Constraints(constraints::Vector{<:Constraint}) = begin
