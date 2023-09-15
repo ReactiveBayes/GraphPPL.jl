@@ -637,7 +637,7 @@ function convert_tilde_expression(e::Expr)
                     __model__,
                     __context__,
                     $fform,
-                    nothing,
+                    GraphPPL.Broadcasted(),
                     $parsed_args;
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,

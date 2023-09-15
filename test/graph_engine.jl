@@ -1225,7 +1225,7 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, 2)
         z = broadcast(
             (x_, y_) -> begin
-                var = make_node!(model, ctx, +, nothing, [x_, y_])
+                var = make_node!(model, ctx, +, GraphPPL.Broadcasted(), [x_, y_])
             end,
             x,
             y,
@@ -1246,7 +1246,7 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, 2, 2)
         z = broadcast(
             (x_, y_) -> begin
-                var = make_node!(model, ctx, +, nothing, [x_, y_])
+                var = make_node!(model, ctx, +, GraphPPL.Broadcasted(), [x_, y_])
             end,
             x,
             y,
@@ -1264,7 +1264,7 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, 2, 2)
         z = broadcast(
             (x_, y_) -> begin
-                var = make_node!(model, ctx, +, nothing, [x_, y_])
+                var = make_node!(model, ctx, +, GraphPPL.Broadcasted(), [x_, y_])
             end,
             x,
             y,

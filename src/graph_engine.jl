@@ -241,7 +241,7 @@ Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
 
-
+struct Broadcasted end
 
 """
     generate_nodelabel(model::Model, name::Symbol)
@@ -1023,7 +1023,7 @@ function make_node!(
     model::Model,
     ctx::Context,
     fform,
-    lhs_interface::Nothing,
+    lhs_interface::Broadcasted,
     rhs_interfaces;
     __parent_options__ = nothing,
     __debug__ = false,
