@@ -2003,7 +2003,7 @@ include("model_zoo.jl")
             __parent_options__ = nothing,
             __debug__ = false,
         )
-        x = ctx[:test_model_3][:x]
+        x = ctx[test_model, 1][:x]
         for i in x
             @test isa(i, GraphPPL.NodeLabel) && isa(__model__[i], GraphPPL.VariableNodeData)
         end

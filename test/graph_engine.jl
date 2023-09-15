@@ -252,13 +252,6 @@ include("model_zoo.jl")
 
     end
 
-
-    @testset "to_symbol(::NodeLabel)" begin
-        import GraphPPL: to_symbol, NodeLabel
-        @test to_symbol(NodeLabel(:a, 1)) == :a_1
-        @test to_symbol(NodeLabel(:b, 2)) == :b_2
-    end
-
     @testset "getname" begin
         import GraphPPL: getname
         @test getname(+) == "+"
@@ -821,28 +814,25 @@ include("model_zoo.jl")
         add_variable_node!(model, child_ctx, :x)
         add_variable_node!(model, child_ctx, :y)
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :f)
-        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(children(parent_ctx), node_name) &&
-              children(parent_ctx)[node_name] === child_ctx &&
+              haskey(children(parent_ctx), node_id) &&
+              children(parent_ctx)[node_id] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
 
         # Add a composite factor node with a different name
         node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :g)
-        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(children(parent_ctx), node_name) &&
-              children(parent_ctx)[node_name] === child_ctx &&
+              haskey(children(parent_ctx), node_id) &&
+              children(parent_ctx)[node_id] === child_ctx &&
               length(child_ctx.individual_variables) == 2
 
         # Add a composite factor node with an empty child context
         empty_ctx = Context()
         node_id = add_composite_factor_node!(model, parent_ctx, empty_ctx, :h)
-        node_name = to_symbol(node_id)
         @test nv(model) == 2 &&
-              haskey(children(parent_ctx), node_name) &&
-              children(parent_ctx)[node_name] === empty_ctx &&
+              haskey(children(parent_ctx), node_id) &&
+              children(parent_ctx)[node_id] === empty_ctx &&
               length(empty_ctx.individual_variables) == 0
     end
 
@@ -993,10 +983,9 @@ include("model_zoo.jl")
         model = create_model()
         ctx = getcontext(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
-
+        make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))   
         @test GraphPPL.nv(model) == 3 &&
-              GraphPPL.node_options(model[ctx[:constvar_2]])[:value] == [0, 1]
+              GraphPPL.node_options(model[ctx[:constvar_3]])[:value] == [0, 1]
 
         # Test 9: Stochastic node with all interfaces defined as constants
         model = create_model()
@@ -1048,7 +1037,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
         @test any(
-            (key) -> occursin("NormalMeanPrecision", String(key)),
+            (key) ->  GraphPPL.fform(key) == NormalMeanPrecision,
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
@@ -1060,7 +1049,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test any(
-            (key) -> occursin("NormalMeanVariance", String(key)),
+            (key) ->  GraphPPL.fform(key) == NormalMeanVariance,
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
@@ -1070,7 +1059,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, [0, 1])
         @test any(
-            (key) -> occursin("NormalMeanVariance", String(key)),
+            (key) -> GraphPPL.fform(key) == NormalMeanVariance,
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4

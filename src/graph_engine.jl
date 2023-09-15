@@ -5,6 +5,15 @@ import Base:
 using BitSetTuples
 using Static
 
+struct FactorID
+    fform
+    index::Int64
+end
+
+fform(id::FactorID) = id.fform
+index(id::FactorID) = id.index
+Base.String(id::FactorID) = string(fform(id), "[", index(id), "]")
+
 """
     Model(graph::MetaGraph)
 
@@ -48,7 +57,7 @@ iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 unroll(label::NodeLabel) = label
 
-Base.show(io::IO, label::NodeLabel) = print(io, to_symbol(label))
+Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
 """
     VariableNodeData(name::Symbol, options::NamedTuple)
@@ -264,12 +273,10 @@ end
 
 
 function Base.gensym(model::Model, name::Symbol)
-    increase_count
+    increase_count(model)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) =
-    Symbol(String(Symbol(getname(id))) * "_" * string(id.global_counter))
 
 """
     Context
@@ -282,12 +289,13 @@ struct Context
     fform::Function
     prefix::String
     parent::Union{Context,Nothing}
-    children::Dict{Symbol,Context}
+    children::Dict{FactorID,Context}
     individual_variables::Dict{Symbol,NodeLabel}
     vector_variables::Dict{Symbol,ResizableArray{NodeLabel}}
     tensor_variables::Dict{Symbol,ResizableArray}
-    factor_nodes::Dict{Symbol,NodeLabel}
+    factor_nodes::Dict{FactorID,NodeLabel}
     proxies::Dict{Symbol,ProxyLabel}
+    submodel_counts::Dict{Any, Int}
 end
 
 fform(context::Context) = context.fform
@@ -298,6 +306,18 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
+count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ?
+    context.submodel_counts[fform] : 0
+
+function generate_factor_nodelabel(context::Context, fform::Any)
+    if count(context, fform) == 0
+        context.submodel_counts[fform] = 1
+    else
+        context.submodel_counts[fform] += 1
+    end
+    return FactorID(fform, count(context, fform))
+end
+
 
 function Base.show(io::IO, context::Context)
     indentation = 2 * context.depth
@@ -306,7 +326,7 @@ function Base.show(io::IO, context::Context)
     for (variable_name, variable_label) in context.individual_variables
         println(
             io,
-            "$("    " ^ (indentation + 2))$(variable_name): $(to_symbol(variable_label))",
+            "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)",
         )
     end
     println(io, "$("    " ^ (indentation + 1))Vector variables:")
@@ -325,7 +345,7 @@ function Base.show(io::IO, context::Context)
         else
             println(
                 io,
-                "$("    " ^ (indentation + 2))$(factor_label) : $(to_symbol(factor_context))",
+                "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)",
             )
         end
     end
@@ -334,7 +354,7 @@ end
 getname(f::Function) = String(Symbol(f))
 
 Context(depth::Int, fform::Function, prefix::String, parent) =
-    Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
+    Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
 
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1,
@@ -351,7 +371,7 @@ haskey(context::Context, key::Symbol) =
     haskey(context.factor_nodes, key) ||
     haskey(context.children, key)
 
-function Base.getindex(c::Context, key::Symbol)
+function Base.getindex(c::Context, key::Any)
     if haskey(c.individual_variables, key)
         return c.individual_variables[key]
     elseif haskey(c.vector_variables, key)
@@ -366,6 +386,10 @@ function Base.getindex(c::Context, key::Symbol)
         return c.proxies[key]
     end
     throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
+end
+
+function Base.getindex(c::Context, fform, index::Int)
+    return c[FactorID(fform, index)]
 end
 
 function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
@@ -665,11 +689,11 @@ function add_atomic_factor_node!(
     __options__ = NamedTuple{}(),
 )
     __options__ = __options__ === nothing ? NamedTuple{}() : __options__
-    node_id = generate_nodelabel(model, fform)
-    model[node_id] = FactorNodeData(fform, __options__)
-    #TODO Change to NodeLabeL key
-    context.factor_nodes[to_symbol(node_id)] = node_id
-    return node_id
+    factornode_id = generate_factor_nodelabel(context, fform)
+    factornode_label = generate_nodelabel(model, fform)
+    model[factornode_label] = FactorNodeData(fform, __options__)
+    context.factor_nodes[factornode_id] = factornode_label
+    return factornode_label
 end
 
 factor_alias(any, interfaces) = any
@@ -698,19 +722,12 @@ function add_composite_factor_node!(
     model::Model,
     parent_context::Context,
     context::Context,
-    node_name::Symbol,
+    node_name,
 )
-    node_id = generate_nodelabel(model, node_name)
-    parent_context.children[to_symbol(node_id)] = context
+    node_id = generate_factor_nodelabel(parent_context, node_name)
+    parent_context.children[node_id] = context
     return node_id
 end
-
-add_composite_factor_node!(
-    model::Model,
-    parent_context::Context,
-    child_context::Context,
-    node_name,
-) = add_composite_factor_node!(model, parent_context, child_context, Symbol(node_name))
 
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
