@@ -1524,7 +1524,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 sum,
-                x,
+                GraphPPL.ProxyLabel(:x, nothing, x),
                 [0, 1];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1545,7 +1545,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 sum,
-                x,
+                GraphPPL.ProxyLabel(:x, nothing, x),
                 (μ = 0, σ = 1);
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1567,7 +1567,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 sum,
-                x[i],
+                GraphPPL.ProxyLabel(:x, (i,), x),
                 [μ[i], σ[i]];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1581,81 +1581,54 @@ include("model_zoo.jl")
 
         # Test 4: Test node creation with anonymous variable
         input = quote
-            x ~ sum(
-                begin
-                    tmp_1 =
-                        !@isdefined(tmp_1) ?
-                        GraphPPL.getorcreate!(
-                            __model__,
-                            __context__,
-                            $(QuoteNode(:tmp_1)),
-                            nothing,
-                        ) :
-                        (
-                            GraphPPL.check_variate_compatability(tmp_1, nothing) ?
-                            tmp_1 :
-                            GraphPPL.getorcreate!(
-                                __model__,
-                                __context__,
-                                $(QuoteNode(:tmp_1)),
-                                nothing,
-                            )
-                        )
-                    tmp_1 ~ sum(
-                        0,
-                        1,
-                    ) where {anonymous=true,created_by=(x~Normal(Normal(0, 1), 0))}
-                end,
-                0,
-            ) where {created_by=(x~Normal(Normal(0, 1), 0))}
-        end
-        output = quote
-            x = GraphPPL.make_node!(
-                __model__,
-                __context__,
-                sum,
-                x,
-                [
+            z ~ (
+                Normal(
                     begin
-                        tmp_1 =
-                            !@isdefined(tmp_1) ?
-                            GraphPPL.getorcreate!(
-                                __model__,
-                                __context__,
-                                $(QuoteNode(:tmp_1)),
-                                nothing,
-                            ) :
-                            (
-                                GraphPPL.check_variate_compatability(tmp_1, nothing) ? tmp_1 :
-                                GraphPPL.getorcreate!(
-                                    __model__,
-                                    __context__,
-                                    $(QuoteNode(:tmp_1)),
-                                    nothing,
-                                )
-                            )
-                        tmp_1 = GraphPPL.make_node!(
-                            __model__,
-                            __context__,
-                            sum,
-                            tmp_1,
-                            [0, 1];
-                            __parent_options__ = GraphPPL.prepare_options(
-                                __parent_options__,
-                                $((
-                                    anonymous = true,
-                                    created_by = :(x ~ Normal(Normal(0, 1), 0)),
-                                )),
-                                __debug__,
-                            ),
-                            __debug__ = __debug__,
+                        anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        anon_1 ~ (
+                            (x + 1) where {anonymous=true,created_by=(z~Normal(x + 1, y))}
                         )
                     end,
-                    0,
+                    y,
+                ) where {(created_by = (z ~ Normal(x + 1, y)))}
+            )
+        end
+        output = quote
+            z = GraphPPL.make_node!(
+                __model__,
+                __context__,
+                Normal,
+                GraphPPL.ProxyLabel(:z, nothing, z),
+                [
+                    (
+                        begin
+                            anon_1 = GraphPPL.create_anonymous_variable!(
+                                __model__,
+                                __context__,
+                            )
+                            anon_1 = GraphPPL.make_node!(
+                                __model__,
+                                __context__,
+                                +,
+                                GraphPPL.ProxyLabel(:anon_1, nothing, anon_1),
+                                [x, 1];
+                                __parent_options__ = GraphPPL.prepare_options(
+                                    __parent_options__,
+                                    $((
+                                        anonymous = true,
+                                        created_by = :(z ~ Normal(x + 1, y)),
+                                    )),
+                                    __debug__,
+                                ),
+                                __debug__ = __debug__,
+                            )
+                        end
+                    ),
+                    y,
                 ];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $((created_by = :(x ~ Normal(Normal(0, 1), 0)),)),
+                    $(created_by = :(z ~ Normal(x + 1, y)),),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1673,7 +1646,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 y,
-                x,
+                GraphPPL.ProxyLabel(:x, nothing, x),
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1695,7 +1668,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 y,
-                x[i],
+                GraphPPL.ProxyLabel(:x, (i,), x),
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1717,7 +1690,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 y,
-                x[i, j],
+                GraphPPL.ProxyLabel(:x, (i, j), x),
                 $nothing;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1738,7 +1711,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 sum,
-                x,
+                GraphPPL.ProxyLabel(:x, nothing, x),
                 GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1759,7 +1732,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 sum,
-                x,
+                GraphPPL.ProxyLabel(:x, nothing, x),
                 [μ, σ];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1780,7 +1753,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 Normal,
-                y,
+                GraphPPL.ProxyLabel(:y, nothing, y),
                 (
                     μ = GraphPPL.ProxyLabel(:x, nothing, x),
                     σ = GraphPPL.ProxyLabel(:σ, nothing, σ),
@@ -1802,7 +1775,7 @@ include("model_zoo.jl")
                 __model__,
                 __context__,
                 prior,
-                y,
+                GraphPPL.ProxyLabel(:y, nothing, y),
                 [];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -1982,7 +1955,12 @@ include("model_zoo.jl")
 
     @testset "model_macro_interior" begin
         import GraphPPL:
-            model_macro_interior, create_model, getcontext, getorcreate!, make_node!
+            model_macro_interior,
+            create_model,
+            getcontext,
+            getorcreate!,
+            make_node!,
+            ProxyLabel
 
         # Test 1: Test regular node creation input
         @model function test_model(μ, σ)
@@ -1996,7 +1974,7 @@ include("model_zoo.jl")
             __model__,
             __context__,
             test_model,
-            μ,
+            ProxyLabel(:μ, nothing, μ),
             (σ = σ,);
             __parent_options__ = nothing,
             __debug__ = false,
@@ -2020,7 +1998,7 @@ include("model_zoo.jl")
             __model__,
             ctx,
             test_model,
-            μ,
+            ProxyLabel(:μ, nothing, μ),
             (σ = σ,);
             __parent_options__ = nothing,
             __debug__ = false,
@@ -2048,7 +2026,7 @@ include("model_zoo.jl")
             __model__,
             __context__,
             illegal_model,
-            μ,
+            ProxyLabel(:μ, nothing, μ),
             (σ = σ,);
             __parent_options__ = nothing,
             __debug__ = false,
@@ -2072,7 +2050,7 @@ include("model_zoo.jl")
             __model__,
             __context__,
             foo,
-            x,
+            ProxyLabel(:x, nothing, x),
             (y = y,);
             __parent_options__ = nothing,
             __debug__ = false,
@@ -2092,7 +2070,7 @@ include("model_zoo.jl")
             __model__,
             ctx,
             model_with_deep_anonymous_call,
-            x,
+            ProxyLabel(:x, nothing, x),
             (y = y,);
             __parent_options__ = nothing,
             __debug__ = false,
@@ -2123,7 +2101,13 @@ include("model_zoo.jl")
             x = getorcreate!(__model__, __context__, :x, i)
         end
         y = getorcreate!(__model__, __context__, :y, nothing)
-        GraphPPL.make_node!(__model__, __context__, anonymous_in_loop, y, (x = x,))
+        GraphPPL.make_node!(
+            __model__,
+            __context__,
+            anonymous_in_loop,
+            ProxyLabel(:y, nothing, y),
+            (x = x,),
+        )
         @test GraphPPL.nv(__model__) == 67
     end
 end

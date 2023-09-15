@@ -58,7 +58,7 @@ Data associated with a variable node in a probabilistic graphical model.
 mutable struct VariableNodeData
     name::Symbol
     options::NamedTuple
-    index :: Any
+    index::Any
 end
 
 
@@ -172,7 +172,8 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
-MetaGraphsNext.label_for(model::Model, node_id::Int) = MetaGraphsNext.label_for(model.graph, node_id)
+MetaGraphsNext.label_for(model::Model, node_id::Int) =
+    MetaGraphsNext.label_for(model.graph, node_id)
 
 function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
     index = x.index === nothing ? 0 : x.index
@@ -268,7 +269,8 @@ function Base.gensym(model::Model, name::Symbol)
     return Symbol(String(name) * "_" * string(model.counter))
 end
 
-to_symbol(id::NodeLabel) = Symbol(String(Symbol(getname(id))) * "_" * string(id.global_counter))
+to_symbol(id::NodeLabel) =
+    Symbol(String(Symbol(getname(id))) * "_" * string(id.global_counter))
 
 """
     Context
@@ -362,7 +364,7 @@ function Base.getindex(c::Context, key::Symbol)
     elseif haskey(c.children, key)
         return c.children[key]
     elseif haskey(c.proxies, key)
-        return unroll(c.proxies[key])
+        return c.proxies[key]
     end
     throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
 end
@@ -1026,7 +1028,7 @@ function make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 )
-    lhs_interface = lhs_interface = add_variable_node!(model, ctx, gensym(:var))
+    lhs_interface = ProxyLabel(:var, nothing, add_variable_node!(model, ctx, gensym(:var)))
     return make_node!(
         True(),
         node_type,
@@ -1169,7 +1171,7 @@ function make_node!(
         __parent_options__ = __parent_options__,
         __debug__ = __debug__,
     )
-    return lhs_interface
+    return unroll(lhs_interface)
 end
 
 function materialize_factor_node!(
@@ -1194,10 +1196,22 @@ function materialize_factor_node!(
     add_factorization_constraint!(model, factor_node_id)
 end
 
-add_terminated_submodel!(__model__::Model, __context__::Context, fform, __interfaces__::NamedTuple; __parent_options__ = nothing,
-    __debug__ = false) =
-    add_terminated_submodel!(__model__, __context__, fform, __interfaces__, static(length(__interfaces__)); __parent_options__ = __parent_options__,
-        __debug__ = __debug__)
+add_terminated_submodel!(
+    __model__::Model,
+    __context__::Context,
+    fform,
+    __interfaces__::NamedTuple;
+    __parent_options__ = nothing,
+    __debug__ = false,
+) = add_terminated_submodel!(
+    __model__,
+    __context__,
+    fform,
+    __interfaces__,
+    static(length(__interfaces__));
+    __parent_options__ = __parent_options__,
+    __debug__ = __debug__,
+)
 
 """
     prune!(m::Model)

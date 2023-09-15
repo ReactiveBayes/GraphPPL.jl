@@ -930,3 +930,6 @@ materialize_constraints!(
     node_data::FactorNodeData,
     constraint,
 ) = nothing
+
+get_constraint_names(constraint::NTuple{N,Tuple} where {N}) =
+    map(entry -> GraphPPL.getname.(entry), constraint)

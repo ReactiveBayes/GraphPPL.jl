@@ -891,26 +891,35 @@ include("model_zoo.jl")
     end
 
     @testset "materialize_constraints!(::Model)" begin
-        import GraphPPL: materialize_constraints!, EdgeLabel, node_options, EdgeLabel, factorization_constraint
+        import GraphPPL:
+            materialize_constraints!,
+            EdgeLabel,
+            node_options,
+            EdgeLabel,
+            factorization_constraint,
+            get_constraint_names
 
         # Test 1: Test materialize with a Mean Field constraint
         model = create_terminated_model(simple_model)
         ctx = GraphPPL.getcontext(model)
         materialize_constraints!(model)
         node = first(GraphPPL.neighbors(model, ctx[:z]))
-        @test factorization_constraint(model[node]) == ((EdgeLabel(:out, nothing, ctx[:z]), EdgeLabel(:μ, nothing, ctx[:x]),EdgeLabel(:σ, nothing, ctx[:y]),),)
+        @test get_constraint_names(factorization_constraint(model[node])) ==
+              ((:out, :μ, :σ),)
 
     end
 
     @testset "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
-        import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!
+        import GraphPPL:
+            materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names
 
         # Test 1: Test materialize with a Full Factorization constraint
         model = create_terminated_model(simple_model)
         ctx = GraphPPL.getcontext(model)
         node = first(neighbors(model, ctx[:z]))
         materialize_constraints!(model, node)
-        @test factorization_constraint(model[node]) == ((EdgeLabel(:out, nothing, ctx[:z]), EdgeLabel(:μ, nothing, ctx[:x]),EdgeLabel(:σ, nothing, ctx[:y]),),)
+        @test get_constraint_names(factorization_constraint(model[node])) ==
+              ((:out, :μ, :σ),)
 
         # Test 2: Test materialize with a MeanField Factorization constraint
         model = create_terminated_model(simple_model)
@@ -927,7 +936,8 @@ include("model_zoo.jl")
         )
         apply!(model, ctx, constraint)
         materialize_constraints!(model, node)
-        @test factorization_constraint(model[node]) == ((EdgeLabel(:out, nothing, ctx[:z]),), (EdgeLabel(:μ, nothing, ctx[:x]),),(EdgeLabel(:σ, nothing, ctx[:y]),))
+        @test get_constraint_names(factorization_constraint(model[node])) ==
+              ((:out,), (:μ,), (:σ,))
     end
 end
 

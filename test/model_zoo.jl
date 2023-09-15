@@ -126,4 +126,3 @@ end
     z .~ broadcastable(μ = μ, σ = σ)
     out ~ Normal(z[10], 1)
 end
-

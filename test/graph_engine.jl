@@ -424,8 +424,7 @@ include("model_zoo.jl")
         x = ProxyLabel(:x, nothing, x)
         child_context = Context(ctx, child)
         copy_markov_blanket_to_child_context(child_context, (in = x,))
-        # @bvdmitri I'm not sure if you want to return the ProxyLabel or the unrolled variable here. If we query the context for the variable, right now we get the underlying global NodeLabel. We could also return the ProxyLabel.
-        @test child_context[:in] == unroll(x)
+        @test child_context[:in] == x
     end
 
     @testset "check_variate_compatability" begin
@@ -870,7 +869,7 @@ include("model_zoo.jl")
 
         @test_throws MethodError add_edge!(model, x, y, 123)
 
-         add_edge!(
+        add_edge!(
             model,
             generate_nodelabel(model, :factor_node),
             generate_nodelabel(model, :factor_node2),
@@ -1164,20 +1163,28 @@ include("model_zoo.jl")
         model = create_model()
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        make_node!(model, ctx, prior, x, [])
+        make_node!(model, ctx, prior, GraphPPL.ProxyLabel(:x, nothing, x), [])
         @test GraphPPL.nv(model) == 4
+        @test GraphPPL.get_principal_submodel(model)[:a] ===
+              GraphPPL.ProxyLabel(:x, nothing, x)
 
         #test make node for other composite models
         model = create_model()
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
-        @test_throws ErrorException make_node!(model, ctx, gcv, x, [0, 1])
+        @test_throws ErrorException make_node!(
+            model,
+            ctx,
+            gcv,
+            GraphPPL.ProxyLabel(:x, nothing, x),
+            [0, 1],
+        )
 
         # test make node of broadcastable composite model
         model = create_model()
         ctx = getcontext(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, broadcaster, out, [])
+        make_node!(model, ctx, broadcaster, GraphPPL.ProxyLabel(:out, nothing, out), [])
         @test GraphPPL.nv(model) == 103
 
     end

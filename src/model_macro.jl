@@ -570,6 +570,13 @@ end
 combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 
+generate_lhs_proxylabel(var, index::Nothing) = quote
+    GraphPPL.ProxyLabel($(QuoteNode(var)), nothing, $var)
+end
+generate_lhs_proxylabel(var, index::AbstractArray) = quote
+    GraphPPL.ProxyLabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
+end
+
 """
     convert_tilde_expression(e::Expr)
 
@@ -599,12 +606,13 @@ function convert_tilde_expression(e::Expr)
     )
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
+        @capture(lhs, (var_[index__]) | (var_))
         return quote
             $lhs = GraphPPL.make_node!(
                 __model__,
                 __context__,
                 $fform,
-                $lhs,
+                $(generate_lhs_proxylabel(var, index)),
                 $args;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -767,7 +775,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __model__::GraphPPL.Model,
             __parent_context__::GraphPPL.Context,
             ::typeof($ms_name),
-            __lhs_interface__::GraphPPL.NodeLabel,
+            __lhs_interface__::GraphPPL.ProxyLabel,
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))};
             __parent_options__ = nothing,
@@ -800,9 +808,9 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __parent_options__ = __parent_options__,
                 __debug__ = __debug__,
             )
-            return __lhs_interface__
+            return GraphPPL.unroll(__lhs_interface__)
         end
-        
+
         function GraphPPL.add_terminated_submodel!(
             __model__::GraphPPL.Model,
             __context__::GraphPPL.Context,
