@@ -126,7 +126,6 @@ Base.last(proxied, ::ProxyLabel) = proxied
 struct EdgeLabel
     name::Symbol
     index::Union{Int64,Nothing}
-    interface_value::Any
 end
 
 getname(label::EdgeLabel) = label.name
@@ -719,20 +718,18 @@ function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_node_id::Union{ProxyLabel,NodeLabel},
-    interface_name::Symbol,
-    neighbor_node;
+    interface_name::Symbol;
     index = nothing,
 )
     model.graph[unroll(variable_node_id), factor_node_id] =
-        EdgeLabel(interface_name, index, neighbor_node)
+        EdgeLabel(interface_name, index)
 end
 
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     variable_nodes::Union{AbstractArray,Tuple,NamedTuple},
-    interface_name::Symbol,
-    neighbor_node;
+    interface_name::Symbol;
     index = 1,
 )
     for variable_node in variable_nodes
@@ -740,8 +737,7 @@ function add_edge!(
             model,
             factor_node_id,
             variable_node,
-            interface_name,
-            neighbor_node;
+            interface_name;
             index = index,
         )
         index += increase_index(variable_node)
@@ -1190,7 +1186,6 @@ function materialize_factor_node!(
             factor_node_id,
             GraphPPL.getifcreated(model, context, neighbor_nodelabel),
             interface_name,
-            neighbor_nodelabel,
         )
     end
     add_factorization_constraint!(model, factor_node_id)

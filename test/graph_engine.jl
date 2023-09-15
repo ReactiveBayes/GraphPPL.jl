@@ -121,13 +121,13 @@ include("model_zoo.jl")
         x = NodeLabel(:x, 2)
         model[μ] = VariableNodeData(:μ, NamedTuple{}(), nothing)
         model[x] = VariableNodeData(:x, NamedTuple{}(), nothing)
-        model[μ, x] = EdgeLabel(:interface, 1, nothing)
+        model[μ, x] = EdgeLabel(:interface, 1)
         @test GraphPPL.ne(model) == 1
 
         @test_throws MethodError model[0, 1] = 1
 
         # Test that we can't add an edge between two nodes that don't exist
-        model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1, nothing)
+        model[μ, NodeLabel(:x, 100)] = EdgeLabel(:if, 1)
         @test GraphPPL.ne(model) == 1
     end
 
@@ -176,7 +176,7 @@ include("model_zoo.jl")
         @test nv(model) == 2
         @test ne(model) == 0
 
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
         @test nv(model) == 2
         @test ne(model) == 1
     end
@@ -188,11 +188,11 @@ include("model_zoo.jl")
         model = create_model()
         model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}(), nothing)
         model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
         @test length(edges(model)) == 1
 
         model[NodeLabel(:c, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
-        model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2)
         @test length(edges(model)) == 2
 
         # Test 2: Test getting all edges from a model with a specific node
@@ -208,7 +208,7 @@ include("model_zoo.jl")
 
         model[NodeLabel(:a, 1)] = VariableNodeData(:a, NamedTuple{}(), nothing)
         model[NodeLabel(:b, 2)] = VariableNodeData(:b, NamedTuple{}(), nothing)
-        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1, nothing)
+        model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
         @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
 
         model = create_model()
@@ -219,7 +219,7 @@ include("model_zoo.jl")
             model[a[i]] = VariableNodeData(:a, NamedTuple{}(), i)
             b[i] = NodeLabel(:b, i)
             model[b[i]] = VariableNodeData(:b, NamedTuple{}(), i)
-            model[a[i], b[i]] = EdgeLabel(:edge, i, nothing)
+            model[a[i], b[i]] = EdgeLabel(:edge, i)
         end
         @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
 
@@ -862,7 +862,7 @@ include("model_zoo.jl")
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
-        add_edge!(model, x, y, :interface, nothing)
+        add_edge!(model, x, y, :interface)
 
 
         @test ne(model) == 1
@@ -874,7 +874,6 @@ include("model_zoo.jl")
             generate_nodelabel(model, :factor_node),
             generate_nodelabel(model, :factor_node2),
             :interface,
-            nothing,
         )
         @test ne(model) == 1
     end
@@ -888,10 +887,10 @@ include("model_zoo.jl")
         y = getorcreate!(model, ctx, :y, nothing)
 
         variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
-        add_edge!(model, y, variable_nodes, :interface, nothing)
+        add_edge!(model, y, variable_nodes, :interface)
 
         @test ne(model) == 3 &&
-              model[y, variable_nodes[1]] == EdgeLabel(:interface, 1, nothing)
+              model[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
     end
 
     @testset "default_parametrization" begin
@@ -930,12 +929,7 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        # @bvdmitri Should there be the NodeLabel of the neighbors in the EdgeLabel? If it's an atomic stochastic node shouldn't it be nothing?
-        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [
-            EdgeLabel(:out, nothing, nothing),
-            EdgeLabel(:μ, nothing, nothing),
-            EdgeLabel(:σ, nothing, nothing),
-        ]
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -973,12 +967,7 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
-                     GraphPPL.EdgeLabel[
-            GraphPPL.EdgeLabel(:out, nothing),
-            GraphPPL.EdgeLabel(:μ, nothing),
-            GraphPPL.EdgeLabel(:σ, nothing),
-        ]
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
         @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
               GraphPPL.BitSetTuple(3)
 
@@ -1018,12 +1007,7 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :in, :in]
-        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) ==
-                     GraphPPL.EdgeLabel[
-            GraphPPL.EdgeLabel(:out, nothing),
-            GraphPPL.EdgeLabel(:in, 1),
-            GraphPPL.EdgeLabel(:in, 2),
-        ]
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :in, :in]
 
         #Test 10: Deterministic node with keyword arguments
         function abc(; a = 1, b = 2)
@@ -1119,12 +1103,7 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        # @bvdmitri Should there be the NodeLabel of the neighbors in the EdgeLabel? If it's an atomic stochastic node shouldn't it be nothing?
-        @test_broken GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2)) == [
-            EdgeLabel(:out, nothing, nothing),
-            EdgeLabel(:μ, nothing, nothing),
-            EdgeLabel(:σ, nothing, nothing),
-        ]
+        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -1207,7 +1186,7 @@ include("model_zoo.jl")
         z = getorcreate!(model, ctx, :z, nothing)
         w = getorcreate!(model, ctx, :w, nothing)
 
-        add_edge!(model, y, z, :test, nothing)
+        add_edge!(model, y, z, :test)
         prune!(model)
         @test GraphPPL.nv(model) == 2
 
