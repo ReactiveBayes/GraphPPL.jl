@@ -1798,7 +1798,7 @@ include("model_zoo.jl")
                     __model__,
                     __context__,
                     Normal,
-                    GraphPPL.Broadcasted(),
+                    GraphPPL.Broadcasted(:a),
                     [$(invars...)];
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
@@ -1824,7 +1824,7 @@ include("model_zoo.jl")
                     __model__,
                     __context__,
                     Normal,
-                    GraphPPL.Broadcasted(),
+                    GraphPPL.Broadcasted(:a),
                     (μ = $(invars[1]), σ = $(invars[2]));
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
@@ -1857,7 +1857,7 @@ include("model_zoo.jl")
                     __model__,
                     __context__,
                     some_node,
-                    GraphPPL.Broadcasted(),
+                    GraphPPL.Broadcasted(:a),
                     GraphPPL.MixedArguments(
                         [$(invars[1:2]...)],
                         (μ = $(invars[3]), σ = $(invars[4])),

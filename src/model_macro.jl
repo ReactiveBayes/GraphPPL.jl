@@ -631,13 +631,15 @@ function convert_tilde_expression(e::Expr)
         options = GraphPPL.options_vector_to_named_tuple(options)
         broadcastable_variables =
             kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+        
+        @capture(lhs, (var_[index__]) | (var_))
         return quote
             $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
                     __context__,
                     $fform,
-                    GraphPPL.Broadcasted(),
+                    GraphPPL.Broadcasted($(QuoteNode(var))),
                     $parsed_args;
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,

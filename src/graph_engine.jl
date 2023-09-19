@@ -249,7 +249,11 @@ Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
 
-struct Broadcasted end
+struct Broadcasted 
+    name::Symbol
+end
+
+getname(broadcasted::Broadcasted) = broadcasted.name
 
 """
     generate_nodelabel(model::Model, name::Symbol)
@@ -1041,7 +1045,7 @@ function make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 )
-    lhs_interface = ProxyLabel(:var, nothing, add_variable_node!(model, ctx, gensym(:var)))
+    lhs_node = ProxyLabel(getname(lhs_interface), nothing, add_variable_node!(model, ctx, gensym(getname(lhs_interface))))
     return make_node!(
         True(),
         node_type,
@@ -1049,7 +1053,7 @@ function make_node!(
         model,
         ctx,
         fform,
-        lhs_interface,
+        lhs_node,
         rhs_interfaces;
         __parent_options__ = __parent_options__,
         __debug__ = __debug__,
