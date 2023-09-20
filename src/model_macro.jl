@@ -788,7 +788,6 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __lhs_interface__,
                 __rhs_interfaces__,
             )
-            # $(init_input_arguments...)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(

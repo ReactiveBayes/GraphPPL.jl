@@ -5,6 +5,12 @@ import Base:
 using BitSetTuples
 using Static
 
+struct Broadcasted
+    name::Symbol
+end
+
+getname(broadcasted::Broadcasted) = broadcasted.name
+
 struct FactorID
     fform::Any
     index::Int64
@@ -12,7 +18,8 @@ end
 
 fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
-Base.String(id::FactorID) = string(fform(id), "[", index(id), "]")
+
+Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
 
 """
     Model(graph::MetaGraph)
@@ -68,12 +75,14 @@ mutable struct VariableNodeData
     name::Symbol
     options::NamedTuple
     index::Any
+    context::Any
 end
 
 
 value(node::VariableNodeData) = node.options[:value]
 fform_constraint(node::VariableNodeData) = node.options[:q]
 index(node::VariableNodeData) = node.index
+getcontext(node::VariableNodeData) = node.context
 
 """
     FactorNodeData(fform::Any, options::NamedTuple)
@@ -94,13 +103,14 @@ add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
 
 
-struct ProxyLabel
+struct ProxyLabel{T}
     name::Symbol
-    index::Any
+    index::T
     proxied::Any
 end
 
 getname(label::ProxyLabel) = label.name
+index(label::ProxyLabel) = label.index
 
 unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
 
@@ -111,26 +121,15 @@ __proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index..
 __proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) =
     __proxy_unroll(proxy.proxied)[index]
 
-
+Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where N)  = print(io, getname(proxy), "[", index(proxy), "]")
+Base.show(io::IO, proxy::ProxyLabel{Nothing})  = print(io, getname(proxy))
+Base.show(io::IO, proxy::ProxyLabel)  = print(io, getname(proxy), "[", index(proxy)[1], "]")
 Base.getindex(proxy::ProxyLabel, indices...) = getindex(last(proxy), indices...)
 
 Base.last(label::ProxyLabel) = last(label.proxied, label)
 
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
-
-# Base.last(label::ProxyLabel, butlast::Int) = last(label.proxied, label, butlast)
-#
-# function Base.last(proxied::ProxyLabel, ::ProxyLabel, butlast::Int) 
-#     return __last_decorator(last(proxied, butlast), proxied, butlast)
-# end
-#
-# function Base.last(proxied, ::ProxyLabel, butlast::Int)
-#     return 1
-# end
-#
-# __last_decorator(x::Int64, label::ProxyLabel, butlast::Int) = x >= butlast ? label : x + 1
-# __last_decorator(x, label::ProxyLabel, butlast::Int) = x
 
 struct EdgeLabel
     name::Symbol
@@ -248,13 +247,6 @@ end
 Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
-
-struct Broadcasted
-    name::Symbol
-end
-
-getname(broadcasted::Broadcasted) = broadcasted.name
-
 """
     generate_nodelabel(model::Model, name::Symbol)
 
@@ -347,6 +339,15 @@ function Base.show(io::IO, context::Context)
             println(io, "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)")
         end
     end
+    println(io, "$("    " ^ (indentation + 1))Child Contexts: ")
+    for (child_name, child_context) in context.children
+        println(io, "$("    " ^ (indentation + 2))$(child_name) : ")
+        show(io, child_context)
+    end
+    println(io, "$("    " ^ (indentation + 1))Proxies from parent: ")
+    for (proxy_name, proxy_label) in context.proxies
+        println(io, "$("    " ^ (indentation + 2))$(proxy_name) : $(proxy_label)")
+    end
 end
 
 getname(f::Function) = String(Symbol(f))
@@ -380,6 +381,8 @@ haskey(context::Context, key::Symbol) =
     haskey(context.factor_nodes, key) ||
     haskey(context.children, key)
 
+hasvariable(contexct::Context, key::Symbol) = haskey(context.individual_variables, key) || haskey(context.vector_variables, key) || haskey(context.tensor_variables, key)
+
 function Base.getindex(c::Context, key::Any)
     if haskey(c.individual_variables, key)
         return c.individual_variables[key]
@@ -394,7 +397,7 @@ function Base.getindex(c::Context, key::Any)
     elseif haskey(c.proxies, key)
         return c.proxies[key]
     end
-    throw(KeyError("Node " * String(key) * " not found in Context " * c.prefix))
+    throw(KeyError("Node $key not found in Context " * c.prefix))
 end
 
 function Base.getindex(c::Context, fform, index::Int)
@@ -667,7 +670,7 @@ function add_variable_node!(
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, __options__, index)
+    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, context)
     return variable_symbol
 end
 
