@@ -10,7 +10,7 @@ end
 @model function hgf(κ, ω, θ, x_begin, y_end, depth)
     local means
     means[1] ~ gcv(κ = κ, ω = ω, θ = θ, x = x_begin)
-    means[depth] = y_end
+    means[depth] = GraphPPL.unroll(y_end)
     for i = 2:depth
         means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i - 1])
     end
@@ -28,7 +28,7 @@ function create_hgf(n::Int)
         model,
         ctx,
         hgf,
-        y_end,
+        GraphPPL.ProxyLabel(:y_end, nothing, y_end),
         (κ = κ, ω = ω, θ = θ, x_begin = x_begin, depth = n);
         __debug__ = false,
         __parent_options__ = nothing,
@@ -62,7 +62,7 @@ function create_longarray(n::Int)
         model,
         ctx,
         long_array,
-        out,
+        GraphPPL.ProxyLabel(:out, nothing, out),
         (μ = μ, σ = σ, depth=n);
         __debug__ = false,
         __parent_options__ = nothing,
