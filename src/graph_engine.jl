@@ -6,7 +6,7 @@ using BitSetTuples
 using Static
 
 struct FactorID
-    fform
+    fform::Any
     index::Int64
 end
 
@@ -249,7 +249,7 @@ Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
 
-struct Broadcasted 
+struct Broadcasted
     name::Symbol
 end
 
@@ -299,7 +299,7 @@ struct Context
     tensor_variables::Dict{Symbol,ResizableArray}
     factor_nodes::Dict{FactorID,NodeLabel}
     proxies::Dict{Symbol,ProxyLabel}
-    submodel_counts::Dict{Any, Int}
+    submodel_counts::Dict{Any,Int}
 end
 
 fform(context::Context) = context.fform
@@ -310,8 +310,8 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
-count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ?
-    context.submodel_counts[fform] : 0
+count(context::Context, fform::Any) =
+    haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
 
 function generate_factor_nodelabel(context::Context, fform::Any)
     if count(context, fform) == 0
@@ -328,10 +328,7 @@ function Base.show(io::IO, context::Context)
     println(io, "$("    " ^ indentation)Context: $(context.prefix)")
     println(io, "$("    " ^ (indentation + 1))Individual variables:")
     for (variable_name, variable_label) in context.individual_variables
-        println(
-            io,
-            "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)",
-        )
+        println(io, "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)")
     end
     println(io, "$("    " ^ (indentation + 1))Vector variables:")
     for (variable_name, variable_labels) in context.vector_variables
@@ -347,18 +344,26 @@ function Base.show(io::IO, context::Context)
             println(io, "$("    " ^ (indentation + 2))$(factor_label) : ")
             show(io, factor_context)
         else
-            println(
-                io,
-                "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)",
-            )
+            println(io, "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)")
         end
     end
 end
 
 getname(f::Function) = String(Symbol(f))
 
-Context(depth::Int, fform::Function, prefix::String, parent) =
-    Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
+Context(depth::Int, fform::Function, prefix::String, parent) = Context(
+    depth,
+    fform,
+    prefix,
+    parent,
+    Dict(),
+    Dict(),
+    Dict(),
+    Dict(),
+    Dict(),
+    Dict(),
+    Dict(),
+)
 
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1,
@@ -660,7 +665,6 @@ function add_variable_node!(
     index = nothing,
     __options__ = NamedTuple(),
 )
-    __options__ = NamedTuple{(keys(__options__)..., :index)}((__options__..., index))
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
     model[variable_symbol] = VariableNodeData(variable_id, __options__, index)
@@ -742,8 +746,7 @@ function add_edge!(
     interface_name::Symbol;
     index = nothing,
 )
-    model.graph[unroll(variable_node_id), factor_node_id] =
-        EdgeLabel(interface_name, index)
+    model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index)
 end
 
 function add_edge!(
@@ -754,13 +757,7 @@ function add_edge!(
     index = 1,
 )
     for variable_node in variable_nodes
-        add_edge!(
-            model,
-            factor_node_id,
-            variable_node,
-            interface_name;
-            index = index,
-        )
+        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
         index += increase_index(variable_node)
     end
 end
@@ -1045,7 +1042,11 @@ function make_node!(
     __parent_options__ = nothing,
     __debug__ = false,
 )
-    lhs_node = ProxyLabel(getname(lhs_interface), nothing, add_variable_node!(model, ctx, gensym(getname(lhs_interface))))
+    lhs_node = ProxyLabel(
+        getname(lhs_interface),
+        nothing,
+        add_variable_node!(model, ctx, gensym(getname(lhs_interface))),
+    )
     return make_node!(
         True(),
         node_type,

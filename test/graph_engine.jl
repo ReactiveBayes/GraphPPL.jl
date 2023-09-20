@@ -756,8 +756,7 @@ include("model_zoo.jl")
         @test nv(model) == 1 &&
               haskey(ctx, :x) &&
               ctx[:x] == var &&
-              node_options(model[var]) ==
-              NamedTuple((:isconstrained => true, :index => nothing))
+              node_options(model[var]) == NamedTuple((:isconstrained => true,),)
 
     end
 
@@ -879,8 +878,7 @@ include("model_zoo.jl")
         variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
         add_edge!(model, y, variable_nodes, :interface)
 
-        @test ne(model) == 3 &&
-              model[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
+        @test ne(model) == 3 && model[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
     end
 
     @testset "default_parametrization" begin
@@ -919,7 +917,9 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
@@ -957,7 +957,9 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
         @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
               GraphPPL.BitSetTuple(3)
 
@@ -983,7 +985,7 @@ include("model_zoo.jl")
         model = create_model()
         ctx = getcontext(model)
         out = getorcreate!(model, ctx, :out, nothing)
-        make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))   
+        make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
         @test GraphPPL.nv(model) == 3 &&
               GraphPPL.node_options(model[ctx[:constvar_3]])[:value] == [0, 1]
 
@@ -996,7 +998,9 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :in, :in]
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :in, :in]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :in, :in]
 
         #Test 10: Deterministic node with keyword arguments
         function abc(; a = 1, b = 2)
@@ -1037,7 +1041,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
         @test any(
-            (key) ->  GraphPPL.fform(key) == NormalMeanPrecision,
+            (key) -> GraphPPL.fform(key) == NormalMeanPrecision,
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
@@ -1049,7 +1053,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
         @test any(
-            (key) ->  GraphPPL.fform(key) == NormalMeanVariance,
+            (key) -> GraphPPL.fform(key) == NormalMeanVariance,
             keys(ctx.factor_nodes),
         )
         @test GraphPPL.nv(model) == 4
@@ -1092,7 +1096,9 @@ include("model_zoo.jl")
         @test GraphPPL.getname.(
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
-        @test GraphPPL.getname.(GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))) == [:out, :μ, :σ]
+        @test GraphPPL.getname.(
+            GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
+        ) == [:out, :μ, :σ]
 
         # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
         model = create_model()
