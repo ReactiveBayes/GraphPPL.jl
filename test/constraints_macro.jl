@@ -178,13 +178,7 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                     q(z) = q(z[begin]) .. q(z[end])
                     push!(__outer_constraints__, __constraints__)
                 end
@@ -211,22 +205,69 @@ include("model_zoo.jl")
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                     q(z) = q(z[begin]) .. q(z[end])
                     let __outer_constraints__ = __constraints__
-                        let __constraints__ = begin
-                                try
-                                    GraphPPL.SubModelConstraints(subsubmodel)
-                                catch
-                                    GraphPPL.SubModelConstraints(:subsubmodel)
-                                end
-                            end
+                        let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
+                            q(w) = q(w[begin]) .. q(w[end])
+                            push!(__outer_constraints__, __constraints__)
+                        end
+                    end
+                    push!(__outer_constraints__, __constraints__)
+                end
+            end
+            q(a, b, c) = q(a)q(b)q(c)
+            return __constraints__
+        end
+        @test_expression_generating apply_pipeline(input, create_submodel_constraints) output
+
+        # Test 3: create_submodel_constraints with one nested layer and specific subconstraints
+        input = quote
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            for q in (submodel, 1)
+                q(z) = q(z[begin]) .. q(z[end])
+            end
+            q(a, b, c) = q(a)q(b)q(c)
+            return __constraints__
+        end
+        output = quote
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+                    q(z) = q(z[begin]) .. q(z[end])
+                    push!(__outer_constraints__, __constraints__)
+                end
+            end
+            q(a, b, c) = q(a)q(b)q(c)
+            return __constraints__
+        end
+        @test_expression_generating apply_pipeline(input, create_submodel_constraints) output
+
+        # Test 2: create_submodel_constraints with two nested layers
+        input = quote
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            for q in (submodel, 1)
+                q(z) = q(z[begin]) .. q(z[end])
+                for q in (subsubmodel, 5)
+                    q(w) = q(w[begin]) .. q(w[end])
+                end
+            end
+            q(a, b, c) = q(a)q(b)q(c)
+            return __constraints__
+        end
+        output = quote
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+                    q(z) = q(z[begin]) .. q(z[end])
+                    let __outer_constraints__ = __constraints__
+                        let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(subsubmodel, 5))
                             q(w) = q(w[begin]) .. q(w[end])
                             push!(__outer_constraints__, __constraints__)
                         end
@@ -711,11 +752,7 @@ include("model_zoo.jl")
                 ),
             )
             let __outer_constraints__ = __constraints__
-                let __constraints__ = try
-                        GraphPPL.SubModelConstraints(second_submodel)
-                    catch
-                        GraphPPL.SubModelConstraints(:second_submodel)
-                    end
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
                     push!(
                         __constraints__,
                         GraphPPL.FactorizationConstraint(
@@ -748,7 +785,7 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x) = q(x[begin]) .. q(x[end])
             q(μ)::PointMass
-            for q in submodel
+            for q in prior
                 q(u, v, k) = q(u)q(v)q(k)
             end
         end

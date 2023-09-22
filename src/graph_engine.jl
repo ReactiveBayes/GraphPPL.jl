@@ -65,6 +65,7 @@ iterate(label::NodeLabel, any) = nothing
 unroll(label::NodeLabel) = label
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
+Base.getindex(label::NodeLabel, ::Any) = label
 
 """
     VariableNodeData(name::Symbol, options::NamedTuple)
@@ -83,6 +84,17 @@ value(node::VariableNodeData) = node.options[:value]
 fform_constraint(node::VariableNodeData) = node.options[:q]
 index(node::VariableNodeData) = node.index
 getcontext(node::VariableNodeData) = node.context
+
+Base.show(io::IO, node::VariableNodeData) = print(
+    io,
+    node.name,
+    "[",
+    node.index,
+    "] in context ",
+    node.context.prefix,
+    "_",
+    node.context.fform,
+)
 
 """
     FactorNodeData(fform::Any, options::NamedTuple)
@@ -121,10 +133,11 @@ __proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index..
 __proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) =
     __proxy_unroll(proxy.proxied)[index]
 
-Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where N)  = print(io, getname(proxy), "[", index(proxy), "]")
-Base.show(io::IO, proxy::ProxyLabel{Nothing})  = print(io, getname(proxy))
-Base.show(io::IO, proxy::ProxyLabel)  = print(io, getname(proxy), "[", index(proxy)[1], "]")
-Base.getindex(proxy::ProxyLabel, indices...) = getindex(last(proxy), indices...)
+Base.show(io::IO, proxy::ProxyLabel{NTuple{N,Int}} where {N}) =
+    print(io, getname(proxy), "[", index(proxy), "]")
+Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
+Base.show(io::IO, proxy::ProxyLabel) = print(io, getname(proxy), "[", index(proxy)[1], "]")
+Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
 
 Base.last(label::ProxyLabel) = last(label.proxied, label)
 
@@ -381,7 +394,10 @@ haskey(context::Context, key::Symbol) =
     haskey(context.factor_nodes, key) ||
     haskey(context.children, key)
 
-hasvariable(contexct::Context, key::Symbol) = haskey(context.individual_variables, key) || haskey(context.vector_variables, key) || haskey(context.tensor_variables, key)
+hasvariable(contexct::Context, key::Symbol) =
+    haskey(context.individual_variables, key) ||
+    haskey(context.vector_variables, key) ||
+    haskey(context.tensor_variables, key)
 
 function Base.getindex(c::Context, key::Any)
     if haskey(c.individual_variables, key)

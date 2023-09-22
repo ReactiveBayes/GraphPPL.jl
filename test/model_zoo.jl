@@ -126,3 +126,20 @@ end
     z .~ broadcastable(μ = μ, σ = σ)
     out ~ Normal(z[10], 1)
 end
+
+
+@model function inner_inner(τ, y)
+    y ~ Normal(τ[1], τ[2])
+end
+
+@model function inner(θ, α)
+    α ~ inner_inner(τ = θ)
+end
+
+@model function outer()
+    local w
+    for i = 1:5
+        w[i] ~ Gamma(1, 1)
+    end
+    y ~ inner(θ = w[2:3])
+end

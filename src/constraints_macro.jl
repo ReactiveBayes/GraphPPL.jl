@@ -29,15 +29,15 @@ function create_submodel_constraints(e::Expr)
             body__
         end
     ))
+        if @capture(submodel, (name_, index_))
+            submodel_constructor = :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
+        else
+            submodel_constructor = :(GraphPPL.GeneralSubModelConstraints($submodel))
+        end
+
         return quote
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints($submodel)
-                        catch
-                            GraphPPL.SubModelConstraints($(QuoteNode(submodel)))
-                        end
-                    end
+                let __constraints__ = $submodel_constructor
                     $(body...)
                     push!(__outer_constraints__, __constraints__)
                 end

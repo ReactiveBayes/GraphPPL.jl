@@ -59,11 +59,15 @@ include("model_zoo.jl")
                 let p = GraphPPL.ProxyLabel(:r, nothing, GraphPPL.ProxyLabel(:x, i, s))
                     @test GraphPPL.unroll(p) === s[i]
                 end
-
-                let p = GraphPPL.ProxyLabel(:r, 2, GraphPPL.ProxyLabel(:x, (2:4,), s))
-                    @test GraphPPL.unroll(p) === s[3]
-                end
             end
+
+            let p = GraphPPL.ProxyLabel(:r, 2, GraphPPL.ProxyLabel(:x, (2:4,), s))
+                @test GraphPPL.unroll(p) === s[3]
+            end
+            let p = GraphPPL.ProxyLabel(:x, (2:4,), s)
+                @test p[1] === s[2]
+            end
+
         end
 
         for n in (5, 10)
