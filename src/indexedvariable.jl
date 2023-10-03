@@ -63,7 +63,7 @@ struct IndexedVariable{T}
     index::T
 end
 getvariable(index::IndexedVariable) = index.variable
-getindex(index::IndexedVariable) = index.index
+index(index::IndexedVariable) = index.index
 
 Base.length(index::IndexedVariable{T} where {T}) = 1
 Base.iterate(index::IndexedVariable{T} where {T}) = (index, nothing)

@@ -208,7 +208,8 @@ include("model_zoo.jl")
                 let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                     q(z) = q(z[begin]) .. q(z[end])
                     let __outer_constraints__ = __constraints__
-                        let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
+                        let __constraints__ =
+                                GraphPPL.GeneralSubModelConstraints(subsubmodel)
                             q(w) = q(w[begin]) .. q(w[end])
                             push!(__outer_constraints__, __constraints__)
                         end
@@ -237,7 +238,9 @@ include("model_zoo.jl")
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             let __outer_constraints__ = __constraints__
-                let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+                let __constraints__ = GraphPPL.SpecificSubModelConstraints(
+                        GraphPPL.FactorID(submodel, 1),
+                    )
                     q(z) = q(z[begin]) .. q(z[end])
                     push!(__outer_constraints__, __constraints__)
                 end
@@ -264,10 +267,14 @@ include("model_zoo.jl")
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             let __outer_constraints__ = __constraints__
-                let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+                let __constraints__ = GraphPPL.SpecificSubModelConstraints(
+                        GraphPPL.FactorID(submodel, 1),
+                    )
                     q(z) = q(z[begin]) .. q(z[end])
                     let __outer_constraints__ = __constraints__
-                        let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(subsubmodel, 5))
+                        let __constraints__ = GraphPPL.SpecificSubModelConstraints(
+                                GraphPPL.FactorID(subsubmodel, 5),
+                            )
                             q(w) = q(w[begin]) .. q(w[end])
                             push!(__outer_constraints__, __constraints__)
                         end
@@ -700,12 +707,12 @@ include("model_zoo.jl")
                         GraphPPL.IndexedVariable(:y, nothing),
                     ],
                     [
-                        GraphPPL.FactorizationConstraintEntry([
+                        GraphPPL.FactorizationConstraintEntry((
                             GraphPPL.IndexedVariable(:x, nothing),
-                        ]),
-                        GraphPPL.FactorizationConstraintEntry([
+                        )),
+                        GraphPPL.FactorizationConstraintEntry((
                             GraphPPL.IndexedVariable(:y, nothing),
-                        ]),
+                        )),
                     ],
                 ),
             )
@@ -723,9 +730,9 @@ include("model_zoo.jl")
                 GraphPPL.FactorizationConstraint(
                     [GraphPPL.IndexedVariable(:x, nothing)],
                     [
-                        GraphPPL.FactorizationConstraintEntry([
+                        GraphPPL.FactorizationConstraintEntry((
                             GraphPPL.IndexedVariable(:x, nothing),
-                        ]),
+                        ),),
                     ],
                 ),
             )
@@ -761,12 +768,12 @@ include("model_zoo.jl")
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
                             ],
-                            GraphPPL.FactorizationConstraintEntry([
+                            GraphPPL.FactorizationConstraintEntry((
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
-                            ]) * GraphPPL.FactorizationConstraintEntry([
+                            )) * GraphPPL.FactorizationConstraintEntry((
                                 GraphPPL.IndexedVariable(:w, nothing),
-                            ]),
+                            ),),
                         ),
                     )
                     push!(__outer_constraints__, __constraints__)

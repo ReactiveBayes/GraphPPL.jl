@@ -62,7 +62,7 @@ getname(labels::ResizableArray{T,V,N} where {T<:NodeLabel,V,N}) = getname(first(
 vec(label::NodeLabel) = [label]
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
-unroll(label::NodeLabel) = label
+unroll(label) = label
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 Base.getindex(label::NodeLabel, ::Any) = label
@@ -82,6 +82,7 @@ end
 
 value(node::VariableNodeData) = node.options[:value]
 fform_constraint(node::VariableNodeData) = node.options[:q]
+getname(node::VariableNodeData) = node.name
 index(node::VariableNodeData) = node.index
 getcontext(node::VariableNodeData) = node.context
 
@@ -146,7 +147,7 @@ Base.last(proxied, ::ProxyLabel) = proxied
 
 struct EdgeLabel
     name::Symbol
-    index::Union{Int64,Nothing}
+    index::Union{Int,Nothing}
 end
 
 getname(label::EdgeLabel) = label.name
@@ -169,6 +170,7 @@ Base.getindex(model::Model) = Base.getindex(model.graph)
 Base.getindex(model::Model, key::NodeLabel) = Base.getindex(model.graph, key)
 Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
     Base.getindex(model.graph, src, dst)
+Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = [model[key] for key in keys]
 
 
 function Base.getproperty(val::Model, p::Symbol)
@@ -447,8 +449,7 @@ Base.setindex!(c::Context, val::ResizableArray{NodeLabel,T,N} where {T,N}, key::
 getcontext(model::Model) = model.graph[]
 function get_principal_submodel(model::Model)
     context = getcontext(model)
-    @assert length(children(context)) === 1
-    return first(values(children(context)))
+    return context
 end
 
 Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]

@@ -30,7 +30,8 @@ function create_submodel_constraints(e::Expr)
         end
     ))
         if @capture(submodel, (name_, index_))
-            submodel_constructor = :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
+            submodel_constructor =
+                :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
         else
             submodel_constructor = :(GraphPPL.GeneralSubModelConstraints($submodel))
         end
@@ -50,7 +51,7 @@ end
 
 function create_factorization_split(e::Expr)
     if @capture(e, lhs_ .. rhs_)
-        return :(GraphPPL.factorization_split($lhs, $rhs))
+        return :((GraphPPL.factorization_split($lhs, $rhs)))
     else
         return e
     end
@@ -98,7 +99,7 @@ function convert_functionalform_constraints(e::Expr)
         return quote
             push!(
                 __constraints__,
-                GraphPPL.FunctionalFormConstraint($(Expr(:vect, vars...)), $T),
+                GraphPPL.FunctionalFormConstraint($(Expr(:tuple, vars...)), $T),
             )
         end
     else
@@ -113,7 +114,7 @@ function convert_message_constraints(e::Expr)
         end
     elseif @capture(e, (μ(vars__)::T_))
         return quote
-            push!(__constraints__, GraphPPL.MessageConstraint($(Expr(:vect, vars...)), $T))
+            push!(__constraints__, GraphPPL.MessageConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e
@@ -124,14 +125,14 @@ function convert_factorization_constraints(e::Expr)
     if @capture(e, (q(lhs__) = rhs_))
         rhs = walk_until_occurrence(:(q(vars__)))(rhs) do expr
             if @capture(expr, (q(vars__)))
-                return :(GraphPPL.FactorizationConstraintEntry($(Expr(:vect, vars...))))
+                return :(GraphPPL.FactorizationConstraintEntry($(Expr(:tuple, vars...))))
             end
             return expr
         end
         return quote
             push!(
                 __constraints__,
-                GraphPPL.FactorizationConstraint($(Expr(:vect, lhs...)), $rhs),
+                GraphPPL.FactorizationConstraint($(Expr(:tuple, lhs...)), $rhs),
             )
         end
     end
