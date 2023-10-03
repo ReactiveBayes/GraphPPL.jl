@@ -460,6 +460,103 @@ Base.push!(c_set::GeneralSubModelConstraints, c) = push!(getconstraint(c_set), c
 Base.push!(c_set::SpecificSubModelConstraints, c) = push!(getconstraint(c_set), c)
 
 
+struct ResolvedIndexedVariable{T}
+    variable::IndexedVariable{T}
+    context::Context
+end
+
+ResolvedIndexedVariable(variable::Symbol, index, context::Context) =
+    ResolvedIndexedVariable(IndexedVariable(variable, index), context)
+getvariable(var::ResolvedIndexedVariable) = var.variable
+getname(var::ResolvedIndexedVariable) = getvariable(var).variable
+index(var::ResolvedIndexedVariable) = getvariable(var).index
+getcontext(var::ResolvedIndexedVariable) = var.context
+
+Base.show(io::IO, var::ResolvedIndexedVariable{T}) where {T} = print(io, getvariable(var))
+
+Base.in(
+    data::VariableNodeData,
+    var::ResolvedIndexedVariable{T} where {T<:Union{Int,NTuple{N,Int} where N}},
+) =
+    (getname(var) == getname(data)) &&
+    (index(var) == index(data)) &&
+    (getcontext(var) == getcontext(data))
+
+Base.in(data::VariableNodeData, var::ResolvedIndexedVariable{T} where {T<:Nothing}) =
+    (getname(var) == getname(data)) && (getcontext(var) == getcontext(data))
+
+Base.in(
+    data::VariableNodeData,
+    var::ResolvedIndexedVariable{T} where {T<:Union{SplittedRange,CombinedRange,UnitRange}},
+) =
+    (getname(data) == getname(var)) &&
+    (index(data) ∈ index(var)) &&
+    (getcontext(var) == getcontext(data))
+
+struct ResolvedConstraintLHS
+    variables::Tuple
+end
+
+getvariables(var::ResolvedConstraintLHS) = var.variables
+
+Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) =
+    any(in.(Ref(data), getvariables(var)))
+
+struct ResolvedFactorizationConstraintEntry
+    variables::Tuple
+end
+
+getvariables(var::ResolvedFactorizationConstraintEntry) = var.variables
+
+Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) =
+    any(in.(Ref(data), getvariables(var)))
+
+struct ResolvedFactorizationConstraint{V<:ResolvedConstraintLHS,F}
+    lhs::V
+    rhs::F
+end
+
+struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
+    lhs::V
+    rhs::F
+end
+
+const ResolvedConstraint = Union{ResolvedFactorizationConstraint,ResolvedFunctionalFormConstraint}
+
+struct ConstraintStack{T}
+    constraints::Stack{T}
+    context_counts::AbstractDict{Context, Int}
+end
+
+constraints(stack::ConstraintStack) = stack.constraints
+context_counts(stack::ConstraintStack) = stack.context_counts
+Base.getindex(stack::ConstraintStack, context::Context) = context_counts(stack)[context]
+
+ConstraintStack() = ConstraintStack(Stack{ResolvedConstraint}(), Dict{Context, Int}())
+
+function Base.push!(stack::ConstraintStack, constraint::Any, context::Context)
+    push!(stack.constraints, constraint)
+    if haskey(context_counts(stack), context)
+        context_counts(stack)[context] += 1
+    else
+        context_counts(stack)[context] = 1
+    end
+end
+
+function Base.pop!(stack::ConstraintStack, context::Context)
+    if haskey(context_counts(stack), context)
+        if context_counts(stack)[context] == 0
+            return false
+        end
+        context_counts(stack)[context] -= 1
+        pop!(constraints(stack))
+        return true
+    end
+    return false
+end
+
+Base.iterate(stack::ConstraintStack, state=1) = iterate(constraints(stack), state)
+
 save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
     save_constraint!(model, node, model[node], constraint_data, symbol)
 
@@ -621,7 +718,7 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
         ),
         getconstraint(constraint),
     )
-    return ResolvedFactorizationConstraint(ResolvedFactorizationConstraintLHS(lhs), rhs)
+    return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
 
 end
 
@@ -656,7 +753,7 @@ function apply!(model::Model, constraints::Constraints)
         model,
         GraphPPL.get_principal_submodel(model),
         constraints,
-        Stack{ResolvedFactorizationConstraint}(),
+        ConstraintStack(),
     )
     materialize_constraints!(model)
 end
@@ -664,101 +761,46 @@ end
 function apply!(
     model::Model,
     context::Context,
-    constraints::Constraints,
-    resolved_factorization_constraints::Stack{T} where {T},
+    constraint_set::Constraints,
+    resolved_factorization_constraints::ConstraintStack,
 )
-    for fc in factorization_constraints(constraints)
-        push!(resolved_factorization_constraints, resolve(model, context, fc))
+    for fc in factorization_constraints(constraint_set)
+        push!(resolved_factorization_constraints, resolve(model, context, fc), context)
     end
-    for ffc in functional_form_constraints(constraints)
+    for ffc in functional_form_constraints(constraint_set)
         apply!(model, context, ffc)
     end
-    for mc in message_constraints(constraints)
+    for mc in message_constraints(constraint_set)
         apply!(model, context, mc)
     end
-    for rfc in resolved_factorization_constraints
+    for rfc in constraints(resolved_factorization_constraints)
         apply!(model, context, rfc)
     end
     for (factor_id, child) in children(context)
-        if factor_id ∈ keys(specific_submodel_constraints(constraints))
+        if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
             apply!(
                 model,
                 child,
-                specific_submodel_constraints[factor_id],
+                getconstraint(specific_submodel_constraints(constraint_set)[factor_id]),
                 resolved_factorization_constraints,
             )
-        elseif factor_id ∈ keys(general_submodel_constraints(constraints))
+        elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
             apply!(
                 model,
                 child,
-                general_submodel_constraints[fform(child)],
+                getconstraint(general_submodel_constraints(constraint_set)[fform(child)]),
                 resolved_factorization_constraints,
             )
         else
             apply!(model, child, Constraints(), resolved_factorization_constraints)
         end
     end
-    for fc in factorization_constraints(constraints)
-        pop!(resolved_factorization_constraints)
+    while pop!(resolved_factorization_constraints, context)
+        continue
     end
 end
 
 
-struct ResolvedIndexedVariable{T}
-    variable::IndexedVariable{T}
-    context::Context
-end
-
-ResolvedIndexedVariable(variable::Symbol, index, context::Context) =
-    ResolvedIndexedVariable(IndexedVariable(variable, index), context)
-getvariable(var::ResolvedIndexedVariable) = var.variable
-getname(var::ResolvedIndexedVariable) = getvariable(var).variable
-index(var::ResolvedIndexedVariable) = getvariable(var).index
-getcontext(var::ResolvedIndexedVariable) = var.context
-
-Base.show(io::IO, var::ResolvedIndexedVariable{T}) where {T} = print(io, getvariable(var))
-
-Base.in(
-    data::VariableNodeData,
-    var::ResolvedIndexedVariable{T} where {T<:Union{Int,NTuple{N,Int} where N}},
-) =
-    (getname(var) == getname(data)) &&
-    (index(var) == index(data)) &&
-    (getcontext(var) == getcontext(data))
-
-Base.in(data::VariableNodeData, var::ResolvedIndexedVariable{T} where {T<:Nothing}) =
-    (getname(var) == getname(data)) && (getcontext(var) == getcontext(data))
-
-Base.in(
-    data::VariableNodeData,
-    var::ResolvedIndexedVariable{T} where {T<:Union{SplittedRange,CombinedRange,UnitRange}},
-) =
-    (getname(data) == getname(var)) &&
-    (index(data) ∈ index(var)) &&
-    (getcontext(var) == getcontext(data))
-
-struct ResolvedFactorizationConstraintLHS
-    variables::Tuple
-end
-
-getvariables(var::ResolvedFactorizationConstraintLHS) = var.variables
-
-Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintLHS) =
-    any(in.(Ref(data), getvariables(var)))
-
-struct ResolvedFactorizationConstraintEntry
-    variables::Tuple
-end
-
-getvariables(var::ResolvedFactorizationConstraintEntry) = var.variables
-
-Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) =
-    any(in.(Ref(data), getvariables(var)))
-
-struct ResolvedFactorizationConstraint{V<:ResolvedFactorizationConstraintLHS,F}
-    lhs::V
-    rhs::F
-end
 
 function is_applicable(
     model::Model,

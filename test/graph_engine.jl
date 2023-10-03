@@ -967,7 +967,7 @@ include("model_zoo.jl")
             GraphPPL.edges(model, GraphPPL.label_for(model.graph, 2))
         ) == [:out, :μ, :σ]
         @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
-              GraphPPL.BitSetTuple(3)
+              GraphPPL.BitSetTuple(((1,), (2,), (3,)))
 
         # Test 7: Stochastic node with instantiated object
         model = create_model()
@@ -1052,7 +1052,7 @@ include("model_zoo.jl")
         )
         @test GraphPPL.nv(model) == 4
         @test factorization_constraint(model[GraphPPL.label_for(model.graph, 2)]) ==
-              GraphPPL.BitSetTuple(3)
+              GraphPPL.BitSetTuple(((1,), (2,), (3,)))
 
         model = create_model()
         ctx = getcontext(model)
@@ -1145,7 +1145,7 @@ include("model_zoo.jl")
         x = getorcreate!(model, ctx, :x, nothing)
         make_node!(model, ctx, prior, GraphPPL.ProxyLabel(:x, nothing, x), [])
         @test GraphPPL.nv(model) == 4
-        @test GraphPPL.get_principal_submodel(model)[:a] ===
+        @test ctx[prior, 1][:a] ===
               GraphPPL.ProxyLabel(:x, nothing, x)
 
         #test make node for other composite models

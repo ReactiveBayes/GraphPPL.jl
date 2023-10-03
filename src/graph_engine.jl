@@ -114,7 +114,7 @@ const NodeData = Union{FactorNodeData,VariableNodeData}
 node_options(node::NodeData) = node.options
 add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
-
+is_constant(node::NodeData) = node_options(node)[:constant]
 
 struct ProxyLabel{T}
     name::Symbol
@@ -415,7 +415,7 @@ function Base.getindex(c::Context, key::Any)
     elseif haskey(c.proxies, key)
         return c.proxies[key]
     end
-    throw(KeyError("Node $key not found in Context " * c.prefix))
+    throw(KeyError(key))
 end
 
 function Base.getindex(c::Context, fform, index::Int)
@@ -656,7 +656,7 @@ getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
     gensym(model, :constvar);
-    __options__ = NamedTuple{(:value,)}((var,)),
+    __options__ = NamedTuple{(:value, :constant)}((var, true)),
 )
 
 
@@ -683,7 +683,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = NamedTuple(),
+    __options__ = NamedTuple{(:constant, )}((false,)),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -786,7 +786,19 @@ increase_index(x::AbstractArray) = length(x)
 
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
     out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
-    add_to_node_options!(model[factor_node_id], :q, BitSetTuple(out_degree))
+    constraint = BitSetTuple(out_degree)
+    for (i, neighbor) in enumerate(neighbors(model, factor_node_id))
+        if is_constant(model[neighbor])
+            for j in 1:out_degree
+                if i != j
+                    delete!(constraint[j], i)
+                else
+                    intersect!(constraint[i], BitSet(i))
+                end
+            end
+        end
+    end
+    add_to_node_options!(model[factor_node_id], :q, constraint)
 end
 
 
