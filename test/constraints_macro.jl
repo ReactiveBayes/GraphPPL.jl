@@ -445,10 +445,10 @@ include("model_zoo.jl")
             push!(
                 __constraints__,
                 GraphPPL.FunctionalFormConstraint(
-                    [
+                    (
                         GraphPPL.IndexedVariable(:x, nothing),
                         GraphPPL.IndexedVariable(:y, nothing),
-                    ],
+                    ),
                     PointMass,
                 ),
             )
@@ -465,25 +465,14 @@ include("model_zoo.jl")
                 GraphPPL.IndexedVariable(:y, nothing),
             )::PointMass
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                     q(
                         GraphPPL.IndexedVariable(:x, nothing),
                         GraphPPL.IndexedVariable(:y, nothing),
                     )::PointMass
                     let __outer_constraints__ = __constraints__
-                        let __constraints__ = begin
-                                try
-                                    GraphPPL.SubModelConstraints(subsubmodel)
-                                catch
-                                    GraphPPL.SubModelConstraints(:subsubmodel)
-                                end
-                            end
+                        let __constraints__ =
+                                GraphPPL.GeneralSubModelConstraints(subsubmodel)
                             q(
                                 GraphPPL.IndexedVariable(:x, nothing),
                                 GraphPPL.IndexedVariable(:y, nothing),
@@ -499,46 +488,35 @@ include("model_zoo.jl")
             push!(
                 __constraints__,
                 GraphPPL.FunctionalFormConstraint(
-                    [
+                    (
                         GraphPPL.IndexedVariable(:x, nothing),
                         GraphPPL.IndexedVariable(:y, nothing),
-                    ],
+                    ),
                     PointMass,
                 ),
             )
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                     push!(
                         __constraints__,
                         GraphPPL.FunctionalFormConstraint(
-                            [
+                            (
                                 GraphPPL.IndexedVariable(:x, nothing),
                                 GraphPPL.IndexedVariable(:y, nothing),
-                            ],
+                            ),
                             PointMass,
                         ),
                     )
                     let __outer_constraints__ = __constraints__
-                        let __constraints__ = begin
-                                try
-                                    GraphPPL.SubModelConstraints(subsubmodel)
-                                catch
-                                    GraphPPL.SubModelConstraints(:subsubmodel)
-                                end
-                            end
+                        let __constraints__ =
+                                GraphPPL.GeneralSubModelConstraints(subsubmodel)
                             push!(
                                 __constraints__,
                                 GraphPPL.FunctionalFormConstraint(
-                                    [
+                                    (
                                         GraphPPL.IndexedVariable(:x, nothing),
                                         GraphPPL.IndexedVariable(:y, nothing),
-                                    ],
+                                    ),
                                     PointMass,
                                 ),
                             )
@@ -573,119 +551,6 @@ include("model_zoo.jl")
         end
         @test_expression_generating apply_pipeline(input, convert_message_constraints) output
 
-        # Test 2: convert_message_constraints with a functional form constraint over multiple variables
-        input = quote
-            μ(
-                GraphPPL.IndexedVariable(:x, nothing),
-                GraphPPL.IndexedVariable(:y, nothing),
-            )::PointMass
-        end
-        output = quote
-            push!(
-                __constraints__,
-                GraphPPL.MessageConstraint(
-                    [
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    ],
-                    PointMass,
-                ),
-            )
-        end
-        @test_expression_generating apply_pipeline(input, convert_message_constraints) output
-
-        # Test 3: convert_message_constraints with a functional form constraint in a nested constraint specification
-        input = quote
-            μ(
-                GraphPPL.IndexedVariable(:x, nothing),
-                GraphPPL.IndexedVariable(:y, nothing),
-            )::PointMass
-            let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
-                    μ(
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    )::PointMass
-                    let __outer_constraints__ = __constraints__
-                        let __constraints__ = begin
-                                try
-                                    GraphPPL.SubModelConstraints(subsubmodel)
-                                catch
-                                    GraphPPL.SubModelConstraints(:subsubmodel)
-                                end
-                            end
-                            μ(
-                                GraphPPL.IndexedVariable(:x, nothing),
-                                GraphPPL.IndexedVariable(:y, nothing),
-                            )::PointMass
-                            push!(__outer_constraints__, __constraints__)
-                        end
-                    end
-                    push!(__outer_constraints__, __constraints__)
-                end
-            end
-        end
-        output = quote
-            push!(
-                __constraints__,
-                GraphPPL.MessageConstraint(
-                    [
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    ],
-                    PointMass,
-                ),
-            )
-            let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints(submodel)
-                        catch
-                            GraphPPL.SubModelConstraints(:submodel)
-                        end
-                    end
-                    push!(
-                        __constraints__,
-                        GraphPPL.MessageConstraint(
-                            [
-                                GraphPPL.IndexedVariable(:x, nothing),
-                                GraphPPL.IndexedVariable(:y, nothing),
-                            ],
-                            PointMass,
-                        ),
-                    )
-                    let __outer_constraints__ = __constraints__
-                        let __constraints__ = begin
-                                try
-                                    GraphPPL.SubModelConstraints(subsubmodel)
-                                catch
-                                    GraphPPL.SubModelConstraints(:subsubmodel)
-                                end
-                            end
-                            push!(
-                                __constraints__,
-                                GraphPPL.MessageConstraint(
-                                    [
-                                        GraphPPL.IndexedVariable(:x, nothing),
-                                        GraphPPL.IndexedVariable(:y, nothing),
-                                    ],
-                                    PointMass,
-                                ),
-                            )
-                            push!(__outer_constraints__, __constraints__)
-                        end
-                    end
-                    push!(__outer_constraints__, __constraints__)
-                end
-            end
-        end
-        @test_expression_generating apply_pipeline(input, convert_message_constraints) output
     end
 
     @testset "convert_factorization_constraints" begin
@@ -693,27 +558,24 @@ include("model_zoo.jl")
 
         # Test 1: convert_factorization_constraints with a single factorization constraint
         input = quote
-            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = [
-                q(GraphPPL.IndexedVariable(:x, nothing)),
-                q(GraphPPL.IndexedVariable(:y, nothing)),
-            ]
+            q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) =
+                q(GraphPPL.IndexedVariable(:x, nothing)) *
+                q(GraphPPL.IndexedVariable(:y, nothing))
+
         end
         output = quote
             push!(
                 __constraints__,
                 GraphPPL.FactorizationConstraint(
-                    [
+                    (
                         GraphPPL.IndexedVariable(:x, nothing),
                         GraphPPL.IndexedVariable(:y, nothing),
-                    ],
-                    [
-                        GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:x, nothing),
-                        )),
-                        GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:y, nothing),
-                        )),
-                    ],
+                    ),
+                    GraphPPL.FactorizationConstraintEntry((
+                        GraphPPL.IndexedVariable(:x, nothing),
+                    )) * GraphPPL.FactorizationConstraintEntry((
+                        GraphPPL.IndexedVariable(:y, nothing),
+                    )),
                 ),
             )
         end
@@ -722,18 +584,16 @@ include("model_zoo.jl")
         # Test 2: convert_factorization_constraints with a factorization constraint that has no multiplication
         input = quote
             q(GraphPPL.IndexedVariable(:x, nothing)) =
-                [q(GraphPPL.IndexedVariable(:x, nothing))]
+                q(GraphPPL.IndexedVariable(:x, nothing))
         end
         output = quote
             push!(
                 __constraints__,
                 GraphPPL.FactorizationConstraint(
-                    [GraphPPL.IndexedVariable(:x, nothing)],
-                    [
-                        GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:x, nothing),
-                        ),),
-                    ],
+                    (GraphPPL.IndexedVariable(:x, nothing),),
+                    GraphPPL.FactorizationConstraintEntry((
+                        GraphPPL.IndexedVariable(:x, nothing),
+                    ),),
                 ),
             )
         end
@@ -763,11 +623,11 @@ include("model_zoo.jl")
                     push!(
                         __constraints__,
                         GraphPPL.FactorizationConstraint(
-                            [
+                            (
                                 GraphPPL.IndexedVariable(:w, nothing),
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
-                            ],
+                            ),
                             GraphPPL.FactorizationConstraintEntry((
                                 GraphPPL.IndexedVariable(:a, nothing),
                                 GraphPPL.IndexedVariable(:b, nothing),
