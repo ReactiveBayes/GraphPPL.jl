@@ -683,7 +683,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = NamedTuple{(:constant, )}((false,)),
+    __options__ = NamedTuple{(:constant,)}((false,)),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -789,7 +789,7 @@ function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
     constraint = BitSetTuple(out_degree)
     for (i, neighbor) in enumerate(neighbors(model, factor_node_id))
         if is_constant(model[neighbor])
-            for j in 1:out_degree
+            for j = 1:out_degree
                 if i != j
                     delete!(constraint[j], i)
                 else

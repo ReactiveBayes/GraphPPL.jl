@@ -521,18 +521,19 @@ struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
     rhs::F
 end
 
-const ResolvedConstraint = Union{ResolvedFactorizationConstraint,ResolvedFunctionalFormConstraint}
+const ResolvedConstraint =
+    Union{ResolvedFactorizationConstraint,ResolvedFunctionalFormConstraint}
 
 struct ConstraintStack{T}
     constraints::Stack{T}
-    context_counts::AbstractDict{Context, Int}
+    context_counts::AbstractDict{Context,Int}
 end
 
 constraints(stack::ConstraintStack) = stack.constraints
 context_counts(stack::ConstraintStack) = stack.context_counts
 Base.getindex(stack::ConstraintStack, context::Context) = context_counts(stack)[context]
 
-ConstraintStack() = ConstraintStack(Stack{ResolvedConstraint}(), Dict{Context, Int}())
+ConstraintStack() = ConstraintStack(Stack{ResolvedConstraint}(), Dict{Context,Int}())
 
 function Base.push!(stack::ConstraintStack, constraint::Any, context::Context)
     push!(stack.constraints, constraint)
@@ -555,7 +556,7 @@ function Base.pop!(stack::ConstraintStack, context::Context)
     return false
 end
 
-Base.iterate(stack::ConstraintStack, state=1) = iterate(constraints(stack), state)
+Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
 save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
     save_constraint!(model, node, model[node], constraint_data, symbol)
@@ -749,12 +750,7 @@ function apply!(model::Model, context::Context, fform_constraint::MessageConstra
 end
 
 function apply!(model::Model, constraints::Constraints)
-    apply!(
-        model,
-        GraphPPL.get_principal_submodel(model),
-        constraints,
-        ConstraintStack(),
-    )
+    apply!(model, GraphPPL.get_principal_submodel(model), constraints, ConstraintStack())
     materialize_constraints!(model)
 end
 

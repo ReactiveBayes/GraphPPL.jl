@@ -1,23 +1,23 @@
-module GraphPPLTest
+# module GraphPPLTest
 
-using Test, GraphPPL
+using ReTestItems, GraphPPL
 
+runtests(GraphPPL)
+# @testset "GraphPPL" begin
 
-@testset "GraphPPL" begin
+#     @testset "Detect ambiguities" begin
+#         # @test length(Test.detect_ambiguities(GraphPPL)) == 1
+#     end
 
-    @testset "Detect ambiguities" begin
-        # @test length(Test.detect_ambiguities(GraphPPL)) == 1
-    end
+#     include("resizable_array.jl")
+#     include("indexedvariable.jl")
+#     include("graph_engine.jl")
+#     include("model_macro.jl")
+#     include("constraints_engine.jl")
+#     include("constraints_macro.jl")
+#     include("meta_engine.jl")
+#     include("meta_macro.jl")
 
-    include("resizable_array.jl")
-    include("indexedvariable.jl")
-    include("graph_engine.jl")
-    include("model_macro.jl")
-    include("constraints_engine.jl")
-    include("constraints_macro.jl")
-    include("meta_engine.jl")
-    include("meta_macro.jl")
+# end
 
-end
-
-end
+# end
