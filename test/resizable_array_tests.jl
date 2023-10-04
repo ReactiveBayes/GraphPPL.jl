@@ -1,5 +1,3 @@
-using ReTestItems
-
 @testitem "ResizableArray.jl" begin
     # Write your tests here.
     import GraphPPL: ResizableArray, get_recursive_depth

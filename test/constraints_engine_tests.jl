@@ -1,10 +1,3 @@
-module test_constraints_engine
-
-using ReTestItems
-include("model_zoo.jl")
-
-
-
 # @testset "FactorizationConstraintEntry" begin
 #     import GraphPPL: FactorizationConstraintEntry, IndexedVariable
 
@@ -1076,5 +1069,4 @@ end
         @test GraphPPL.factorization_constraint(__model__[__normal_node__]) ==
               BitSetTuple([[1], [2, 3], [2, 3]])
     end
-end
 end

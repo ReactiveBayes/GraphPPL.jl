@@ -1,9 +1,3 @@
-module test_meta_engine
-
-using ReTestItems
-
-include("model_zoo.jl")
-
 @testitem "FactorMetaDescriptor" begin
     include("model_zoo.jl")
     import GraphPPL: FactorMetaDescriptor, IndexedVariable
@@ -387,5 +381,4 @@ end
     meta = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (:x, :y)), (q = 1,))
     @test_throws ErrorException save_meta!(model, node, meta)
 
-end
 end

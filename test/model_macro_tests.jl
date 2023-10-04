@@ -1,8 +1,3 @@
-module test_model_macro
-
-using ReTestItems
-
-
 @testitem "__guard_f" begin
     import GraphPPL.__guard_f
 
@@ -1976,5 +1971,4 @@ end
         (x = x_arr,),
     )
     @test nv(__model__) == 67
-end
 end

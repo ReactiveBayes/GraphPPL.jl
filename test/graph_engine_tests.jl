@@ -1,8 +1,3 @@
-module test_graph_engine
-
-using ReTestItems
-
-
 @testitem "model constructor" begin
     using Graphs
     using MetaGraphsNext
@@ -1285,5 +1280,4 @@ end
     )
     @test size(z) == (2, 2)
 
-end
 end

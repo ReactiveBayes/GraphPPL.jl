@@ -1,9 +1,3 @@
-module test_meta_macro
-
-using ReTestItems
-using GraphPPL
-include("model_zoo.jl")
-
 @testitem "check_for_returns" begin
     include("model_zoo.jl")
     import GraphPPL: check_for_returns_meta, apply_pipeline
@@ -364,6 +358,4 @@ end
         return __meta__
     end
     @test_expression_generating meta_macro_interior(input) output
-end
-
 end

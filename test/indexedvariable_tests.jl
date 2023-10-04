@@ -1,9 +1,3 @@
-module test_indexed_variable
-
-using ReTestItems
-
-
-
 @testitem "IndexedVariable" begin
     import GraphPPL: IndexedVariable, CombinedRange, SplittedRange
 
@@ -67,5 +61,4 @@ end
     @test lhs === rhs
     @test lhs != FunctionalIndex{:end}(lastindex)
     @test lhs !== FunctionalIndex{:end}(lastindex)
-end
 end

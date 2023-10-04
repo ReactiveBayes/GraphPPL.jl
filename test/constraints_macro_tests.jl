@@ -1,8 +1,3 @@
-module test_constraints_macro
-
-using GraphPPL
-using ReTestItems
-
 @testitem "check_for_returns" begin
     using GraphPPL
     using MacroTools
@@ -663,5 +658,4 @@ end
         end
     end
     @test constraints isa Constraints
-end
 end
