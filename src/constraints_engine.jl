@@ -192,8 +192,8 @@ function factorization_split(
 end
 
 function factorization_split(
-    left::NTuple{N,FactorizationConstraintEntry} where {N},
-    right::Tuple,
+    left::FactorizationConstraintEntry,
+    right::NTuple{N,FactorizationConstraintEntry} where {N},
 )
     right_first = first(right)
     entry = factorization_split(left, right_first)
@@ -766,6 +766,7 @@ function apply!(
 )
     for fc in factorization_constraints(constraint_set)
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
+
     end
     for ffc in functional_form_constraints(constraint_set)
         apply!(model, context, ffc)

@@ -943,7 +943,7 @@ include("model_zoo.jl")
     @testset "Resolved Constraints in" begin
         import GraphPPL:
             ResolvedFactorizationConstraint,
-            ResolvedFactorizationConstraintLHS,
+            ResolvedConstraintLHS,
             ResolvedFactorizationConstraintEntry,
             ResolvedIndexedVariable,
             SplittedRange,
@@ -983,7 +983,7 @@ include("model_zoo.jl")
     @testset "ResolvedFactorizationConstraint" begin
         import GraphPPL:
             ResolvedFactorizationConstraint,
-            ResolvedFactorizationConstraintLHS,
+            ResolvedConstraintLHS,
             ResolvedFactorizationConstraintEntry,
             ResolvedIndexedVariable,
             SplittedRange,
@@ -995,7 +995,7 @@ include("model_zoo.jl")
 
         __normal_node__ = __inner_inner_context__[NormalMeanVariance, 1]
         let constraint = ResolvedFactorizationConstraint(
-                ResolvedFactorizationConstraintLHS((
+            ResolvedConstraintLHS((
                     ResolvedIndexedVariable(:w, 2:3, __context__),
                 )),
                 (
@@ -1013,7 +1013,7 @@ include("model_zoo.jl")
         end
 
         let constraint = ResolvedFactorizationConstraint(
-                ResolvedFactorizationConstraintLHS((
+            ResolvedConstraintLHS((
                     ResolvedIndexedVariable(:w, 4:5, __context__),
                 )),
                 (
@@ -1029,7 +1029,7 @@ include("model_zoo.jl")
         end
 
         let constraint = ResolvedFactorizationConstraint(
-                ResolvedFactorizationConstraintLHS((
+            ResolvedConstraintLHS((
                     ResolvedIndexedVariable(:w, 2:3, __context__),
                 )),
                 (
@@ -1044,7 +1044,7 @@ include("model_zoo.jl")
         end
 
         let constraint = ResolvedFactorizationConstraint(
-                ResolvedFactorizationConstraintLHS((
+            ResolvedConstraintLHS((
                     ResolvedIndexedVariable(:w, 2:3, __context__),
                     ResolvedIndexedVariable(:y, nothing, __context__),
                 )),
@@ -1062,7 +1062,7 @@ include("model_zoo.jl")
                   BitSetTuple([[1], [2], [3]])
         end
         let constraint = ResolvedFactorizationConstraint(
-                ResolvedFactorizationConstraintLHS((
+            ResolvedConstraintLHS((
                     ResolvedIndexedVariable(:w, 2:3, __context__),
                     ResolvedIndexedVariable(:y, nothing, __context__),
                 )),
