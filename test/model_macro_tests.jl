@@ -1818,7 +1818,13 @@ end
     using Graphs
     using MetaGraphsNext
     import GraphPPL:
-        model_macro_interior, create_model, getcontext, getorcreate!, make_node!, ProxyLabel, add_terminated_submodel!
+        model_macro_interior,
+        create_model,
+        getcontext,
+        getorcreate!,
+        make_node!,
+        ProxyLabel,
+        add_terminated_submodel!
 
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)

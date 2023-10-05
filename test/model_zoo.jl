@@ -143,3 +143,13 @@ end
     end
     y ~ inner(θ = w[2:3])
 end
+
+@model function multidim_array()
+    local x
+    for i = 1:3
+        x[i, 1] ~ Normal(0, 1)
+        for j = 2:3
+            x[i, j] ~ Normal(x[i, j-1], 1)
+        end
+    end
+end

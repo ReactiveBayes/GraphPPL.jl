@@ -26,6 +26,8 @@ end
 Base.firstindex(range::CombinedRange) = range.from
 Base.lastindex(range::CombinedRange) = range.to
 Base.in(item, range::CombinedRange) = firstindex(range) <= item <= lastindex(range)
+Base.in(item::NTuple{N,Int} where {N}, range::CombinedRange) =
+    CartesianIndex(item...) ∈ firstindex(range):lastindex(range)
 Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
@@ -48,6 +50,8 @@ is_splitted(range::SplittedRange) = true
 Base.firstindex(range::SplittedRange) = range.from
 Base.lastindex(range::SplittedRange) = range.to
 Base.in(item, range::SplittedRange) = firstindex(range) <= item <= lastindex(range)
+Base.in(item::NTuple{N,Int} where {N}, range::SplittedRange) =
+    CartesianIndex(item...) ∈ firstindex(range):lastindex(range)
 Base.length(range::SplittedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::SplittedRange) = print(io, repr(range.from), "..", repr(range.to))
@@ -418,10 +422,7 @@ function Base.push!(c::Constraints, constraint::MessageConstraint)
 end
 
 function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
-    if any(
-        getsubmodel.(keys(general_submodel_constraints(c))) .==
-        Ref(getsubmodel(constraint)),
-    )
+    if any(keys(general_submodel_constraints(c)) .== Ref(getsubmodel(constraint)))
         error(
             "Cannot add $(constraint) to constraint set as constraints are already specified for submodels of type $(getsubmodel(constraint)).",
         )
@@ -430,10 +431,7 @@ function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
 end
 
 function Base.push!(c::Constraints, constraint::SpecificSubModelConstraints)
-    if any(
-        getsubmodel.(keys(specific_submodel_constraints(c))) .==
-        Ref(getsubmodel(constraint)),
-    )
+    if any(keys(specific_submodel_constraints(c)) .== Ref(getsubmodel(constraint)))
         error(
             "Cannot add $(constraint) to $(c) to constraint set as constraints are already specified for submodel $(getsubmodel(constraint)).",
         )
@@ -447,7 +445,8 @@ Base.:(==)(left::Constraints, right::Constraints) =
     left.factorization_constraints == right.factorization_constraints &&
     left.functional_form_constraints == right.functional_form_constraints &&
     left.message_constraints == right.message_constraints &&
-    left.submodel_constraints == right.submodel_constraints
+    left.general_submodel_constraints == right.general_submodel_constraints &&
+    left.specific_submodel_constraints == right.specific_submodel_constraints
 getconstraints(c::Constraints) = vcat(
     factorization_constraints(c),
     functional_form_constraints(c),
