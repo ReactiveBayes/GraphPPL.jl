@@ -501,6 +501,11 @@ getvariables(var::ResolvedConstraintLHS) = var.variables
 Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) =
     any(in.(Ref(data), getvariables(var)))
 
+Base.:(==)(
+    left::ResolvedConstraintLHS,
+    right::ResolvedConstraintLHS,
+) = getvariables(left) == getvariables(right)
+
 struct ResolvedFactorizationConstraintEntry
     variables::Tuple
 end
@@ -514,6 +519,11 @@ struct ResolvedFactorizationConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V
     rhs::F
 end
+
+Base.:(==)(
+    left::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F},
+    right::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F}
+) = left.lhs == right.lhs && left.rhs == right.rhs
 
 struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V

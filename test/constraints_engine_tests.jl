@@ -1,175 +1,176 @@
-# @testset "FactorizationConstraintEntry" begin
-#     import GraphPPL: FactorizationConstraintEntry, IndexedVariable
+@testitem "FactorizationConstraintEntry" begin
+    import GraphPPL: FactorizationConstraintEntry, IndexedVariable
 
-#     # Test 1: Test FactorisationConstraintEntry
-#     @test FactorizationConstraintEntry([
-#         IndexedVariable(:x, nothing),
-#         IndexedVariable(:y, nothing),
-#     ]) isa FactorizationConstraintEntry
+    # Test 1: Test FactorisationConstraintEntry
+    @test FactorizationConstraintEntry((
+        IndexedVariable(:x, nothing),
+        IndexedVariable(:y, nothing),
+    )) isa FactorizationConstraintEntry
 
-#     a = FactorizationConstraintEntry([
-#         IndexedVariable(:x, nothing),
-#         IndexedVariable(:y, nothing),
-#     ])
-#     b = FactorizationConstraintEntry([
-#         IndexedVariable(:x, nothing),
-#         IndexedVariable(:y, nothing),
-#     ])
-#     @test a == b
-#     c = FactorizationConstraintEntry([
-#         IndexedVariable(:x, nothing),
-#         IndexedVariable(:y, nothing),
-#         IndexedVariable(:z, nothing),
-#     ])
-#     @test a != c
-#     d = FactorizationConstraintEntry([
-#         IndexedVariable(:x, nothing),
-#         IndexedVariable(:p, nothing),
-#     ])
-#     @test a != d
+    a = FactorizationConstraintEntry((
+        IndexedVariable(:x, nothing),
+        IndexedVariable(:y, nothing),
+    ))
+    b = FactorizationConstraintEntry((
+        IndexedVariable(:x, nothing),
+        IndexedVariable(:y, nothing),
+    ))
+    @test a == b
+    c = FactorizationConstraintEntry((
+        IndexedVariable(:x, nothing),
+        IndexedVariable(:y, nothing),
+        IndexedVariable(:z, nothing),
+    ))
+    @test a != c
+    d = FactorizationConstraintEntry((
+        IndexedVariable(:x, nothing),
+        IndexedVariable(:p, nothing),
+    ))
+    @test a != d
 
-#     # Test 2: Test FactorisationConstraintEntry with mixed IndexedVariable types
-#     a = FactorizationConstraintEntry([
-#         IndexedVariable(:x, 1),
-#         IndexedVariable(:y, nothing),
-#     ])
-# end
+    # Test 2: Test FactorisationConstraintEntry with mixed IndexedVariable types
+    a = FactorizationConstraintEntry((
+        IndexedVariable(:x, 1),
+        IndexedVariable(:y, nothing),
+    ))
+end
 
-# @testset "CombinedRange" begin
-#     import GraphPPL: CombinedRange, is_splitted, FunctionalIndex
-#     for left = 1:3, right = 5:8
-#         cr = CombinedRange(left, right)
+@testitem "CombinedRange" begin
+    import GraphPPL: CombinedRange, is_splitted, FunctionalIndex
+    for left = 1:3, right = 5:8
+        cr = CombinedRange(left, right)
 
-#         @test firstindex(cr) === left
-#         @test lastindex(cr) === right
-#         @test !is_splitted(cr)
-#         @test length(cr) === lastindex(cr) - firstindex(cr) + 1
+        @test firstindex(cr) === left
+        @test lastindex(cr) === right
+        @test !is_splitted(cr)
+        @test length(cr) === lastindex(cr) - firstindex(cr) + 1
 
-#         for i = left:right
-#             @test i ∈ cr
-#             @test !((i + lastindex(cr) + 1) ∈ cr)
-#         end
-#     end
-#     range = CombinedRange(
-#         FunctionalIndex{:begin}(firstindex),
-#         FunctionalIndex{:end}(lastindex),
-#     )
-#     @test firstindex(range).f === firstindex
-#     @test lastindex(range).f === lastindex
-#     @test_throws MethodError length(range)
-# end
+        for i = left:right
+            @test i ∈ cr
+            @test !((i + lastindex(cr) + 1) ∈ cr)
+        end
+    end
+    range = CombinedRange(
+        FunctionalIndex{:begin}(firstindex),
+        FunctionalIndex{:end}(lastindex),
+    )
+    @test firstindex(range).f === firstindex
+    @test lastindex(range).f === lastindex
+    @test_throws MethodError length(range)
+end
 
-# @testset "SplittedRange" begin
-#     import GraphPPL: SplittedRange, is_splitted, FunctionalIndex
-#     for left = 1:3, right = 5:8
-#         cr = SplittedRange(left, right)
+@testitem "SplittedRange" begin
+    import GraphPPL: SplittedRange, is_splitted, FunctionalIndex
+    for left = 1:3, right = 5:8
+        cr = SplittedRange(left, right)
 
-#         @test firstindex(cr) === left
-#         @test lastindex(cr) === right
-#         @test is_splitted(cr)
-#         @test length(cr) === lastindex(cr) - firstindex(cr) + 1
+        @test firstindex(cr) === left
+        @test lastindex(cr) === right
+        @test is_splitted(cr)
+        @test length(cr) === lastindex(cr) - firstindex(cr) + 1
 
-#         for i = left:right
-#             @test i ∈ cr
-#             @test !((i + lastindex(cr) + 1) ∈ cr)
-#         end
-#     end
-#     range = SplittedRange(
-#         FunctionalIndex{:begin}(firstindex),
-#         FunctionalIndex{:end}(lastindex),
-#     )
-#     @test firstindex(range).f === firstindex
-#     @test lastindex(range).f === lastindex
-#     @test_throws MethodError length(range)
-# end
+        for i = left:right
+            @test i ∈ cr
+            @test !((i + lastindex(cr) + 1) ∈ cr)
+        end
+    end
+    range = SplittedRange(
+        FunctionalIndex{:begin}(firstindex),
+        FunctionalIndex{:end}(lastindex),
+    )
+    @test firstindex(range).f === firstindex
+    @test lastindex(range).f === lastindex
+    @test_throws MethodError length(range)
+end
 
-# @testset "__factorization_specification_resolve_index" begin
-#     import GraphPPL:
-#         __factorization_specification_resolve_index,
-#         FunctionalIndex,
-#         CombinedRange,
-#         SplittedRange,
-#         NodeLabel,
-#         ResizableArray
+@testitem "__factorization_specification_resolve_index" begin
+    using GraphPPL
+    import GraphPPL:
+        __factorization_specification_resolve_index,
+        FunctionalIndex,
+        CombinedRange,
+        SplittedRange,
+        NodeLabel,
+        ResizableArray
 
-#     collection = ResizableArray(NodeLabel, Val(1))
-#     for i = 1:10
-#         collection[i] = NodeLabel(:x, i)
-#     end
+    collection = ResizableArray(NodeLabel, Val(1))
+    for i = 1:10
+        collection[i] = NodeLabel(:x, i)
+    end
 
-#     # Test 1: Test __factorization_specification_resolve_index with FunctionalIndex
-#     index = FunctionalIndex{:begin}(firstindex)
-#     @test __factorization_specification_resolve_index(index, collection) ===
-#           firstindex(collection)
+    # Test 1: Test __factorization_specification_resolve_index with FunctionalIndex
+    index = FunctionalIndex{:begin}(firstindex)
+    @test __factorization_specification_resolve_index(index, collection) ===
+          firstindex(collection)
 
-#     @test_throws ErrorException __factorization_specification_resolve_index(
-#         index,
-#         collection[1],
-#     )
+    @test_throws ErrorException __factorization_specification_resolve_index(
+        index,
+        collection[1],
+    )
 
-#     # Test 2: Test __factorization_specification_resolve_index with CombinedRange
-#     index = CombinedRange(1, 5)
-#     @test __factorization_specification_resolve_index(index, collection) === index
-#     index = CombinedRange(
-#         FunctionalIndex{:begin}(firstindex),
-#         FunctionalIndex{:end}(lastindex),
-#     )
-#     @test __factorization_specification_resolve_index(index, collection) ===
-#           CombinedRange(1, 10)
-#     index = CombinedRange(5, FunctionalIndex{:end}(lastindex))
-#     @test __factorization_specification_resolve_index(index, collection) ===
-#           CombinedRange(5, 10)
-#     index = CombinedRange(1, 20)
-#     @test_throws ErrorException __factorization_specification_resolve_index(
-#         index,
-#         collection,
-#     )
+    # Test 2: Test __factorization_specification_resolve_index with CombinedRange
+    index = CombinedRange(1, 5)
+    @test __factorization_specification_resolve_index(index, collection) === index
+    index = CombinedRange(
+        FunctionalIndex{:begin}(firstindex),
+        FunctionalIndex{:end}(lastindex),
+    )
+    @test __factorization_specification_resolve_index(index, collection) ===
+          CombinedRange(1, 10)
+    index = CombinedRange(5, FunctionalIndex{:end}(lastindex))
+    @test __factorization_specification_resolve_index(index, collection) ===
+          CombinedRange(5, 10)
+    index = CombinedRange(1, 20)
+    @test_throws ErrorException __factorization_specification_resolve_index(
+        index,
+        collection,
+    )
 
-#     @test_throws ErrorException __factorization_specification_resolve_index(
-#         index,
-#         collection[1],
-#     )
+    @test_throws ErrorException __factorization_specification_resolve_index(
+        index,
+        collection[1],
+    )
 
-#     # Test 3: Test __factorization_specification_resolve_index with SplittedRange
-#     index = SplittedRange(1, 5)
-#     @test __factorization_specification_resolve_index(index, collection) === index
-#     index = SplittedRange(
-#         FunctionalIndex{:begin}(firstindex),
-#         FunctionalIndex{:end}(lastindex),
-#     )
-#     @test __factorization_specification_resolve_index(index, collection) ===
-#           SplittedRange(1, 10)
-#     index = SplittedRange(5, FunctionalIndex{:end}(lastindex))
-#     @test __factorization_specification_resolve_index(index, collection) ===
-#           SplittedRange(5, 10)
-#     index = SplittedRange(1, 20)
-#     @test_throws ErrorException __factorization_specification_resolve_index(
-#         index,
-#         collection,
-#     )
+    # Test 3: Test __factorization_specification_resolve_index with SplittedRange
+    index = SplittedRange(1, 5)
+    @test __factorization_specification_resolve_index(index, collection) === index
+    index = SplittedRange(
+        FunctionalIndex{:begin}(firstindex),
+        FunctionalIndex{:end}(lastindex),
+    )
+    @test __factorization_specification_resolve_index(index, collection) ===
+          SplittedRange(1, 10)
+    index = SplittedRange(5, FunctionalIndex{:end}(lastindex))
+    @test __factorization_specification_resolve_index(index, collection) ===
+          SplittedRange(5, 10)
+    index = SplittedRange(1, 20)
+    @test_throws ErrorException __factorization_specification_resolve_index(
+        index,
+        collection,
+    )
 
-#     @test_throws ErrorException __factorization_specification_resolve_index(
-#         index,
-#         collection[1],
-#     )
+    @test_throws ErrorException __factorization_specification_resolve_index(
+        index,
+        collection[1],
+    )
 
-#     # Test 4: Test __factorization_specification_resolve_index with Array of indices
-#     index = SplittedRange(
-#         [FunctionalIndex{:begin}(firstindex), FunctionalIndex{:begin}(firstindex)],
-#         [FunctionalIndex{:end}(lastindex), FunctionalIndex{:end}(lastindex)],
-#     )
-#     collection = GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(2))
-#     for i = 1:3
-#         for j = 1:5
-#             collection[i, j] = GraphPPL.NodeLabel(:x, i * j)
-#         end
-#     end
+    # Test 4: Test __factorization_specification_resolve_index with Array of indices
+    index = SplittedRange(
+        [FunctionalIndex{:begin}(firstindex), FunctionalIndex{:begin}(firstindex)],
+        [FunctionalIndex{:end}(lastindex), FunctionalIndex{:end}(lastindex)],
+    )
+    collection = GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(2))
+    for i = 1:3
+        for j = 1:5
+            collection[i, j] = GraphPPL.NodeLabel(:x, i * j)
+        end
+    end
 
-#     #@bvdmitri we should check if we should allow this at all (i.e. x[begin, begin]..x[end, end]), otherwise we can delete these broken tests and just disallow in general. I remember you saying this isn't possible, but I don't remember if it referenced this exact problem.
+    #@bvdmitri we should check if we should allow this at all (i.e. x[begin, begin]..x[end, end]), otherwise we can delete these broken tests and just disallow in general. I remember you saying this isn't possible, but I don't remember if it referenced this exact problem.
 
-#     @test_broken __factorization_specification_resolve_index(index, collection) ===
-#                  SplittedRange([1, 1], [3, 5])
-# end
+    @test_broken __factorization_specification_resolve_index(index, collection) ===
+                 SplittedRange([1, 1], [3, 5])
+end
 
 @testitem "factorization_split" begin
     import GraphPPL:
@@ -767,7 +768,7 @@ end
 # end
 
 @testitem "Resolve Factorization Constraints" begin
-    include("model_zoo.jl")
+        include("model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         FactorizationConstraint,
@@ -794,14 +795,14 @@ end
         result = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((
                 ResolvedIndexedVariable(:y, nothing, ctx),
-                ResolvedIndexedVariable(:w, 2:3, ctx),
+                ResolvedIndexedVariable(:w, CombinedRange(2, 3), ctx),
             ),),
             (
                 ResolvedFactorizationConstraintEntry((
                     ResolvedIndexedVariable(:y, nothing, ctx),
                 )),
                 ResolvedFactorizationConstraintEntry((
-                    ResolvedIndexedVariable(:w, 2:3, ctx),
+                    ResolvedIndexedVariable(:w, CombinedRange(2, 3), ctx),
                 )),
             ),
         )
