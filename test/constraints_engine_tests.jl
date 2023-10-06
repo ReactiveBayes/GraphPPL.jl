@@ -29,10 +29,7 @@
     @test a != d
 
     # Test 2: Test FactorisationConstraintEntry with mixed IndexedVariable types
-    a = FactorizationConstraintEntry((
-        IndexedVariable(:x, 1),
-        IndexedVariable(:y, nothing),
-    ))
+    a = FactorizationConstraintEntry((IndexedVariable(:x, 1), IndexedVariable(:y, nothing)))
 end
 
 @testitem "CombinedRange" begin
@@ -50,10 +47,8 @@ end
             @test !((i + lastindex(cr) + 1) ∈ cr)
         end
     end
-    range = CombinedRange(
-        FunctionalIndex{:begin}(firstindex),
-        FunctionalIndex{:end}(lastindex),
-    )
+    range =
+        CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
@@ -74,10 +69,8 @@ end
             @test !((i + lastindex(cr) + 1) ∈ cr)
         end
     end
-    range = SplittedRange(
-        FunctionalIndex{:begin}(firstindex),
-        FunctionalIndex{:end}(lastindex),
-    )
+    range =
+        SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
@@ -111,10 +104,8 @@ end
     # Test 2: Test __factorization_specification_resolve_index with CombinedRange
     index = CombinedRange(1, 5)
     @test __factorization_specification_resolve_index(index, collection) === index
-    index = CombinedRange(
-        FunctionalIndex{:begin}(firstindex),
-        FunctionalIndex{:end}(lastindex),
-    )
+    index =
+        CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))
     @test __factorization_specification_resolve_index(index, collection) ===
           CombinedRange(1, 10)
     index = CombinedRange(5, FunctionalIndex{:end}(lastindex))
@@ -134,10 +125,8 @@ end
     # Test 3: Test __factorization_specification_resolve_index with SplittedRange
     index = SplittedRange(1, 5)
     @test __factorization_specification_resolve_index(index, collection) === index
-    index = SplittedRange(
-        FunctionalIndex{:begin}(firstindex),
-        FunctionalIndex{:end}(lastindex),
-    )
+    index =
+        SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))
     @test __factorization_specification_resolve_index(index, collection) ===
           SplittedRange(1, 10)
     index = SplittedRange(5, FunctionalIndex{:end}(lastindex))
@@ -559,10 +548,6 @@ end
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
-    constraint =
-        FunctionalFormConstraint([IndexedVariable(:y, 1), IndexedVariable(:x, 1)], Normal)
-    @test_broken @test_throws ErrorException push!(constraints, constraint)
-
     # Test 3: Test push! with MessageConstraint
     constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
@@ -736,39 +721,69 @@ end
 
 # end
 
-# @testset "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
-#     import GraphPPL:
-#         materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names
+@testitem "constant_constraint" begin
+    using BitSetTuples
+    import GraphPPL: constant_constraint
 
-#     # Test 1: Test materialize with a Full Factorization constraint
-#     model = create_terminated_model(simple_model)
-#     ctx = GraphPPL.getcontext(model)
-#     node = first(neighbors(model, ctx[:z]))
-#     materialize_constraints!(model, node)
-#     @test get_constraint_names(factorization_constraint(model[node])) ==
-#           ((:out, :μ, :σ),)
+    @test constant_constraint(1, 1) == BitSetTuple(1)
+    @test constant_constraint(5, 3) ==
+          BitSetTuple([[1, 2, 4, 5], [1, 2, 4, 5], [3], [1, 2, 4, 5], [1, 2, 4, 5]])
+end
 
-#     # Test 2: Test materialize with a MeanField Factorization constraint
-#     model = create_terminated_model(simple_model)
-#     ctx = GraphPPL.getcontext(model)
-#     node = first(neighbors(model, ctx[:z]))
+@testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
+    include("model_zoo.jl")
+    using BitSetTuples
+    using GraphPPL
+    import GraphPPL:
+        materialize_constraints!,
+        EdgeLabel,
+        node_options,
+        apply!,
+        get_constraint_names,
+        factorization_constraint
 
-#     constraint = FactorizationConstraint(
-#         (
-#             IndexedVariable(:x, nothing),
-#             IndexedVariable(:y, nothing),
-#             IndexedVariable(:z, nothing),
-#         ),
-#         MeanField(),
-#     )
-#     apply!(model, ctx, constraint)
-#     materialize_constraints!(model, node)
-#     @test get_constraint_names(factorization_constraint(model[node])) ==
-#           ((:out,), (:μ,), (:σ,))
-# end
+    # Test 1: Test materialize with a Full Factorization constraint
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+    materialize_constraints!(model, node)
+    @test get_constraint_names(factorization_constraint(model[node])) == ((:μ, :σ, :out),)
+    materialize_constraints!(model, ctx[NormalMeanVariance, 1])
+    @test get_constraint_names(
+        factorization_constraint(model[ctx[NormalMeanVariance, 1]]),
+    ) == ((:out,), (:μ,), (:σ,))
+
+    # Test 2: Test materialize with an applied constraint
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+    GraphPPL.save_constraint!(
+        model,
+        node,
+        model[node],
+        BitSetTuple([[1], [2, 3], [2, 3]]),
+        :q,
+    )
+    materialize_constraints!(model, node)
+    @test get_constraint_names(factorization_constraint(model[node])) == ((:μ,), (:σ, :out))
+
+    # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [3], [2, 3]]), :q)
+    @test_throws ErrorException materialize_constraints!(model, node)
+
+    # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [1], [3]]), :q)
+    @test_throws ErrorException materialize_constraints!(model, node)
+end
 
 @testitem "Resolve Factorization Constraints" begin
-        include("model_zoo.jl")
+    include("model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         FactorizationConstraint,
@@ -995,7 +1010,7 @@ end
               BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
         apply!(__model__, __normal_node__, constraint)
         @test GraphPPL.factorization_constraint(__model__[__normal_node__]) ==
-              BitSetTuple([[1], [2], [3]])
+              BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
 
     end
 
@@ -1019,7 +1034,7 @@ end
               BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
         apply!(__model__, __normal_node__, constraint)
         @test GraphPPL.factorization_constraint(__model__[__normal_node__]) ==
-              BitSetTuple([[1, 2], [1, 2], [3]])
+              BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 
     end
 end

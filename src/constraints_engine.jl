@@ -6,6 +6,7 @@ using Unrolled
 using BitSetTuples
 using MetaGraphsNext
 using DataStructures
+using Memoization
 
 struct MeanField end
 
@@ -170,9 +171,8 @@ function factorization_split(
     left::FactorizationConstraintEntry,
     right::FactorizationConstraintEntry,
 )
-    (getnames(left) == getnames(right)) || error(
-        "Cannot split $(left_last) and $(right_first). Names or their order does not match.",
-    )
+    (getnames(left) == getnames(right)) ||
+        error("Cannot split $(left) and $(right). Names or their order does not match.")
     (length(getnames(left)) === length(Set(getnames(left)))) ||
         error("Cannot split $(left) and $(right). Names should be unique.")
     lindices = getindices(left)
@@ -501,10 +501,8 @@ getvariables(var::ResolvedConstraintLHS) = var.variables
 Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) =
     any(in.(Ref(data), getvariables(var)))
 
-Base.:(==)(
-    left::ResolvedConstraintLHS,
-    right::ResolvedConstraintLHS,
-) = getvariables(left) == getvariables(right)
+Base.:(==)(left::ResolvedConstraintLHS, right::ResolvedConstraintLHS) =
+    getvariables(left) == getvariables(right)
 
 struct ResolvedFactorizationConstraintEntry
     variables::Tuple
@@ -522,7 +520,7 @@ end
 
 Base.:(==)(
     left::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F},
-    right::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F}
+    right::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F},
 ) = left.lhs == right.lhs && left.rhs == right.rhs
 
 struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
@@ -614,6 +612,17 @@ function is_valid_partition(set::Set)
     return true
 end
 
+@memoize function constant_constraint(num_neighbors::Int, index_constant::Int)
+    constraint = BitSetTuple(num_neighbors)
+    intersect!(constraint[index_constant], BitSet([index_constant]))
+    for i = 1:num_neighbors
+        if i != index_constant
+            delete!(constraint[i], index_constant)
+        end
+    end
+    return constraint
+end
+
 """
     materialize_constraints!(model::Model)
 
@@ -653,6 +662,19 @@ function materialize_constraints!(
     node_data::FactorNodeData,
     constraint::BitSetTuple,
 )
+    for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
+        neighbor_data = model[neighbor]
+        if is_constant(neighbor_data)
+            save_constraint!(
+                model,
+                node_label,
+                node_data,
+                constant_constraint(length(constraint), i),
+                :q,
+            )
+        end
+    end
+
     constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label)
     constraint = SA[constraint_set...]

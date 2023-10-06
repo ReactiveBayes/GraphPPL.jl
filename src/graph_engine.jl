@@ -787,17 +787,6 @@ increase_index(x::AbstractArray) = length(x)
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
     out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
     constraint = BitSetTuple(out_degree)
-    for (i, neighbor) in enumerate(neighbors(model, factor_node_id))
-        if is_constant(model[neighbor])
-            for j = 1:out_degree
-                if i != j
-                    delete!(constraint[j], i)
-                else
-                    intersect!(constraint[i], BitSet(i))
-                end
-            end
-        end
-    end
     add_to_node_options!(model[factor_node_id], :q, constraint)
 end
 

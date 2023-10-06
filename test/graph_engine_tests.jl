@@ -981,8 +981,7 @@ end
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
     @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test factorization_constraint(model[label_for(model.graph, 2)]) ==
-          BitSetTuple(((1,), (2,), (3,)))
+    @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(3)
 
     # Test 7: Stochastic node with instantiated object
     model = create_model()
@@ -1057,8 +1056,7 @@ end
     node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
     @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
-    @test factorization_constraint(model[label_for(model.graph, 2)]) ==
-          BitSetTuple(((1,), (2,), (3,)))
+    @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(3)
 
     model = create_model()
     ctx = getcontext(model)
