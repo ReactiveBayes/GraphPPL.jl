@@ -730,6 +730,29 @@ end
           BitSetTuple([[1, 2, 4, 5], [1, 2, 4, 5], [3], [1, 2, 4, 5], [1, 2, 4, 5]])
 end
 
+@testitem "save constraints with constants" begin
+    include("model_zoo.jl")
+    using BitSetTuples
+    using GraphPPL
+    import GraphPPL:
+        save_constraint!,
+        constant_constraint,
+        factorization_constraint
+
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+    save_constraint!(model, node, constant_constraint(3, 1), :q)
+    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+    save_constraint!(model, node, constant_constraint(3, 2), :q)
+    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2], [3]])
+
+    node = ctx[NormalMeanVariance, 1]
+    save_constraint!(model, node, constant_constraint(3, 1), :q)
+    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+end
+
+
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
     include("model_zoo.jl")
     using BitSetTuples
@@ -774,7 +797,7 @@ end
     GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [3], [2, 3]]), :q)
     @test_throws ErrorException materialize_constraints!(model, node)
 
-    # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
+    # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
