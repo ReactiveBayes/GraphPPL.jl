@@ -623,6 +623,18 @@ end
     return constraint
 end
 
+@memoize function mean_field_constraint(num_neighbors::Int)
+    return BitSetTuple([[i] for i in 1:num_neighbors])
+end
+
+@memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::AbstractArray{Int})
+    constraint = BitSetTuple(num_neighbors)
+    for i in referenced_indices
+        intersect!(constraint, constant_constraint(num_neighbors, i))
+    end
+    return constraint 
+end
+
 """
     materialize_constraints!(model::Model)
 
