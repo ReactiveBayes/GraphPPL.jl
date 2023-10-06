@@ -627,7 +627,7 @@ end
     return BitSetTuple([[i] for i in 1:num_neighbors])
 end
 
-@memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::AbstractArray{Int})
+@memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
     constraint = BitSetTuple(num_neighbors)
     for i in referenced_indices
         intersect!(constraint, constant_constraint(num_neighbors, i))
