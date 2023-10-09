@@ -13,8 +13,6 @@ function benchmark_constraints_engine()
         model = create_longarray(j)
         c = longarrayconstraints()
         SUITE["apply meanfield constraint to vector of $j variables"]  = @benchmarkable GraphPPL.apply!(m, $c) setup=(m=deepcopy($model)) evals=1
-        GraphPPL.apply!(model, c)
-        SUITE["materialze constraints in vector of $j variables"] =  @benchmarkable GraphPPL.materialize_constraints!(m) setup=(m=deepcopy($model)) evals=1
     end
     return SUITE
 end

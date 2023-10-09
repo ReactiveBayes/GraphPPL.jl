@@ -447,6 +447,7 @@ Base.setindex!(c::Context, val::ResizableArray{NodeLabel,T,N} where {T,N}, key::
 
 
 getcontext(model::Model) = model.graph[]
+
 function get_principal_submodel(model::Model)
     context = getcontext(model)
     return context

@@ -252,6 +252,8 @@ struct FactorizationConstraint{V,F}
     end
 end
 
+FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} = FactorizationConstraint(variables, (constriant,))
+
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
 
@@ -523,10 +525,17 @@ Base.:(==)(
     right::ResolvedFactorizationConstraint{V,F} where {V<:ResolvedConstraintLHS,F},
 ) = left.lhs == right.lhs && left.rhs == right.rhs
 
+lhs(constraint::ResolvedFactorizationConstraint) = constraint.lhs
+rhs(constraint::ResolvedFactorizationConstraint) = constraint.rhs
+
+
 struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V
     rhs::F
 end
+
+lhs(constraint::ResolvedFunctionalFormConstraint) = constraint.lhs
+rhs(constraint::ResolvedFunctionalFormConstraint) = constraint.rhs
 
 const ResolvedConstraint =
     Union{ResolvedFactorizationConstraint,ResolvedFunctionalFormConstraint}
@@ -848,7 +857,7 @@ function is_applicable(
     constraint::ResolvedFactorizationConstraint,
 )
     neighbors = getindex.(Ref(model), GraphPPL.neighbors(model, node))
-    return any(map(neighbor -> neighbor ∈ constraint.lhs, neighbors))
+    return any(map(neighbor -> neighbor ∈ lhs(constraint), neighbors))
 end
 
 function is_decoupled(
@@ -869,10 +878,10 @@ function is_decoupled(
     var_2::VariableNodeData,
     constraint::ResolvedFactorizationConstraint,
 )
-    if var_1 ∉ constraint.lhs || var_2 ∉ constraint.lhs
+    if var_1 ∉ lhs(constraint) || var_2 ∉ lhs(constraint)
         return false
     end
-    for entry in constraint.rhs
+    for entry in rhs(constraint)
         if var_1 ∈ entry
             return is_decoupled(var_1, var_2, entry)
         end
