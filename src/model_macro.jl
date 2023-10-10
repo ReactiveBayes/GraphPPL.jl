@@ -488,10 +488,10 @@ end
 function proxy_args(lhs, rhs)
     @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
     if isa(rhs, Symbol)
-        return :($lhs = GraphPPL.ProxyLabel($(QuoteNode(rhs)), nothing, $rhs))
+        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
     elseif @capture(rhs, rlabel_[index__])
         return :(
-            $lhs = GraphPPL.ProxyLabel(
+            $lhs = GraphPPL.proxylabel(
                 $(QuoteNode(rlabel)),
                 $(Expr(:tuple, index...)),
                 $rlabel,
@@ -571,10 +571,10 @@ combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 
 generate_lhs_proxylabel(var, index::Nothing) = quote
-    GraphPPL.ProxyLabel($(QuoteNode(var)), nothing, $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), nothing, $var)
 end
 generate_lhs_proxylabel(var, index::AbstractArray) = quote
-    GraphPPL.ProxyLabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
 end
 
 """

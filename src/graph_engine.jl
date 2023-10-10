@@ -122,6 +122,10 @@ struct ProxyLabel{T}
     proxied::Any
 end
 
+proxylabel(name::Symbol, index::T, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) where {T} =
+    ProxyLabel(name, index, proxied)
+proxylabel(name::Symbol, index::T, proxied) where {T} = proxied
+
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 

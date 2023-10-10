@@ -1387,7 +1387,7 @@ end
             __model__,
             __context__,
             sum,
-            GraphPPL.ProxyLabel(:x, nothing, x),
+            GraphPPL.proxylabel(:x, nothing, x),
             [0, 1];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1408,7 +1408,7 @@ end
             __model__,
             __context__,
             sum,
-            GraphPPL.ProxyLabel(:x, nothing, x),
+            GraphPPL.proxylabel(:x, nothing, x),
             (μ = 0, σ = 1);
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1430,7 +1430,7 @@ end
             __model__,
             __context__,
             sum,
-            GraphPPL.ProxyLabel(:x, (i,), x),
+            GraphPPL.proxylabel(:x, (i,), x),
             [μ[i], σ[i]];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1461,7 +1461,7 @@ end
             __model__,
             __context__,
             Normal,
-            GraphPPL.ProxyLabel(:z, nothing, z),
+            GraphPPL.proxylabel(:z, nothing, z),
             [
                 (
                     begin
@@ -1470,7 +1470,7 @@ end
                             __model__,
                             __context__,
                             +,
-                            GraphPPL.ProxyLabel(:anon_1, nothing, anon_1),
+                            GraphPPL.proxylabel(:anon_1, nothing, anon_1),
                             [x, 1];
                             __parent_options__ = GraphPPL.prepare_options(
                                 __parent_options__,
@@ -1503,7 +1503,7 @@ end
             __model__,
             __context__,
             y,
-            GraphPPL.ProxyLabel(:x, nothing, x),
+            GraphPPL.proxylabel(:x, nothing, x),
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1525,7 +1525,7 @@ end
             __model__,
             __context__,
             y,
-            GraphPPL.ProxyLabel(:x, (i,), x),
+            GraphPPL.proxylabel(:x, (i,), x),
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1547,7 +1547,7 @@ end
             __model__,
             __context__,
             y,
-            GraphPPL.ProxyLabel(:x, (i, j), x),
+            GraphPPL.proxylabel(:x, (i, j), x),
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1568,7 +1568,7 @@ end
             __model__,
             __context__,
             sum,
-            GraphPPL.ProxyLabel(:x, nothing, x),
+            GraphPPL.proxylabel(:x, nothing, x),
             GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1589,7 +1589,7 @@ end
             __model__,
             __context__,
             sum,
-            GraphPPL.ProxyLabel(:x, nothing, x),
+            GraphPPL.proxylabel(:x, nothing, x),
             [μ, σ];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1610,10 +1610,10 @@ end
             __model__,
             __context__,
             Normal,
-            GraphPPL.ProxyLabel(:y, nothing, y),
+            GraphPPL.proxylabel(:y, nothing, y),
             (
-                μ = GraphPPL.ProxyLabel(:x, nothing, x),
-                σ = GraphPPL.ProxyLabel(:σ, nothing, σ),
+                μ = GraphPPL.proxylabel(:x, nothing, x),
+                σ = GraphPPL.proxylabel(:σ, nothing, σ),
             );
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1632,7 +1632,7 @@ end
             __model__,
             __context__,
             prior,
-            GraphPPL.ProxyLabel(:y, nothing, y),
+            GraphPPL.proxylabel(:y, nothing, y),
             [];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
@@ -1823,7 +1823,7 @@ end
         getcontext,
         getorcreate!,
         make_node!,
-        ProxyLabel,
+        proxylabel,
         add_terminated_submodel!
 
     # Test 1: Test regular node creation input
@@ -1838,7 +1838,7 @@ end
         __model__,
         __context__,
         test_model,
-        ProxyLabel(:μ, nothing, μ),
+        proxylabel(:μ, nothing, μ),
         (σ = σ,);
         __parent_options__ = nothing,
         __debug__ = false,
@@ -1862,7 +1862,7 @@ end
         __model__,
         ctx,
         test_model,
-        ProxyLabel(:μ, nothing, μ),
+        proxylabel(:μ, nothing, μ),
         (σ = σ,);
         __parent_options__ = nothing,
         __debug__ = false,
@@ -1890,7 +1890,7 @@ end
         __model__,
         __context__,
         illegal_model,
-        ProxyLabel(:μ, nothing, μ),
+        proxylabel(:μ, nothing, μ),
         (σ = σ,);
         __parent_options__ = nothing,
         __debug__ = false,
@@ -1914,7 +1914,7 @@ end
         __model__,
         __context__,
         foo,
-        ProxyLabel(:x, nothing, x),
+        proxylabel(:x, nothing, x),
         (y = y,);
         __parent_options__ = nothing,
         __debug__ = false,
@@ -1934,7 +1934,7 @@ end
         __model__,
         ctx,
         model_with_deep_anonymous_call,
-        ProxyLabel(:x, nothing, x),
+        proxylabel(:x, nothing, x),
         (y = y,);
         __parent_options__ = nothing,
         __debug__ = false,
@@ -1973,7 +1973,7 @@ end
         __model__,
         __context__,
         anonymous_in_loop,
-        ProxyLabel(:y, nothing, y),
+        proxylabel(:y, nothing, y),
         (x = x_arr,),
     )
     @test nv(__model__) == 67
