@@ -19,3 +19,7 @@ GraphPPL.jl is a probabilistic programming language focused on probabilistic gra
 
 GraphPPL.jl does not export any Bayesian inference backend. It provides a simple DSL parser, model generation, constraints specification and meta specification helpers. To run inference on 
 generated models user needs to have a Bayesian inference backend with GraphPPL.jl support (e.g. [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl)). 
+
+# License
+
+MIT License Copyright (c) 2021-2023 BIASlab
