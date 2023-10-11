@@ -734,10 +734,7 @@ end
     include("model_zoo.jl")
     using BitSetTuples
     using GraphPPL
-    import GraphPPL:
-        save_constraint!,
-        constant_constraint,
-        factorization_constraint
+    import GraphPPL: save_constraint!, constant_constraint, factorization_constraint
 
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)

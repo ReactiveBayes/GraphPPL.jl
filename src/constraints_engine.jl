@@ -252,7 +252,8 @@ struct FactorizationConstraint{V,F}
     end
 end
 
-FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} = FactorizationConstraint(variables, (constriant,))
+FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} =
+    FactorizationConstraint(variables, (constriant,))
 
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
@@ -633,15 +634,18 @@ end
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int)
-    return BitSetTuple([[i] for i in 1:num_neighbors])
+    return BitSetTuple([[i] for i = 1:num_neighbors])
 end
 
-@memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
+@memoize function mean_field_constraint(
+    num_neighbors::Int,
+    referenced_indices::NTuple{N,Int} where {N},
+)
     constraint = BitSetTuple(num_neighbors)
     for i in referenced_indices
         intersect!(constraint, constant_constraint(num_neighbors, i))
     end
-    return constraint 
+    return constraint
 end
 
 """

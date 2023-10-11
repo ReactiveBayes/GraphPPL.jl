@@ -919,15 +919,20 @@ end
     import GraphPPL: mean_field_constraint
 
     @test mean_field_constraint(5) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test mean_field_constraint(10) == BitSetTuple([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
+    @test mean_field_constraint(10) ==
+          BitSetTuple([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
 
     @test mean_field_constraint(1, (1,)) == BitSetTuple(1)
     @test mean_field_constraint(2, (1,)) == BitSetTuple([[1], [2]])
-    @test mean_field_constraint(2, (2, )) == BitSetTuple([[1], [2]])
-    @test mean_field_constraint(5, (1, 3, 5)) == BitSetTuple([[1], [2, 4], [3], [2, 4], [5]])
-    @test mean_field_constraint(5, (1, 2, 3, 4, 5)) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test mean_field_constraint(5, (1, 2)) == BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
+    @test mean_field_constraint(2, (2,)) == BitSetTuple([[1], [2]])
+    @test mean_field_constraint(5, (1, 3, 5)) ==
+          BitSetTuple([[1], [2, 4], [3], [2, 4], [5]])
+    @test mean_field_constraint(5, (1, 2, 3, 4, 5)) ==
+          BitSetTuple([[1], [2], [3], [4], [5]])
+    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) ==
+                             BitSetTuple([[1], [2], [3], [4], [5]])
+    @test mean_field_constraint(5, (1, 2)) ==
+          BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
 
 end
 
