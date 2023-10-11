@@ -1,7 +1,4 @@
-using Test
-using TestSetExtensions
-
-@testset ExtendedTestSet "ResizableArray.jl" begin
+@testitem "ResizableArray.jl" begin
     # Write your tests here.
     import GraphPPL: ResizableArray, get_recursive_depth
 

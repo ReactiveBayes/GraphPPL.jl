@@ -59,6 +59,7 @@ function setindex!(array::ResizableArray{T,V,N}, value, index...) where {T,V,N}
     return array
 end
 
+
 function recursive_setindex!(::Val{1}, array::Vector{T}, value::T, index) where {T}
     if index == length(array) + 1
         push!(array, value)

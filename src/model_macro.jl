@@ -1,6 +1,7 @@
 export @model
 import MacroTools: postwalk, @capture, walk
 using NamedTupleTools
+using Static
 
 
 
@@ -91,6 +92,7 @@ function check_reserved_variable_names_model(e::Expr)
             :(__lhs_interface__),
             :(__rhs_interfaces__),
             :(__interfaces__),
+            :(__n_interfaces__),
         ],
     )
         error(
@@ -100,7 +102,7 @@ function check_reserved_variable_names_model(e::Expr)
     return e
 end
 
-function check_for_returns(e::Expr; tag="model")
+function check_for_returns(e::Expr; tag = "model")
     if e.head == :return
         error("The $tag macro does not support return statements.")
     end
@@ -296,6 +298,7 @@ function convert_to_anonymous(e::Expr, created_by)
         sym = MacroTools.gensym_ids(gensym(:anon))
         return quote
             begin
+                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
             end
         end
@@ -306,18 +309,18 @@ end
 convert_to_anonymous(e, created_by) = e
 
 """
-    convert_function_argument_in_rhs(e::Expr)
+    convert_anonymous_variables(e::Expr)
 
 Convert a function argument in the right-hand side of an expression to an anonymous variable. This function is used to convert function calls in the arguments of node creations to anonymous variables in the graph.
 
 # Example
     
-    ```julia
-    julia> convert_function_argument_in_rhs(:(x ~ Normal(μ, sqrt(σ2)) where {created_by=:(Normal(μ, sqrt(σ2)))}))
+    ```jldoctest
+    julia> convert_anonymous_variables(:(x ~ Normal(μ, sqrt(σ2)) where {created_by=:(Normal(μ, sqrt(σ2)))}))
     :(x ~ (Normal(μ, anon_1 ~ (sqrt(σ2) where {anonymous = true, created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2)))))})) where (created_by = $(Expr(:quote, :(Normal(μ, sqrt(σ2))))))))
     ```
 """
-function convert_function_argument_in_rhs(e::Expr)
+function convert_anonymous_variables(e::Expr)
     if @capture(
         e,
         (lhs_ ~ fform_(nargs__) where {options__}) |
@@ -339,7 +342,7 @@ function convert_function_argument_in_rhs(e::Expr)
 end
 
 # This is necessary to ensure that we don't change the `created_by` option as well.
-what_walk(::typeof(convert_function_argument_in_rhs)) = walk_until_occurrence((
+what_walk(::typeof(convert_anonymous_variables)) = walk_until_occurrence((
     :(lhs_ ~ rhs_ where {options__}),
     :(lhs_ .~ rhs_ where {options__}),
 ))
@@ -421,6 +424,17 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     end
 end
 
+function replace_begin_end(e::Symbol)
+    if e == :begin
+        return :(GraphPPL.FunctionalIndex{:begin}(firstindex))
+    elseif e == :end
+        return :(GraphPPL.FunctionalIndex{:end}(lastindex))
+    end
+    return e
+end
+
+__guard_f(f::typeof(replace_begin_end), x::Symbol) = f(x)
+__guard_f(f::typeof(replace_begin_end), x::Expr) = x
 
 
 """
@@ -444,6 +458,47 @@ julia> keyword_expressions_to_named_tuple([:($(Expr(:kw, :in1, :y))), :($(Expr(:
 function keyword_expressions_to_named_tuple(keywords::Vector)
     result = [Expr(:(=), arg.args[1], arg.args[2]) for arg in keywords]
     return Expr(:tuple, result...)
+end
+
+"""
+Converts an expression into its proxied equivalent. Used to pass variables in sub-models and create a chain of proxied labels.
+
+```jldoctest
+julia> x = GraphPPL.NodeLabel(:x, 1)
+
+julia> GraphPPL.proxy_args(:(y = x))
+GraphPPL.ProxyLabel(:y, nothing, GraphPPL.NodeLabel(:x, 1))
+```
+"""
+function proxy_args end
+
+function proxy_args(arg)
+    if @capture(arg, lhs_ = rhs_)
+        return proxy_args(lhs, rhs)
+    elseif @capture(arg, [args__])
+        return Expr(:vect, map(proxy_args, args)...)
+    elseif @capture(arg, (args__,))
+        return Expr(:tuple, map(proxy_args, args)...)
+    elseif @capture(arg, GraphPPL.MixedArguments(first_, second_))
+        return :(GraphPPL.MixedArguments($(proxy_args(first)), $(proxy_args(second))))
+    end
+    return arg
+end
+
+function proxy_args(lhs, rhs)
+    @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    if isa(rhs, Symbol)
+        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
+    elseif @capture(rhs, rlabel_[index__])
+        return :(
+            $lhs = GraphPPL.proxylabel(
+                $(QuoteNode(rlabel)),
+                $(Expr(:tuple, index...)),
+                $rlabel,
+            )
+        )
+    end
+    return :($lhs = $rhs)
 end
 
 """
@@ -515,6 +570,13 @@ end
 combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 
+generate_lhs_proxylabel(var, index::Nothing) = quote
+    GraphPPL.proxylabel($(QuoteNode(var)), nothing, $var)
+end
+generate_lhs_proxylabel(var, index::AbstractArray) = quote
+    GraphPPL.proxylabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
+end
+
 """
     convert_tilde_expression(e::Expr)
 
@@ -542,14 +604,15 @@ function convert_tilde_expression(e::Expr)
         (lhs_ ~ fform_(args__) where {options__}) |
         (lhs_ ~ fform_ where {options__})
     )
-        args = combine_args(args, kwargs)
+        args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
+        @capture(lhs, (var_[index__]) | (var_))
         return quote
             $lhs = GraphPPL.make_node!(
                 __model__,
                 __context__,
                 $fform,
-                $lhs,
+                $(generate_lhs_proxylabel(var, index)),
                 $args;
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
@@ -568,13 +631,15 @@ function convert_tilde_expression(e::Expr)
         options = GraphPPL.options_vector_to_named_tuple(options)
         broadcastable_variables =
             kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+
+        @capture(lhs, (var_[index__]) | (var_))
         return quote
             $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
                     __context__,
                     $fform,
-                    nothing,
+                    GraphPPL.Broadcasted($(QuoteNode(var))),
                     $parsed_args;
                     __parent_options__ = GraphPPL.prepare_options(
                         __parent_options__,
@@ -687,7 +752,8 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::typeof($ms_name), ::Val{$num_interfaces}) = Tuple($ms_args)
+        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
+            Tuple($ms_args)
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
@@ -705,14 +771,15 @@ function get_make_node_function(ms_body, ms_args, ms_name)
         end
     end
     make_node_function = quote
+
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
             __model__::GraphPPL.Model,
             __parent_context__::GraphPPL.Context,
             ::typeof($ms_name),
-            __lhs_interface__::GraphPPL.NodeLabel,
+            __lhs_interface__::GraphPPL.ProxyLabel,
             __rhs_interfaces__::NamedTuple,
-            ::Val{$(length(ms_args))};
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))};
             __parent_options__ = nothing,
             __debug__ = false,
         )
@@ -721,7 +788,6 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __lhs_interface__,
                 __rhs_interfaces__,
             )
-            $(init_input_arguments...)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(
@@ -734,8 +800,29 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __parent_options__ == nothing ? nothing :
                 (parent_options = __parent_options__,)
 
+            GraphPPL.add_terminated_submodel!(
+                __model__,
+                __context__,
+                $ms_name,
+                __interfaces__,
+                __n_interfaces__;
+                __parent_options__ = __parent_options__,
+                __debug__ = __debug__,
+            )
+            return GraphPPL.unroll(__lhs_interface__)
+        end
+
+        function GraphPPL.add_terminated_submodel!(
+            __model__::GraphPPL.Model,
+            __context__::GraphPPL.Context,
+            ::typeof($ms_name),
+            __interfaces__::NamedTuple,
+            ::GraphPPL.StaticInt{$(length(ms_args))};
+            __parent_options__ = nothing,
+            __debug__ = false,
+        )
+            $(init_input_arguments...)
             $ms_body
-            return __lhs_interface__
         end
     end
     return make_node_function
@@ -763,12 +850,11 @@ function model_macro_interior(model_specification)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)
     ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
-    ms_body = apply_pipeline(ms_body, convert_function_argument_in_rhs)
     ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
+    ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
+    ms_body = apply_pipeline(ms_body, replace_begin_end)
     ms_body = apply_pipeline(ms_body, convert_tilde_expression)
-
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
-
     result = quote
         $boilerplate_functions
         $make_node_function

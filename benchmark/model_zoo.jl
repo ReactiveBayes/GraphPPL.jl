@@ -7,10 +7,9 @@ using Distributions
     y ~ Normal(x, σ)
 end
 
-@model function hgf(κ, ω, θ, x_begin, y_end, depth)
+@model function hgf(κ, ω, θ, x_begin, depth)
     local means
     means[1] ~ gcv(κ = κ, ω = ω, θ = θ, x = x_begin)
-    means[depth] = y_end
     for i = 2:depth
         means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i - 1])
     end
@@ -23,12 +22,10 @@ function create_hgf(n::Int)
     ω = GraphPPL.getorcreate!(model, ctx, :ω, nothing)
     θ = GraphPPL.getorcreate!(model, ctx, :θ, nothing)
     x_begin = GraphPPL.getorcreate!(model, ctx, :x_begin, nothing)
-    y_end = GraphPPL.getorcreate!(model, ctx, :y_end, nothing)
-    GraphPPL.make_node!(
+    GraphPPL.add_terminated_submodel!(
         model,
         ctx,
         hgf,
-        y_end,
         (κ = κ, ω = ω, θ = θ, x_begin = x_begin, depth = n);
         __debug__ = false,
         __parent_options__ = nothing,
@@ -44,7 +41,7 @@ gethgfconstraints() =  @constraints begin
     end
 end
 
-@model function long_array(out, μ, σ, depth)
+@model function long_array(μ, σ, depth)
     local x
     x[1] ~ Normal(μ, σ)
     for i in 2:depth
@@ -55,14 +52,12 @@ end
 function create_longarray(n::Int)
     model = GraphPPL.create_model()
     ctx = GraphPPL.getcontext(model)
-    μ = GraphPPL.getorcreate!(model, ctx, :κ, nothing)
-    σ = GraphPPL.getorcreate!(model, ctx, :ω, nothing)
-    out = GraphPPL.getorcreate!(model, ctx, :θ, nothing)
-    GraphPPL.make_node!(
+    μ = GraphPPL.getorcreate!(model, ctx, :μ, nothing)
+    σ = GraphPPL.getorcreate!(model, ctx, :σ, nothing)
+    GraphPPL.add_terminated_submodel!(
         model,
         ctx,
         long_array,
-        out,
         (μ = μ, σ = σ, depth=n);
         __debug__ = false,
         __parent_options__ = nothing,

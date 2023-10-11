@@ -13,6 +13,8 @@ function check_reserved_variable_names_constraints(e::Expr)
     return e
 end
 
+check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
+
 function add_constraints_construction(e::Expr)
     return quote
         __constraints__ = GraphPPL.Constraints()
@@ -21,34 +23,22 @@ function add_constraints_construction(e::Expr)
     end
 end
 
-function replace_begin_end(e::Symbol)
-    if e == :begin
-        return :(GraphPPL.FunctionalIndex{:begin}(firstindex))
-    elseif e == :end
-        return :(GraphPPL.FunctionalIndex{:end}(lastindex))
-    end
-    return e
-end
-
-__guard_f(f::typeof(replace_begin_end), x::Symbol) = f(x)
-__guard_f(f::typeof(replace_begin_end), x::Expr) = x
-
-
 function create_submodel_constraints(e::Expr)
     if @capture(e, (
         for q in submodel_
             body__
         end
     ))
+        if @capture(submodel, (name_, index_))
+            submodel_constructor =
+                :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
+        else
+            submodel_constructor = :(GraphPPL.GeneralSubModelConstraints($submodel))
+        end
+
         return quote
             let __outer_constraints__ = __constraints__
-                let __constraints__ = begin
-                        try
-                            GraphPPL.SubModelConstraints($submodel)
-                        catch
-                            GraphPPL.SubModelConstraints($(QuoteNode(submodel)))
-                        end
-                    end
+                let __constraints__ = $submodel_constructor
                     $(body...)
                     push!(__outer_constraints__, __constraints__)
                 end
@@ -61,7 +51,7 @@ end
 
 function create_factorization_split(e::Expr)
     if @capture(e, lhs_ .. rhs_)
-        return :(GraphPPL.factorization_split($lhs, $rhs))
+        return :((GraphPPL.factorization_split($lhs, $rhs)))
     else
         return e
     end
@@ -109,7 +99,7 @@ function convert_functionalform_constraints(e::Expr)
         return quote
             push!(
                 __constraints__,
-                GraphPPL.FunctionalFormConstraint($(Expr(:vect, vars...)), $T),
+                GraphPPL.FunctionalFormConstraint($(Expr(:tuple, vars...)), $T),
             )
         end
     else
@@ -124,7 +114,7 @@ function convert_message_constraints(e::Expr)
         end
     elseif @capture(e, (μ(vars__)::T_))
         return quote
-            push!(__constraints__, GraphPPL.MessageConstraint($(Expr(:vect, vars...)), $T))
+            push!(__constraints__, GraphPPL.MessageConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e
@@ -135,22 +125,24 @@ function convert_factorization_constraints(e::Expr)
     if @capture(e, (q(lhs__) = rhs_))
         rhs = walk_until_occurrence(:(q(vars__)))(rhs) do expr
             if @capture(expr, (q(vars__)))
-                return :(GraphPPL.FactorizationConstraintEntry($(Expr(:vect, vars...))))
+                return :(GraphPPL.FactorizationConstraintEntry($(Expr(:tuple, vars...))))
             end
             return expr
         end
         return quote
             push!(
                 __constraints__,
-                GraphPPL.FactorizationConstraint($(Expr(:vect, lhs...)), $rhs),
+                GraphPPL.FactorizationConstraint($(Expr(:tuple, lhs...)), $rhs),
             )
         end
     end
     return e
 end
 
+
+
 function constraints_macro_interior(cs_body::Expr)
-    cs_body = apply_pipeline(cs_body, (x) -> check_for_returns(x; tag="constraints"))
+    cs_body = apply_pipeline(cs_body, check_for_returns_constraints)
     cs_body = add_constraints_construction(cs_body)
     cs_body = apply_pipeline(cs_body, replace_begin_end)
     cs_body = apply_pipeline(cs_body, create_submodel_constraints)
