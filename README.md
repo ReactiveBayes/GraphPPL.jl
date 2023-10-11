@@ -22,4 +22,4 @@ generated models user needs to have a Bayesian inference backend with GraphPPL.j
 
 # License
 
-MIT License Copyright (c) 2021-2023 BIASlab
+[MIT License](LICENSE) Copyright (c) 2021-2023 BIASlab
