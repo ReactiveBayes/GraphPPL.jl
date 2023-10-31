@@ -109,6 +109,15 @@ function check_for_returns(e::Expr; tag = "model")
     return e
 end
 
+function check_incomplete_factorization_constraint(e::Expr)
+    if @capture(e, q(args__))
+        error("Incomplete factorization constraint is not supported in the model macro.")
+    end
+    return e
+end
+
+what_walk(::typeof(check_incomplete_factorization_constraint)) = walk_until_occurrence((:(lhs_ = rhs_), :(lhs_ :: rhs_)))
+
 """
     warn_datavar_constvar_randomvar(expr::Expr)
 
