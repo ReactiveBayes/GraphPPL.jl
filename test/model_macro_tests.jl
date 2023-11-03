@@ -1981,7 +1981,7 @@ end
     local y
     local x
     for i = 1:10
-        y = getorcreate!(__model__, __context__, :y, 1)
+        y = getorcreate!(__model__, __context__, :y, i)
     end
     GraphPPL.add_terminated_submodel!(__model__, __context__, hgf, (y = y,), static(1))
     @test haskey(__context__, :ω_2) &&
