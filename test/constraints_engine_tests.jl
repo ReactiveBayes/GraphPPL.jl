@@ -667,24 +667,6 @@ end
 end
 
 
-
-# @testset "save_constraint!" begin
-#     import GraphPPL: save_constraint!, NodeLabel, neighbors, factorization_constraint
-
-#     # Test 1: Test that save_constraint! saves a factorization constraint
-#     model = create_terminated_model(simple_model)
-#     ctx = GraphPPL.getcontext(model)
-#     node = first(neighbors(model, ctx[:z]))
-#     constraint = BitSetTuple([BitSet([1, 3]), BitSet([2, 3]), BitSet([1, 2, 3])])
-#     save_constraint!(model, node, constraint, :q)
-#     @test factorization_constraint(model[node]) == constraint
-
-#     constraint = BitSetTuple([BitSet([1, 2, 3]), BitSet([1, 2]), BitSet([1, 3])])
-#     save_constraint!(model, node, constraint, :q)
-#     @test factorization_constraint(model[node]) ==
-#           BitSetTuple([BitSet([1, 3]), BitSet([2]), BitSet([1, 3])])
-# end
-
 @testitem "is_valid_partition(::Set)" begin
     using GraphPPL
     import GraphPPL: is_valid_partition
@@ -701,25 +683,6 @@ end
     # Test 4: Test that is_valid_partition returns false for an invalid partition
     @test is_valid_partition(Set([BitSet([1, 2]), BitSet([4, 5])])) == false
 end
-
-# @testset "materialize_constraints!(::Model)" begin
-#     import GraphPPL:
-#         materialize_constraints!,
-#         EdgeLabel,
-#         node_options,
-#         EdgeLabel,
-#         factorization_constraint,
-#         get_constraint_names
-
-#     # Test 1: Test materialize with a Mean Field constraint
-#     model = create_terminated_model(simple_model)
-#     ctx = GraphPPL.getcontext(model)
-#     materialize_constraints!(model)
-#     node = first(GraphPPL.neighbors(model, ctx[:z]))
-#     @test get_constraint_names(factorization_constraint(model[node])) ==
-#           ((:out, :μ, :σ),)
-
-# end
 
 @testitem "constant_constraint" begin
     using BitSetTuples
@@ -820,6 +783,9 @@ end
     model = create_terminated_model(outer)
     ctx = GraphPPL.getcontext(model)
     inner_context = ctx[inner, 1]
+
+    # Test resolve constraint in child model
+
     let constraint = FactorizationConstraint(
             (IndexedVariable(:α, nothing), IndexedVariable(:θ, nothing)),
             (
@@ -843,6 +809,62 @@ end
         )
         @test resolve(model, inner_context, constraint) == result
     end
+
+    # Test constraint in top level model
+
+    let constraint = FactorizationConstraint(
+            (IndexedVariable(:y, nothing), IndexedVariable(:w, nothing)),
+            (
+                FactorizationConstraintEntry((IndexedVariable(:y, nothing),)),
+                FactorizationConstraintEntry((IndexedVariable(:w, nothing),)),
+            ),
+        )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((
+                ResolvedIndexedVariable(:y, nothing, ctx),
+                ResolvedIndexedVariable(:w, CombinedRange(1, 5), ctx),
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((
+                    ResolvedIndexedVariable(:y, nothing, ctx),
+                )),
+                ResolvedFactorizationConstraintEntry((
+                    ResolvedIndexedVariable(:w, CombinedRange(1, 5), ctx),
+                )),
+            ),
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
+
+    # Test a constraint that is not applicable at all
+
+    let constraint = FactorizationConstraint(
+            (
+                IndexedVariable(:i, nothing),
+                IndexedVariable(:dont, nothing),
+                IndexedVariable(:apply, nothing),
+            ),
+            (
+                FactorizationConstraintEntry((IndexedVariable(:i, nothing),)),
+                FactorizationConstraintEntry((IndexedVariable(:dont, nothing),)),
+                FactorizationConstraintEntry((IndexedVariable(:apply, nothing),)),
+            ),
+        )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((
+                )),
+                ResolvedFactorizationConstraintEntry((
+                )),
+                ResolvedFactorizationConstraintEntry((
+                )),
+            ),
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
+
 end
 
 @testitem "Resolved Constraints in" begin

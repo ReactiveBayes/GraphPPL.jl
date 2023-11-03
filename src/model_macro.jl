@@ -116,7 +116,8 @@ function check_incomplete_factorization_constraint(e::Expr)
     return e
 end
 
-what_walk(::typeof(check_incomplete_factorization_constraint)) = walk_until_occurrence((:(lhs_ = rhs_), :(lhs_ :: rhs_)))
+what_walk(::typeof(check_incomplete_factorization_constraint)) =
+    walk_until_occurrence((:(lhs_ = rhs_), :(lhs_::rhs_)))
 
 """
     warn_datavar_constvar_randomvar(expr::Expr)

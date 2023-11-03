@@ -768,11 +768,16 @@ function resolve(model::Model, context::Context, variable::IndexedVariable)
 end
 
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
-    lhs = map(variable -> resolve(model, context, variable), getvariables(constraint))
+    vfiltered =
+        filter(variable -> haskey(context, getvariable(variable)), getvariables(constraint))
+    lhs = map(variable -> resolve(model, context, variable), vfiltered)
     rhs = map(
-        entry -> ResolvedFactorizationConstraintEntry(
-            map(variable -> resolve(model, context, variable), entries(entry)),
-        ),
+        entry -> begin
+            fentries = filter(var -> haskey(context, getvariable(var)), entries(entry))
+            ResolvedFactorizationConstraintEntry(
+                map(variable -> resolve(model, context, variable), fentries),
+            )
+        end,
         getconstraint(constraint),
     )
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
