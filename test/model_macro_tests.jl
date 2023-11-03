@@ -56,17 +56,26 @@ end
     input = quote
         q(x)q(y)
     end
-    @test_throws ErrorException apply_pipeline(input, check_incomplete_factorization_constraint)
+    @test_throws ErrorException apply_pipeline(
+        input,
+        check_incomplete_factorization_constraint,
+    )
 
     input = quote
         q(x)q(y)q(z)
     end
-    @test_throws ErrorException apply_pipeline(input, check_incomplete_factorization_constraint)
+    @test_throws ErrorException apply_pipeline(
+        input,
+        check_incomplete_factorization_constraint,
+    )
 
     input = quote
         q(x)
     end
-    @test_throws ErrorException apply_pipeline(input, check_incomplete_factorization_constraint)
+    @test_throws ErrorException apply_pipeline(
+        input,
+        check_incomplete_factorization_constraint,
+    )
 
     input = quote
         q(x, y, z) = q(x)q(y)q(z)
@@ -74,7 +83,7 @@ end
     @test apply_pipeline(input, check_incomplete_factorization_constraint) == input
 
     input = quote
-        q(x) :: MeanField()
+        q(x)::MeanField()
     end
     @test apply_pipeline(input, check_incomplete_factorization_constraint) == input
 
@@ -2007,5 +2016,3 @@ end
     )
     @test nv(__model__) == 67
 end
-
-

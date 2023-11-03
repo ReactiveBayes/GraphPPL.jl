@@ -150,7 +150,7 @@ function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, ")")
 end
 
-Base.iterate(e::FactorizationConstraintEntry, state::Int=1) = iterate(e.entries, state)
+Base.iterate(e::FactorizationConstraintEntry, state::Int = 1) = iterate(e.entries, state)
 
 Base.:(==)(lhs::FactorizationConstraintEntry, rhs::FactorizationConstraintEntry) =
     length(lhs.entries) == length(rhs.entries) &&
@@ -573,7 +573,7 @@ function Base.pop!(stack::ConstraintStack, context::Context)
     return false
 end
 
-Base.iterate(stack::ConstraintStack, state=1) = iterate(constraints(stack), state)
+Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
 save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
     save_constraint!(model, node, model[node], constraint_data, symbol)
@@ -703,7 +703,7 @@ function materialize_constraints!(
     constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label)
     constraint = SA[constraint_set...]
-    constraint = Tuple(sort(constraint, by=first))
+    constraint = Tuple(sort(constraint, by = first))
     constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
     if !is_valid_partition(constraint_set)
         error(
@@ -768,7 +768,8 @@ function resolve(model::Model, context::Context, variable::IndexedVariable)
 end
 
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
-    vfiltered = filter(variable -> haskey(context, getvariable(variable)), getvariables(constraint))
+    vfiltered =
+        filter(variable -> haskey(context, getvariable(variable)), getvariables(constraint))
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
     rhs = map(
         entry -> begin

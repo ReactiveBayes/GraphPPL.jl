@@ -312,14 +312,29 @@ end
 end
 
 @testitem "haskey(::Context)" begin
-    import GraphPPL: Context, NodeLabel
+    import GraphPPL: Context, NodeLabel, ResizableArray, ProxyLabel
 
     ctx = Context()
     xlab = NodeLabel(:x, 1)
-    @test !haskey(ctx.individual_variables, :x)
+    @test !haskey(ctx, :x)
     ctx.individual_variables[:x] = xlab
-    @test haskey(ctx.individual_variables, :x)
-    @test !haskey(ctx.vector_variables, :y)
+    @test haskey(ctx, :x)
+
+    @test !haskey(ctx, :y)
+    ctx.vector_variables[:y] = ResizableArray(NodeLabel, Val(1))
+    @test haskey(ctx, :y)
+
+    @test !haskey(ctx, :z)
+    ctx.tensor_variables[:z] = ResizableArray(NodeLabel, Val(2))
+    @test haskey(ctx, :z)
+
+    @test !haskey(ctx, :proxy)
+    ctx.proxies[:proxy] = ProxyLabel(:proxy, nothing, xlab)
+    @test haskey(ctx, :proxy)
+
+    @test !haskey(ctx, GraphPPL.FactorID(sum, 1))
+    ctx.children[GraphPPL.FactorID(sum, 1)] = Context()
+    @test haskey(ctx, GraphPPL.FactorID(sum, 1))
 end
 
 @testitem "getindex(::Context, ::Symbol)" begin
@@ -330,6 +345,19 @@ end
     @test_throws KeyError ctx[:x]
     ctx.individual_variables[:x] = xlab
     @test ctx[:x] == xlab
+end
+
+@testitem "getindex(::Context, ::FactorID)" begin
+    import GraphPPL: Context, NodeLabel, FactorID
+
+    ctx = Context()
+    @test_throws KeyError ctx[FactorID(sum, 1)]
+    ctx.children[FactorID(sum, 1)] = Context()
+    @test ctx[FactorID(sum, 1)] == ctx.children[FactorID(sum, 1)]
+
+    @test_throws KeyError ctx[FactorID(sum, 2)]
+    ctx.factor_nodes[FactorID(sum, 2)] = NodeLabel(:sum, 1)
+    @test ctx[FactorID(sum, 2)] == ctx.factor_nodes[FactorID(sum, 2)]
 end
 
 @testitem "getcontext(::Model)" begin

@@ -400,13 +400,10 @@ haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
     haskey(context.vector_variables, key) ||
     haskey(context.tensor_variables, key) ||
-    haskey(context.factor_nodes, key) ||
-    haskey(context.children, key)
+    haskey(context.proxies, key)
 
-hasvariable(contexct::Context, key::Symbol) =
-    haskey(context.individual_variables, key) ||
-    haskey(context.vector_variables, key) ||
-    haskey(context.tensor_variables, key)
+haskey(context::Context, key::FactorID) =
+    haskey(context.factor_nodes, key) || haskey(context.children, key)
 
 function Base.getindex(c::Context, key::Any)
     if haskey(c.individual_variables, key)
