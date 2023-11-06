@@ -11,7 +11,7 @@ function GraphPlot.gplot(model::GraphPPL.Model; file_name = "tmp.png")
     return plt
 end
 
-function GraphPlot.gplot(model::GraphPPL.Model, around::Vector{GraphPPL.NodeLabel}; depth=1, file_name = "tmp.png")
+function GraphPlot.gplot(model::GraphPPL.Model, around::AbstractArray{GraphPPL.NodeLabel}; depth=1, file_name = "tmp.png")
     nodes = around
     while depth > 0
         depth -= 1
