@@ -15,8 +15,8 @@ function GraphPlot.gplot(model::GraphPPL.Model, around::Vector{GraphPPL.NodeLabe
     nodes = around
     while depth > 0
         depth -= 1
-        for node in around
-            nodes = [nodes; GraphPPL.neighbors(model, node)...]
+        for node in nodes
+            nodes = unique([nodes; GraphPPL.neighbors(model, node)...])
         end
     end
     nodes = unique(GraphPPL.code_for.(Ref(model.graph), nodes))
