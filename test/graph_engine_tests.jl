@@ -244,6 +244,39 @@ end
 
 end
 
+@testitem "filter(::Function, ::Model)" begin
+    include("model_zoo.jl")
+    model = create_terminated_model(simple_model)
+    @test length(collect(filter(Normal, model))) == 2
+    @test length(collect(filter(Gamma, model))) == 1
+
+    model = create_terminated_model(vector_model)
+    @test length(collect(filter(Normal, model))) == 6
+    @test length(collect(filter(Gamma, model))) == 3
+
+    model = create_terminated_model(outer)
+    @test length(collect(filter(Normal, model))) == 1
+
+end
+
+@testitem "filter(name, ::Model)" begin
+    include("model_zoo.jl")
+    model = create_terminated_model(simple_model)
+    @test length(collect(filter(:x, model))) == 1
+    @test length(collect(filter("x", model))) == 1
+
+    model = create_terminated_model(vector_model)
+    @test length(collect(filter(:x, model))) == 3
+    @test length(collect(filter("x", model))) == 3
+
+    model = create_terminated_model(outer)
+    @test length(collect(filter(:y, model))) == 1
+    @test length(collect(filter("y", model))) == 1
+    
+    @test length(collect(filter(:α, model))) == 0
+    @test length(collect(filter("α", model))) == 0
+end
+
 @testitem "generate_nodelabel(::Model, ::Symbol)" begin
     import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 

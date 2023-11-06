@@ -19,6 +19,8 @@ struct SomeMeta end
 struct NormalMeanVariance end
 struct NormalMeanPrecision end
 
+GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
+
 GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = (:out, :μ, :σ)
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = (:out, :μ, :τ)
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
@@ -26,6 +28,8 @@ GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
 
 struct GammaShapeRate end
 struct GammaShapeScale end
+
+GraphPPL.aliases(::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
 
 GraphPPL.interfaces(::Type{GammaShapeRate}, ::StaticInt{3}) = (:out, :α, :β)
 GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = (:out, :α, :θ)

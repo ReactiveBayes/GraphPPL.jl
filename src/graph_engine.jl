@@ -5,6 +5,8 @@ import Base:
 using BitSetTuples
 using Static
 
+aliases(f) = (f,)
+
 struct Broadcasted
     name::Symbol
 end
@@ -85,6 +87,7 @@ fform_constraint(node::VariableNodeData) = node.options[:q]
 getname(node::VariableNodeData) = node.name
 index(node::VariableNodeData) = node.index
 getcontext(node::VariableNodeData) = node.context
+fform(node::VariableNodeData) = nothing
 
 Base.show(io::IO, node::VariableNodeData) = print(
     io,
@@ -108,6 +111,8 @@ mutable struct FactorNodeData
 end
 
 factorization_constraint(node::FactorNodeData) = node.options[:q]
+fform(node::FactorNodeData) = node.fform
+getname(node::FactorNodeData) = nothing
 
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
@@ -250,7 +255,7 @@ Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) =
 Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) =
     union(Graphs.neighbors.(Ref(model), nodes; sorted = sorted)...)
 Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
-
+MetaGraphsNext.labels(model::Model) = MetaGraphsNext.labels(model.graph)
 
 __get_edges(model::Model, node::NodeLabel, neighbors) =
     getindex.(Ref(model), Ref(node), neighbors)
@@ -268,6 +273,21 @@ function __edges(model::Model, node::NodeLabel, ::True)
 end
 Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
+
+function Base.filter(f, model::Model)
+    node_labels = labels(model)
+    result = Iterators.filter(node -> fform(getindex(model, node)) ∈ aliases(f), node_labels)
+    return result
+end
+
+function Base.filter(name::Symbol, model::Model)
+    node_labels = labels(model)
+    result = Iterators.filter(node -> getname(getindex(model, node)) === name, node_labels)
+    return result
+end
+
+Base.filter(name::String, model::Model) = filter(Symbol(name), model)
+
 
 """
     generate_nodelabel(model::Model, name::Symbol)
