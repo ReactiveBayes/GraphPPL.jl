@@ -53,11 +53,19 @@ end
 end
 
 @testitem "is_constant" begin
-   import GraphPPL: is_constant 
-   include("model_zoo.jl")
-   model = create_terminated_model(simple_model)
+    import GraphPPL: is_constant, variable_nodes, getname
+    include("model_zoo.jl")
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        for label in variable_nodes(model)
+            if occursin("constvar", string(getname(model[label])))
+                @test is_constant(model[label])
+            else
+                @test !is_constant(model[label])
+            end
+        end
+    end
 
-   @show 
 end
 
 @testitem "proxy labels" begin
