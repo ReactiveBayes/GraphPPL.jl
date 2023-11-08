@@ -121,7 +121,9 @@ const NodeData = Union{FactorNodeData,VariableNodeData}
 node_options(node::NodeData) = node.options
 add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
+
 getcontext(node::NodeData) = node.context
+
 is_constant(node::NodeData) =
     haskey(node_options(node), :constant) ? node_options(node)[:constant] : false
 is_datavar(node::NodeData) =
