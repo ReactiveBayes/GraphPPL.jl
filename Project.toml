@@ -6,12 +6,10 @@ version = "3.1.0"
 [deps]
 BitSetTuples = "0f2f92aa-23a3-4d05-b791-88071d064721"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 MetaGraphsNext = "fa8bd995-216d-47f1-8a91-f3b68fbeb377"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
-ReTestItems = "817f1d60-ba6b-4fd5-9520-3cf149f6a823"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
@@ -28,8 +26,16 @@ GraphPPLDistributionsExt = "Distributions"
 GraphPPLPlottingExt = ["Cairo", "Compose", "GraphPlot"]
 
 [compat]
+BitSetTuples = "1"
+DataStructures = "0.18"
 MacroTools = "0.5.6"
+Memoization = "0.2"
 MetaGraphsNext = "0.6"
+NamedTupleTools = "0.14"
+Static = "0.8"
+StaticArrays = "1.6"
+TupleTools = "1.4"
+Unrolled = "0.1"
 julia = "1.6"
 
 [extras]
