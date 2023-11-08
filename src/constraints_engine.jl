@@ -689,7 +689,7 @@ function materialize_constraints!(
 )
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
-        if is_constant(neighbor_data)
+        if is_factorized(neighbor_data)
             save_constraint!(
                 model,
                 node_label,
