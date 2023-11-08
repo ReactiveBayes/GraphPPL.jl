@@ -274,20 +274,41 @@ end
 Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
-function Base.filter(f, model::Model)
-    node_labels = labels(model)
-    result = Iterators.filter(node -> fform(getindex(model, node)) ∈ aliases(f), node_labels)
-    return result
+
+struct FactorNodePredicate{N} end
+struct VariableNodePredicate{V} end
+struct SubModelPredicate{S} end
+
+struct AndNodePredicate
+    left::Any
+    right::Any
 end
 
-function Base.filter(name::Symbol, model::Model)
-    node_labels = labels(model)
-    result = Iterators.filter(node -> getname(getindex(model, node)) === name, node_labels)
-    return result
+Base.first(p::AndNodePredicate) = p.left
+Base.last(p::AndNodePredicate) = p.right
+
+struct OrNodePredicate
+    left::Any
+    right::Any
 end
 
-Base.filter(name::String, model::Model) = filter(Symbol(name), model)
+Base.first(p::OrNodePredicate) = p.left
+Base.last(p::OrNodePredicate) = p.right
 
+const NodePredicate = Union{FactorNodePredicate,VariableNodePredicate,AndNodePredicate,OrNodePredicate, SubModelPredicate}
+Base.:(|)(left::NodePredicate, right::NodePredicate) = OrNodePredicate(left, right)
+Base.:(&)(left::NodePredicate, right::NodePredicate) = AndNodePredicate(left, right)
+
+as_node(any) = FactorNodePredicate{any}()
+as_variable(any) = VariableNodePredicate{any}()
+as_context(any) = SubModelPredicate{any}()
+
+Base.filter(p::AndNodePredicate, model::Model) = intersect(filter(first(p), model), filter(last(p), model))
+Base.filter(p::OrNodePredicate, model::Model) = union(filter(first(p), model), filter(last(p), model))
+
+function Base.filter(p::FactorNodePredicate{N}, model::Model) where {N}
+    
+end
 
 """
     generate_nodelabel(model::Model, name::Symbol)
@@ -302,7 +323,6 @@ Arguments:
 - `index`: An integer or tuple of integers representing the index of the variable.
 
 Returns:
-A new `NodeLabel` object with a unique identifier.
 """
 function generate_nodelabel(model::Model, name)
     increase_count(model)

@@ -244,37 +244,18 @@ end
 
 end
 
-@testitem "filter(::Function, ::Model)" begin
-    include("model_zoo.jl")
-    model = create_terminated_model(simple_model)
-    @test length(collect(filter(Normal, model))) == 2
-    @test length(collect(filter(Gamma, model))) == 1
-
-    model = create_terminated_model(vector_model)
-    @test length(collect(filter(Normal, model))) == 6
-    @test length(collect(filter(Gamma, model))) == 3
-
-    model = create_terminated_model(outer)
-    @test length(collect(filter(Normal, model))) == 1
-
+@testitem "filter(::Predicate, ::Model)" begin
+    
 end
 
-@testitem "filter(name, ::Model)" begin
+@testitem "filter(::FactorNodePredicate, ::Model)" begin
+    import GraphPPL: as_node , getcontext
     include("model_zoo.jl")
+
     model = create_terminated_model(simple_model)
-    @test length(collect(filter(:x, model))) == 1
-    @test length(collect(filter("x", model))) == 1
-
-    model = create_terminated_model(vector_model)
-    @test length(collect(filter(:x, model))) == 3
-    @test length(collect(filter("x", model))) == 3
-
-    model = create_terminated_model(outer)
-    @test length(collect(filter(:y, model))) == 1
-    @test length(collect(filter("y", model))) == 1
-    
-    @test length(collect(filter(:α, model))) == 0
-    @test length(collect(filter("α", model))) == 0
+    context = getcontext(model)
+    result = filter(as_node(Normal), model)
+    @test result == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 1]]
 end
 
 @testitem "generate_nodelabel(::Model, ::Symbol)" begin
