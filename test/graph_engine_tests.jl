@@ -16,6 +16,50 @@
     @test_throws MethodError Model()
 end
 
+@testitem "factor_nodes" begin
+    import GraphPPL: factor_nodes, is_factor, labels
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(factor_nodes(model))
+        for node in fnodes
+            @test is_factor(model[node])
+        end
+        for label in labels(model)
+            if is_factor(model[label])
+                @test label ∈ fnodes
+            end
+        end
+    end
+end
+
+@testitem "variable_nodes" begin
+    import GraphPPL: variable_nodes, is_variable, labels
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(variable_nodes(model))
+        for node in fnodes
+            @test is_variable(model[node])
+        end
+        for label in labels(model)
+            if is_variable(model[label])
+                @test label ∈ fnodes
+            end
+        end
+    end
+end
+
+@testitem "is_constant" begin
+   import GraphPPL: is_constant 
+   include("model_zoo.jl")
+   model = create_terminated_model(simple_model)
+
+   @show 
+end
+
 @testitem "proxy labels" begin
     import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
     y = NodeLabel(:y, 1)

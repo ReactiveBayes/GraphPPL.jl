@@ -39,6 +39,8 @@ struct Model
     counter::Base.RefValue{Int64}
 end
 
+labels(model::Model) = MetaGraphsNext.labels(model.graph)
+
 """
     NodeLabel(name::Symbol, global_counter::Int64)
 
@@ -115,6 +117,19 @@ node_options(node::NodeData) = node.options
 add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
 is_constant(node::NodeData) = node_options(node)[:constant]
+
+
+is_factor(::FactorNodeData) = true
+is_factor(any) = false
+is_variable(::VariableNodeData) = true
+is_variable(any) = false
+
+
+factor_nodes(model::Model) = Iterators.filter(node -> is_factor(model[node]), labels(model))
+variable_nodes(model::Model) =
+    Iterators.filter(node -> is_variable(model[node]), labels(model))
+
+
 
 struct ProxyLabel{T}
     name::Symbol
@@ -688,7 +703,7 @@ function add_variable_node!(
     context::Context,
     variable_id::Symbol;
     index = nothing,
-    __options__ = NamedTuple{(:constant,)}((false,)),
+    __options__ = NamedTuple{}(),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
