@@ -124,8 +124,11 @@ add_to_node_options!(node::NodeData, name::Symbol, value) =
 is_constant(node::NodeData) =
     haskey(node_options(node), :constant) ? node_options(node)[:constant] : false
 is_datavar(node::NodeData) =
-    haskey(node_options(node), :datavar) ? node_options(node)[:constant] : false
-is_factorized(node::NodeData) = is_datavar(node) || is_constant(node)
+    haskey(node_options(node), :datavar) ? node_options(node)[:datavar] : false
+is_factorized_datavar(node::NodeData) =
+    is_datavar(node) && haskey(node_options(node), :factorized) ?
+    node_options(node)[:factorized] : false
+is_factorized(node::NodeData) = is_factorized_datavar(node) || is_constant(node)
 
 
 is_factor(::FactorNodeData) = true
@@ -672,20 +675,37 @@ The variable (edge) found or created in the factor graph model and context.
 Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
 getorcreate!(model, context, :x)
 """
-function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Nothing)
+function getorcreate!(
+    model::Model,
+    ctx::Context,
+    name::Symbol,
+    index::Nothing;
+    options::NamedTuple = NamedTuple{}(),
+)
     check_if_vector_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
     return get(
-        () -> add_variable_node!(model, ctx, name; index = nothing),
+        () -> add_variable_node!(model, ctx, name; index = nothing, __options__ = options),
         ctx.individual_variables,
         name,
     )
 end
 
-getorcreate!(model::Model, ctx::Context, name::Symbol, index::AbstractArray{Int}) =
-    getorcreate!(model, ctx, name, index...)
+getorcreate!(
+    model::Model,
+    ctx::Context,
+    name::Symbol,
+    index::AbstractArray{Int};
+    options::NamedTuple = NamedTuple{}(),
+) = getorcreate!(model, ctx, name, index...; options = options)
 
-function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Integer)
+function getorcreate!(
+    model::Model,
+    ctx::Context,
+    name::Symbol,
+    index::Integer;
+    options::NamedTuple = NamedTuple{}(),
+)
     check_if_individual_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
     if !haskey(ctx.vector_variables, name)
@@ -693,12 +713,18 @@ function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Integer)
     end
     if !isassigned(ctx.vector_variables[name], index)
         ctx.vector_variables[name][index] =
-            add_variable_node!(model, ctx, name; index = index)
+            add_variable_node!(model, ctx, name; index = index, __options__ = options)
     end
     return ctx.vector_variables[name]
 end
 
-function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
+function getorcreate!(
+    model::Model,
+    ctx::Context,
+    name::Symbol,
+    index...;
+    options::NamedTuple = NamedTuple{}(),
+)
     check_if_individual_variable(ctx, name)
     check_if_vector_variable(ctx, name)
     if !haskey(ctx.tensor_variables, name)
@@ -706,7 +732,7 @@ function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
     end
     if !isassigned(ctx.tensor_variables[name], index...)
         ctx.tensor_variables[name][index...] =
-            add_variable_node!(model, ctx, name; index = index)
+            add_variable_node!(model, ctx, name; index = index, __options__ = options)
     end
     return ctx.tensor_variables[name]
 end
