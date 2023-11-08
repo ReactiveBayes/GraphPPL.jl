@@ -210,7 +210,7 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData
+    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext
 
     model = create_model()
     model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, NamedTuple{}(), nothing, nothing)
@@ -222,7 +222,7 @@ end
     model[NodeLabel(:x, 2)] = VariableNodeData(:x, NamedTuple{}(), nothing, nothing)
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, NamedTuple{}())
+    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), NamedTuple{}())
     @test nv(model) == 3 && ne(model) == 0
 end
 
@@ -362,6 +362,68 @@ end
 
 end
 
+@testitem "filter(::Predicate, ::Model)" begin
+    import GraphPPL: as_node, as_context, as_variable
+    include("model_zoo.jl")
+
+    model = create_terminated_model(simple_model)
+    result = filter(as_node(Normal) | as_variable(:x), model)
+    @test length(result) == 3
+
+    model = create_terminated_model(outer)
+    result = filter(as_node(Gamma) & as_context(inner_inner), model)
+    @test length(result) == 0
+
+    result = filter(as_node(Gamma) | as_context(inner_inner), model)
+    @test length(result) == 6
+
+    result = filter(as_node(Normal) & as_context(inner_inner; children = true), model)
+    @test length(result) == 1
+end
+
+@testitem "filter(::FactorNodePredicate, ::Model)" begin
+    import GraphPPL: as_node , getcontext
+    include("model_zoo.jl")
+
+    model = create_terminated_model(simple_model)
+    context = getcontext(model)
+    result = filter(as_node(Normal), model)
+    @test collect(result) == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
+    result = filter(as_node(), model)
+    @test collect(result) == [context[NormalMeanVariance, 1], context[GammaShapeScale, 1], context[NormalMeanVariance, 2]]
+end
+
+@testitem "filter(::VariableNodePredicate, ::Model)" begin
+    import GraphPPL: as_variable, getcontext, variable_nodes
+    include("model_zoo.jl")
+
+    model = create_terminated_model(simple_model)
+    context = getcontext(model)
+    result = filter(as_variable(:x), model)
+    @test collect(result) == [context[:x]...]
+    result = filter(as_variable(), model)
+    @test collect(result) == collect(variable_nodes(model))
+end
+
+@testitem "filter(::SubmodelPredicate, Model)" begin
+    import GraphPPL: as_context
+    include("model_zoo.jl")
+
+    model = create_terminated_model(outer)
+
+    result = filter(as_context(inner), model)
+    @test length(collect(result)) == 0
+
+    result = filter(as_context(inner; children=true), model)
+    @test length(collect(result)) == 1
+
+    result = filter(as_context(inner_inner), model)
+    @test length(collect(result)) == 1
+
+    result = filter(as_context(outer; children=true), model)
+    @test length(collect(result)) == 22
+end
+
 @testitem "generate_nodelabel(::Model, ::Symbol)" begin
     import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 
@@ -487,6 +549,19 @@ end
     @test getcontext(model)[:x] == model.graph[][:x]
 end
 
+@testitem "path_to_root(::Context)" begin
+    import GraphPPL: Context, path_to_root, getcontext
+    include("model_zoo.jl")
+
+    ctx = Context()
+    @test path_to_root(ctx) == [ctx]
+
+    model = create_terminated_model(outer)
+    ctx = getcontext(model)
+    inner_context = ctx[inner, 1]
+    inner_inner_context = inner_context[inner_inner, 1]
+    @test path_to_root(inner_inner_context) == [inner_inner_context, inner_context, ctx]
+end
 
 @testitem "NodeType" begin
     include("model_zoo.jl")

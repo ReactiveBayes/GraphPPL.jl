@@ -5,6 +5,8 @@ import Base:
 using BitSetTuples
 using Static
 
+aliases(f) = (f,)
+
 struct Broadcasted
     name::Symbol
 end
@@ -106,16 +108,22 @@ Data associated with a factor node in a probabilistic graphical model.
 """
 mutable struct FactorNodeData
     fform::Any
+    context::Any
     options::NamedTuple
 end
 
 factorization_constraint(node::FactorNodeData) = node.options[:q]
+fform(node::FactorNodeData) = node.fform
+
 
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
 node_options(node::NodeData) = node.options
 add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
+
+getcontext(node::NodeData) = node.context
+
 is_constant(node::NodeData) =
     haskey(node_options(node), :constant) ? node_options(node)[:constant] : false
 is_datavar(node::NodeData) =
@@ -272,7 +280,7 @@ Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) =
 Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) =
     union(Graphs.neighbors.(Ref(model), nodes; sorted = sorted)...)
 Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
-
+MetaGraphsNext.labels(model::Model) = MetaGraphsNext.labels(model.graph)
 
 __get_edges(model::Model, node::NodeLabel, neighbors) =
     getindex.(Ref(model), Ref(node), neighbors)
@@ -291,6 +299,60 @@ end
 Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
     __edges(model, node, model[node]; sorted = sorted)
 
+
+struct FactorNodePredicate{N} end
+struct VariableNodePredicate{V} end
+struct SubmodelPredicate{S, C} end
+
+struct AndNodePredicate
+    left::Any
+    right::Any
+end
+
+Base.first(p::AndNodePredicate) = p.left
+Base.last(p::AndNodePredicate) = p.right
+
+struct OrNodePredicate
+    left::Any
+    right::Any
+end
+
+Base.first(p::OrNodePredicate) = p.left
+Base.last(p::OrNodePredicate) = p.right
+
+const NodePredicate = Union{FactorNodePredicate,VariableNodePredicate,AndNodePredicate,OrNodePredicate, SubmodelPredicate}
+Base.:(|)(left::NodePredicate, right::NodePredicate) = OrNodePredicate(left, right)
+Base.:(&)(left::NodePredicate, right::NodePredicate) = AndNodePredicate(left, right)
+
+as_node(any) = FactorNodePredicate{any}()
+as_node() = FactorNodePredicate{Nothing}()
+as_variable(any) = VariableNodePredicate{any}()
+as_variable() = VariableNodePredicate{Nothing}()
+as_context(any; children=false) = SubmodelPredicate{any, typeof(static(children))}()
+
+Base.filter(p::AndNodePredicate, model::Model) = intersect(filter(first(p), model), filter(last(p), model))
+Base.filter(p::OrNodePredicate, model::Model) = union(filter(first(p), model), filter(last(p), model))
+
+function Base.filter(::FactorNodePredicate{N}, model::Model) where {N}
+    Iterators.filter(node -> fform(model[node]) ∈ aliases(N), factor_nodes(model))
+end
+
+Base.filter(::FactorNodePredicate{Nothing}, model::Model) = factor_nodes(model)
+
+function Base.filter(::VariableNodePredicate{N}, model::Model) where {N}
+    Iterators.filter(node -> getname(model[node]) === N, variable_nodes(model))
+end
+
+Base.filter(::VariableNodePredicate{Nothing}, model::Model) = variable_nodes(model)
+
+function Base.filter(::SubmodelPredicate{S, False}, model::Model) where {S}
+    Iterators.filter(node -> fform(getcontext(model[node])) === S, labels(model))
+end
+
+function Base.filter(::SubmodelPredicate{S, True}, model::Model) where {S}
+    Iterators.filter(node -> S ∈ fform.(path_to_root(getcontext(model[node]))), labels(model))
+end
+
 """
     generate_nodelabel(model::Model, name::Symbol)
 
@@ -304,7 +366,6 @@ Arguments:
 - `index`: An integer or tuple of integers representing the index of the variable.
 
 Returns:
-A new `NodeLabel` object with a unique identifier.
 """
 function generate_nodelabel(model::Model, name)
     increase_count(model)
@@ -348,6 +409,9 @@ proxies(context::Context) = context.proxies
 children(context::Context) = context.children
 count(context::Context, fform::Any) =
     haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+
+path_to_root(::Nothing) = []
+path_to_root(context::Context) = [context, path_to_root(parent(context))...]
 
 function generate_factor_nodelabel(context::Context, fform::Any)
     if count(context, fform) == 0
@@ -416,7 +480,8 @@ Context(parent::Context, model_fform::Function) = Context(
     (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform),
     parent,
 )
-Context() = Context(0, identity, "", nothing)
+Context(fform) = Context(0, fform, "", nothing)
+Context() = Context(identity)
 
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
@@ -507,12 +572,12 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model()
+function create_model(; fform=identity)
     model = MetaGraph(
         Graph(),
         label_type = NodeLabel,
         vertex_data_type = NodeData,
-        graph_data = Context(),
+        graph_data = Context(fform),
         edge_data_type = EdgeLabel,
     )
     model = Model(model)
@@ -769,7 +834,7 @@ function add_atomic_factor_node!(
     __options__ = __options__ === nothing ? NamedTuple{}() : __options__
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    model[factornode_label] = FactorNodeData(fform, __options__)
+    model[factornode_label] = FactorNodeData(fform, context, __options__)
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end

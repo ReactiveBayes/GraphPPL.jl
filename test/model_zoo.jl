@@ -19,6 +19,8 @@ struct SomeMeta end
 struct NormalMeanVariance end
 struct NormalMeanPrecision end
 
+GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
+
 GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = (:out, :μ, :σ)
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = (:out, :μ, :τ)
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
@@ -27,13 +29,15 @@ GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
 struct GammaShapeRate end
 struct GammaShapeScale end
 
+GraphPPL.aliases(::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
+
 GraphPPL.interfaces(::Type{GammaShapeRate}, ::StaticInt{3}) = (:out, :α, :β)
 GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = (:out, :α, :θ)
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :β)}) = GammaShapeRate
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 
 function create_terminated_model(fform)
-    __model__ = GraphPPL.create_model()
+    __model__ = GraphPPL.create_model(; fform=fform)
     __context__ = GraphPPL.getcontext(__model__)
     GraphPPL.add_terminated_submodel!(__model__, __context__, fform, NamedTuple())
     return __model__
