@@ -377,20 +377,26 @@ end
     result = collect(filter(as_node(Gamma) | as_context(inner_inner), model))
     @test length(result) == 6
 
-    result = collect(filter(as_node(Normal) & as_context(inner_inner; children = true), model))
+    result =
+        collect(filter(as_node(Normal) & as_context(inner_inner; children = true), model))
     @test length(result) == 1
 end
 
 @testitem "filter(::FactorNodePredicate, ::Model)" begin
-    import GraphPPL: as_node , getcontext
+    import GraphPPL: as_node, getcontext
     include("model_zoo.jl")
 
     model = create_terminated_model(simple_model)
     context = getcontext(model)
     result = filter(as_node(Normal), model)
-    @test collect(result) == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
+    @test collect(result) ==
+          [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
     result = filter(as_node(), model)
-    @test collect(result) == [context[NormalMeanVariance, 1], context[GammaShapeScale, 1], context[NormalMeanVariance, 2]]
+    @test collect(result) == [
+        context[NormalMeanVariance, 1],
+        context[GammaShapeScale, 1],
+        context[NormalMeanVariance, 2],
+    ]
 end
 
 @testitem "filter(::VariableNodePredicate, ::Model)" begin
@@ -414,13 +420,13 @@ end
     result = filter(as_context(inner), model)
     @test length(collect(result)) == 0
 
-    result = filter(as_context(inner; children=true), model)
+    result = filter(as_context(inner; children = true), model)
     @test length(collect(result)) == 1
 
     result = filter(as_context(inner_inner), model)
     @test length(collect(result)) == 1
 
-    result = filter(as_context(outer; children=true), model)
+    result = filter(as_context(outer; children = true), model)
     @test length(collect(result)) == 22
 end
 

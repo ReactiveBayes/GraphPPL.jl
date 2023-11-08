@@ -1,5 +1,4 @@
-using Graphs
-using MetaGraphsNext
+using MetaGraphsNext, MetaGraphsNext.Graphs
 import Base:
     put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 using BitSetTuples
@@ -325,17 +324,17 @@ function apply(::IsVariableNode, model, something)
     return is_variable(model[something])
 end
 
-struct SubmodelPredicate{S, C} <: AbstractModelFilterPredicate end
+struct SubmodelPredicate{S,C} <: AbstractModelFilterPredicate end
 
-function apply(::SubmodelPredicate{S, False}, model, something) where {S}
+function apply(::SubmodelPredicate{S,False}, model, something) where {S}
     return fform(getcontext(model[something])) === S
 end
 
-function apply(::SubmodelPredicate{S, True}, model, something) where {S}
+function apply(::SubmodelPredicate{S,True}, model, something) where {S}
     return S ∈ fform.(path_to_root(getcontext(model[something])))
 end
 
-struct AndNodePredicate{L, R} <: AbstractModelFilterPredicate
+struct AndNodePredicate{L,R} <: AbstractModelFilterPredicate
     left::L
     right::R
 end
@@ -344,7 +343,7 @@ function apply(and::AndNodePredicate, model, something)
     return apply(and.left, model, something) && apply(and.right, model, something)
 end
 
-struct OrNodePredicate{L, R} <: AbstractModelFilterPredicate
+struct OrNodePredicate{L,R} <: AbstractModelFilterPredicate
     left::L
     right::R
 end
@@ -353,14 +352,16 @@ function apply(or::OrNodePredicate, model, something)
     return apply(or.left, model, something) || apply(or.right, model, something)
 end
 
-Base.:(|)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicate) = OrNodePredicate(left, right)
-Base.:(&)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicate) = AndNodePredicate(left, right)
+Base.:(|)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicate) =
+    OrNodePredicate(left, right)
+Base.:(&)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicate) =
+    AndNodePredicate(left, right)
 
 as_node(any) = FactorNodePredicate{any}()
 as_node() = IsFactorNode()
 as_variable(any) = VariableNodePredicate{any}()
 as_variable() = IsVariableNode()
-as_context(any; children=false) = SubmodelPredicate{any, typeof(static(children))}()
+as_context(any; children = false) = SubmodelPredicate{any,typeof(static(children))}()
 
 function Base.filter(predicate::AbstractModelFilterPredicate, model::Model)
     return Iterators.filter(something -> apply(predicate, model, something), labels(model))
@@ -586,7 +587,7 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(; fform=identity)
+function create_model(; fform = identity)
     model = MetaGraph(
         Graph(),
         label_type = NodeLabel,
