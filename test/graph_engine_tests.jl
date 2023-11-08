@@ -368,7 +368,17 @@ end
 
     model = create_terminated_model(simple_model)
     result = filter(as_node(Normal) | as_variable(:x), model)
-    @test length(result ) == 3
+    @test length(result) == 3
+
+    model = create_terminated_model(outer)
+    result = filter(as_node(Gamma) & as_context(inner_inner), model)
+    @test length(result) == 0
+
+    result = filter(as_node(Gamma) | as_context(inner_inner), model)
+    @test length(result) == 6
+
+    result = filter(as_node(Normal) & as_context(inner_inner; children = true), model)
+    @test length(result) == 1
 end
 
 @testitem "filter(::FactorNodePredicate, ::Model)" begin
