@@ -304,20 +304,24 @@ abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
-    return is_factor(model[something]) && fform(model[something]) ∈ aliases(N)
+    return apply(IsFactorNode(), model, something) && fform(model[something]) ∈ aliases(N)
 end
 
-function apply(::FactorNodePredicate{Nothing}, model, something)
+struct IsFactorNode <: AbstractModelFilterPredicate end
+
+function apply(::IsFactorNode, model, something)
     return is_factor(model[something])
 end
 
 struct VariableNodePredicate{V} <: AbstractModelFilterPredicate end
 
 function apply(::VariableNodePredicate{N}, model, something) where {N}
-    return is_variable(model[something]) && getname(model[something]) === N
+    return apply(IsVariableNode(), model, something) && getname(model[something]) === N
 end
 
-function apply(::VariableNodePredicate{Nothing}, model, something)
+struct IsVariableNode <: AbstractModelFilterPredicate end
+
+function apply(::IsVariableNode, model, something)
     return is_variable(model[something])
 end
 
@@ -353,9 +357,9 @@ Base.:(|)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicat
 Base.:(&)(left::AbstractModelFilterPredicate, right::AbstractModelFilterPredicate) = AndNodePredicate(left, right)
 
 as_node(any) = FactorNodePredicate{any}()
-as_node() = FactorNodePredicate{Nothing}()
+as_node() = IsFactorNode()
 as_variable(any) = VariableNodePredicate{any}()
-as_variable() = VariableNodePredicate{Nothing}()
+as_variable() = IsVariableNode()
 as_context(any; children=false) = SubmodelPredicate{any, typeof(static(children))}()
 
 function Base.filter(predicate::AbstractModelFilterPredicate, model::Model)
