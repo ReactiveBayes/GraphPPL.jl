@@ -16,6 +16,124 @@
     @test_throws MethodError Model()
 end
 
+@testitem "factor_nodes" begin
+    import GraphPPL: factor_nodes, is_factor, labels
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(factor_nodes(model))
+        for node in fnodes
+            @test is_factor(model[node])
+        end
+        for label in labels(model)
+            if is_factor(model[label])
+                @test label ∈ fnodes
+            end
+        end
+    end
+end
+
+@testitem "variable_nodes" begin
+    import GraphPPL: variable_nodes, is_variable, labels
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(variable_nodes(model))
+        for node in fnodes
+            @test is_variable(model[node])
+        end
+        for label in labels(model)
+            if is_variable(model[label])
+                @test label ∈ fnodes
+            end
+        end
+    end
+end
+
+@testitem "is_constant" begin
+    import GraphPPL: is_constant, variable_nodes, getname
+    include("model_zoo.jl")
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        for label in variable_nodes(model)
+            if occursin("constvar", string(getname(model[label])))
+                @test is_constant(model[label])
+            else
+                @test !is_constant(model[label])
+            end
+        end
+    end
+end
+
+@testitem "is_datavar" begin
+    import GraphPPL: is_datavar, create_model, getcontext, getorcreate!, variable_nodes
+    include("model_zoo.jl")
+
+    m = create_model()
+    ctx = getcontext(m)
+    x = getorcreate!(m, ctx, :x, nothing; options = (datavar = true,))
+    @test is_datavar(m[x])
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        for label in variable_nodes(model)
+            @test !is_datavar(model[label])
+        end
+    end
+end
+
+@testitem "is_factorized_datavar" begin
+    import GraphPPL:
+        is_factorized_datavar, create_model, getcontext, getorcreate!, variable_nodes
+    include("model_zoo.jl")
+
+    m = create_model()
+    ctx = getcontext(m)
+
+    x_1 = getorcreate!(m, ctx, :x_1, nothing; options = (datavar = true,))
+    @test !is_factorized_datavar(m[x_1])
+
+    x_2 = getorcreate!(m, ctx, :x_2, nothing; options = (datavar = true, factorized = true))
+    @test is_factorized_datavar(m[x_2])
+
+    x_3 = getorcreate!(m, ctx, :x_3, 1; options = (datavar = true,))
+    @test !is_factorized_datavar(m[x_3[1]])
+
+    x_4 = getorcreate!(m, ctx, :x_4, 1; options = (datavar = true, factorized = true))
+    @test is_factorized_datavar(m[x_4[1]])
+
+    x_5 = getorcreate!(m, ctx, :x_5, [1, 2, 3]; options = (datavar = true,))
+    @test !is_factorized_datavar(m[x_5[1, 2, 3]])
+
+    x_6 =
+        getorcreate!(m, ctx, :x_6, [1, 2, 3]; options = (datavar = true, factorized = true))
+    @test is_factorized_datavar(m[x_6[1, 2, 3]])
+end
+
+@testitem "is_factorized" begin
+    import GraphPPL:
+        is_constant, is_factorized, create_model, getcontext, getorcreate!, variable_nodes
+    include("model_zoo.jl")
+
+    m = create_model()
+    ctx = getcontext(m)
+    x = getorcreate!(m, ctx, :x, nothing; options = (datavar = true, factorized = true))
+    @test is_factorized(m[x])
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        for label in variable_nodes(model)
+            if is_constant(model[label])
+                @test is_factorized(model[label])
+            else
+                @test !is_factorized(model[label])
+            end
+        end
+    end
+end
+
 @testitem "proxy labels" begin
     import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
     y = NodeLabel(:y, 1)

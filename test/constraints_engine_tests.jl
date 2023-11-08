@@ -851,15 +851,11 @@ end
             ),
         )
         result = ResolvedFactorizationConstraint(
-            ResolvedConstraintLHS((
-            ),),
+            ResolvedConstraintLHS((),),
             (
-                ResolvedFactorizationConstraintEntry((
-                )),
-                ResolvedFactorizationConstraintEntry((
-                )),
-                ResolvedFactorizationConstraintEntry((
-                )),
+                ResolvedFactorizationConstraintEntry(()),
+                ResolvedFactorizationConstraintEntry(()),
+                ResolvedFactorizationConstraintEntry(()),
             ),
         )
         @test resolve(model, ctx, constraint) == result
