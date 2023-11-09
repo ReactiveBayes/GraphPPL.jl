@@ -79,6 +79,7 @@ mutable struct VariableNodeData
     name::Symbol
     options::NamedTuple
     index::Any
+    link::Any
     context::Any
 end
 
@@ -86,19 +87,25 @@ end
 value(node::VariableNodeData) = node.options[:value]
 fform_constraint(node::VariableNodeData) = node.options[:q]
 getname(node::VariableNodeData) = node.name
+getlink(node::VariableNodeData) = node.link
 index(node::VariableNodeData) = node.index
 getcontext(node::VariableNodeData) = node.context
 
-Base.show(io::IO, node::VariableNodeData) = print(
-    io,
-    node.name,
-    "[",
-    node.index,
-    "] in context ",
-    node.context.prefix,
-    "_",
-    node.context.fform,
-)
+function Base.show(io::IO, node::VariableNodeData)
+    print(
+        io,
+        node.name,
+        "[",
+        node.index,
+        "] in context ",
+        node.context.prefix,
+        "_",
+        node.context.fform,
+    )
+    if !isnothing(node.link)
+        print(io, ", linked to ", node.link)
+    end
+end
 
 """
     FactorNodeData(fform::Any, options::NamedTuple)
@@ -252,7 +259,7 @@ function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
     interfaces = GraphPPL.interfaces(fform, static(length(names)))
     max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices.!=nothing]) : 1
     perm =
-        sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
+        sortperm(edges, by=(x -> retrieve_interface_position(interfaces, x, max_length)))
     return perm
 end
 
@@ -261,11 +268,11 @@ __get_neighbors(model::Model, node::NodeLabel) =
         (model.graph,),
         collect(MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node))),
     )
-__neighbors(model::Model, node::NodeLabel; sorted = false) =
-    __neighbors(model, node, model[node]; sorted = sorted)
-__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+__neighbors(model::Model, node::NodeLabel; sorted=false) =
+    __neighbors(model, node, model[node]; sorted=sorted)
+__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted=false) =
     __get_neighbors(model, node)
-__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted=false) =
     __neighbors(model, node, static(sorted))
 __neighbors(model::Model, node::NodeLabel, ::False) = __get_neighbors(model, node)
 function __neighbors(model::Model, node::NodeLabel, ::True)
@@ -274,18 +281,18 @@ function __neighbors(model::Model, node::NodeLabel, ::True)
     perm = __sortperm(model, node, edges)
     return neighbors[perm]
 end
-Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) =
-    __neighbors(model, node; sorted = sorted)
-Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) =
-    union(Graphs.neighbors.(Ref(model), nodes; sorted = sorted)...)
+Graphs.neighbors(model::Model, node::NodeLabel; sorted=false) =
+    __neighbors(model, node; sorted=sorted)
+Graphs.neighbors(model::Model, nodes::AbstractArray; sorted=false) =
+    union(Graphs.neighbors.(Ref(model), nodes; sorted=sorted)...)
 Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
 MetaGraphsNext.labels(model::Model) = MetaGraphsNext.labels(model.graph)
 
 __get_edges(model::Model, node::NodeLabel, neighbors) =
     getindex.(Ref(model), Ref(node), neighbors)
-__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) =
+__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted=false) =
     __get_edges(model, node, __get_neighbors(model, node))
-__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) =
+__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted=false) =
     __edges(model, node, static(sorted))
 __edges(model::Model, node::NodeLabel, ::False) =
     __get_edges(model, node, __get_neighbors(model, node))
@@ -295,8 +302,8 @@ function __edges(model::Model, node::NodeLabel, ::True)
     perm = __sortperm(model, node, edges)
     return edges[perm]
 end
-Graphs.edges(model::Model, node::NodeLabel; sorted = false) =
-    __edges(model, node, model[node]; sorted = sorted)
+Graphs.edges(model::Model, node::NodeLabel; sorted=false) =
+    __edges(model, node, model[node]; sorted=sorted)
 
 abstract type AbstractModelFilterPredicate end
 
@@ -361,7 +368,7 @@ as_node(any) = FactorNodePredicate{any}()
 as_node() = IsFactorNode()
 as_variable(any) = VariableNodePredicate{any}()
 as_variable() = IsVariableNode()
-as_context(any; children = false) = SubmodelPredicate{any,typeof(static(children))}()
+as_context(any; children=false) = SubmodelPredicate{any,typeof(static(children))}()
 
 function Base.filter(predicate::AbstractModelFilterPredicate, model::Model)
     return Iterators.filter(something -> apply(predicate, model, something), labels(model))
@@ -587,13 +594,13 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(; fform = identity)
+function create_model(; fform=identity)
     model = MetaGraph(
         Graph(),
-        label_type = NodeLabel,
-        vertex_data_type = NodeData,
-        graph_data = Context(fform),
-        edge_data_type = EdgeLabel,
+        label_type=NodeLabel,
+        vertex_data_type=NodeData,
+        graph_data=Context(fform),
+        edge_data_type=EdgeLabel,
     )
     model = Model(model)
     return model
@@ -720,12 +727,12 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index::Nothing;
-    options::NamedTuple = NamedTuple{}(),
+    options::NamedTuple=NamedTuple{}()
 )
     check_if_vector_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
     return get(
-        () -> add_variable_node!(model, ctx, name; index = nothing, __options__ = options),
+        () -> add_variable_node!(model, ctx, name; index=nothing, __options__=options),
         ctx.individual_variables,
         name,
     )
@@ -736,15 +743,15 @@ getorcreate!(
     ctx::Context,
     name::Symbol,
     index::AbstractArray{Int};
-    options::NamedTuple = NamedTuple{}(),
-) = getorcreate!(model, ctx, name, index...; options = options)
+    options::NamedTuple=NamedTuple{}()
+) = getorcreate!(model, ctx, name, index...; options=options)
 
 function getorcreate!(
     model::Model,
     ctx::Context,
     name::Symbol,
     index::Integer;
-    options::NamedTuple = NamedTuple{}(),
+    options::NamedTuple=NamedTuple{}()
 )
     check_if_individual_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -753,7 +760,7 @@ function getorcreate!(
     end
     if !isassigned(ctx.vector_variables[name], index)
         ctx.vector_variables[name][index] =
-            add_variable_node!(model, ctx, name; index = index, __options__ = options)
+            add_variable_node!(model, ctx, name; index=index, __options__=options)
     end
     return ctx.vector_variables[name]
 end
@@ -763,7 +770,7 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index...;
-    options::NamedTuple = NamedTuple{}(),
+    options::NamedTuple=NamedTuple{}()
 )
     check_if_individual_variable(ctx, name)
     check_if_vector_variable(ctx, name)
@@ -772,7 +779,7 @@ function getorcreate!(
     end
     if !isassigned(ctx.tensor_variables[name], index...)
         ctx.tensor_variables[name][index...] =
-            add_variable_node!(model, ctx, name; index = index, __options__ = options)
+            add_variable_node!(model, ctx, name; index=index, __options__=options)
     end
     return ctx.tensor_variables[name]
 end
@@ -786,7 +793,7 @@ getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
     gensym(model, :constvar);
-    __options__ = NamedTuple{(:value, :constant)}((var, true)),
+    __options__=NamedTuple{(:value, :constant)}((var, true))
 )
 
 
@@ -812,18 +819,28 @@ function add_variable_node!(
     model::Model,
     context::Context,
     variable_id::Symbol;
-    index = nothing,
-    __options__ = NamedTuple{}(),
+    index=nothing,
+    link=nothing,
+    __options__=NamedTuple{}()
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, context)
+    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, link, context)
     return variable_symbol
 end
 
-function create_anonymous_variable!(model::Model, context::Context)
+function create_anonymous_variable!(model::Model, context::Context, fform, args)
+    return create_anonymous_variable!(NodeBehaviour(fform), model, context, args)
+end
+
+# Deterministic nodes can create links to variables in the model
+# This might be important for better factorization constraints resolution
+function create_anonymous_variable!(::Deterministic, model::Model, context::Context, args)
+    return add_variable_node!(model, context, :anonymous, link = getindex.(Ref(model), filter(is_nodelabel, args)))
+end
+
+function create_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
     return add_variable_node!(model, context, :anonymous)
-    # TODO add some proxying here that links "children" of this anonymous variable and this together. Necessary for applying constraints.
 end
 
 """
@@ -844,7 +861,7 @@ function add_atomic_factor_node!(
     model::Model,
     context::Context,
     fform;
-    __options__ = NamedTuple{}(),
+    __options__=NamedTuple{}()
 )
     __options__ = __options__ === nothing ? NamedTuple{}() : __options__
     factornode_id = generate_factor_nodelabel(context, fform)
@@ -894,7 +911,7 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_node_id::Union{ProxyLabel,NodeLabel},
     interface_name::Symbol;
-    index = nothing,
+    index=nothing
 )
     model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index)
 end
@@ -904,10 +921,10 @@ function add_edge!(
     factor_node_id::NodeLabel,
     variable_nodes::Union{AbstractArray,Tuple,NamedTuple},
     interface_name::Symbol;
-    index = 1,
+    index=1
 )
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
+        add_edge!(model, factor_node_id, variable_node, interface_name; index=index)
         index += increase_index(variable_node)
     end
 end
@@ -967,7 +984,7 @@ function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     ))
 end
 
-default_parametrization(::Atomic, fform, rhs) = (in = Tuple(rhs),)
+default_parametrization(::Atomic, fform, rhs) = (in=Tuple(rhs),)
 default_parametrization(::Composite, fform, rhs) =
     error("Composite nodes always have to be initialized with named arguments")
 
@@ -1011,8 +1028,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     NodeType(fform),
     model,
@@ -1020,8 +1037,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 #if it is composite, we assume it should be materialized and it is stochastic
@@ -1032,8 +1049,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     True(),
     nodetype,
@@ -1043,8 +1060,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
@@ -1054,8 +1071,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::Nothing;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     True(),
     Atomic(),
@@ -1065,8 +1082,8 @@ make_node!(
     fform,
     lhs_interface,
     NamedTuple{}();
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 # If node is Atomic, check stochasticity
@@ -1077,8 +1094,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     Atomic(),
     NodeBehaviour(fform),
@@ -1087,8 +1104,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
@@ -1100,8 +1117,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     contains_nodelabel(rhs_interfaces),
     atomic,
@@ -1111,8 +1128,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
@@ -1125,8 +1142,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::AbstractArray;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = fform(rhs_interfaces...)
 
 make_node!(
@@ -1138,8 +1155,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = fform(; rhs_interfaces...)
 
 make_node!(
@@ -1151,8 +1168,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::MixedArguments;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
 
 # If a node is Stochastic, we always materialize.
@@ -1165,8 +1182,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     True(),
     Atomic(),
@@ -1176,8 +1193,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 # If we have to materialize but lhs_interface is nothing, we create a variable for it
@@ -1190,8 +1207,8 @@ function make_node!(
     fform,
     lhs_interface::Broadcasted,
     rhs_interfaces;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 )
     lhs_node = ProxyLabel(
         getname(lhs_interface),
@@ -1207,8 +1224,8 @@ function make_node!(
         fform,
         lhs_node,
         rhs_interfaces;
-        __parent_options__ = __parent_options__,
-        __debug__ = __debug__,
+        __parent_options__=__parent_options__,
+        __debug__=__debug__
     )
 end
 
@@ -1222,8 +1239,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     True(),
     node_type,
@@ -1233,8 +1250,8 @@ make_node!(
     fform,
     lhs_interface,
     GraphPPL.default_parametrization(node_type, fform, rhs_interfaces);
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 make_node!(
@@ -1246,8 +1263,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::MixedArguments;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = error(
     "MixedArguments not supported for rhs_interfaces when node has to be materialized",
 )
@@ -1261,8 +1278,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) =
     length(rhs_interfaces) == 0 ?
     make_node!(
@@ -1274,8 +1291,8 @@ make_node!(
         fform,
         lhs_interface,
         NamedTuple{}();
-        __parent_options__ = __parent_options__,
-        __debug__ = __debug__,
+        __parent_options__=__parent_options__,
+        __debug__=__debug__
     ) :
     error(
         lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple",
@@ -1290,8 +1307,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = make_node!(
     Composite(),
     model,
@@ -1300,8 +1317,8 @@ make_node!(
     lhs_interface,
     rhs_interfaces,
     static(length(rhs_interfaces) + 1);
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 """
@@ -1327,8 +1344,8 @@ function make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
@@ -1337,8 +1354,8 @@ function make_node!(
         context,
         fform,
         interfaces;
-        __parent_options__ = __parent_options__,
-        __debug__ = __debug__,
+        __parent_options__=__parent_options__,
+        __debug__=__debug__
     )
     return unroll(lhs_interface)
 end
@@ -1348,11 +1365,11 @@ function materialize_factor_node!(
     context::Context,
     fform,
     interfaces::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 )
     factor_node_id =
-        add_atomic_factor_node!(model, context, fform; __options__ = __parent_options__)
+        add_atomic_factor_node!(model, context, fform; __options__=__parent_options__)
     for (interface_name, neighbor_nodelabel) in iterator(interfaces)
         add_edge!(
             model,
@@ -1369,16 +1386,16 @@ add_terminated_submodel!(
     __context__::Context,
     fform,
     __interfaces__::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false,
+    __parent_options__=nothing,
+    __debug__=false
 ) = add_terminated_submodel!(
     __model__,
     __context__,
     fform,
     __interfaces__,
     static(length(__interfaces__));
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__,
+    __parent_options__=__parent_options__,
+    __debug__=__debug__
 )
 
 """
@@ -1389,6 +1406,6 @@ Remove all nodes from the model that are not connected to any other node.
 function prune!(m::Model)
     degrees = degree(m.graph)
     nodes_to_remove = keys(degrees)[degrees.==0]
-    nodes_to_remove = sort(nodes_to_remove, rev = true)
+    nodes_to_remove = sort(nodes_to_remove, rev=true)
     rem_vertex!.(Ref(m.graph), nodes_to_remove)
 end

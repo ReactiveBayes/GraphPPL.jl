@@ -150,7 +150,7 @@ function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, ")")
 end
 
-Base.iterate(e::FactorizationConstraintEntry, state::Int = 1) = iterate(e.entries, state)
+Base.iterate(e::FactorizationConstraintEntry, state::Int=1) = iterate(e.entries, state)
 
 Base.:(==)(lhs::FactorizationConstraintEntry, rhs::FactorizationConstraintEntry) =
     length(lhs.entries) == length(rhs.entries) &&
@@ -529,6 +529,9 @@ Base.:(==)(
 lhs(constraint::ResolvedFactorizationConstraint) = constraint.lhs
 rhs(constraint::ResolvedFactorizationConstraint) = constraint.rhs
 
+function in_lhs(constraint::ResolvedFactorizationConstraint, node::VariableNodeData)
+    return in(node, lhs(constraint)) || (!isnothing(getlink(node)) && any(l -> in_lhs(constraint, l), getlink(node)))
+end
 
 struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V
@@ -573,7 +576,7 @@ function Base.pop!(stack::ConstraintStack, context::Context)
     return false
 end
 
-Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
+Base.iterate(stack::ConstraintStack, state=1) = iterate(constraints(stack), state)
 
 save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
     save_constraint!(model, node, model[node], constraint_data, symbol)
@@ -703,7 +706,7 @@ function materialize_constraints!(
     constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label)
     constraint = SA[constraint_set...]
-    constraint = Tuple(sort(constraint, by = first))
+    constraint = Tuple(sort(constraint, by=first))
     constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
     if !is_valid_partition(constraint_set)
         error(
@@ -823,7 +826,6 @@ function apply!(
 )
     for fc in factorization_constraints(constraint_set)
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
-
     end
     for ffc in functional_form_constraints(constraint_set)
         apply!(model, context, ffc)
@@ -866,7 +868,12 @@ function is_applicable(
     constraint::ResolvedFactorizationConstraint,
 )
     neighbors = getindex.(Ref(model), GraphPPL.neighbors(model, node))
-    return any(map(neighbor -> neighbor ∈ lhs(constraint), neighbors))
+    lhsc = lhs(constraint)
+    return any(neighbors) do neighbor
+        # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
+        # OR if any of its links 
+        return neighbor ∈ lhsc || (is_nodelabel(neighbor) && !isnothing(getlink(neighbor)) && any(link -> is_applicable(model, link, constraint), getlink(neighbor)))
+    end
 end
 
 function is_decoupled(
@@ -874,6 +881,19 @@ function is_decoupled(
     var_2::VariableNodeData,
     entry::ResolvedFactorizationConstraintEntry,
 )
+    # TODO: address this case later, probably very rare
+    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
+        error("Not implemented, both variables are linked")
+    end
+
+    if !isnothing(getlink(var_1))
+        return any(l -> is_decoupled(l, var_2, entry), getlink(var_1))
+    end
+
+    if !isnothing(getlink(var_2))
+        return any(l -> is_decoupled(var_1, l, entry), getlink(var_2))
+    end
+
     for variable in entry.variables
         if var_2 ∈ variable
             return variable isa ResolvedIndexedVariable{SplittedRange}
@@ -887,7 +907,8 @@ function is_decoupled(
     var_2::VariableNodeData,
     constraint::ResolvedFactorizationConstraint,
 )
-    if var_1 ∉ lhs(constraint) || var_2 ∉ lhs(constraint)
+    
+    if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
     for entry in rhs(constraint)

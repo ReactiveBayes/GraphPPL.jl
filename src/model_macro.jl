@@ -308,7 +308,7 @@ function convert_to_anonymous(e::Expr, created_by)
         sym = MacroTools.gensym_ids(gensym(:anon))
         return quote
             begin
-                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__, $f, ($(args...),))
                 $sym ~ $f($(args...)) where {anonymous=true,created_by=$created_by}
             end
         end
