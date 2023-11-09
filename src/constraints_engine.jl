@@ -881,24 +881,13 @@ function is_decoupled(
     var_2::VariableNodeData,
     entry::ResolvedFactorizationConstraintEntry,
 )
-    # TODO: address this case later, probably very rare
-    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
-        error("Not implemented, both variables are linked")
-    end
-
-    if !isnothing(getlink(var_1))
-        return any(l -> is_decoupled(l, var_2, entry), getlink(var_1))
-    end
-
-    if !isnothing(getlink(var_2))
-        return any(l -> is_decoupled(var_1, l, entry), getlink(var_2))
-    end
 
     for variable in entry.variables
         if var_2 ∈ variable
             return variable isa ResolvedIndexedVariable{SplittedRange}
         end
     end
+
     return true
 end
 
@@ -907,15 +896,29 @@ function is_decoupled(
     var_2::VariableNodeData,
     constraint::ResolvedFactorizationConstraint,
 )
-    
     if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
+
+    # TODO: address this case later, probably very rare
+    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
+        error("Not implemented, both variables are linked")
+    end
+
+    if !isnothing(getlink(var_1))
+        return any(l -> is_decoupled(l, var_2, constraint), getlink(var_1))
+    end
+
+    if !isnothing(getlink(var_2))
+        return any(l -> is_decoupled(var_1, l, constraint), getlink(var_2))
+    end
+
     for entry in rhs(constraint)
         if var_1 ∈ entry
             return is_decoupled(var_1, var_2, entry)
         end
     end
+
     return false
 end
 
@@ -938,14 +941,24 @@ function convert_to_bitsets(
 end
 
 function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+    return apply!(NodeBehaviour(fform(model[node])), model, node, constraint)
+end
+
+function apply!(::Deterministic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+    return nothing
+end
+
+function apply!(::Stochastic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
     if is_applicable(model, node, constraint)
         constraint = convert_to_bitsets(model, node, constraint)
         save_constraint!(model, node, constraint, :q)
     end
+    return nothing
 end
 
 function apply!(model::Model, context::Context, constraint::ResolvedFactorizationConstraint)
     for node in values(factor_nodes(context))
         apply!(model, node, constraint)
     end
+    return nothing
 end

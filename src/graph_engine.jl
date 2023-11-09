@@ -836,7 +836,7 @@ end
 # Deterministic nodes can create links to variables in the model
 # This might be important for better factorization constraints resolution
 function create_anonymous_variable!(::Deterministic, model::Model, context::Context, args)
-    return add_variable_node!(model, context, :anonymous, link = getindex.(Ref(model), filter(is_nodelabel, args)))
+    return add_variable_node!(model, context, :anonymous, link = getindex.(Ref(model), unroll.(filter(is_nodelabel, args))))
 end
 
 function create_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
