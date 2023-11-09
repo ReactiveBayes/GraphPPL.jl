@@ -876,31 +876,31 @@ end
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, GraphPPL.Context())
+    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, GraphPPL.Context())
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), nothing, nothing, context)
     @test node_data ∈ variable
 end
 

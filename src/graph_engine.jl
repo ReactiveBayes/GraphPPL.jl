@@ -829,17 +829,34 @@ function add_variable_node!(
     return variable_symbol
 end
 
-function create_anonymous_variable!(model::Model, context::Context, fform, args)
-    return create_anonymous_variable!(NodeBehaviour(fform), model, context, args)
+"""
+    AnonymousVariable(model, context)
+
+Defines a lazy structure for anonymous variables.
+The actual anonymous variables materialize only in `make_node!` upon calling, because it needs arguments to the `make_node!` in order to create proper links.
+"""
+struct AnonymousVariable 
+    model :: Model
+    context :: Context
+end
+
+create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(model, context)
+
+function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
+    return materialize_anonymous_variable!(NodeBehaviour(fform), anonymous.model, anonymous.context, args)
 end
 
 # Deterministic nodes can create links to variables in the model
 # This might be important for better factorization constraints resolution
-function create_anonymous_variable!(::Deterministic, model::Model, context::Context, args)
+function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, args)
     return add_variable_node!(model, context, :anonymous, link = getindex.(Ref(model), unroll.(filter(is_nodelabel, args))))
 end
 
-function create_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
+function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, args::NamedTuple)
+    return materialize_anonymous_variable!(Deterministic(), model, context, values(args))
+end
+
+function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
     return add_variable_node!(model, context, :anonymous)
 end
 
@@ -1021,7 +1038,13 @@ function contains_nodelabel(collection::MixedArguments)
 end
 
 # TODO improve documentation
-# First check if node is Composite or Atomic
+
+# Special case which should materialize anonymous variable
+function make_node!(model::Model, ctx::Context, fform, lhs_interface::AnonymousVariable, rhs_interfaces; __parent_options__=nothing, __debug__=false)
+    lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)
+    return make_node!(model, ctx, fform, lhs_materialized, rhs_interfaces; __parent_options__=__parent_options__, __debug__=__debug__)
+end
+
 make_node!(
     model::Model,
     ctx::Context,
