@@ -68,7 +68,6 @@ iterate(label::NodeLabel, any) = nothing
 unroll(label) = label
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
-Base.getindex(label::NodeLabel, ::Any) = label
 
 """
     VariableNodeData(name::Symbol, options::NamedTuple)
