@@ -713,32 +713,6 @@ function prepare_options(
 end
 
 """
-    prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
-
-Merges the `parent_options` and `node_options` named tuples and returns the result. If `debug` is `false`, the `created_by` field is deleted from the result. If the resulting named tuple is empty, `nothing` is returned. This function is used to generate `__parent_options__` in a call to `make_node!`.
-
-# Arguments
-- `parent_options::NamedTuple`: The named tuple of parent options.
-- `node_options::NamedTuple`: The named tuple of node options.
-- `debug::Bool`: A boolean indicating whether debug mode is enabled.
-
-# Returns
-- `result`: The merged named tuple of options, with the `created_by` field removed if `debug` is `false`. If the resulting named tuple is empty, `nothing` is returned.
-"""
-function prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
-    result = merge(parent_options, node_options)
-    if !debug
-        result = delete(result, :created_by)
-        if length(result) == 0
-            return nothing
-        end
-        return result
-    else
-        return result
-    end
-end
-
-"""
     get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
 Returns a quote block containing boilerplate functions for a model macro.

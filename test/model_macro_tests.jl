@@ -1839,9 +1839,9 @@ end
           FactorNodeOptions((parent_options = parent_options,),)
 
     # Test 4: Test if parent options and node options have value
-    parent_options = (prod_1 = (q = :(MeanField()),),)
-    node_options = (q = :(MeanField()),)
-    output = (prod_1 = (q = :(MeanField()),), q = :(MeanField()))
+    parent_options = FactorNodeOptions((prod_1 = (q = :(MeanField()),),))
+    node_options = FactorNodeOptions((q = :(MeanField()),))
+    output = FactorNodeOptions((parent_options = parent_options, q = :(MeanField()),))
     @test prepare_options(parent_options, node_options, true) == output
 
     # Test 5: Test if parent options are nothing, node options have value and created_by clause exists
