@@ -28,7 +28,6 @@ function create_hgf(n::Int)
         hgf,
         (κ = κ, ω = ω, θ = θ, x_begin = x_begin, depth = n);
         __debug__ = false,
-        __parent_options__ = nothing,
     )
     return model
 end
@@ -60,7 +59,6 @@ function create_longarray(n::Int)
         long_array,
         (μ = μ, σ = σ, depth=n);
         __debug__ = false,
-        __parent_options__ = nothing,
     )
     return model
 end
