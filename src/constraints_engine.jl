@@ -575,18 +575,17 @@ end
 
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
-save_constraint!(model::Model, node::NodeLabel, constraint_data, symbol::Symbol) =
-    save_constraint!(model, node, model[node], constraint_data, symbol)
+save_constraint!(model::Model, node::NodeLabel, constraint_data) =
+    save_constraint!(model, node, model[node], constraint_data)
 
 function save_constraint!(
     model::Model,
     node::NodeLabel,
     node_data::FactorNodeData,
     constraint_data::BitSetTuple,
-    symbol::Symbol,
 )
-    node_data_options = node_options(node_data)
-    intersect!(node_data_options[:q], constraint_data)
+    
+    intersect!(node_data.factorization_constraint, constraint_data)
 end
 
 function save_constraint!(
@@ -594,14 +593,13 @@ function save_constraint!(
     node::NodeLabel,
     node_data::VariableNodeData,
     constraint_data,
-    symbol::Symbol,
 )
     opt = node_options(node_data)
-    if haskey(opt, :q)
+    if isnothing(opt.functional_form)
         @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
         return
     end
-    node_data.options = NamedTuple{(keys(opt)..., symbol)}((opt..., constraint_data))
+    opt.functional_form = constraint_data
 end
 
 """
@@ -695,7 +693,6 @@ function materialize_constraints!(
                 node_label,
                 node_data,
                 constant_constraint(length(constraint), i),
-                :q,
             )
         end
     end
@@ -711,8 +708,7 @@ function materialize_constraints!(
         )
         return
     end
-    noptions = delete(node_options(node_data), :q)
-    node_data.options = NamedTuple{(keys(noptions)..., :q)}((noptions..., constraint))
+    node_data.factorization_constraint = constraint
 end
 
 materialize_constraints!(
@@ -919,7 +915,7 @@ end
 function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
     if is_applicable(model, node, constraint)
         constraint = convert_to_bitsets(model, node, constraint)
-        save_constraint!(model, node, constraint, :q)
+        save_constraint!(model, node, constraint)
     end
 end
 

@@ -1429,7 +1429,7 @@ end
             [0, 1];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x ~ Normal(0, 1)),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x ~ Normal(0, 1)),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1450,7 +1450,7 @@ end
             (μ = 0, σ = 1);
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x ~ sum(μ = 0, σ = 1)),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x ~ sum(μ = 0, σ = 1)),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1472,7 +1472,7 @@ end
             [μ[i], σ[i]];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x[i] ~ sum(μ[i], σ[i])),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x[i] ~ sum(μ[i], σ[i])),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1512,7 +1512,7 @@ end
                             [x, 1];
                             __parent_options__ = GraphPPL.prepare_options(
                                 __parent_options__,
-                                $((anonymous = true, created_by = :(z ~ Normal(x + 1, y)))),
+                                $(GraphPPL.FactorNodeOptions((anonymous = true, created_by = :(z ~ Normal(x + 1, y))))),
                                 __debug__,
                             ),
                             __debug__ = __debug__,
@@ -1523,7 +1523,7 @@ end
             ];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $(created_by = :(z ~ Normal(x + 1, y)),),
+                $(GraphPPL.FactorNodeOptions((created_by = :(z ~ Normal(x + 1, y)),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1545,7 +1545,7 @@ end
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x := y), is_deterministic = true)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x := y), is_deterministic = true))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1567,7 +1567,7 @@ end
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x[i] := y), is_deterministic = true)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x[i] := y), is_deterministic = true))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1589,7 +1589,7 @@ end
             $nothing;
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x[i, j] := y), is_deterministic = true)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x[i, j] := y), is_deterministic = true))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1610,7 +1610,7 @@ end
             GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2));
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1631,7 +1631,7 @@ end
             [μ, σ];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}), q = :(q(μ)q(σ)))),
+                $(GraphPPL.FactorNodeOptions((created_by = :(x ~ sum(μ, σ) where {q=q(μ)q(σ)}), q = :(q(μ)q(σ))))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1655,7 +1655,7 @@ end
             );
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(y ~ Normal(μ = x, σ = σ)),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(y ~ Normal(μ = x, σ = σ)),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1674,7 +1674,7 @@ end
             [];
             __parent_options__ = GraphPPL.prepare_options(
                 __parent_options__,
-                $((created_by = :(y ~ prior()),)),
+                $(GraphPPL.FactorNodeOptions((created_by = :(y ~ prior()),))),
                 __debug__,
             ),
             __debug__ = __debug__,
@@ -1697,7 +1697,7 @@ end
                 [$(invars...)];
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $((created_by = :(a .~ Normal(μ, σ)),)),
+                    $(GraphPPL.FactorNodeOptions((created_by = :(a .~ Normal(μ, σ)),))),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1723,7 +1723,7 @@ end
                 (μ = $(invars[1]), σ = $(invars[2]));
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $((created_by = :(a .~ Normal(μ = μ, σ = σ)),)),
+                    $(GraphPPL.FactorNodeOptions((created_by = :(a .~ Normal(μ = μ, σ = σ)),))),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1759,7 +1759,7 @@ end
                 );
                 __parent_options__ = GraphPPL.prepare_options(
                     __parent_options__,
-                    $((created_by = :((a .~ some_node(a, b; μ = μ, σ = σ)),),)),
+                    $(GraphPPL.FactorNodeOptions((created_by = :((a .~ some_node(a, b; μ = μ, σ = σ)),),))),
                     __debug__,
                 ),
                 __debug__ = __debug__,
@@ -1772,7 +1772,7 @@ end
 
 end
 
-@testitem "options_vector_to_named_tuple" begin
+@testitem "options_vector_to_factoroptions" begin
     import GraphPPL: options_vector_to_named_tuple
 
     # Test 1: Test with empty input
@@ -1793,27 +1793,27 @@ end
 end
 
 @testitem "prepare_options" begin
-    import GraphPPL: prepare_options
+    import GraphPPL: prepare_options, FactorNodeOptions
 
     # Test 1: Test if both parent options and node options are nothing
-    parent_options = nothing
-    node_options = nothing
-    @test prepare_options(parent_options, node_options, true) == nothing
-    @test prepare_options(parent_options, node_options, false) == nothing
+    parent_options = FactorNodeOptions()
+    node_options = FactorNodeOptions()
+    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions()
+    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions()
 
     # Test 2: Test if parent options are nothing and node options have value
-    parent_options = nothing
-    node_options = (q = :(MeanField()),)
-    @test prepare_options(parent_options, node_options, true) == (q = :(MeanField()),)
-    @test prepare_options(parent_options, node_options, false) == (q = :(MeanField()),)
+    parent_options = FactorNodeOptions()
+    node_options = FactorNodeOptions((q = :(MeanField()),))
+    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions((q = :(MeanField()),))
+    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions((q = :(MeanField()),))
 
     # Test 3: Test if parent options have value and node options are nothing
-    parent_options = (prod_1 = (q = :(MeanField()),))
-    node_options = nothing
+    parent_options = FactorNodeOptions((prod_1 = (q = :(MeanField()),),))
+    node_options = FactorNodeOptions()
     @test prepare_options(parent_options, node_options, true) ==
-          (prod_1 = (q = :(MeanField()),))
+    FactorNodeOptions((parent_options = parent_options,),)
     @test prepare_options(parent_options, node_options, false) ==
-          (prod_1 = (q = :(MeanField()),))
+    FactorNodeOptions((parent_options = parent_options,),)
 
     # Test 4: Test if parent options and node options have value
     parent_options = (prod_1 = (q = :(MeanField()),),)
@@ -1822,30 +1822,18 @@ end
     @test prepare_options(parent_options, node_options, true) == output
 
     # Test 5: Test if parent options are nothing, node options have value and created_by clause exists
-    parent_options = nothing
-    node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
+    parent_options = FactorNodeOptions()
+    node_options = FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField())))
     @test prepare_options(parent_options, node_options, true) ==
-          (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
-    @test prepare_options(parent_options, node_options, false) == (q = :(MeanField()),)
+          node_options
+    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions((q = :(MeanField()),))
 
     # Test 6: Test if parent options are nothing and node options only has created_by clause
-    parent_options = nothing
-    node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)),)
+    parent_options = FactorNodeOptions()
+    node_options = FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)),))
     @test prepare_options(parent_options, node_options, true) ==
-          (created_by = :(x ~ Normal(Normal(0, 1), 0)),)
-    @test prepare_options(parent_options, node_options, false) == nothing
-
-    # Test 7: Test if parent options and node_options have value and created_by clause exists
-    parent_options = (prod_1 = (q = :(MeanField()),),)
-    node_options = (created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField()))
-    output_debug = (
-        prod_1 = (q = :(MeanField()),),
-        created_by = :(x ~ Normal(Normal(0, 1), 0)),
-        q = :(MeanField()),
-    )
-    output_no_debug = (prod_1 = (q = :(MeanField()),), q = :(MeanField()))
-    @test prepare_options(parent_options, node_options, true) == output_debug
-    @test prepare_options(parent_options, node_options, false) == output_no_debug
+    FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)),))
+    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions()
 end
 
 @testitem "model_macro_interior" begin
@@ -1878,7 +1866,6 @@ end
         test_model,
         proxylabel(:μ, nothing, μ),
         (σ = σ,);
-        __parent_options__ = nothing,
         __debug__ = false,
     )
     @test nv(__model__) == 4 && ne(__model__) == 3
@@ -1902,7 +1889,6 @@ end
         test_model,
         proxylabel(:μ, nothing, μ),
         (σ = σ,);
-        __parent_options__ = nothing,
         __debug__ = false,
     )
     x = ctx[test_model, 1][:x]
@@ -1930,7 +1916,6 @@ end
         illegal_model,
         proxylabel(:μ, nothing, μ),
         (σ = σ,);
-        __parent_options__ = nothing,
         __debug__ = false,
     )
 
@@ -1954,7 +1939,6 @@ end
         foo,
         proxylabel(:x, nothing, x),
         (y = y,);
-        __parent_options__ = nothing,
         __debug__ = false,
     )
     @test nv(__model__) == 4 && ne(__model__) == 3
@@ -1974,11 +1958,10 @@ end
         model_with_deep_anonymous_call,
         proxylabel(:x, nothing, x),
         (y = y,);
-        __parent_options__ = nothing,
         __debug__ = false,
     )
     # Test that lhs of deterministic node call gets the corresponding value
-    @test GraphPPL.node_options(__model__[label_for(__model__.graph, 8)])[:value] ==
+    @test GraphPPL.value(__model__[label_for(__model__.graph, 8)]) ==
           Matrix{Float64}(Diagonal(ones(4)))
     GraphPPL.prune!(__model__)
     @test GraphPPL.nv(__model__) == 7 && GraphPPL.ne(__model__) == 6
