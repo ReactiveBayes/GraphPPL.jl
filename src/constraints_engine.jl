@@ -872,23 +872,8 @@ function is_applicable(
     return any(neighbors) do neighbor
         # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
         # OR if any of its links 
-        return neighbor ∈ lhsc || (is_nodelabel(neighbor) && !isnothing(getlink(neighbor)) && any(link -> is_applicable(model, link, constraint), getlink(neighbor)))
+        return neighbor ∈ lhsc || (!isnothing(getlink(neighbor)) && any(link -> is_applicable(model, link, constraint), getlink(neighbor)))
     end
-end
-
-function is_decoupled(
-    var_1::VariableNodeData,
-    var_2::VariableNodeData,
-    entry::ResolvedFactorizationConstraintEntry,
-)
-
-    for variable in entry.variables
-        if var_2 ∈ variable
-            return variable isa ResolvedIndexedVariable{SplittedRange}
-        end
-    end
-
-    return true
 end
 
 function is_decoupled(
@@ -900,26 +885,55 @@ function is_decoupled(
         return false
     end
 
-    # TODO: address this case later, probably very rare
     if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
-        error("Not implemented, both variables are linked")
-    end
-
-    if !isnothing(getlink(var_1))
-        return any(l -> is_decoupled(l, var_2, constraint), getlink(var_1))
-    end
-
-    if !isnothing(getlink(var_2))
-        return any(l -> is_decoupled(var_1, l, constraint), getlink(var_2))
+        error("""
+            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(getlink(var_1), ',')) and $(join(getlink(var_2), ',')) respectively.
+            As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
+        """)
+    elseif !isnothing(getlink(var_1))
+        return is_decoupled_one_linked(var_1, var_2, constraint)
+    elseif !isnothing(getlink(var_2))
+        return is_decoupled_one_linked(var_2, var_1, constraint)
     end
 
     for entry in rhs(constraint)
         if var_1 ∈ entry
-            return is_decoupled(var_1, var_2, entry)
+            return is_decoupled(var_2, entry)
         end
     end
 
     return false
+end
+
+function is_decoupled_one_linked(linked::VariableNodeData, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+    # Check if all linked variables have exactly the same "is_decoupled" output
+    # Otherwise we are being a bit conservative here and throw an ambiguity error
+    links = getlink(linked)
+    if allequal(Iterators.map(link -> is_decoupled(link, unlinked, constraint), links))
+        return is_decoupled(first(links), unlinked, constraint)
+    else
+        # Perhaps, this is possible to resolve automatically, but that would required 
+        # quite some difficult graph traversal logic, so for now we just throw an error
+        error("""
+            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(var_1), ',')).
+            As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
+        """)
+    end
+end
+
+function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)
+    # This function checks if the `variable` is not a part of the `entry`
+    for entryvar in entry.variables
+        if var ∈ entryvar
+            if entryvar isa ResolvedIndexedVariable{SplittedRange}
+                return true # It can technically still be a prt of the `entry`, but `SplittedRange` is a special case
+            else
+                return false
+            end
+        end
+    end
+
+    return true
 end
 
 function convert_to_bitsets(
