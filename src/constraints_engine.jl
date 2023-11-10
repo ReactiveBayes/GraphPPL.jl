@@ -584,7 +584,7 @@ function save_constraint!(
     node_data::FactorNodeData,
     constraint_data::BitSetTuple,
 )
-    
+
     intersect!(node_data.factorization_constraint, constraint_data)
 end
 

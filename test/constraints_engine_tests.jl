@@ -702,7 +702,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    save_constraint!(model, node, constant_constraint(3, 1),)
+    save_constraint!(model, node, constant_constraint(3, 1))
     @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
     save_constraint!(model, node, constant_constraint(3, 2))
     @test factorization_constraint(model[node]) == BitSetTuple([[1], [2], [3]])
@@ -740,12 +740,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(
-        model,
-        node,
-        model[node],
-        BitSetTuple([[1], [2, 3], [2, 3]]),
-    )
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
     materialize_constraints!(model, node)
     @test get_constraint_names(factorization_constraint(model[node])) == ((:μ,), (:σ, :out))
 

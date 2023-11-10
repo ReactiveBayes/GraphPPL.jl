@@ -68,12 +68,18 @@ end
 end
 
 @testitem "is_datavar" begin
-    import GraphPPL: is_datavar, create_model, getcontext, getorcreate!, variable_nodes, VariableNodeOptions
+    import GraphPPL:
+        is_datavar,
+        create_model,
+        getcontext,
+        getorcreate!,
+        variable_nodes,
+        VariableNodeOptions
     include("model_zoo.jl")
 
     m = create_model()
     ctx = getcontext(m)
-    x = getorcreate!(m, ctx, :x, nothing; options = VariableNodeOptions(datavar = true,))
+    x = getorcreate!(m, ctx, :x, nothing; options = VariableNodeOptions(datavar = true))
     @test is_datavar(m[x])
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
@@ -86,40 +92,75 @@ end
 
 @testitem "is_factorized_datavar" begin
     import GraphPPL:
-        is_factorized_datavar, create_model, getcontext, getorcreate!, variable_nodes, VariableNodeOptions
+        is_factorized_datavar,
+        create_model,
+        getcontext,
+        getorcreate!,
+        variable_nodes,
+        VariableNodeOptions
     include("model_zoo.jl")
 
     m = create_model()
     ctx = getcontext(m)
 
-    x_1 = getorcreate!(m, ctx, :x_1, nothing; options = VariableNodeOptions(datavar = true,))
+    x_1 = getorcreate!(m, ctx, :x_1, nothing; options = VariableNodeOptions(datavar = true))
     @test !is_factorized_datavar(m[x_1])
 
-    x_2 = getorcreate!(m, ctx, :x_2, nothing; options = VariableNodeOptions(datavar = true, factorized = true))
+    x_2 = getorcreate!(
+        m,
+        ctx,
+        :x_2,
+        nothing;
+        options = VariableNodeOptions(datavar = true, factorized = true),
+    )
     @test is_factorized_datavar(m[x_2])
 
-    x_3 = getorcreate!(m, ctx, :x_3, 1; options = VariableNodeOptions(datavar = true,))
+    x_3 = getorcreate!(m, ctx, :x_3, 1; options = VariableNodeOptions(datavar = true))
     @test !is_factorized_datavar(m[x_3[1]])
 
-    x_4 = getorcreate!(m, ctx, :x_4, 1; options = VariableNodeOptions(datavar = true, factorized = true))
+    x_4 = getorcreate!(
+        m,
+        ctx,
+        :x_4,
+        1;
+        options = VariableNodeOptions(datavar = true, factorized = true),
+    )
     @test is_factorized_datavar(m[x_4[1]])
 
-    x_5 = getorcreate!(m, ctx, :x_5, [1, 2, 3]; options = VariableNodeOptions(datavar = true,))
+    x_5 =
+        getorcreate!(m, ctx, :x_5, [1, 2, 3]; options = VariableNodeOptions(datavar = true))
     @test !is_factorized_datavar(m[x_5[1, 2, 3]])
 
-    x_6 =
-        getorcreate!(m, ctx, :x_6, [1, 2, 3]; options = VariableNodeOptions(datavar = true, factorized = true))
+    x_6 = getorcreate!(
+        m,
+        ctx,
+        :x_6,
+        [1, 2, 3];
+        options = VariableNodeOptions(datavar = true, factorized = true),
+    )
     @test is_factorized_datavar(m[x_6[1, 2, 3]])
 end
 
 @testitem "is_factorized" begin
     import GraphPPL:
-        is_constant, is_factorized, create_model, getcontext, getorcreate!, variable_nodes, VariableNodeOptions
+        is_constant,
+        is_factorized,
+        create_model,
+        getcontext,
+        getorcreate!,
+        variable_nodes,
+        VariableNodeOptions
     include("model_zoo.jl")
 
     m = create_model()
     ctx = getcontext(m)
-    x = getorcreate!(m, ctx, :x, nothing; options = VariableNodeOptions(datavar = true, factorized = true))
+    x = getorcreate!(
+        m,
+        ctx,
+        :x,
+        nothing;
+        options = VariableNodeOptions(datavar = true, factorized = true),
+    )
     @test is_factorized(m[x])
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
@@ -137,13 +178,27 @@ end
 @testitem "FactorNodeOptions" begin
     import GraphPPL: FactorNodeOptions
 
-    @test FactorNodeOptions(nothing) == FactorNodeOptions( nothing, nothing, nothing, nothing)
-    @test FactorNodeOptions() == FactorNodeOptions( nothing, nothing, nothing, nothing)
-    @test FactorNodeOptions((anonymous = true,)) == FactorNodeOptions( nothing, nothing, nothing, (anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), )) == FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, nothing)
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true, )) == FactorNodeOptions( :(x ~ Normal(0, 1)), nothing, nothing,(anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true,  )) == FactorNodeOptions( :(x ~ Normal(0, 1)), nothing, nothing,(anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true, parent_options = FactorNodeOptions(), )) == FactorNodeOptions(:(x ~ Normal(0, 1)), FactorNodeOptions(), nothing,(anonymous = true,))
+    @test FactorNodeOptions(nothing) ==
+          FactorNodeOptions(nothing, nothing, nothing, nothing)
+    @test FactorNodeOptions() == FactorNodeOptions(nothing, nothing, nothing, nothing)
+    @test FactorNodeOptions((anonymous = true,)) ==
+          FactorNodeOptions(nothing, nothing, nothing, (anonymous = true,))
+    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)),)) ==
+          FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, nothing)
+    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true)) ==
+          FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, (anonymous = true,))
+    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true)) ==
+          FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, (anonymous = true,))
+    @test FactorNodeOptions((
+        created_by = :(x ~ Normal(0, 1)),
+        anonymous = true,
+        parent_options = FactorNodeOptions(),
+    )) == FactorNodeOptions(
+        :(x ~ Normal(0, 1)),
+        FactorNodeOptions(),
+        nothing,
+        (anonymous = true,),
+    )
 end
 
 @testitem "proxy labels" begin
@@ -222,7 +277,14 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext, VariableNodeOptions, FactorNodeOptions
+    import GraphPPL:
+        create_model,
+        NodeLabel,
+        VariableNodeData,
+        FactorNodeData,
+        getcontext,
+        VariableNodeOptions,
+        FactorNodeOptions
 
     model = create_model()
     model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing)
@@ -234,13 +296,15 @@ end
     model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing)
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions())
+    model[NodeLabel(sum, 3)] =
+        FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions())
     @test nv(model) == 3 && ne(model) == 0
 end
 
 @testitem "setindex!(::Model, ::EdgeLabel, ::NodeLabel, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, EdgeLabel, VariableNodeOptions
+    import GraphPPL:
+        create_model, NodeLabel, VariableNodeData, EdgeLabel, VariableNodeOptions
 
     model = create_model()
     μ = NodeLabel(:μ, 1)
@@ -291,7 +355,8 @@ end
 end
 
 @testitem "nv_ne(::Model)" begin
-    import GraphPPL: create_model, nv, ne, VariableNodeData, NodeLabel, EdgeLabel, VariableNodeOptions
+    import GraphPPL:
+        create_model, nv, ne, VariableNodeData, NodeLabel, EdgeLabel, VariableNodeOptions
 
     model = create_model()
     @test nv(model) == 0
@@ -308,7 +373,14 @@ end
 end
 
 @testitem "edges" begin
-    import GraphPPL: edges, create_model, VariableNodeData, NodeLabel, EdgeLabel, getname, VariableNodeOptions
+    import GraphPPL:
+        edges,
+        create_model,
+        VariableNodeData,
+        NodeLabel,
+        EdgeLabel,
+        getname,
+        VariableNodeOptions
 
     # Test 1: Test getting all edges from a model
     model = create_model()
@@ -343,8 +415,10 @@ end
     model = create_model()
     __context__ = getcontext(model)
 
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, __context__)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, __context__)
+    model[NodeLabel(:a, 1)] =
+        VariableNodeData(:a, VariableNodeOptions(), nothing, __context__)
+    model[NodeLabel(:b, 2)] =
+        VariableNodeData(:b, VariableNodeOptions(), nothing, __context__)
     model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
     @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
 
@@ -1022,7 +1096,7 @@ end
         model,
         ctx,
         sum;
-        __options__ = FactorNodeOptions((is_constrained = true,))
+        __options__ = FactorNodeOptions((is_constrained = true,)),
     )
     @test options(model[node_id]) == FactorNodeOptions((is_constrained = true,))
 
@@ -1032,7 +1106,7 @@ end
         model,
         ctx,
         sum;
-        __options__ = FactorNodeOptions((is_constrained = true,))
+        __options__ = FactorNodeOptions((is_constrained = true,)),
     )
     @test getname(node_id) == sum
 

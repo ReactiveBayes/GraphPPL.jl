@@ -80,7 +80,14 @@ mutable struct VariableNodeOptions
     meta::Any
 end
 
-VariableNodeOptions(; value = nothing, functional_form = nothing, constant = false, datavar = false, factorized = false, meta = nothing) = VariableNodeOptions(value, functional_form, constant, datavar, factorized, meta)
+VariableNodeOptions(;
+    value = nothing,
+    functional_form = nothing,
+    constant = false,
+    datavar = false,
+    factorized = false,
+    meta = nothing,
+) = VariableNodeOptions(value, functional_form, constant, datavar, factorized, meta)
 
 Base.:(==)(left::VariableNodeOptions, right::VariableNodeOptions) =
     left.value == right.value &&
@@ -130,7 +137,7 @@ Base.show(io::IO, node::VariableNodeData) = print(
 
 mutable struct FactorNodeOptions
     created_by::Any
-    parent_options::Union{Nothing, FactorNodeOptions}
+    parent_options::Union{Nothing,FactorNodeOptions}
     meta::Any
     others::Any
 end
@@ -783,7 +790,7 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index::Nothing;
-    options =  VariableNodeOptions(),
+    options = VariableNodeOptions(),
 )
     check_if_vector_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -799,7 +806,7 @@ getorcreate!(
     ctx::Context,
     name::Symbol,
     index::AbstractArray{Int};
-    options =  VariableNodeOptions(),
+    options = VariableNodeOptions(),
 ) = getorcreate!(model, ctx, name, index...; options = options)
 
 function getorcreate!(
@@ -807,7 +814,7 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index::Integer;
-    options =  VariableNodeOptions(),
+    options = VariableNodeOptions(),
 )
     check_if_individual_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -849,7 +856,7 @@ getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
     gensym(model, :constvar);
-    __options__ = VariableNodeOptions(value = var, constant = true)
+    __options__ = VariableNodeOptions(value = var, constant = true),
 )
 
 
@@ -1073,7 +1080,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     NodeType(fform),
@@ -1094,7 +1101,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     True(),
@@ -1116,7 +1123,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::Nothing;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     True(),
@@ -1139,7 +1146,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     Atomic(),
@@ -1162,7 +1169,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     contains_nodelabel(rhs_interfaces),
@@ -1187,7 +1194,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::AbstractArray;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = fform(rhs_interfaces...)
 
@@ -1200,7 +1207,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = fform(; rhs_interfaces...)
 
@@ -1227,7 +1234,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     True(),
@@ -1252,7 +1259,7 @@ function make_node!(
     fform,
     lhs_interface::Broadcasted,
     rhs_interfaces;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 )
     lhs_node = ProxyLabel(
@@ -1284,7 +1291,7 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     True(),
@@ -1308,7 +1315,7 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::MixedArguments;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = error(
     "MixedArguments not supported for rhs_interfaces when node has to be materialized",
@@ -1323,7 +1330,7 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) =
     length(rhs_interfaces) == 0 ?
@@ -1352,7 +1359,7 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
-    __parent_options__ =  FactorNodeOptions(),
+    __parent_options__ = FactorNodeOptions(),
     __debug__ = false,
 ) = make_node!(
     Composite(),
