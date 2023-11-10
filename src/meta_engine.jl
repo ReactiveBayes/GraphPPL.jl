@@ -133,6 +133,7 @@ function apply!(
             vec.(getindex.(Ref(context), GraphPPL.getnodedescriptor(meta).fargs)),
         )...,
     )
+    @show applicable_nodes
     for node in applicable_nodes
         apply!(model, context, meta, node)
     end
@@ -166,17 +167,6 @@ function apply!(
     end
 end
 
-function save_meta!(
-    model::Model,
-    node::NodeLabel,
-    meta::MetaObject{S,T} where {S,T<:NamedTuple},
-)
-    if :q in keys(getmetainfo(meta))
-        error("Cannot specify q in meta as it is reserved for the constraint specification")
-    end
-    model[node].options = merge(model[node].options, getmetainfo(meta))
-end
-
 function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S,T} where {S,T})
-    model[node].options = merge(model[node].options, (meta = getmetainfo(meta),))
+    options(model[node]).meta = getmetainfo(meta)
 end
