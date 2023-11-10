@@ -134,10 +134,19 @@ is_constant(node::NodeData) =
     haskey(node_options(node), :constant) ? node_options(node)[:constant] : false
 is_datavar(node::NodeData) =
     haskey(node_options(node), :datavar) ? node_options(node)[:datavar] : false
-is_factorized_datavar(node::NodeData) =
-    is_datavar(node) && haskey(node_options(node), :factorized) ?
-    node_options(node)[:factorized] : false
 is_factorized(node::NodeData) = is_factorized_datavar(node) || is_constant(node)
+
+function is_factorized_datavar(node::NodeData)
+    if is_variable(node)
+        if is_datavar(node)    
+            return haskey(node_options(node), :factorized) ? node_options(node)[:factorized] : false
+        elseif !isnothing(getlink(node))
+            return all(is_factorized_datavar, getlink(node))
+        end
+    end
+    return false
+end
+
 
 
 is_factor(::FactorNodeData) = true
