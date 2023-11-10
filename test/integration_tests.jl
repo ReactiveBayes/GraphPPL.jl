@@ -1,4 +1,39 @@
-@testitem "@model + @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
+    using Distributions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
+
+    include("./model_zoo.jl")
+
+    @model function simple_model(a, b, c)
+        x ~ Gamma(α = b, θ = sqrt(c))
+        a ~ Normal(μ = x, τ = 1)
+    end
+
+    # Here we don't even need to specify anything, because 
+    # everything should be factorized out by default
+
+    constraints = @constraints begin end
+
+    # `nothing` here will create a `datavar`
+    for a in (nothing, ), b in (nothing, 1, 1.0), c in (nothing, 1, 1.0)
+        model = create_model()
+        context = getcontext(model)
+
+        a = something(a, getorcreate!(model, context, :a, nothing, options=(datavar=true, factorized=true)))
+        b = something(b, getorcreate!(model, context, :b, nothing, options=(datavar=true, factorized=true)))
+        c = something(c, getorcreate!(model, context, :c, nothing, options=(datavar=true, factorized=true)))
+
+        add_terminated_submodel!(model, context, simple_model, (a=a, b=b, c=c))
+        apply!(model, constraints)
+        
+        @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
+            interfaces = GraphPPL.edges(model, node)
+            return factorization_constraint(model[node]) === (map(interface -> (interface, ), interfaces)...,)
+        end
+    end
+end
+
+@testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
 
@@ -85,7 +120,7 @@
     end
 end
 
-@testitem "@model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
 
