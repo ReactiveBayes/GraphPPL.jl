@@ -1023,8 +1023,8 @@ StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
-interfaces(any_f, ::StaticInt{1}) = (:out,)
-interfaces(any_f, any_val) = (:out, :in)
+interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
+interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
 
 """
     missing_interfaces(node_type, val, known_interfaces)
@@ -1053,7 +1053,7 @@ function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
 end
 
 function prepare_interfaces(::StaticInterfaces{I}, lhs_interface, rhs_interfaces::NamedTuple) where {I}
-    @assert length(I) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
+    @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,

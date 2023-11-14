@@ -731,7 +731,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
         GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
-            Tuple($ms_args)
+            GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
     end
