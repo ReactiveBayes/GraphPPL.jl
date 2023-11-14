@@ -206,6 +206,15 @@ factor_nodes(model::Model) = Iterators.filter(node -> is_factor(model[node]), la
 variable_nodes(model::Model) =
     Iterators.filter(node -> is_variable(model[node]), labels(model))
 
+"""
+A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
+"""
+struct StaticInterfaces{I} end
+
+StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
+    
+
+
 struct ProxyLabel{T}
     name::Symbol
     index::T
@@ -294,16 +303,16 @@ Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
 MetaGraphsNext.label_for(model::Model, node_id::Int) =
     MetaGraphsNext.label_for(model.graph, node_id)
 
-function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
+function retrieve_interface_position(interfaces::StaticInterfaces{I}, x::EdgeLabel, max_length::Int) where {I}
     index = x.index === nothing ? 0 : x.index
-    position = findfirst(isequal(x.name), interfaces)
+    position = findfirst(isequal(x.name), I)
     position =
         position === nothing ?
         begin
-            @warn(lazy"Interface $(x.name) not found in $interfaces")
+            @warn(lazy"Interface $(x.name) not found in $I")
             0
         end : position
-    return max_length * findfirst(isequal(x.name), interfaces) + index
+    return max_length * findfirst(isequal(x.name), I) + index
 end
 
 function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
@@ -1014,13 +1023,6 @@ struct MixedArguments
 end
 
 """
-A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
-"""
-struct StaticInterfaces{I} end
-
-StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
-
-"""
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
 interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
@@ -1039,7 +1041,7 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(fform, val, known_interfaces)
+function missing_interfaces(fform, val, known_interfaces::NamedTuple)
     return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
