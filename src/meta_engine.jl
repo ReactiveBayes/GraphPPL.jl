@@ -133,7 +133,6 @@ function apply!(
             vec.(getindex.(Ref(context), GraphPPL.getnodedescriptor(meta).fargs)),
         )...,
     )
-    @show applicable_nodes
     for node in applicable_nodes
         apply!(model, context, meta, node)
     end

@@ -1,12 +1,12 @@
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
 
     include("./model_zoo.jl")
 
     @model function simple_model(a, b, c)
-        x ~ Gamma(α = b, θ = sqrt(c))
-        a ~ Normal(μ = x, τ = 1)
+        x ~ Gamma(α=b, θ=sqrt(c))
+        a ~ Normal(μ=x, τ=1)
     end
 
     # Here we don't even need to specify anything, because 
@@ -15,27 +15,27 @@
     constraints = @constraints begin end
 
     # `nothing` here will create a `datavar`
-    for a in (nothing, ), b in (nothing, 1, 1.0), c in (nothing, 1, 1.0)
+    for a in (nothing,), b in (nothing, 1, 1.0), c in (nothing, 1, 1.0)
         model = create_model()
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, :a, nothing, options=(datavar=true, factorized=true)))
-        b = something(b, getorcreate!(model, context, :b, nothing, options=(datavar=true, factorized=true)))
-        c = something(c, getorcreate!(model, context, :c, nothing, options=(datavar=true, factorized=true)))
+        a = something(a, getorcreate!(model, context, :a, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
+        b = something(b, getorcreate!(model, context, :b, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
+        c = something(c, getorcreate!(model, context, :c, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
 
         add_terminated_submodel!(model, context, simple_model, (a=a, b=b, c=c))
         apply!(model, constraints)
-        
+
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            return factorization_constraint(model[node]) === (map(interface -> (interface, ), interfaces)...,)
+            return factorization_constraint(model[node]) === (map(interface -> (interface,), interfaces)...,)
         end
     end
 end
 
 @testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
 
     include("./model_zoo.jl")
 
@@ -62,10 +62,10 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options=(datavar=true, factorized=true))
+                y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2), __parent_options__=nothing, __debug__=false)
+            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -95,10 +95,10 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options=(datavar=true, factorized=true))
+                y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2), __parent_options__=nothing, __debug__=false)
+            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -122,7 +122,7 @@ end
 
 @testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -185,10 +185,10 @@ end
         y = nothing
 
         for i in 1:n
-            y = getorcreate!(model, context, :y, i, options=(datavar=true, factorized=true))
+            y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
         end
 
-        add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2), __parent_options__=nothing, __debug__=false)
+        add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
         apply!(model, constraints)
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
