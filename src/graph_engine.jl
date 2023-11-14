@@ -158,30 +158,14 @@ FactorNodeOptions() = FactorNodeOptions(nothing, nothing, nothing, nothing)
 FactorNodeOptions(::Nothing) = FactorNodeOptions()
 
 function FactorNodeOptions(options::NamedTuple)
-    created_by = nothing
-    parent_options = nothing
-    meta = nothing
+    created_by = get(options, :created_by, nothing)
+    parent_options = get(options, :parent_options, nothing)
+    meta = get(options, :meta, nothing)
+    # Type-stable deletion of keys
+    _remaining_options = options[filter(key -> key ∉ (:created_by, :parent_options, :meta), keys(options))]
+    remaining_options = isempty(_remaining_options) ? nothing : _remaining_options
 
-    if haskey(options, :created_by)
-        created_by = options[:created_by]
-        options = delete(options, :created_by)
-    end
-
-    if haskey(options, :parent_options)
-        parent_options = options[:parent_options]
-        options = delete(options, :parent_options)
-    end
-
-    if haskey(options, :meta)
-        meta = options[:meta]
-        options = delete(options, :meta)
-    end
-
-    if length(options) == 0
-        options = nothing
-    end
-
-    return FactorNodeOptions(created_by, parent_options, meta, options)
+    return FactorNodeOptions(created_by, parent_options, meta, remaining_options)
 end
 
 created_by(options::FactorNodeOptions) = options.created_by
