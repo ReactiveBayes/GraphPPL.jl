@@ -150,7 +150,7 @@ function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, ")")
 end
 
-Base.iterate(e::FactorizationConstraintEntry, state::Int = 1) = iterate(e.entries, state)
+Base.iterate(e::FactorizationConstraintEntry, state::Int=1) = iterate(e.entries, state)
 
 Base.:(==)(lhs::FactorizationConstraintEntry, rhs::FactorizationConstraintEntry) =
     length(lhs.entries) == length(rhs.entries) &&
@@ -529,6 +529,9 @@ Base.:(==)(
 lhs(constraint::ResolvedFactorizationConstraint) = constraint.lhs
 rhs(constraint::ResolvedFactorizationConstraint) = constraint.rhs
 
+function in_lhs(constraint::ResolvedFactorizationConstraint, node::VariableNodeData)
+    return in(node, lhs(constraint)) || (!isnothing(getlink(node)) && any(l -> in_lhs(constraint, l), getlink(node)))
+end
 
 struct ResolvedFunctionalFormConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V
@@ -573,7 +576,7 @@ function Base.pop!(stack::ConstraintStack, context::Context)
     return false
 end
 
-Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
+Base.iterate(stack::ConstraintStack, state=1) = iterate(constraints(stack), state)
 
 save_constraint!(model::Model, node::NodeLabel, constraint_data) =
     save_constraint!(model, node, model[node], constraint_data)
@@ -700,7 +703,7 @@ function materialize_constraints!(
     constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
     edges = GraphPPL.edges(model, node_label)
     constraint = SA[constraint_set...]
-    constraint = Tuple(sort(constraint, by = first))
+    constraint = Tuple(sort(constraint, by=first))
     constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
     if !is_valid_partition(constraint_set)
         error(
@@ -819,7 +822,6 @@ function apply!(
 )
     for fc in factorization_constraints(constraint_set)
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
-
     end
     for ffc in functional_form_constraints(constraint_set)
         apply!(model, context, ffc)
@@ -862,20 +864,12 @@ function is_applicable(
     constraint::ResolvedFactorizationConstraint,
 )
     neighbors = getindex.(Ref(model), GraphPPL.neighbors(model, node))
-    return any(map(neighbor -> neighbor ∈ lhs(constraint), neighbors))
-end
-
-function is_decoupled(
-    var_1::VariableNodeData,
-    var_2::VariableNodeData,
-    entry::ResolvedFactorizationConstraintEntry,
-)
-    for variable in entry.variables
-        if var_2 ∈ variable
-            return variable isa ResolvedIndexedVariable{SplittedRange}
-        end
+    lhsc = lhs(constraint)
+    return any(neighbors) do neighbor
+        # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
+        # OR if any of its links 
+        return neighbor ∈ lhsc || (!isnothing(getlink(neighbor)) && any(link -> is_applicable(model, link, constraint), getlink(neighbor)))
     end
-    return true
 end
 
 function is_decoupled(
@@ -883,15 +877,59 @@ function is_decoupled(
     var_2::VariableNodeData,
     constraint::ResolvedFactorizationConstraint,
 )
-    if var_1 ∉ lhs(constraint) || var_2 ∉ lhs(constraint)
+    if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
+
+    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
+        error("""
+            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(getlink(var_1), ',')) and $(join(getlink(var_2), ',')) respectively.
+            As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
+        """)
+    elseif !isnothing(getlink(var_1))
+        return is_decoupled_one_linked(var_1, var_2, constraint)
+    elseif !isnothing(getlink(var_2))
+        return is_decoupled_one_linked(var_2, var_1, constraint)
+    end
+
     for entry in rhs(constraint)
         if var_1 ∈ entry
-            return is_decoupled(var_1, var_2, entry)
+            return is_decoupled(var_2, entry)
         end
     end
+
     return false
+end
+
+function is_decoupled_one_linked(linked::VariableNodeData, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+    # Check if all linked variables have exactly the same "is_decoupled" output
+    # Otherwise we are being a bit conservative here and throw an ambiguity error
+    links = getlink(linked)
+    if allequal(Iterators.map(link -> is_decoupled(link, unlinked, constraint), links))
+        return is_decoupled(first(links), unlinked, constraint)
+    else
+        # Perhaps, this is possible to resolve automatically, but that would required 
+        # quite some difficult graph traversal logic, so for now we just throw an error
+        error("""
+            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(var_1), ',')).
+            As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
+        """)
+    end
+end
+
+function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)
+    # This function checks if the `variable` is not a part of the `entry`
+    for entryvar in entry.variables
+        if var ∈ entryvar
+            if entryvar isa ResolvedIndexedVariable{SplittedRange}
+                return true # It can technically still be a prt of the `entry`, but `SplittedRange` is a special case
+            else
+                return false
+            end
+        end
+    end
+
+    return true
 end
 
 function convert_to_bitsets(
@@ -913,14 +951,24 @@ function convert_to_bitsets(
 end
 
 function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+    return apply!(NodeBehaviour(fform(model[node])), model, node, constraint)
+end
+
+function apply!(::Deterministic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+    return nothing
+end
+
+function apply!(::Stochastic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
     if is_applicable(model, node, constraint)
         constraint = convert_to_bitsets(model, node, constraint)
         save_constraint!(model, node, constraint)
     end
+    return nothing
 end
 
 function apply!(model::Model, context::Context, constraint::ResolvedFactorizationConstraint)
     for node in values(factor_nodes(context))
         apply!(model, node, constraint)
     end
+    return nothing
 end

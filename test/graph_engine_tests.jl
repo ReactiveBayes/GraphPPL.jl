@@ -90,9 +90,9 @@ end
     end
 end
 
-@testitem "is_factorized_datavar" begin
+@testitem "is_factorized" begin
     import GraphPPL:
-        is_factorized_datavar,
+        is_factorized,
         create_model,
         getcontext,
         getorcreate!,
@@ -103,45 +103,45 @@ end
     m = create_model()
     ctx = getcontext(m)
 
-    x_1 = getorcreate!(m, ctx, :x_1, nothing; options = VariableNodeOptions(datavar = true))
-    @test !is_factorized_datavar(m[x_1])
+    x_1 = getorcreate!(m, ctx, :x_1, nothing; options = VariableNodeOptions(factorized = true))
+    @test is_factorized(m[x_1])
 
     x_2 = getorcreate!(
         m,
         ctx,
         :x_2,
         nothing;
-        options = VariableNodeOptions(datavar = true, factorized = true),
+        options = VariableNodeOptions(factorized = true),
     )
-    @test is_factorized_datavar(m[x_2])
+    @test is_factorized(m[x_2])
 
-    x_3 = getorcreate!(m, ctx, :x_3, 1; options = VariableNodeOptions(datavar = true))
-    @test !is_factorized_datavar(m[x_3[1]])
+    x_3 = getorcreate!(m, ctx, :x_3, 1; options = VariableNodeOptions(factorized = true))
+    @test is_factorized(m[x_3[1]])
 
     x_4 = getorcreate!(
         m,
         ctx,
         :x_4,
         1;
-        options = VariableNodeOptions(datavar = true, factorized = true),
+        options = VariableNodeOptions(factorized = true),
     )
-    @test is_factorized_datavar(m[x_4[1]])
+    @test is_factorized(m[x_4[1]])
 
     x_5 =
-        getorcreate!(m, ctx, :x_5, [1, 2, 3]; options = VariableNodeOptions(datavar = true))
-    @test !is_factorized_datavar(m[x_5[1, 2, 3]])
+        getorcreate!(m, ctx, :x_5, [1, 2, 3]; options = VariableNodeOptions(factorized = true))
+    @test is_factorized(m[x_5[1, 2, 3]])
 
     x_6 = getorcreate!(
         m,
         ctx,
         :x_6,
         [1, 2, 3];
-        options = VariableNodeOptions(datavar = true, factorized = true),
+        options = VariableNodeOptions(factorized = true),
     )
-    @test is_factorized_datavar(m[x_6[1, 2, 3]])
+    @test is_factorized(m[x_6[1, 2, 3]])
 end
 
-@testitem "is_factorized" begin
+@testitem "is_factorized || is_constant" begin
     import GraphPPL:
         is_constant,
         is_factorized,
@@ -287,13 +287,13 @@ end
         FactorNodeOptions
 
     model = create_model()
-    model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing)
+    model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing)
     @test nv(model) == 1 && ne(model) == 0
 
     @test_throws MethodError model[0] = 1
 
     @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions())
-    model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing)
+    model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     @test nv(model) == 2 && ne(model) == 0
 
     model[NodeLabel(sum, 3)] =
@@ -309,8 +309,8 @@ end
     model = create_model()
     μ = NodeLabel(:μ, 1)
     x = NodeLabel(:x, 2)
-    model[μ] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing)
-    model[x] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing)
+    model[μ] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing)
+    model[x] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     model[μ, x] = EdgeLabel(:interface, 1)
     @test ne(model) == 1
 
@@ -337,7 +337,7 @@ end
 
     model = create_model()
     label = NodeLabel(:x, 1)
-    model[label] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing)
+    model[label] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     @test isa(model[label], VariableNodeData)
     @test_throws KeyError model[NodeLabel(:x, 10)]
     @test_throws MethodError model[0]
@@ -362,8 +362,8 @@ end
     @test nv(model) == 0
     @test ne(model) == 0
 
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing)
+    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
+    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
     @test nv(model) == 2
     @test ne(model) == 0
 
@@ -384,12 +384,12 @@ end
 
     # Test 1: Test getting all edges from a model
     model = create_model()
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing)
+    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
+    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
     model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
     @test length(edges(model)) == 1
 
-    model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing)
+    model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
     model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2)
     @test length(edges(model)) == 2
 
@@ -416,9 +416,9 @@ end
     __context__ = getcontext(model)
 
     model[NodeLabel(:a, 1)] =
-        VariableNodeData(:a, VariableNodeOptions(), nothing, __context__)
+        VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, __context__)
     model[NodeLabel(:b, 2)] =
-        VariableNodeData(:b, VariableNodeOptions(), nothing, __context__)
+        VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
     model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
     @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
 
@@ -428,9 +428,9 @@ end
     b = ResizableArray(NodeLabel, Val(1))
     for i = 1:3
         a[i] = NodeLabel(:a, i)
-        model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, __context__)
+        model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, nothing, __context__)
         b[i] = NodeLabel(:b, i)
-        model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, __context__)
+        model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__)
         model[a[i], b[i]] = EdgeLabel(:edge, i)
     end
     @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]

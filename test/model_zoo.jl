@@ -17,7 +17,12 @@ GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 struct SomeMeta end
 
 struct NormalMeanVariance end
+
+GraphPPL.NodeBehaviour(::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
+
 struct NormalMeanPrecision end
+
+GraphPPL.NodeBehaviour(::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
 GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 

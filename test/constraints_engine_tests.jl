@@ -871,31 +871,31 @@ end
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, GraphPPL.Context())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
     @test node_data ∈ variable
 end
 
