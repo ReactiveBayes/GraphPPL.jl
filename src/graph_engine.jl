@@ -1014,6 +1014,13 @@ struct MixedArguments
 end
 
 """
+A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
+"""
+struct StaticInterfaces{I} end
+
+StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
+
+"""
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
 interfaces(any_f, ::StaticInt{1}) = (:out,)
@@ -1032,22 +1039,22 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(node_type, val::StaticInt{N} where {N}, known_interfaces)
-    all_interfaces = GraphPPL.interfaces(node_type, val)
-    missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
-    return missing_interfaces
+function missing_interfaces(fform, val, known_interfaces)
+    return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
+function missing_interfaces(::StaticInterfaces{all_interfaces}, ::StaticInterfaces{present_interfaces}) where {all_interfaces, present_interfaces}
+    return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
+end
 
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
-    missing_interface = GraphPPL.missing_interfaces(
-        fform,
-        static(length(rhs_interfaces) + 1),
-        rhs_interfaces,
-    )
-    @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
-    missing_interface = first(missing_interface)
-    # TODO check if we can construct NamedTuples a bit faster somewhere.
+    missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
+    return prepare_interfaces(missing_interface, lhs_interface, rhs_interfaces)
+end
+
+function prepare_interfaces(::StaticInterfaces{I}, lhs_interface, rhs_interfaces::NamedTuple) where {I}
+    @assert length(I) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
+    missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,
         values(rhs_interfaces)...,
