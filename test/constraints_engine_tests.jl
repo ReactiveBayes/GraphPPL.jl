@@ -702,13 +702,13 @@ end
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    save_constraint!(model, node, constant_constraint(3, 1), :q)
+    save_constraint!(model, node, constant_constraint(3, 1))
     @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
-    save_constraint!(model, node, constant_constraint(3, 2), :q)
+    save_constraint!(model, node, constant_constraint(3, 2))
     @test factorization_constraint(model[node]) == BitSetTuple([[1], [2], [3]])
 
     node = ctx[NormalMeanVariance, 1]
-    save_constraint!(model, node, constant_constraint(3, 1), :q)
+    save_constraint!(model, node, constant_constraint(3, 1))
     @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
 end
 
@@ -740,13 +740,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(
-        model,
-        node,
-        model[node],
-        BitSetTuple([[1], [2, 3], [2, 3]]),
-        :q,
-    )
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
     materialize_constraints!(model, node)
     @test get_constraint_names(factorization_constraint(model[node])) == ((:μ,), (:σ, :out))
 
@@ -754,14 +748,14 @@ end
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [3], [2, 3]]), :q)
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [3], [2, 3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 
     # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [1], [3]]), :q)
+    GraphPPL.save_constraint!(model, node, model[node], BitSetTuple([[1], [1], [3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 end
 
@@ -872,35 +866,36 @@ end
         ResolvedIndexedVariable,
         SplittedRange,
         getname,
-        index
+        index,
+        VariableNodeOptions
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, GraphPPL.Context())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, NamedTuple{}(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, NamedTuple{}(), nothing, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
     @test node_data ∈ variable
 end
 

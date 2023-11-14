@@ -615,7 +615,8 @@ function convert_tilde_expression(e::Expr)
         (lhs_ ~ fform_ where {options__})
     )
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
-        options = GraphPPL.options_vector_to_named_tuple(options)
+        options =
+            GraphPPL.FactorNodeOptions(GraphPPL.options_vector_to_named_tuple(options))
         @capture(lhs, (var_[index__]) | (var_))
         return quote
             $lhs = GraphPPL.make_node!(
@@ -638,7 +639,8 @@ function convert_tilde_expression(e::Expr)
         (lhs_ .~ fform_(args__) where {options__})
     )
         (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
-        options = GraphPPL.options_vector_to_named_tuple(options)
+        options =
+            GraphPPL.FactorNodeOptions(GraphPPL.options_vector_to_named_tuple(options))
         broadcastable_variables =
             kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
 
@@ -692,56 +694,22 @@ function options_vector_to_named_tuple(options::AbstractArray)
     if length(options) == 0
         return nothing
     end
-    result = namedtuple(
-        [option.args[1] for option in options],
-        [option.args[2] for option in options],
-    )
-    return result
+    result = map(elem -> Pair(elem.args[1], elem.args[2]), options)
+    return NamedTuple(result)
 end
 
-
-prepare_options(parent_options::Nothing, node_options::Nothing, debug::Bool) = nothing
-
-function prepare_options(parent_options::NamedTuple, node_options::Nothing, debug::Bool)
-    return parent_options
-end
-
-function prepare_options(parent_options::Nothing, node_options::NamedTuple, debug::Bool)
-    if !debug
-        result = delete(node_options, :created_by)
-        if length(result) == 0
-            return nothing
-        end
-        return result
-    else
-        return node_options
+function prepare_options(
+    parent_options::FactorNodeOptions,
+    node_options::FactorNodeOptions,
+    debug::Bool,
+)
+    if !(parent_options == FactorNodeOptions(nothing))
+        node_options.parent_options = parent_options
     end
-end
-
-"""
-    prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
-
-Merges the `parent_options` and `node_options` named tuples and returns the result. If `debug` is `false`, the `created_by` field is deleted from the result. If the resulting named tuple is empty, `nothing` is returned. This function is used to generate `__parent_options__` in a call to `make_node!`.
-
-# Arguments
-- `parent_options::NamedTuple`: The named tuple of parent options.
-- `node_options::NamedTuple`: The named tuple of node options.
-- `debug::Bool`: A boolean indicating whether debug mode is enabled.
-
-# Returns
-- `result`: The merged named tuple of options, with the `created_by` field removed if `debug` is `false`. If the resulting named tuple is empty, `nothing` is returned.
-"""
-function prepare_options(parent_options::NamedTuple, node_options::NamedTuple, debug::Bool)
-    result = merge(parent_options, node_options)
     if !debug
-        result = delete(result, :created_by)
-        if length(result) == 0
-            return nothing
-        end
-        return result
-    else
-        return result
+        node_options.created_by = nothing
     end
+    return node_options
 end
 
 """
@@ -790,7 +758,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __lhs_interface__::GraphPPL.ProxyLabel,
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))};
-            __parent_options__ = nothing,
+            __parent_options__ = GraphPPL.FactorNodeOptions(),
             __debug__ = false,
         )
             __interfaces__ = GraphPPL.prepare_interfaces(
@@ -806,10 +774,6 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __context__,
                 $ms_name,
             )
-            __parent_options__ =
-                __parent_options__ == nothing ? nothing :
-                (parent_options = __parent_options__,)
-
             GraphPPL.add_terminated_submodel!(
                 __model__,
                 __context__,
@@ -828,7 +792,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             ::typeof($ms_name),
             __interfaces__::NamedTuple,
             ::GraphPPL.StaticInt{$(length(ms_args))};
-            __parent_options__ = nothing,
+            __parent_options__ = GraphPPL.FactorNodeOptions(),
             __debug__ = false,
         )
             $(init_input_arguments...)

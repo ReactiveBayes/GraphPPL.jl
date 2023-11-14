@@ -1,5 +1,6 @@
 name: CI
 on:
+  workflow_dispatch:
   pull_request:
     types: [ready_for_review,reopened,synchronize]
   pull_request_review:
@@ -18,10 +19,8 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.6'
-          - '1.7'
-          - '1.8'
           - '1.9'
+          - 'nightly'
         os:
           - ubuntu-latest
         arch:
@@ -46,6 +45,10 @@ jobs:
             ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   docs:
     name: Documentation
     runs-on: ubuntu-latest

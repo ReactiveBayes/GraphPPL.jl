@@ -3,6 +3,7 @@ import Base:
     put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 using BitSetTuples
 using Static
+using NamedTupleTools
 
 aliases(f) = (f,)
 
@@ -59,6 +60,7 @@ end
 
 
 Base.length(label::NodeLabel) = 1
+Base.getindex(label::NodeLabel, any) = label
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T,V,N} where {T<:NodeLabel,V,N}) = getname(first(labels))
@@ -68,28 +70,61 @@ iterate(label::NodeLabel, any) = nothing
 unroll(label) = label
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
-Base.getindex(label::NodeLabel, ::Any) = label
+
+mutable struct VariableNodeOptions
+    value::Any
+    functional_form::Any
+    constant::Bool
+    datavar::Bool
+    factorized::Bool
+    meta::Any
+end
+
+VariableNodeOptions(;
+    value = nothing,
+    functional_form = nothing,
+    constant = false,
+    datavar = false,
+    factorized = false,
+    meta = nothing,
+) = VariableNodeOptions(value, functional_form, constant, datavar, factorized, meta)
+
+Base.:(==)(left::VariableNodeOptions, right::VariableNodeOptions) =
+    left.value == right.value &&
+    left.functional_form == right.functional_form &&
+    left.constant == right.constant &&
+    left.datavar == right.datavar &&
+    left.factorized == right.factorized
+
+is_factorized(options::VariableNodeOptions) = options.factorized || is_constant(options)
+is_datavar(options::VariableNodeOptions) = options.datavar
+is_constant(options::VariableNodeOptions) = options.constant
+value(options::VariableNodeOptions) = options.value
+fform_constraint(options::VariableNodeOptions) = options.functional_form
+meta(options::VariableNodeOptions) = options.meta
 
 """
     VariableNodeData(name::Symbol, options::NamedTuple)
 
 Data associated with a variable node in a probabilistic graphical model.
 """
-mutable struct VariableNodeData
+struct VariableNodeData
     name::Symbol
-    options::NamedTuple
+    options::VariableNodeOptions
     index::Any
     link::Any
     context::Any
 end
 
-
-value(node::VariableNodeData) = node.options[:value]
-fform_constraint(node::VariableNodeData) = node.options[:q]
 getname(node::VariableNodeData) = node.name
 getlink(node::VariableNodeData) = node.link
 index(node::VariableNodeData) = node.index
-getcontext(node::VariableNodeData) = node.context
+value(node::VariableNodeData) = value(options(node))
+fform_constraint(node::VariableNodeData) = fform_constraint(options(node))
+
+is_datavar(node::VariableNodeData) = is_datavar(options(node))
+is_constant(node::VariableNodeData) = is_constant(options(node))
+is_factorized(node::VariableNodeData) = is_factorized(options(node)) || (!isnothing(getlink(node)) && all(is_factorized, getlink(node)))
 
 function Base.show(io::IO, node::VariableNodeData)
     print(
@@ -107,6 +142,51 @@ function Base.show(io::IO, node::VariableNodeData)
     end
 end
 
+mutable struct FactorNodeOptions
+    created_by::Any
+    parent_options::Union{Nothing,FactorNodeOptions}
+    meta::Any
+    others::Any
+end
+
+Base.:(==)(left::FactorNodeOptions, right::FactorNodeOptions) =
+    left.created_by == right.created_by &&
+    left.parent_options == right.parent_options &&
+    left.others == right.others
+
+FactorNodeOptions() = FactorNodeOptions(nothing, nothing, nothing, nothing)
+FactorNodeOptions(::Nothing) = FactorNodeOptions()
+
+function FactorNodeOptions(options::NamedTuple)
+    created_by = nothing
+    parent_options = nothing
+    meta = nothing
+
+    if haskey(options, :created_by)
+        created_by = options[:created_by]
+        options = delete(options, :created_by)
+    end
+
+    if haskey(options, :parent_options)
+        parent_options = options[:parent_options]
+        options = delete(options, :parent_options)
+    end
+
+    if haskey(options, :meta)
+        meta = options[:meta]
+        options = delete(options, :meta)
+    end
+
+    if length(options) == 0
+        options = nothing
+    end
+
+    return FactorNodeOptions(created_by, parent_options, meta, options)
+end
+
+created_by(options::FactorNodeOptions) = options.created_by
+meta(options::FactorNodeOptions) = options.meta
+
 """
     FactorNodeData(fform::Any, options::NamedTuple)
 
@@ -115,51 +195,32 @@ Data associated with a factor node in a probabilistic graphical model.
 mutable struct FactorNodeData
     fform::Any
     context::Any
-    options::NamedTuple
+    factorization_constraint::Any
+    options::FactorNodeOptions
 end
 
-factorization_constraint(node::FactorNodeData) = node.options[:q]
 fform(node::FactorNodeData) = node.fform
-
+factorization_constraint(node::FactorNodeData) = node.factorization_constraint
+set_factorization_constraint!(node::FactorNodeData, constraint) =
+    node.factorization_constraint = constraint
 
 const NodeData = Union{FactorNodeData,VariableNodeData}
 
-node_options(node::NodeData) = node.options
+options(node::NodeData) = node.options
 add_to_node_options!(node::NodeData, name::Symbol, value) =
     node.options = merge(node_options(node), (name => value,))
 
 getcontext(node::NodeData) = node.context
-
-is_constant(node::NodeData) =
-    haskey(node_options(node), :constant) ? node_options(node)[:constant] : false
-is_datavar(node::NodeData) =
-    haskey(node_options(node), :datavar) ? node_options(node)[:datavar] : false
-is_factorized(node::NodeData) = is_factorized_datavar(node) || is_constant(node)
-
-function is_factorized_datavar(node::NodeData)
-    if is_variable(node)
-        if is_datavar(node)    
-            return haskey(node_options(node), :factorized) ? node_options(node)[:factorized] : false
-        elseif !isnothing(getlink(node))
-            return all(is_factorized_datavar, getlink(node))
-        end
-    end
-    return false
-end
-
-
+meta(node::NodeData) = meta(options(node))
 
 is_factor(::FactorNodeData) = true
 is_factor(any) = false
 is_variable(::VariableNodeData) = true
 is_variable(any) = false
 
-
 factor_nodes(model::Model) = Iterators.filter(node -> is_factor(model[node]), labels(model))
 variable_nodes(model::Model) =
     Iterators.filter(node -> is_variable(model[node]), labels(model))
-
-
 
 struct ProxyLabel{T}
     name::Symbol
@@ -736,7 +797,7 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index::Nothing;
-    options::NamedTuple=NamedTuple{}()
+    options = VariableNodeOptions(),
 )
     check_if_vector_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -752,15 +813,15 @@ getorcreate!(
     ctx::Context,
     name::Symbol,
     index::AbstractArray{Int};
-    options::NamedTuple=NamedTuple{}()
-) = getorcreate!(model, ctx, name, index...; options=options)
+    options = VariableNodeOptions(),
+) = getorcreate!(model, ctx, name, index...; options = options)
 
 function getorcreate!(
     model::Model,
     ctx::Context,
     name::Symbol,
     index::Integer;
-    options::NamedTuple=NamedTuple{}()
+    options = VariableNodeOptions(),
 )
     check_if_individual_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -779,7 +840,7 @@ function getorcreate!(
     ctx::Context,
     name::Symbol,
     index...;
-    options::NamedTuple=NamedTuple{}()
+    options = VariableNodeOptions(),
 )
     check_if_individual_variable(ctx, name)
     check_if_vector_variable(ctx, name)
@@ -802,7 +863,7 @@ getifcreated(model::Model, context::Context, var) = add_variable_node!(
     model,
     context,
     gensym(model, :constvar);
-    __options__=NamedTuple{(:value, :constant)}((var, true))
+    __options__ = VariableNodeOptions(value = var, constant = true),
 )
 
 
@@ -828,9 +889,9 @@ function add_variable_node!(
     model::Model,
     context::Context,
     variable_id::Symbol;
-    index=nothing,
+    index = nothing,
     link=nothing,
-    __options__=NamedTuple{}()
+    __options__ = VariableNodeOptions(),
 )
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -887,12 +948,11 @@ function add_atomic_factor_node!(
     model::Model,
     context::Context,
     fform;
-    __options__=NamedTuple{}()
+    __options__ = FactorNodeOptions(),
 )
-    __options__ = __options__ === nothing ? NamedTuple{}() : __options__
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    model[factornode_label] = FactorNodeData(fform, context, __options__)
+    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__)
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end
@@ -960,7 +1020,7 @@ increase_index(x::AbstractArray) = length(x)
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
     out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
     constraint = BitSetTuple(out_degree)
-    add_to_node_options!(model[factor_node_id], :q, constraint)
+    set_factorization_constraint!(model[factor_node_id], constraint)
 end
 
 
@@ -1060,8 +1120,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     NodeType(fform),
     model,
@@ -1081,8 +1141,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     True(),
     nodetype,
@@ -1103,8 +1163,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::Nothing;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     True(),
     Atomic(),
@@ -1126,8 +1186,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     Atomic(),
     NodeBehaviour(fform),
@@ -1149,8 +1209,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     contains_nodelabel(rhs_interfaces),
     atomic,
@@ -1174,8 +1234,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::AbstractArray;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = fform(rhs_interfaces...)
 
 make_node!(
@@ -1187,8 +1247,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = fform(; rhs_interfaces...)
 
 make_node!(
@@ -1214,8 +1274,8 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     True(),
     Atomic(),
@@ -1239,8 +1299,8 @@ function make_node!(
     fform,
     lhs_interface::Broadcasted,
     rhs_interfaces;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 )
     lhs_node = ProxyLabel(
         getname(lhs_interface),
@@ -1271,8 +1331,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     True(),
     node_type,
@@ -1295,8 +1355,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::MixedArguments;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = error(
     "MixedArguments not supported for rhs_interfaces when node has to be materialized",
 )
@@ -1310,8 +1370,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::AbstractArray;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) =
     length(rhs_interfaces) == 0 ?
     make_node!(
@@ -1339,8 +1399,8 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel,ProxyLabel},
     rhs_interfaces::NamedTuple;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = make_node!(
     Composite(),
     model,
@@ -1397,8 +1457,8 @@ function materialize_factor_node!(
     context::Context,
     fform,
     interfaces::NamedTuple;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 )
     factor_node_id =
         add_atomic_factor_node!(model, context, fform; __options__=__parent_options__)
@@ -1418,8 +1478,8 @@ add_terminated_submodel!(
     __context__::Context,
     fform,
     __interfaces__::NamedTuple;
-    __parent_options__=nothing,
-    __debug__=false
+    __parent_options__ = FactorNodeOptions(),
+    __debug__ = false,
 ) = add_terminated_submodel!(
     __model__,
     __context__,
