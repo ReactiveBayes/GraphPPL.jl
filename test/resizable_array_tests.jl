@@ -191,3 +191,69 @@
     end
 
 end
+
+@testitem "isassigned" begin
+    import GraphPPL: ResizableArray
+
+    @testset begin
+        s = ResizableArray(Ref, Val(1))
+
+        # In the beginning everything is not assigned
+        for i in 1:100
+            @test !isassigned(s, i)
+        end
+
+        # Assign some random indices 
+        rindex = rand(1:100, 10)
+
+        for i in rindex
+            s[i] = Ref(1)
+        end
+
+        for i in 1:100
+            if i ∉ rindex
+                @test !isassigned(s, i)
+            else
+                @test isassigned(s, i)
+            end
+        end
+    end
+
+    @testset begin 
+        for N in 1:5
+            s = ResizableArray(Ref, Val(N))     
+
+            for j in 1:N 
+                @test !isassigned(s, ones(Int, j)...)
+            end
+
+            s[ones(Int, N)...] = Ref(1)
+
+            @test isassigned(s, ones(Int, N)...)
+
+            s[10ones(Int, N)...] = Ref(1)
+
+            @test isassigned(s, 10ones(Int, N)...)
+
+            for k in 2:9
+                @test !isassigned(s, k * ones(Int, N)...)
+            end
+
+        end
+    end
+
+    @testset begin 
+        for N in 1:5, M in 1:5
+            s = ResizableArray(Ref, Val(N)) 
+            indices = CartesianIndex(ones(Int, N)...):CartesianIndex(M * ones(Int, N)...)
+
+            for index in indices 
+                @test !isassigned(s, index.I...)
+                s[index.I...] = Ref(1)
+                @test isassigned(s, index.I...)
+            end
+
+        end
+    end
+
+end
