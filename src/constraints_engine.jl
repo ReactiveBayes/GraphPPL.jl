@@ -501,8 +501,7 @@ end
 
 getvariables(var::ResolvedConstraintLHS) = var.variables
 
-Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) =
-    any(in.(Ref(data), getvariables(var)))
+Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) = any(map(v -> (data ∈ v)::Bool, getvariables(var)))
 
 Base.:(==)(left::ResolvedConstraintLHS, right::ResolvedConstraintLHS) =
     getvariables(left) == getvariables(right)
@@ -513,8 +512,7 @@ end
 
 getvariables(var::ResolvedFactorizationConstraintEntry) = var.variables
 
-Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) =
-    any(in.(Ref(data), getvariables(var)))
+Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) = any(map(v -> (data ∈ v)::Bool, getvariables(var)))
 
 struct ResolvedFactorizationConstraint{V<:ResolvedConstraintLHS,F}
     lhs::V
@@ -876,20 +874,23 @@ function is_decoupled(
     var_1::VariableNodeData,
     var_2::VariableNodeData,
     constraint::ResolvedFactorizationConstraint,
-)
+)::Bool
     if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
 
-    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
+    linkvar_1 = getlink(var_1)
+    linkvar_2 = getlink(var_2)
+
+    if !isnothing(linkvar_1) && !isnothing(linkvar_2)
         error("""
-            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(getlink(var_1), ',')) and $(join(getlink(var_2), ',')) respectively.
+            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
             As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
         """)
-    elseif !isnothing(getlink(var_1))
-        return is_decoupled_one_linked(var_1, var_2, constraint)
-    elseif !isnothing(getlink(var_2))
-        return is_decoupled_one_linked(var_2, var_1, constraint)
+    elseif !isnothing(linkvar_1)
+        return is_decoupled_one_linked(linkvar_1, var_2, constraint)
+    elseif !isnothing(linkvar_2)
+        return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
     for entry in rhs(constraint)
@@ -901,25 +902,26 @@ function is_decoupled(
     return false
 end
 
-function is_decoupled_one_linked(linked::VariableNodeData, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+function is_decoupled_one_linked(links, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)::Bool
     # Check only links that are actually relevant to the factorization constraint,
     # We skip links that are already factorized explicitly since there is no need to check them again
-    links = Iterators.filter(link -> !is_factorized(link), getlink(linked)) 
+    flinks = Iterators.filter(link -> !is_factorized(link), links)
     # Check if all linked variables have exactly the same "is_decoupled" output
     # Otherwise we are being a bit conservative here and throw an ambiguity error
-    if allequal(Iterators.map(link -> is_decoupled(link, unlinked, constraint), links))
-        return is_decoupled(first(links), unlinked, constraint)
+    allequal, result = lazy_bool_allequal(link -> is_decoupled(link, unlinked, constraint), flinks)
+    if allequal
+        return result
     else
         # Perhaps, this is possible to resolve automatically, but that would required 
         # quite some difficult graph traversal logic, so for now we just throw an error
         error(lazy"""
-            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(linked), ',')).
+            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
             As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
         """)
     end
 end
 
-function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)
+function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
     for entryvar in entry.variables
         if var ∈ entryvar
@@ -930,8 +932,27 @@ function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstra
             end
         end
     end
-
     return true
+end
+
+# In comparison to the standard `allequal` also supports `f -> Bool` 
+# and returns the result of the very first invocation
+# throws an error if the itr is empty
+function lazy_bool_allequal(f, itr)::Tuple{Bool,Bool}
+    started::Bool = false
+    result::Bool = false
+    for item in itr
+        if !started
+            result = f(item)::Bool
+            started = true
+        else
+            if result !== f(item)::Bool
+                return false, result
+            end
+        end
+    end
+    started || error("Empty iterator in the `lazy_bool_allequal` fucntion is not supported.")
+    return true, result
 end
 
 function convert_to_bitsets(
