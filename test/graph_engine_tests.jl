@@ -420,7 +420,7 @@ end
     model[NodeLabel(:b, 2)] =
         VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
     model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
-    @test neighbors(model, NodeLabel(:a, 1)) == [NodeLabel(:b, 2)]
+    @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
     __context__ = getcontext(model)
@@ -445,7 +445,7 @@ end
     model = create_terminated_model(vector_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
-    @test getname.(neighbors(model, node; sorted = true)) == [:z, :x, :y]
+    @test getname.(collect(neighbors(model, node; sorted = true))) == [:z, :x, :y]
 
 end
 
