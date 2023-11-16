@@ -206,6 +206,15 @@ factor_nodes(model::Model) = Iterators.filter(node -> is_factor(model[node]), la
 variable_nodes(model::Model) =
     Iterators.filter(node -> is_variable(model[node]), labels(model))
 
+"""
+A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
+"""
+struct StaticInterfaces{I} end
+
+StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
+    
+
+
 struct ProxyLabel{T}
     name::Symbol
     index::T
@@ -294,16 +303,16 @@ Graphs.edges(model::Model) = collect(Graphs.edges(model.graph))
 MetaGraphsNext.label_for(model::Model, node_id::Int) =
     MetaGraphsNext.label_for(model.graph, node_id)
 
-function retrieve_interface_position(interfaces, x::EdgeLabel, max_length::Int)
+function retrieve_interface_position(interfaces::StaticInterfaces{I}, x::EdgeLabel, max_length::Int) where {I}
     index = x.index === nothing ? 0 : x.index
-    position = findfirst(isequal(x.name), interfaces)
+    position = findfirst(isequal(x.name), I)
     position =
         position === nothing ?
         begin
-            @warn(lazy"Interface $(x.name) not found in $interfaces")
+            @warn(lazy"Interface $(x.name) not found in $I")
             0
         end : position
-    return max_length * findfirst(isequal(x.name), interfaces) + index
+    return max_length * findfirst(isequal(x.name), I) + index
 end
 
 function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
@@ -1016,8 +1025,8 @@ end
 """
 Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 """
-interfaces(any_f, ::StaticInt{1}) = (:out,)
-interfaces(any_f, any_val) = (:out, :in)
+interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
+interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
 
 """
     missing_interfaces(node_type, val, known_interfaces)
@@ -1032,22 +1041,22 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(node_type, val::StaticInt{N} where {N}, known_interfaces)
-    all_interfaces = GraphPPL.interfaces(node_type, val)
-    missing_interfaces = Base.setdiff(all_interfaces, keys(known_interfaces))
-    return missing_interfaces
+function missing_interfaces(fform, val, known_interfaces::NamedTuple)
+    return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
+function missing_interfaces(::StaticInterfaces{all_interfaces}, ::StaticInterfaces{present_interfaces}) where {all_interfaces, present_interfaces}
+    return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
+end
 
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
-    missing_interface = GraphPPL.missing_interfaces(
-        fform,
-        static(length(rhs_interfaces) + 1),
-        rhs_interfaces,
-    )
-    @assert length(missing_interface) == 1 lazy"Expected only one missing interface, got $missing_interface of length $(length(missing_interface)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
-    missing_interface = first(missing_interface)
-    # TODO check if we can construct NamedTuples a bit faster somewhere.
+    missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
+    return prepare_interfaces(missing_interface, lhs_interface, rhs_interfaces)
+end
+
+function prepare_interfaces(::StaticInterfaces{I}, lhs_interface, rhs_interfaces::NamedTuple) where {I}
+    @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
+    missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((
         lhs_interface,
         values(rhs_interfaces)...,

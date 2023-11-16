@@ -1362,25 +1362,25 @@ end
     import GraphPPL: missing_interfaces, interfaces
     function abc end
 
-    GraphPPL.interfaces(::typeof(abc), ::StaticInt{3}) = [:in1, :in2, :out]
+    GraphPPL.interfaces(::typeof(abc), ::StaticInt{3}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
 
-    @test missing_interfaces(abc, static(3), (in1 = :x, in2 = :y)) == [:out]
-    @test missing_interfaces(abc, static(3), (out = :y,)) == [:in1, :in2]
-    @test missing_interfaces(abc, static(3), Dict()) == [:in1, :in2, :out]
+    @test missing_interfaces(abc, static(3), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces((:out,))
+    @test missing_interfaces(abc, static(3), (out = :y,)) == GraphPPL.StaticInterfaces((:in1, :in2))
+    @test missing_interfaces(abc, static(3), NamedTuple()) == GraphPPL.StaticInterfaces((:in1, :in2, :out))
 
     function xyz end
 
-    GraphPPL.interfaces(::typeof(xyz), ::StaticInt{0}) = []
-    @test missing_interfaces(xyz, static(0), (in1 = :x, in2 = :y)) == []
+    GraphPPL.interfaces(::typeof(xyz), ::StaticInt{0}) = GraphPPL.StaticInterfaces(())
+    @test missing_interfaces(xyz, static(0), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces(())
 
     function foo end
 
-    GraphPPL.interfaces(::typeof(foo), ::StaticInt{2}) = (:a, :b)
-    @test missing_interfaces(foo, static(2), (a = 1, b = 2)) == []
+    GraphPPL.interfaces(::typeof(foo), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:a, :b))
+    @test missing_interfaces(foo, static(2), (a = 1, b = 2)) == GraphPPL.StaticInterfaces(())
 
     function bar end
-    GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = (:in1, :in2, :out)
-    @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == []
+    GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
+    @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
 end
 
 @testitem "keyword_expressions_to_named_tuple" begin

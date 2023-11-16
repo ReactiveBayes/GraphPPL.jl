@@ -90,6 +90,28 @@ function recursive_setindex!(
     return nothing
 end
 
+function Base.isassigned(array::ResizableArray{T,V,N}, index::Integer...) where {T, V, N}
+    if length(index) !== N
+        return false
+    else
+        return recursive_isassigned(Val(N), array.data, index)
+    end
+end
+
+function recursive_isassigned(::Val{N}, array, indices) where {N}
+    findex = first(indices)
+    tindices = Base.tail(indices)
+    if isassigned(array, findex)
+        return recursive_isassigned(Val(N - 1), @inbounds(array[findex]), tindices)
+    else 
+        return false
+    end
+end
+
+function recursive_isassigned(::Val{1}, array, index::Tuple{Integer})
+    return isassigned(array, first(index))
+end
+
 function getindex(array::ResizableArray{T,V,N}, index::UnitRange) where {T,V,N}
     return ResizableArray(array.data[index])
 end
