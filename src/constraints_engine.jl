@@ -608,13 +608,14 @@ end
 
 Returns `true` if `set` is a valid partition of the set `{1, 2, ..., maximum(Iterators.flatten(set))}`, false otherwise.
 """
-function is_valid_partition(set::Set)
-    max_element = maximum(Iterators.flatten(set))
-    if !issetequal(union(set...), BitSet(1:max_element))
+function is_valid_partition(partition::Set)
+    max_element = maximum(Iterators.flatten(partition))
+    # bvdmitri note: perhaps we can still improve this
+    if !issetequal(reduce(union, partition), BitSet(1:max_element))
         return false
     end
-    for element = 1:max_element
-        if !(sum(element .∈ set) == 1)
+    for element in 1:max_element
+        if sum(cluster -> element ∈ cluster, partition) != 1
             return false
         end
     end
@@ -698,17 +699,18 @@ function materialize_constraints!(
         end
     end
 
-    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
-    edges = GraphPPL.edges(model, node_label)
-    constraint = SA[constraint_set...]
-    constraint = Tuple(sort(constraint, by=first))
-    constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
+    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique`
+    
     if !is_valid_partition(constraint_set)
         error(
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint)",
         )
-        return
     end
+
+    edges = GraphPPL.edges(model, node_label)
+    constraint = Tuple(sort!(collect(constraint_set), by=first))
+    constraint = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), constraint)
+    
     node_data.factorization_constraint = constraint
 end
 
