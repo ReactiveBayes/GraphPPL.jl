@@ -213,7 +213,7 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
     
-
+Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
 
 struct ProxyLabel{T}
     name::Symbol

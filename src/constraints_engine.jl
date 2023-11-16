@@ -902,16 +902,18 @@ function is_decoupled(
 end
 
 function is_decoupled_one_linked(linked::VariableNodeData, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+    # Check only links that are actually relevant to the factorization constraint,
+    # We skip links that are already factorized explicitly since there is no need to check them again
+    links = Iterators.filter(link -> !is_factorized(link), getlink(linked)) 
     # Check if all linked variables have exactly the same "is_decoupled" output
     # Otherwise we are being a bit conservative here and throw an ambiguity error
-    links = getlink(linked)
     if allequal(Iterators.map(link -> is_decoupled(link, unlinked, constraint), links))
         return is_decoupled(first(links), unlinked, constraint)
     else
         # Perhaps, this is possible to resolve automatically, but that would required 
         # quite some difficult graph traversal logic, so for now we just throw an error
-        error("""
-            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(var_1), ',')).
+        error(lazy"""
+            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(linked), ',')).
             As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
         """)
     end

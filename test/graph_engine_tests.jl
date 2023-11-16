@@ -1618,3 +1618,14 @@ end
     @test size(z) == (2, 2)
 
 end
+
+@testitem "getindex for StaticInterfaces" begin 
+    import GraphPPL: StaticInterfaces
+
+    interfaces = (:a, :b, :c)
+    sinterfaces = StaticInterfaces(interfaces)
+
+    for (i, interface) in enumerate(interfaces)
+        @test sinterfaces[i] === interface
+    end
+end
