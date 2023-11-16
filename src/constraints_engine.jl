@@ -854,14 +854,15 @@ function apply!(
     end
 end
 
-
-
 function is_applicable(
     model::Model,
     node::NodeLabel,
     constraint::ResolvedFactorizationConstraint,
 )
-    neighbors = getindex.(Ref(model), GraphPPL.neighbors(model, node))
+    return is_applicable_neighbors(model[GraphPPL.neighbors(model, node)], constraint)
+end
+
+function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationConstraint,)
     lhsc = lhs(constraint)
     return any(neighbors) do neighbor
         # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
@@ -958,15 +959,15 @@ end
 function convert_to_bitsets(
     model::Model,
     node::NodeLabel,
+    neighbors,
     constraint::ResolvedFactorizationConstraint,
 )
-    neighbors = model[GraphPPL.neighbors(model, node)]
     result = BitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
-        for (j, v2) in enumerate(neighbors[i+1:end])
+        for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
-                delete!(result[i], j + i)
-                delete!(result[j+i], i)
+                delete!(@inbounds(result[i]), j + i)
+                delete!(@inbounds(result[j+i]), i)
             end
         end
     end
@@ -974,17 +975,20 @@ function convert_to_bitsets(
 end
 
 function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    return apply!(NodeBehaviour(fform(model[node])), model, node, constraint)
+    node_data = model[node]
+    return apply!(NodeBehaviour(fform(node_data)), model, node, node_data, constraint)
 end
 
-function apply!(::Deterministic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+function apply!(::Deterministic, model::Model, node::NodeLabel, node_data::FactorNodeData, constraint::ResolvedFactorizationConstraint)
     return nothing
 end
 
-function apply!(::Stochastic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    if is_applicable(model, node, constraint)
-        constraint = convert_to_bitsets(model, node, constraint)
-        save_constraint!(model, node, constraint)
+function apply!(::Stochastic, model::Model, node::NodeLabel, node_data::FactorNodeData, constraint::ResolvedFactorizationConstraint)
+    # Get data for the neighbors of the node and check if the constraint is applicable
+    neighbors = model[GraphPPL.neighbors(model, node)]
+    if is_applicable_neighbors(neighbors, constraint)
+        constraint = convert_to_bitsets(model, node, neighbors, constraint)
+        save_constraint!(model, node, node_data, constraint)
     end
     return nothing
 end
