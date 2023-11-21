@@ -120,6 +120,63 @@ end
     end
 end
 
+@testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation" begin
+    using Distributions, LinearAlgebra
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
+
+    include("./model_zoo.jl")
+
+    @model function simple_model(y, a, b)
+
+        τ ~ Gamma(10, 10) # wrong for MvNormal, but test is for a different purpose
+        θ ~ Gamma(10, 10)
+
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], θ)
+    
+        for i in 2:length(y)
+            x[i] ~ MvNormal(a * x[i - 1] + b, τ)
+            y[i] ~ Normal(x[i], θ)
+        end
+
+    end
+
+    # Here we don't even need to specify anything, because 
+    # everything should be factorized out by default
+
+    constraints = @constraints begin 
+        q(x, τ, θ) = q(x)q(τ)q(θ)
+    end
+
+    # `nothing` here will create a `datavar`
+    for a in (nothing,), b in (nothing, 1, 1.0), n in (5, 10)
+        model = create_model()
+        context = getcontext(model)
+
+        a = something(a, getorcreate!(model, context, :a, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
+        b = something(b, getorcreate!(model, context, :b, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
+        
+        y = nothing
+        for i in 1:n
+            y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
+        end
+
+        add_terminated_submodel!(model, context, simple_model, (a=a, b=b, y=y))
+        apply!(model, constraints)
+
+        @test length(collect(filter(as_node(MvNormal), model))) === n - 1
+
+        @test all(filter(as_node(MvNormal), model)) do node
+            interfaces = GraphPPL.interfaces(MvNormal, static(3))
+            # desired constraints 
+            desired = Set([ (interfaces[1], interfaces[2]), (interfaces[3], ) ])
+            # actual constraints 
+            actual = Set(map(cluster -> GraphPPL.getname.(cluster), factorization_constraint(model[node])))
+            return isequal(desired, actual)
+        end
+    end
+end
+
 @testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
