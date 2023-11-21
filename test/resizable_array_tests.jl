@@ -3,15 +3,14 @@
     import GraphPPL: ResizableArray, get_recursive_depth
 
     @test ResizableArray(Float64) isa ResizableArray{Float64}
-    @test ResizableArray(Float64, Val(1)) isa ResizableArray{Float64,Vector{Float64},1}
-    @test ResizableArray(Float64, Val(2)) isa
-          ResizableArray{Float64,Vector{Vector{Float64}},2}
+    @test ResizableArray(Float64, Val(1)) isa ResizableArray{Float64, Vector{Float64}, 1}
+    @test ResizableArray(Float64, Val(2)) isa ResizableArray{Float64, Vector{Vector{Float64}}, 2}
 
     @test occursin("[]", repr(ResizableArray(Float64)))
 
     @test size(ResizableArray(Float64)) === (0,)
 
-    for i = 1:10
+    for i in 1:10
         @test size(ResizableArray(Float64, Val(i))) === ntuple(_ -> 0, i)
     end
 
@@ -56,7 +55,6 @@
         @test_throws Exception (v[10] = 1.0)
     end
 
-
     let v = ResizableArray(Float64, Val(3))
         @test size(v) === (0, 0, 0)
 
@@ -93,7 +91,6 @@
         @test size(v) === (2, 4)
     end
 
-
     let v = ResizableArray(Float64, Val(3))
         @test size(v) === (0, 0, 0)
 
@@ -107,21 +104,19 @@
 
         @test_throws ArgumentError v["a"]
         @test_throws ArgumentError v[3, 2, "a"]
-
     end
 
     let v = ResizableArray(Float64, Val(1))
         @test size(v) === (0,)
 
-        for i = 1:10
+        for i in 1:10
             @test_throws MethodError v[i] = i
         end
     end
 
     using GraphPPL
     let v = ResizableArray(GraphPPL.NodeLabel, Val(1))
-
-        for i = 1:10
+        for i in 1:10
             v[i] = GraphPPL.NodeLabel(:x, i)
         end
         @test size(v) == (10,)
@@ -135,12 +130,12 @@
             GraphPPL.NodeLabel(:x, 7),
             GraphPPL.NodeLabel(:x, 8),
             GraphPPL.NodeLabel(:x, 9),
-            GraphPPL.NodeLabel(:x, 10),
+            GraphPPL.NodeLabel(:x, 10)
         )
     end
 
     let v = ResizableArray(GraphPPL.NodeLabel, Val(2))
-        for i = 1:10
+        for i in 1:10
             v[i, i] = GraphPPL.NodeLabel(:x, i)
         end
         @test isassigned(v, 1, 1)
@@ -155,7 +150,7 @@
             GraphPPL.NodeLabel(:x, 7),
             GraphPPL.NodeLabel(:x, 8),
             GraphPPL.NodeLabel(:x, 9),
-            GraphPPL.NodeLabel(:x, 10),
+            GraphPPL.NodeLabel(:x, 10)
         ]
         @test GraphPPL.NodeLabel(:x, 1) ∈ vec(v)
     end
@@ -171,25 +166,21 @@
         broadcast(x -> 1, v)
     end
 
-    data = [i for i = 1:10]
+    data = [i for i in 1:10]
     @test get_recursive_depth(data) == 1
-    @test ResizableArray(data) isa ResizableArray{Int,Vector{Int},1}
+    @test ResizableArray(data) isa ResizableArray{Int, Vector{Int}, 1}
 
-    data = [[i for i = 1:10] for j = 1:10]
+    data = [[i for i in 1:10] for j in 1:10]
     @test get_recursive_depth(data) == 2
-    @test ResizableArray(data) isa ResizableArray{Int,Vector{Vector{Int}},2}
+    @test ResizableArray(data) isa ResizableArray{Int, Vector{Vector{Int}}, 2}
 
     let v = ResizableArray(GraphPPL.NodeLabel, Val(1))
-
-        for i = 1:10
+        for i in 1:10
             v[i] = GraphPPL.NodeLabel(:x, i)
         end
-        @test v[2:6] isa ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
-        @test v[begin:end] isa
-              ResizableArray{GraphPPL.NodeLabel,Vector{GraphPPL.NodeLabel},1}
-
+        @test v[2:6] isa ResizableArray{GraphPPL.NodeLabel, Vector{GraphPPL.NodeLabel}, 1}
+        @test v[begin:end] isa ResizableArray{GraphPPL.NodeLabel, Vector{GraphPPL.NodeLabel}, 1}
     end
-
 end
 
 @testitem "isassigned" begin
@@ -219,11 +210,11 @@ end
         end
     end
 
-    @testset begin 
+    @testset begin
         for N in 1:5
-            s = ResizableArray(Ref, Val(N))     
+            s = ResizableArray(Ref, Val(N))
 
-            for j in 1:N 
+            for j in 1:N
                 @test !isassigned(s, ones(Int, j)...)
             end
 
@@ -238,22 +229,19 @@ end
             for k in 2:9
                 @test !isassigned(s, k * ones(Int, N)...)
             end
-
         end
     end
 
-    @testset begin 
+    @testset begin
         for N in 1:5, M in 1:5
-            s = ResizableArray(Ref, Val(N)) 
+            s = ResizableArray(Ref, Val(N))
             indices = CartesianIndex(ones(Int, N)...):CartesianIndex(M * ones(Int, N)...)
 
-            for index in indices 
+            for index in indices
                 @test !isassigned(s, index.I...)
                 s[index.I...] = Ref(1)
                 @test isassigned(s, index.I...)
             end
-
         end
     end
-
 end

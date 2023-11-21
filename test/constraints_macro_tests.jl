@@ -19,10 +19,7 @@
         q(x)::PointMass
         return q(x)
     end
-    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(
-        input,
-        check_for_returns_constraints,
-    )
+    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
 
     # Test 3: check_for_returns with two returns
     input = quote
@@ -31,10 +28,7 @@
         q(x, y) = q(x)q(y)
         q(x)::PointMass
     end
-    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(
-        input,
-        check_for_returns_constraints,
-    )
+    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
 end
 
 @testitem "add_constraints_construction" begin
@@ -89,9 +83,7 @@ end
         q(x) = q(x[begin]) .. q(x[end])
     end
     output = quote
-        q(x) =
-            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]) ..
-            q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+        q(x) = q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]) .. q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
     end
     @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -101,17 +93,8 @@ end
     end
     output = quote
         q(x) =
-            q(
-                x[
-                    GraphPPL.FunctionalIndex{:begin}(firstindex),
-                    GraphPPL.FunctionalIndex{:begin}(firstindex),
-                ],
-            ) .. q(
-                x[
-                    GraphPPL.FunctionalIndex{:end}(lastindex),
-                    GraphPPL.FunctionalIndex{:end}(lastindex),
-                ],
-            )
+            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:begin}(firstindex)]) ..
+            q(x[GraphPPL.FunctionalIndex{:end}(lastindex), GraphPPL.FunctionalIndex{:end}(lastindex)])
     end
     @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -120,22 +103,17 @@ end
         q(x) = q(x[begin, 1]) .. q(x[end, 2])
     end
     output = quote
-        q(x) =
-            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), 1]) ..
-            q(x[GraphPPL.FunctionalIndex{:end}(lastindex), 2])
+        q(x) = q(x[GraphPPL.FunctionalIndex{:begin}(firstindex), 1]) .. q(x[GraphPPL.FunctionalIndex{:end}(lastindex), 2])
     end
     @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
     # Test 4: replace_begin_end with composite index 
     input = quote
-        q(x) = q(x[begin+1])q(x[end-1])q(x[1])q(x[end])
+        q(x) = q(x[begin + 1])q(x[end - 1])q(x[1])q(x[end])
     end
     output = quote
         q(x) =
-            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)+1]) *
-            q(x[GraphPPL.FunctionalIndex{:end}(lastindex)-1]) *
-            q(x[1]) *
-            q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex) + 1]) * q(x[GraphPPL.FunctionalIndex{:end}(lastindex) - 1]) * q(x[1]) * q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
     end
     @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -241,8 +219,7 @@ end
         q(x, y) = q(x)q(y)
         q(x)::PointMass
         let __outer_constraints__ = __constraints__
-            let __constraints__ =
-                    GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+            let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
                 q(z) = q(z[begin]) .. q(z[end])
                 push!(__outer_constraints__, __constraints__)
             end
@@ -269,13 +246,10 @@ end
         __constraints__ = GraphPPL.Constraints()
         q(x, y) = q(x)q(y)
         let __outer_constraints__ = __constraints__
-            let __constraints__ =
-                    GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
+            let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(submodel, 1))
                 q(z) = q(z[begin]) .. q(z[end])
                 let __outer_constraints__ = __constraints__
-                    let __constraints__ = GraphPPL.SpecificSubModelConstraints(
-                            GraphPPL.FactorID(subsubmodel, 5),
-                        )
+                    let __constraints__ = GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID(subsubmodel, 5))
                         q(w) = q(w[begin]) .. q(w[end])
                         push!(__outer_constraints__, __constraints__)
                     end
@@ -349,15 +323,11 @@ end
 
     # Test 1: convert_variable_statements with a single variable statement
     input = quote
-        q(x) = factorization_split(
-            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]),
-            q(x[GraphPPL.FunctionalIndex{:end}(lastindex)]),
-        )
+        q(x) = factorization_split(q(x[GraphPPL.FunctionalIndex{:begin}(firstindex)]), q(x[GraphPPL.FunctionalIndex{:end}(lastindex)]))
     end
     output = quote
         q(GraphPPL.IndexedVariable(:x, nothing)) = factorization_split(
-            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:begin}(firstindex))),
-            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex))),
+            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:begin}(firstindex))), q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex)))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_variable_statements) output
@@ -368,11 +338,7 @@ end
     end
     output = quote
         q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) =
-            q(
-                GraphPPL.IndexedVariable(:x, nothing),
-            )q(
-                GraphPPL.IndexedVariable(:y, [1, 1]),
-            )q(GraphPPL.IndexedVariable(:y, [2, 2]))
+            q(GraphPPL.IndexedVariable(:x, nothing))q(GraphPPL.IndexedVariable(:y, [1, 1]))q(GraphPPL.IndexedVariable(:y, [2, 2]))
     end
     @test_expression_generating apply_pipeline(input, convert_variable_statements) output
 
@@ -408,11 +374,9 @@ end
         q(x) = q(x[CombinedRange(1, 2)])
     end
     output = quote
-        q(GraphPPL.IndexedVariable(:x, nothing)) =
-            q(GraphPPL.IndexedVariable(:x, CombinedRange(1, 2)))
+        q(GraphPPL.IndexedVariable(:x, nothing)) = q(GraphPPL.IndexedVariable(:x, CombinedRange(1, 2)))
     end
     @test_expression_generating apply_pipeline(input, convert_variable_statements) output
-
 end
 
 @testitem "convert_functionalform_constraints" begin
@@ -426,55 +390,28 @@ end
         q(GraphPPL.IndexedVariable(:x, nothing))::PointMass
     end
     output = quote
-        push!(
-            __constraints__,
-            GraphPPL.FunctionalFormConstraint(
-                GraphPPL.IndexedVariable(:x, nothing),
-                PointMass,
-            ),
-        )
+        push!(__constraints__, GraphPPL.FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
 
     # Test 2: convert_functionalform_constraints with a functional form constraint over multiple variables
     input = quote
-        q(
-            GraphPPL.IndexedVariable(:x, nothing),
-            GraphPPL.IndexedVariable(:y, nothing),
-        )::PointMass
+        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))::PointMass
     end
     output = quote
-        push!(
-            __constraints__,
-            GraphPPL.FunctionalFormConstraint(
-                (
-                    GraphPPL.IndexedVariable(:x, nothing),
-                    GraphPPL.IndexedVariable(:y, nothing),
-                ),
-                PointMass,
-            ),
-        )
+        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
 
     # Test 3: convert_functionalform_constraints with a functional form constraint in a nested constraint specification
     input = quote
-        q(
-            GraphPPL.IndexedVariable(:x, nothing),
-            GraphPPL.IndexedVariable(:y, nothing),
-        )::PointMass
+        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))::PointMass
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
-                q(
-                    GraphPPL.IndexedVariable(:x, nothing),
-                    GraphPPL.IndexedVariable(:y, nothing),
-                )::PointMass
+                q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))::PointMass
                 let __outer_constraints__ = __constraints__
                     let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
-                        q(
-                            GraphPPL.IndexedVariable(:x, nothing),
-                            GraphPPL.IndexedVariable(:y, nothing),
-                        )::PointMass
+                        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))::PointMass
                         push!(__outer_constraints__, __constraints__)
                     end
                 end
@@ -483,40 +420,13 @@ end
         end
     end
     output = quote
-        push!(
-            __constraints__,
-            GraphPPL.FunctionalFormConstraint(
-                (
-                    GraphPPL.IndexedVariable(:x, nothing),
-                    GraphPPL.IndexedVariable(:y, nothing),
-                ),
-                PointMass,
-            ),
-        )
+        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
-                push!(
-                    __constraints__,
-                    GraphPPL.FunctionalFormConstraint(
-                        (
-                            GraphPPL.IndexedVariable(:x, nothing),
-                            GraphPPL.IndexedVariable(:y, nothing),
-                        ),
-                        PointMass,
-                    ),
-                )
+                push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
                 let __outer_constraints__ = __constraints__
                     let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
-                        push!(
-                            __constraints__,
-                            GraphPPL.FunctionalFormConstraint(
-                                (
-                                    GraphPPL.IndexedVariable(:x, nothing),
-                                    GraphPPL.IndexedVariable(:y, nothing),
-                                ),
-                                PointMass,
-                            ),
-                        )
+                        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
                         push!(__outer_constraints__, __constraints__)
                     end
                 end
@@ -538,13 +448,9 @@ end
         μ(GraphPPL.IndexedVariable(:x, nothing))::PointMass
     end
     output = quote
-        push!(
-            __constraints__,
-            GraphPPL.MessageConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass),
-        )
+        push!(__constraints__, GraphPPL.MessageConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_message_constraints) output
-
 end
 
 @testitem "convert_factorization_constraints" begin
@@ -555,25 +461,15 @@ end
 
     # Test 1: convert_factorization_constraints with a single factorization constraint
     input = quote
-        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) =
-            q(GraphPPL.IndexedVariable(:x, nothing)) *
-            q(GraphPPL.IndexedVariable(:y, nothing))
-
+        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = q(GraphPPL.IndexedVariable(:x, nothing)) * q(GraphPPL.IndexedVariable(:y, nothing))
     end
     output = quote
         push!(
             __constraints__,
             GraphPPL.FactorizationConstraint(
-                (
-                    GraphPPL.IndexedVariable(:x, nothing),
-                    GraphPPL.IndexedVariable(:y, nothing),
-                ),
-                GraphPPL.FactorizationConstraintEntry((
-                    GraphPPL.IndexedVariable(:x, nothing),
-                )) * GraphPPL.FactorizationConstraintEntry((
-                    GraphPPL.IndexedVariable(:y, nothing),
-                )),
-            ),
+                (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)),
+                GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:y, nothing),))
+            )
         )
     end
     @test_expression_generating apply_pipeline(input, convert_factorization_constraints) output
@@ -585,12 +481,7 @@ end
     output = quote
         push!(
             __constraints__,
-            GraphPPL.FactorizationConstraint(
-                (GraphPPL.IndexedVariable(:x, nothing),),
-                GraphPPL.FactorizationConstraintEntry((
-                    GraphPPL.IndexedVariable(:x, nothing),
-                ),),
-            ),
+            GraphPPL.FactorizationConstraint((GraphPPL.IndexedVariable(:x, nothing),), GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),),))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_factorization_constraints) output
@@ -610,30 +501,16 @@ end
     end
     output = quote
         __constraints__ = GraphPPL.Constraints()
-        push!(
-            __constraints__,
-            GraphPPL.FunctionalFormConstraint(
-                GraphPPL.IndexedVariable(:x, nothing),
-                Normal,
-            ),
-        )
+        push!(__constraints__, GraphPPL.FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
                 push!(
                     __constraints__,
                     GraphPPL.FactorizationConstraint(
-                        (
-                            GraphPPL.IndexedVariable(:w, nothing),
-                            GraphPPL.IndexedVariable(:a, nothing),
-                            GraphPPL.IndexedVariable(:b, nothing),
-                        ),
-                        GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:a, nothing),
-                            GraphPPL.IndexedVariable(:b, nothing),
-                        )) * GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:w, nothing),
-                        ),),
-                    ),
+                        (GraphPPL.IndexedVariable(:w, nothing), GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)),
+                        GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing))) *
+                        GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:w, nothing),),)
+                    )
                 )
                 push!(__outer_constraints__, __constraints__)
             end
