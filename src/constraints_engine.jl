@@ -66,13 +66,14 @@ function __factorization_specification_resolve_index end
 __factorization_specification_resolve_index(index::Any, collection::NodeLabel) = error("Attempt to access a single variable $(getname(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
 __factorization_specification_resolve_index(index::Nothing, collection::NodeLabel) = nothing
 __factorization_specification_resolve_index(index::Nothing, collection::AbstractArray{<:NodeLabel}) = nothing
-__factorization_specification_resolve_index(index::Integer, collection::AbstractArray{<:NodeLabel}) = if (firstindex(collection) <= index <= lastindex(collection))
-    index
-else
-    error(
-    "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(getname(collection)) at index [$(index)]."
-)
-end
+__factorization_specification_resolve_index(index::Integer, collection::AbstractArray{<:NodeLabel}) =
+    if (firstindex(collection) <= index <= lastindex(collection))
+        index
+    else
+        error(
+            "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(getname(collection)) at index [$(index)]."
+        )
+    end
 __factorization_specification_resolve_index(index::FunctionalIndex, collection::AbstractArray{<:NodeLabel}) =
     __factorization_specification_resolve_index(index(collection)::Integer, collection)::Integer
 __factorization_specification_resolve_index(index::CombinedRange, collection::AbstractArray{<:NodeLabel}) = CombinedRange(

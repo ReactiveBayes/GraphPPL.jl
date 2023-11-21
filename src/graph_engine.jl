@@ -1005,11 +1005,12 @@ make_node!(
     rhs_interfaces::AbstractArray;
     __parent_options__ = FactorNodeOptions(),
     __debug__ = false
-) = if length(rhs_interfaces) == 0
-    make_node!(True(), Composite(), Stochastic(), model, ctx, fform, lhs_interface, NamedTuple{}(); __parent_options__ = __parent_options__, __debug__ = __debug__)
-else
-    error(lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple")
-end
+) =
+    if length(rhs_interfaces) == 0
+        make_node!(True(), Composite(), Stochastic(), model, ctx, fform, lhs_interface, NamedTuple{}(); __parent_options__ = __parent_options__, __debug__ = __debug__)
+    else
+        error(lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple")
+    end
 
 make_node!(
     materialize::True,

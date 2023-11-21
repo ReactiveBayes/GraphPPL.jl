@@ -27,7 +27,12 @@ GraphPPLPlottingExt = ["Cairo", "Compose", "GraphPlot"]
 
 [compat]
 BitSetTuples = "1"
+Cairo = "1.0"
+Compose = "0.9"
 DataStructures = "0.18"
+Distributions = "0.25"
+Documenter = "1.0"
+GraphPlot = "0.5"
 MacroTools = "0.5.6"
 Memoization = "0.2"
 MetaGraphsNext = "0.6"

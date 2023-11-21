@@ -2,6 +2,8 @@ struct FactorMetaDescriptor{T}
     fform::Any
     fargs::T
 end
+fform(m::FactorMetaDescriptor) = m.fform
+fargs(m::FactorMetaDescriptor) = m.fargs
 
 Base.show(io::IO, m::FactorMetaDescriptor{Nothing}) = print(io, m.fform)
 function Base.show(io::IO, m::FactorMetaDescriptor{<:Tuple})
@@ -39,6 +41,8 @@ getmetaobjects(m::MetaSpecification) = m.meta_objects
 getsubmodelmeta(m::MetaSpecification) = m.submodel_meta
 getspecificsubmodelmeta(m::MetaSpecification) = filter(m -> is_specificsubmodelmeta(m), getsubmodelmeta(m))
 getgeneralsubmodelmeta(m::MetaSpecification) = filter(m -> is_generalsubmodelmeta(m), getsubmodelmeta(m))
+
+# TODO experiment with `findfirst` instead of `get` in benchmarks
 getspecificsubmodelmeta(m::MetaSpecification, tag::Any) = get(filter(m -> getsubmodel(m) == tag, getsubmodelmeta(m)), 1, nothing)
 getgeneralsubmodelmeta(m::MetaSpecification, fform::Any) = get(filter(m -> getsubmodel(m) == fform, getsubmodelmeta(m)), 1, nothing)
 
@@ -92,13 +96,11 @@ function apply!(model::Model, context::Context, meta::MetaSpecification)
 end
 
 function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T})
-    nodes = context[getnodedescriptor(meta).node_descriptor]
+    nodes = unroll(context[getnodedescriptor(meta).node_descriptor])
     apply!(model, context, meta, nodes)
 end
 
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel)
-    save_meta!(model, node, meta)
-end
+apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel) = save_meta!(model, node, meta)
 
 function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, nodes::AbstractArray{NodeLabel})
     for node in nodes
@@ -107,22 +109,25 @@ function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S 
 end
 
 function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{<:Tuple}, T})
-    applicable_nodes = intersect(GraphPPL.neighbors.(Ref(model), vec.(getindex.(Ref(context), GraphPPL.getnodedescriptor(meta).fargs)))...)
+    applicable_nodes = Iterators.filter(node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model))
     for node in applicable_nodes
-        apply!(model, context, meta, node)
+        neighborhood = neighbors(model, node)
+        save = true
+        for variable in fargs(getnodedescriptor(meta))
+            if !any(vertex -> vertex ∈ neighborhood, unroll(context[variable]))
+                # @show node
+                save=false
+            end
+        end
+        if save
+            save_meta!(model, node, meta)
+        end
     end
 end
 
 function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{Nothing}, T})
-    for node in values(context.factor_nodes)
-        apply!(model, context, meta, node)
-    end
-end
-
-apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor, T}, node::Context) = nothing
-
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor, T}, node::NodeLabel)
-    if model[node].fform == getnodedescriptor(meta).fform
+    applicable_nodes = Iterators.filter(node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model))
+    for node in applicable_nodes
         save_meta!(model, node, meta)
     end
 end

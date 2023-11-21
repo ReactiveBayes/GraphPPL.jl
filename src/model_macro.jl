@@ -618,7 +618,8 @@ function options_vector_to_named_tuple(options::AbstractArray)
 end
 
 function prepare_options(parent_options::FactorNodeOptions, node_options::FactorNodeOptions, debug::Bool)
-    if !(parent_options == FactorNodeOptions(nothing))
+    node_options = deepcopy(node_options)
+    if !(parent_options == FactorNodeOptions())
         node_options.parent_options = parent_options
     end
     if !debug

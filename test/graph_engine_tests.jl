@@ -138,6 +138,23 @@ end
         FactorNodeOptions(:(x ~ Normal(0, 1)), FactorNodeOptions(), nothing, (anonymous = true,))
 end
 
+@testitem "Check that FactorNodeOptions are unique" begin
+    import GraphPPL: options, factor_nodes
+
+    include("model_zoo.jl")
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        
+        model = create_terminated_model(model_name)
+        for f1 ∈ factor_nodes(model)
+            for f2 ∈ factor_nodes(model)
+                if f1 !== f2
+                    @test options(model[f1]) !== options(model[f2])
+                end
+            end
+        end
+    end
+end
+
 @testitem "proxy labels" begin
     import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
     y = NodeLabel(:y, 1)
