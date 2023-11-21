@@ -2,7 +2,6 @@
     include("model_zoo.jl")
     import GraphPPL: check_for_returns_meta, apply_pipeline
 
-
     # Test 1: check_for_returns_meta with one statement
     input = quote
         Normal(x, y) -> some_meta()
@@ -12,13 +11,9 @@
     # Test 2: check_for_returns_meta with a return statement
     input = quote
         Normal(x, y) -> some_meta()
-        return
+        return nothing
     end
-    @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(
-        input,
-        check_for_returns_meta,
-    )
-
+    @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(input, check_for_returns_meta)
 end
 @testitem "add_meta_constructor" begin
     include("model_zoo.jl")
@@ -33,7 +28,7 @@ end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
         $input
-        return __meta__
+        __meta__
     end
     @test_expression_generating add_meta_construction(input) output
 
@@ -51,7 +46,7 @@ end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
         $input
-        return __meta__
+        __meta__
     end
     @test_expression_generating add_meta_construction(input) output
 end
@@ -70,20 +65,14 @@ end
         end
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
         x -> MySecondCustomMetaObject(arg3)
-        return __meta__
+        __meta__
     end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
         GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
         let __outer_meta__ = __meta__
-            let __meta__ = begin
-                    try
-                        GraphPPL.SubModelMeta(submodel)
-                    catch
-                        GraphPPL.SubModelMeta(:submodel)
-                    end
-                end
+            let __meta__ = GraphPPL.GeneralSubModelMeta(submodel)
                 NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
                 x -> MySecondCustomMetaObject(arg3)
                 push!(__outer_meta__, __meta__)
@@ -91,7 +80,7 @@ end
         end
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
         x -> MySecondCustomMetaObject(arg3)
-        return __meta__
+        __meta__
     end
     @test_expression_generating apply_pipeline(input, create_submodel_meta) output
 
@@ -103,37 +92,25 @@ end
         for meta in submodel
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
-            for meta in subsubmodel
+            for meta in (subsubmodel, 1)
                 GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
                 NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
             end
         end
         GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
-        return __meta__
+        __meta__
     end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
         GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
         let __outer_meta__ = __meta__
-            let __meta__ = begin
-                    try
-                        GraphPPL.SubModelMeta(submodel)
-                    catch
-                        GraphPPL.SubModelMeta(:submodel)
-                    end
-                end
+            let __meta__ = GraphPPL.GeneralSubModelMeta(submodel)
                 GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
                 NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
                 let __outer_meta__ = __meta__
-                    let __meta__ = begin
-                            try
-                                GraphPPL.SubModelMeta(subsubmodel)
-                            catch
-                                GraphPPL.SubModelMeta(:subsubmodel)
-                            end
-                        end
+                    let __meta__ = GraphPPL.SpecificSubModelMeta(GraphPPL.FactorID(subsubmodel, 1))
                         GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
                         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
                         push!(__outer_meta__, __meta__)
@@ -144,7 +121,7 @@ end
         end
         GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
-        return __meta__
+        __meta__
     end
     @test_expression_generating apply_pipeline(input, create_submodel_meta) output
 end
@@ -158,10 +135,7 @@ end
         some_function(x, y) -> some_meta()
     end
     output = quote
-        some_function(
-            GraphPPL.IndexedVariable(:x, nothing),
-            GraphPPL.IndexedVariable(:y, nothing),
-        ) -> some_meta()
+        some_function(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) -> some_meta()
     end
     @test_expression_generating apply_pipeline(input, convert_meta_variables) output
 
@@ -191,7 +165,6 @@ end
         GraphPPL.IndexedVariable(:x, i) -> some_meta()
     end
     @test_expression_generating apply_pipeline(input, convert_meta_variables) output
-
 end
 
 @testitem "convert_meta_object" begin
@@ -201,25 +174,10 @@ end
     # Test 1: convert_meta_object with Factor meta call
 
     input = quote
-        some_function(
-            GraphPPL.IndexedVariable(:x, nothing),
-            GraphPPL.IndexedVariable(:y, nothing),
-        ) -> some_meta()
+        some_function(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) -> some_meta()
     end
     output = quote
-        push!(
-            __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.FactorMetaDescriptor(
-                    some_function,
-                    (
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    ),
-                ),
-                some_meta(),
-            ),
-        )
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(some_function, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_meta()))
     end
     @test_expression_generating apply_pipeline(input, convert_meta_object) output
 
@@ -228,13 +186,7 @@ end
         GraphPPL.IndexedVariable(:x, nothing) -> some_meta()
     end
     output = quote
-        push!(
-            __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
-                some_meta(),
-            ),
-        )
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
     end
     @test_expression_generating apply_pipeline(input, convert_meta_object) output
 end
@@ -249,14 +201,8 @@ end
     end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
-        push!(
-            __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
-                some_meta(),
-            ),
-        )
-        return __meta__
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
+        __meta__
     end
     @test_expression_generating meta_macro_interior(input) output
 
@@ -267,27 +213,12 @@ end
     end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
-                some_meta(),
-            ),
+            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
         )
-        push!(
-            __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.FactorMetaDescriptor(
-                    Normal,
-                    (
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    ),
-                ),
-                some_other_meta(),
-            ),
-        )
-        return __meta__
+        __meta__
     end
     @test_expression_generating meta_macro_interior(input) output
 
@@ -302,60 +233,22 @@ end
     end
     output = quote
         __meta__ = GraphPPL.MetaSpecification()
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)),
-                some_meta(),
-            ),
-        )
-        push!(
-            __meta__,
-            GraphPPL.MetaObject(
-                GraphPPL.FactorMetaDescriptor(
-                    Normal,
-                    (
-                        GraphPPL.IndexedVariable(:x, nothing),
-                        GraphPPL.IndexedVariable(:y, nothing),
-                    ),
-                ),
-                some_other_meta(),
-            ),
+            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
         )
         let __outer_meta__ = __meta__
-            let __meta__ = begin
-                    try
-                        GraphPPL.SubModelMeta(submodel)
-                    catch
-                        GraphPPL.SubModelMeta(:submodel)
-                    end
-                end
+            let __meta__ = GraphPPL.GeneralSubModelMeta(submodel)
+                push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
                 push!(
                     __meta__,
-                    GraphPPL.MetaObject(
-                        GraphPPL.VariableMetaDescriptor(
-                            GraphPPL.IndexedVariable(:x, nothing),
-                        ),
-                        some_meta(),
-                    ),
-                )
-                push!(
-                    __meta__,
-                    GraphPPL.MetaObject(
-                        GraphPPL.FactorMetaDescriptor(
-                            Normal,
-                            (
-                                GraphPPL.IndexedVariable(:x, nothing),
-                                GraphPPL.IndexedVariable(:y, nothing),
-                            ),
-                        ),
-                        some_other_meta(),
-                    ),
+                    GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
                 )
                 push!(__outer_meta__, __meta__)
             end
         end
-        return __meta__
+        __meta__
     end
     @test_expression_generating meta_macro_interior(input) output
 end

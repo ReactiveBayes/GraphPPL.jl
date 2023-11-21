@@ -1,111 +1,76 @@
-# @testitem "FactorMetaDescriptor" begin
-#     include("model_zoo.jl")
-#     import GraphPPL: FactorMetaDescriptor, IndexedVariable
+@testitem "FactorMetaDescriptor" begin
+    include("model_zoo.jl")
+    import GraphPPL: FactorMetaDescriptor, IndexedVariable
 
-#     @test FactorMetaDescriptor(Normal, (:x, :k, :w)) isa FactorMetaDescriptor{<:Tuple}
-#     @test FactorMetaDescriptor(Gamma, nothing) isa FactorMetaDescriptor{Nothing}
-# end
+    @test FactorMetaDescriptor(Normal, (:x, :k, :w)) isa FactorMetaDescriptor{<:Tuple}
+    @test FactorMetaDescriptor(Gamma, nothing) isa FactorMetaDescriptor{Nothing}
+end
 
-# @testitem "VariableMetaDescriptor" begin
-#     import GraphPPL: VariableMetaDescriptor, IndexedVariable
+@testitem "VariableMetaDescriptor" begin
+    import GraphPPL: VariableMetaDescriptor, IndexedVariable
 
-#     @test VariableMetaDescriptor(IndexedVariable(:x, nothing)) isa VariableMetaDescriptor
-#     @test_throws MethodError VariableMetaDescriptor(1)
+    @test VariableMetaDescriptor(IndexedVariable(:x, nothing)) isa VariableMetaDescriptor
+    @test_throws MethodError VariableMetaDescriptor(1)
+end
 
-# end
+@testitem "MetaObject" begin
+    include("model_zoo.jl")
+    import GraphPPL: MetaObject, FactorMetaDescriptor, IndexedVariable, VariableMetaDescriptor
 
-# @testitem "MetaObject" begin
-#     include("model_zoo.jl")
-#     import GraphPPL:
-#         MetaObject, FactorMetaDescriptor, IndexedVariable, VariableMetaDescriptor
+    @test MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()) isa MetaObject{<:FactorMetaDescriptor, SomeMeta}
+    @test MetaObject(FactorMetaDescriptor(Normal, (:x, :k, :w)), (meta = SomeMeta(),)) isa MetaObject{<:FactorMetaDescriptor, <:NamedTuple}
+    @test_throws MethodError MetaObject((Normal, (:x, :k, :w)), SomeMeta())
 
+    @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), SomeMeta()) isa MetaObject{<:VariableMetaDescriptor, SomeMeta}
+    @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(),)) isa MetaObject{<:VariableMetaDescriptor, <:NamedTuple}
+    @test_throws MethodError MetaObject(:x, SomeMeta())
+end
 
-#     @test MetaObject(
-#         FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)),
-#         SomeMeta(),
-#     ) isa MetaObject{<:FactorMetaDescriptor,SomeMeta}
-#     @test MetaObject(FactorMetaDescriptor(Normal, (:x, :k, :w)), (meta = SomeMeta(),)) isa
-#           MetaObject{<:FactorMetaDescriptor,<:NamedTuple}
-#     @test_throws MethodError MetaObject((Normal, (:x, :k, :w)), SomeMeta())
+@testitem "MetaSpecification" begin
+    import GraphPPL: MetaSpecification
 
-#     @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), SomeMeta()) isa
-#           MetaObject{<:VariableMetaDescriptor,SomeMeta}
-#     @test MetaObject(
-#         VariableMetaDescriptor(IndexedVariable(:x, nothing)),
-#         (meta = SomeMeta(),),
-#     ) isa MetaObject{<:VariableMetaDescriptor,<:NamedTuple}
-#     @test_throws MethodError MetaObject(:x, SomeMeta())
-# end
+    @test MetaSpecification() isa MetaSpecification
+end
 
-# @testitem "MetaSpecification" begin
-#     import GraphPPL: MetaSpecification
+@testitem "SpecificSubModelMeta" begin
+    include("model_zoo.jl")
+    import GraphPPL: SpecificSubModelMeta, GeneralSubModelMeta, MetaSpecification, IndexedVariable, FactorMetaDescriptor, MetaObject
 
-#     @test MetaSpecification() isa MetaSpecification
-# end
+    @test SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()) isa SpecificSubModelMeta
+    push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1)), MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()))
+    push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()), SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()))
+    push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()), GeneralSubModelMeta(gcv, MetaSpecification()))
+end
 
-# @testitem "SpecificSubModelMeta" begin
-#     include("model_zoo.jl")
-#     import GraphPPL:
-#         SpecificSubModelMeta,
-#         GeneralSubModelMeta,
-#         MetaSpecification,
-#         IndexedVariable,
-#         FactorMetaDescriptor,
-#         MetaObject
+@testitem "GeneralSubModelMeta" begin
+    include("model_zoo.jl")
+    import GraphPPL: SpecificSubModelMeta, GeneralSubModelMeta, MetaSpecification, IndexedVariable, FactorMetaDescriptor, MetaObject, getgeneralssubmodelmeta
 
-#     @test SpecificSubModelMeta(:x, MetaSpecification()) isa SpecificSubModelMeta
-#     push!(
-#         SpecificSubModelMeta(:x, MetaSpecification()),
-#         MetaObject(
-#             FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)),
-#             SomeMeta(),
-#         ),
-#     )
-#     push!(
-#         SpecificSubModelMeta(:x, MetaSpecification()),
-#         SpecificSubModelMeta(:y, MetaSpecification()),
-#     )
-#     push!(
-#         SpecificSubModelMeta(:x, MetaSpecification()),
-#         GeneralSubModelMeta(gcv, MetaSpecification()),
-#     )
-# end
+    @test GeneralSubModelMeta(gcv, MetaSpecification()) isa GeneralSubModelMeta
+    push!(GeneralSubModelMeta(gcv, MetaSpecification()), MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()))
+    push!(GeneralSubModelMeta(gcv, MetaSpecification()), SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()))
+    meta = MetaSpecification()
+    push!(meta, GeneralSubModelMeta(gcv, MetaSpecification()))
+end
 
-# @testitem "GeneralSubModelMeta" begin
-#     include("model_zoo.jl")
-#     import GraphPPL:
-#         SpecificSubModelMeta,
-#         GeneralSubModelMeta,
-#         MetaSpecification,
-#         IndexedVariable,
-#         FactorMetaDescriptor,
-#         MetaObject
+@testitem "filter general and specific submodel meta" begin
+    import GraphPPL: MetaSpecification, GeneralSubModelMeta, SpecificSubModelMeta, getspecificsubmodelmeta, getgeneralsubmodelmeta, FactorID, getkey
 
-#     @test GeneralSubModelMeta(gcv, MetaSpecification()) isa GeneralSubModelMeta
-#     push!(
-#         GeneralSubModelMeta(gcv, MetaSpecification()),
-#         MetaObject(
-#             FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)),
-#             SomeMeta(),
-#         ),
-#     )
-#     push!(
-#         GeneralSubModelMeta(gcv, MetaSpecification()),
-#         SpecificSubModelMeta(:y, MetaSpecification()),
-#     )
-#     push!(
-#         GeneralSubModelMeta(gcv, MetaSpecification()),
-#         GeneralSubModelMeta(gcv, MetaSpecification()),
-#     )
+    meta = MetaSpecification()
+    push!(meta, GeneralSubModelMeta(sin, MetaSpecification()))
+    @test length(getgeneralsubmodelmeta(meta)) === 1
+    @test length(getspecificsubmodelmeta(meta)) === 0
 
-# end
+    push!(meta, SpecificSubModelMeta(FactorID(sum, 1), MetaSpecification()))
 
-# @testitem "SubModelMeta" begin
-#     include("model_zoo.jl")
-#     import GraphPPL: SubModelMeta, SpecificSubModelMeta, GeneralSubModelMeta
-#     @test SubModelMeta(:x) isa SpecificSubModelMeta
-#     @test SubModelMeta(gcv) isa GeneralSubModelMeta
-# end
+    @test length(getgeneralsubmodelmeta(meta)) === 1
+    @test length(getspecificsubmodelmeta(meta)) === 1
+
+    @test getspecificsubmodelmeta(meta, FactorID(sum, 1)).tag == FactorID(sum, 1)
+    @test getspecificsubmodelmeta(meta, FactorID(sum, 5)) === nothing
+
+    @test getgeneralsubmodelmeta(meta, sin).fform == sin
+end
 
 # @testitem "apply!(::Model, ::Context, ::MetaObject)" begin
 #     include("model_zoo.jl")

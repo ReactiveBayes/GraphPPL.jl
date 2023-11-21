@@ -15,9 +15,9 @@ end
 
 Base.show(io::IO, m::VariableMetaDescriptor) = print(io, m.node_descriptor)
 
-const NodeMetaDescriptor = Union{FactorMetaDescriptor,VariableMetaDescriptor}
+const NodeMetaDescriptor = Union{FactorMetaDescriptor, VariableMetaDescriptor}
 
-struct MetaObject{S<:NodeMetaDescriptor,T}
+struct MetaObject{S <: NodeMetaDescriptor, T}
     node_descriptor::S
     meta_object::T
 end
@@ -27,42 +27,52 @@ function Base.show(io::IO, m::MetaObject)
     print(io, m.meta_object)
 end
 
-
 getnodedescriptor(m::MetaObject) = m.node_descriptor
 getmetainfo(m::MetaObject) = m.meta_object
 
+struct MetaSpecification
+    meta_objects::Vector
+    submodel_meta::Vector
+end
+
+getmetaobjects(m::MetaSpecification) = m.meta_objects
+getsubmodelmeta(m::MetaSpecification) = m.submodel_meta
+getspecificsubmodelmeta(m::MetaSpecification) = filter(m -> is_specificsubmodelmeta(m), getsubmodelmeta(m))
+getgeneralsubmodelmeta(m::MetaSpecification) = filter(m -> is_generalsubmodelmeta(m), getsubmodelmeta(m))
+getspecificsubmodelmeta(m::MetaSpecification, tag::Any) = get(filter(m -> getsubmodel(m) == tag, getsubmodelmeta(m)), 1, nothing)
+getgeneralsubmodelmeta(m::MetaSpecification, fform::Any) = get(filter(m -> getsubmodel(m) == fform, getsubmodelmeta(m)), 1, nothing)
+
 struct SpecificSubModelMeta
-    tag::Symbol
-    meta_objects::Any
+    tag::FactorID
+    meta_objects::MetaSpecification
 end
 
 getsubmodel(c::SpecificSubModelMeta) = c.tag
 getmetaobjects(c::SpecificSubModelMeta) = c.meta_objects
 Base.push!(m::SpecificSubModelMeta, o) = push!(m.meta_objects, o)
+SpecificSubModelMeta(tag::FactorID) = SpecificSubModelMeta(tag, MetaSpecification())
+is_specificsubmodelmeta(m::SpecificSubModelMeta) = true
+is_specificsubmodelmeta(m) = false
+getkey(m::SpecificSubModelMeta) = getsubmodel(m)
 
 struct GeneralSubModelMeta
     fform::Any
-    meta_objects::Any
+    meta_objects::MetaSpecification
 end
 
 getsubmodel(c::GeneralSubModelMeta) = c.fform
 getmetaobjects(c::GeneralSubModelMeta) = c.constraints
 Base.push!(m::GeneralSubModelMeta, o) = push!(m.meta_objects, o)
+GeneralSubModelMeta(fform::Any) = GeneralSubModelMeta(fform, MetaSpecification())
+is_generalsubmodelmeta(m::GeneralSubModelMeta) = true
+is_generalsubmodelmeta(m) = false
+getkey(m::GeneralSubModelMeta) = getsubmodel(m)
 
-struct MetaSpecification
-    meta_objects::Vector
-end
+const SubModelMeta = Union{GeneralSubModelMeta, SpecificSubModelMeta}
 
-MetaSpecification() =
-    MetaSpecification(Vector{Union{MetaObject,GeneralSubModelMeta,SpecificSubModelMeta}}())
-Base.push!(m::MetaSpecification, o) = push!(m.meta_objects, o)
-
-SubModelMeta(x::Symbol, meta = MetaSpecification()::MetaSpecification) =
-    SpecificSubModelMeta(x, meta)
-SubModelMeta(fform::Function, meta = MetaSpecification()::MetaSpecification) =
-    GeneralSubModelMeta(fform, meta)
-
-getmetaobjects(m::MetaSpecification) = m.meta_objects
+MetaSpecification() = MetaSpecification(Vector{MetaObject}(), Vector{SubModelMeta}())
+Base.push!(m::MetaSpecification, o::MetaObject) = push!(m.meta_objects, o)
+Base.push!(m::MetaSpecification, o::SubModelMeta) = push!(m.submodel_meta, o)
 
 function apply!(model::Model, meta::MetaSpecification)
     apply!(model, GraphPPL.get_principal_submodel(model), meta)
@@ -72,100 +82,51 @@ function apply!(model::Model, context::Context, meta::MetaSpecification)
     for meta_obj in getmetaobjects(meta)
         apply!(model, context, meta_obj)
     end
-end
-
-function apply!(model::Model, context::Context, meta::GeneralSubModelMeta)
-    for (_, factor_context) in context.factor_nodes
-        if isdefined(factor_context, :fform)
-            if factor_context.fform == getsubmodel(meta)
-                apply!(model, factor_context, getmetaobjects(meta))
-            end
+    for (factor_id, child) in children(context)
+        if (submodel = getspecificsubmodelmeta(meta, factor_id)) !== nothing
+            apply!(model, child, getmetaobjects(submodel))
+        elseif (submodel = getgeneralsubmodelmeta(meta, fform(factor_id))) !== nothing
+            apply!(model, child, getmetaobjects(submodel))
         end
     end
 end
 
-function apply!(model::Model, context::Context, meta::SpecificSubModelMeta)
-    for (tag, factor_context) in context.factor_nodes
-        if tag == getsubmodel(meta)
-            apply!(model, factor_context, getmetaobjects(meta))
-        end
-    end
-end
-
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:VariableMetaDescriptor,T},
-)
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T})
     nodes = context[getnodedescriptor(meta).node_descriptor]
     apply!(model, context, meta, nodes)
 end
 
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:VariableMetaDescriptor,T},
-    node::NodeLabel,
-)
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel)
     save_meta!(model, node, meta)
 end
 
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:VariableMetaDescriptor,T},
-    nodes::AbstractArray{NodeLabel},
-)
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, nodes::AbstractArray{NodeLabel})
     for node in nodes
         save_meta!(model, node, meta)
     end
 end
 
-
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:FactorMetaDescriptor{<:Tuple},T},
-)
-    applicable_nodes = intersect(
-        GraphPPL.neighbors.(
-            Ref(model),
-            vec.(getindex.(Ref(context), GraphPPL.getnodedescriptor(meta).fargs)),
-        )...,
-    )
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{<:Tuple}, T})
+    applicable_nodes = intersect(GraphPPL.neighbors.(Ref(model), vec.(getindex.(Ref(context), GraphPPL.getnodedescriptor(meta).fargs)))...)
     for node in applicable_nodes
         apply!(model, context, meta, node)
     end
 end
 
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:FactorMetaDescriptor{Nothing},T},
-)
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{Nothing}, T})
     for node in values(context.factor_nodes)
         apply!(model, context, meta, node)
     end
 end
 
-apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:FactorMetaDescriptor,T},
-    node::Context,
-) = nothing
+apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor, T}, node::Context) = nothing
 
-function apply!(
-    model::Model,
-    context::Context,
-    meta::MetaObject{S,T} where {S<:FactorMetaDescriptor,T},
-    node::NodeLabel,
-)
+function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor, T}, node::NodeLabel)
     if model[node].fform == getnodedescriptor(meta).fform
         save_meta!(model, node, meta)
     end
 end
 
-function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S,T} where {S,T})
+function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T})
     options(model[node]).meta = getmetainfo(meta)
 end

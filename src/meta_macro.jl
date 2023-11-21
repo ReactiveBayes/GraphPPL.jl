@@ -20,7 +20,7 @@ function add_meta_construction(e::Expr)
     return quote
         __meta__ = GraphPPL.MetaSpecification()
         $e
-        return __meta__
+        __meta__
     end
 end
 
@@ -30,15 +30,14 @@ function create_submodel_meta(e::Expr)
             body__
         end
     ))
+        if @capture(submodel, (name_, index_))
+            submodel_constructor = :(GraphPPL.SpecificSubModelMeta(GraphPPL.FactorID($name, $index)))
+        else
+            submodel_constructor = :(GraphPPL.GeneralSubModelMeta($submodel))
+        end
         return quote
             let __outer_meta__ = __meta__
-                let __meta__ = begin
-                        try
-                            GraphPPL.SubModelMeta($submodel)
-                        catch
-                            GraphPPL.SubModelMeta($(QuoteNode(submodel)))
-                        end
-                    end
+                let __meta__ = $submodel_constructor
                     $(body...)
                     push!(__outer_meta__, __meta__)
                 end
@@ -97,21 +96,11 @@ function convert_meta_object(e::Expr)
     if @capture(e, (var_ -> meta_obj_))
         if @capture(var, (GraphPPL.IndexedVariable(args__)))
             return quote
-                push!(
-                    __meta__,
-                    GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor($var), $meta_obj),
-                )
+                push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor($var), $meta_obj))
             end
         elseif @capture(e, (fform_(vars__) -> meta_obj_))
-
             return quote
-                push!(
-                    __meta__,
-                    GraphPPL.MetaObject(
-                        GraphPPL.FactorMetaDescriptor($fform, ($(vars...),)),
-                        $meta_obj,
-                    ),
-                )
+                push!(__meta__, GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor($fform, ($(vars...),)), $meta_obj))
             end
         end
     else

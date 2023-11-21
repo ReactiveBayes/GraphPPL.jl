@@ -4,9 +4,11 @@ using Static
 using Distributions
 
 macro test_expression_generating(lhs, rhs)
-    return esc(quote
-        @test prettify($lhs) == prettify($rhs)
-    end)
+    return esc(
+        quote
+            @test prettify($lhs) == prettify($rhs)
+        end
+    )
 end
 
 struct PointMass end
@@ -57,7 +59,7 @@ end
 @model function vector_model()
     local x
     local y
-    for i = 1:3
+    for i in 1:3
         x[i] ~ Normal(0, 1)
         y[i] ~ Gamma(1, 1)
         z[i] ~ Normal(x[i], y[i])
@@ -67,7 +69,7 @@ end
 @model function tensor_model()
     local x
     local y
-    for i = 1:3
+    for i in 1:3
         x[i, i] ~ Normal(0, 1)
         y[i, i] ~ Gamma(1, 1)
         z[i, i] ~ Normal(x[i, i], y[i, i])
@@ -77,7 +79,7 @@ end
 @model function anonymous_in_loop(x, y)
     x_0 ~ Normal(μ = 0, σ = 1.0)
     x_prev = x_0
-    for i = 1:length(x)
+    for i in 1:length(x)
         x[i] ~ Normal(μ = x_prev + 1, σ = 1.0)
         x_prev = x[i]
     end
@@ -110,10 +112,10 @@ end
 
     # Specify generative model
 
-    for i = 2:length(y)+1
-        x_3[i] ~ Normal(μ = x_3[i-1], τ = ξ)
-        x_2[i] ~ gcv(x = x_2[i-1], z = x_3[i], ω = ω_2, κ = κ_2)
-        x_1[i] ~ gcv_lm(x_prev = x_1[i-1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i-1])
+    for i in 2:(length(y) + 1)
+        x_3[i] ~ Normal(μ = x_3[i - 1], τ = ξ)
+        x_2[i] ~ gcv(x = x_2[i - 1], z = x_3[i], ω = ω_2, κ = κ_2)
+        x_1[i] ~ gcv_lm(x_prev = x_1[i - 1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i - 1])
     end
 end
 
@@ -128,14 +130,13 @@ end
 @model function broadcaster(out)
     local μ
     local σ
-    for i = 1:10
+    for i in 1:10
         μ[i] ~ Normal(0, 1)
         σ[i] ~ Gamma(1, 1)
     end
     z .~ broadcastable(μ = μ, σ = σ)
     out ~ Normal(z[10], 1)
 end
-
 
 @model function inner_inner(τ, y)
     y ~ Normal(τ[1], τ[2])
@@ -147,7 +148,7 @@ end
 
 @model function outer()
     local w
-    for i = 1:5
+    for i in 1:5
         w[i] ~ Gamma(1, 1)
     end
     y ~ inner(θ = w[2:3])
@@ -155,10 +156,10 @@ end
 
 @model function multidim_array()
     local x
-    for i = 1:3
+    for i in 1:3
         x[i, 1] ~ Normal(0, 1)
-        for j = 2:3
-            x[i, j] ~ Normal(x[i, j-1], 1)
+        for j in 2:3
+            x[i, j] ~ Normal(x[i, j - 1], 1)
         end
     end
 end

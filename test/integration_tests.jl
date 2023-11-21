@@ -5,8 +5,8 @@
     include("./model_zoo.jl")
 
     @model function simple_model(a, b, c)
-        x ~ Gamma(α=b, θ=sqrt(c))
-        a ~ Normal(μ=x, τ=1)
+        x ~ Gamma(α = b, θ = sqrt(c))
+        a ~ Normal(μ = x, τ = 1)
     end
 
     # Here we don't even need to specify anything, because 
@@ -19,11 +19,11 @@
         model = create_model()
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, :a, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
-        b = something(b, getorcreate!(model, context, :b, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
-        c = something(c, getorcreate!(model, context, :c, nothing, options=VariableNodeOptions(datavar=true, factorized=true)))
+        a = something(a, getorcreate!(model, context, :a, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
+        b = something(b, getorcreate!(model, context, :b, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
+        c = something(c, getorcreate!(model, context, :c, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
 
-        add_terminated_submodel!(model, context, simple_model, (a=a, b=b, c=c))
+        add_terminated_submodel!(model, context, simple_model, (a = a, b = b, c = c))
         apply!(model, constraints)
 
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
@@ -44,7 +44,7 @@ end
         y[1] ~ NormalMeanVariance(x[1], 1)
 
         for i in 2:length(y)
-            x[i] ~ NormalMeanPrecision(a * x[i-1] + b, 1)
+            x[i] ~ NormalMeanPrecision(a * x[i - 1] + b, 1)
             y[i] ~ NormalMeanVariance(x[i], 1)
         end
     end
@@ -62,10 +62,10 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
+                y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
+            add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -85,7 +85,7 @@ end
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to structured, since empty constraints do not factorize out this case
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(model[node]) === ((interfaces[1], interfaces[2],), (interfaces[3],))
+                return factorization_constraint(model[node]) === ((interfaces[1], interfaces[2]), (interfaces[3],))
             end
         end
 
@@ -95,10 +95,10 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
+                y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
+            add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -129,7 +129,7 @@ end
     end
 
     @model function nested1(z, g, a, b)
-        z ~ nested2(θ=g, c=a, d=b)
+        z ~ nested2(θ = g, c = a, d = b)
     end
 
     @model function random_walk(y, a, b)
@@ -137,7 +137,7 @@ end
         y[1] ~ Normal(x[1], 1)
 
         for i in 2:length(y)
-            x[i] ~ nested1(g=x[i-1], a=a, b=b)
+            x[i] ~ nested1(g = x[i - 1], a = a, b = b)
             y[i] ~ Normal(x[i], 1)
         end
     end
@@ -179,16 +179,15 @@ end
     end
 
     @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5)
-
         model = create_model()
         context = getcontext(model)
         y = nothing
 
         for i in 1:n
-            y = getorcreate!(model, context, :y, i, options=VariableNodeOptions(datavar=true, factorized=true))
+            y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
         end
 
-        add_terminated_submodel!(model, context, random_walk, (y=y, a=1, b=2))
+        add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
         apply!(model, constraints)
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n

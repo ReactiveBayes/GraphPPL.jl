@@ -2,13 +2,8 @@ export @constraints
 using MacroTools
 
 function check_reserved_variable_names_constraints(e::Expr)
-    if any(
-        reserved_name -> MacroTools.inexpr(e, reserved_name),
-        [:(__constraints__), :(__outer_constraints__)],
-    )
-        error(
-            "Variable name in $(prettify(e)) cannot be used as it is a reserved variable name in the model macro.",
-        )
+    if any(reserved_name -> MacroTools.inexpr(e, reserved_name), [:(__constraints__), :(__outer_constraints__)])
+        error("Variable name in $(prettify(e)) cannot be used as it is a reserved variable name in the model macro.")
     end
     return e
 end
@@ -30,8 +25,7 @@ function create_submodel_constraints(e::Expr)
         end
     ))
         if @capture(submodel, (name_, index_))
-            submodel_constructor =
-                :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
+            submodel_constructor = :(GraphPPL.SpecificSubModelConstraints(GraphPPL.FactorID($name, $index)))
         else
             submodel_constructor = :(GraphPPL.GeneralSubModelConstraints($submodel))
         end
@@ -64,8 +58,7 @@ function create_factorization_combinedrange(e::Expr)
     return e
 end
 
-__convert_to_indexed_statement(e::Symbol) =
-    :(GraphPPL.IndexedVariable($(QuoteNode(e)), nothing))
+__convert_to_indexed_statement(e::Symbol) = :(GraphPPL.IndexedVariable($(QuoteNode(e)), nothing))
 function __convert_to_indexed_statement(e::Expr)
     if @capture(e, (var_[index_]))
         return :(GraphPPL.IndexedVariable($(QuoteNode(var)), $index))
@@ -97,10 +90,7 @@ function convert_functionalform_constraints(e::Expr)
         end
     elseif @capture(e, (q(vars__)::T_))
         return quote
-            push!(
-                __constraints__,
-                GraphPPL.FunctionalFormConstraint($(Expr(:tuple, vars...)), $T),
-            )
+            push!(__constraints__, GraphPPL.FunctionalFormConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e
@@ -130,16 +120,11 @@ function convert_factorization_constraints(e::Expr)
             return expr
         end
         return quote
-            push!(
-                __constraints__,
-                GraphPPL.FactorizationConstraint($(Expr(:tuple, lhs...)), $rhs),
-            )
+            push!(__constraints__, GraphPPL.FactorizationConstraint($(Expr(:tuple, lhs...)), $rhs))
         end
     end
     return e
 end
-
-
 
 function constraints_macro_interior(cs_body::Expr)
     cs_body = apply_pipeline(cs_body, check_for_returns_constraints)
