@@ -116,7 +116,7 @@ function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S 
         for variable in fargs(getnodedescriptor(meta))
             if !any(vertex -> vertex ∈ neighborhood, unroll(context[variable]))
                 # @show node
-                save=false
+                save = false
             end
         end
         if save

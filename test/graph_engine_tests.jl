@@ -143,10 +143,9 @@ end
 
     include("model_zoo.jl")
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        
         model = create_terminated_model(model_name)
-        for f1 ∈ factor_nodes(model)
-            for f2 ∈ factor_nodes(model)
+        for f1 in factor_nodes(model)
+            for f2 in factor_nodes(model)
                 if f1 !== f2
                     @test options(model[f1]) !== options(model[f2])
                 end
@@ -1280,7 +1279,7 @@ end
     @test size(z) == (2, 2)
 end
 
-@testitem "getindex for StaticInterfaces" begin 
+@testitem "getindex for StaticInterfaces" begin
     import GraphPPL: StaticInterfaces
 
     interfaces = (:a, :b, :c)

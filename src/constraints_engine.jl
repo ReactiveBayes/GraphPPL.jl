@@ -398,7 +398,6 @@ end
 
 getvariables(var::ResolvedFactorizationConstraintEntry) = var.variables
 
-
 Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) = any(map(v -> (data ∈ v)::Bool, getvariables(var)))
 
 struct ResolvedFactorizationConstraint{V <: ResolvedConstraintLHS, F}
@@ -551,7 +550,6 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         end
     end
 
-
     constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique`
 
     if !is_valid_partition(constraint_set)
@@ -561,9 +559,9 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     end
 
     edges = GraphPPL.edges(model, node_label)
-    constraint = Tuple(sort!(collect(constraint_set), by=first))
+    constraint = Tuple(sort!(collect(constraint_set), by = first))
     constraint = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), constraint)
-    
+
     node_data.factorization_constraint = constraint
 end
 
@@ -662,16 +660,11 @@ function apply!(model::Model, context::Context, constraint_set::Constraints, res
     end
 end
 
-
-function is_applicable(
-    model::Model,
-    node::NodeLabel,
-    constraint::ResolvedFactorizationConstraint,
-)
+function is_applicable(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
     return is_applicable_neighbors(model[GraphPPL.neighbors(model, node)], constraint)
 end
 
-function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationConstraint,)
+function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationConstraint)
     lhsc = lhs(constraint)
     return any(neighbors) do neighbor
         # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
@@ -680,13 +673,7 @@ function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationCon
     end
 end
 
-
-function is_decoupled(
-    var_1::VariableNodeData,
-    var_2::VariableNodeData,
-    constraint::ResolvedFactorizationConstraint,
-)::Bool
-
+function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constraint::ResolvedFactorizationConstraint)::Bool
     if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
@@ -694,10 +681,12 @@ function is_decoupled(
     linkvar_2 = getlink(var_2)
 
     if !isnothing(linkvar_1) && !isnothing(linkvar_2)
-        error("""
-            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
-            As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
-        """)
+        error(
+            """
+          Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
+          As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
+      """
+        )
     elseif !isnothing(linkvar_1)
         return is_decoupled_one_linked(linkvar_1, var_2, constraint)
     elseif !isnothing(linkvar_2)
@@ -749,7 +738,7 @@ end
 # In comparison to the standard `allequal` also supports `f -> Bool` 
 # and returns the result of the very first invocation
 # throws an error if the itr is empty
-function lazy_bool_allequal(f, itr)::Tuple{Bool,Bool}
+function lazy_bool_allequal(f, itr)::Tuple{Bool, Bool}
     started::Bool = false
     result::Bool = false
     for item in itr
@@ -766,18 +755,13 @@ function lazy_bool_allequal(f, itr)::Tuple{Bool,Bool}
     return true, result
 end
 
-function convert_to_bitsets(
-    model::Model,
-    node::NodeLabel,
-    neighbors,
-    constraint::ResolvedFactorizationConstraint,
-)
+function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint::ResolvedFactorizationConstraint)
     result = BitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
         for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
                 delete!(@inbounds(result[i]), j + i)
-                delete!(@inbounds(result[j+i]), i)
+                delete!(@inbounds(result[j + i]), i)
             end
         end
     end
