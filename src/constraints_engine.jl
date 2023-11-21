@@ -388,7 +388,7 @@ end
 
 getvariables(var::ResolvedConstraintLHS) = var.variables
 
-Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) = any(in.(Ref(data), getvariables(var)))
+Base.in(data::VariableNodeData, var::ResolvedConstraintLHS) = any(map(v -> (data ∈ v)::Bool, getvariables(var)))
 
 Base.:(==)(left::ResolvedConstraintLHS, right::ResolvedConstraintLHS) = getvariables(left) == getvariables(right)
 
@@ -398,7 +398,8 @@ end
 
 getvariables(var::ResolvedFactorizationConstraintEntry) = var.variables
 
-Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) = any(in.(Ref(data), getvariables(var)))
+
+Base.in(data::VariableNodeData, var::ResolvedFactorizationConstraintEntry) = any(map(v -> (data ∈ v)::Bool, getvariables(var)))
 
 struct ResolvedFactorizationConstraint{V <: ResolvedConstraintLHS, F}
     lhs::V
@@ -479,13 +480,14 @@ end
 
 Returns `true` if `set` is a valid partition of the set `{1, 2, ..., maximum(Iterators.flatten(set))}`, false otherwise.
 """
-function is_valid_partition(set::Set)
-    max_element = maximum(Iterators.flatten(set))
-    if !issetequal(union(set...), BitSet(1:max_element))
+function is_valid_partition(partition::Set)
+    max_element = maximum(Iterators.flatten(partition))
+    # bvdmitri note: perhaps we can still improve this
+    if !issetequal(reduce(union, partition), BitSet(1:max_element))
         return false
     end
     for element in 1:max_element
-        if !(sum(element .∈ set) == 1)
+        if sum(cluster -> element ∈ cluster, partition) != 1
             return false
         end
     end
@@ -549,17 +551,19 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         end
     end
 
-    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique``
-    edges = GraphPPL.edges(model, node_label)
-    constraint = SA[constraint_set...]
-    constraint = Tuple(sort(constraint, by = first))
-    constraint = map(factors -> Tuple(getindex.(Ref(edges), factors)), constraint)
+
+    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique`
+
     if !is_valid_partition(constraint_set)
         error(
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint)"
         )
-        return nothing
     end
+
+    edges = GraphPPL.edges(model, node_label)
+    constraint = Tuple(sort!(collect(constraint_set), by=first))
+    constraint = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), constraint)
+    
     node_data.factorization_constraint = constraint
 end
 
@@ -658,8 +662,16 @@ function apply!(model::Model, context::Context, constraint_set::Constraints, res
     end
 end
 
-function is_applicable(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    neighbors = getindex.(Ref(model), GraphPPL.neighbors(model, node))
+
+function is_applicable(
+    model::Model,
+    node::NodeLabel,
+    constraint::ResolvedFactorizationConstraint,
+)
+    return is_applicable_neighbors(model[GraphPPL.neighbors(model, node)], constraint)
+end
+
+function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationConstraint,)
     lhsc = lhs(constraint)
     return any(neighbors) do neighbor
         # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
@@ -668,22 +680,28 @@ function is_applicable(model::Model, node::NodeLabel, constraint::ResolvedFactor
     end
 end
 
-function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+
+function is_decoupled(
+    var_1::VariableNodeData,
+    var_2::VariableNodeData,
+    constraint::ResolvedFactorizationConstraint,
+)::Bool
+
     if !in_lhs(constraint, var_1) || !in_lhs(constraint, var_2)
         return false
     end
+    linkvar_1 = getlink(var_1)
+    linkvar_2 = getlink(var_2)
 
-    if !isnothing(getlink(var_1)) && !isnothing(getlink(var_2))
-        error(
-            """
-          Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(getlink(var_1), ',')) and $(join(getlink(var_2), ',')) respectively.
-          As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
-      """
-        )
-    elseif !isnothing(getlink(var_1))
-        return is_decoupled_one_linked(var_1, var_2, constraint)
-    elseif !isnothing(getlink(var_2))
-        return is_decoupled_one_linked(var_2, var_1, constraint)
+    if !isnothing(linkvar_1) && !isnothing(linkvar_2)
+        error("""
+            Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
+            As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
+        """)
+    elseif !isnothing(linkvar_1)
+        return is_decoupled_one_linked(linkvar_1, var_2, constraint)
+    elseif !isnothing(linkvar_2)
+        return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
     for entry in rhs(constraint)
@@ -695,23 +713,26 @@ function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constrai
     return false
 end
 
-function is_decoupled_one_linked(linked::VariableNodeData, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)
+function is_decoupled_one_linked(links, unlinked::VariableNodeData, constraint::ResolvedFactorizationConstraint)::Bool
+    # Check only links that are actually relevant to the factorization constraint,
+    # We skip links that are already factorized explicitly since there is no need to check them again
+    flinks = Iterators.filter(link -> !is_factorized(link), links)
     # Check if all linked variables have exactly the same "is_decoupled" output
     # Otherwise we are being a bit conservative here and throw an ambiguity error
-    links = getlink(linked)
-    if allequal(Iterators.map(link -> is_decoupled(link, unlinked, constraint), links))
-        return is_decoupled(first(links), unlinked, constraint)
+    allequal, result = lazy_bool_allequal(link -> is_decoupled(link, unlinked, constraint), flinks)
+    if allequal
+        return result
     else
         # Perhaps, this is possible to resolve automatically, but that would required 
         # quite some difficult graph traversal logic, so for now we just throw an error
-        error("""
-            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(getlink(var_1), ',')).
+        error(lazy"""
+            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
             As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
         """)
     end
 end
 
-function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)
+function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
     for entryvar in entry.variables
         if var ∈ entryvar
@@ -722,18 +743,41 @@ function is_decoupled(var::VariableNodeData, entry::ResolvedFactorizationConstra
             end
         end
     end
-
     return true
 end
 
-function convert_to_bitsets(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    neighbors = model[GraphPPL.neighbors(model, node)]
+# In comparison to the standard `allequal` also supports `f -> Bool` 
+# and returns the result of the very first invocation
+# throws an error if the itr is empty
+function lazy_bool_allequal(f, itr)::Tuple{Bool,Bool}
+    started::Bool = false
+    result::Bool = false
+    for item in itr
+        if !started
+            result = f(item)::Bool
+            started = true
+        else
+            if result !== f(item)::Bool
+                return false, result
+            end
+        end
+    end
+    started || error("Empty iterator in the `lazy_bool_allequal` fucntion is not supported.")
+    return true, result
+end
+
+function convert_to_bitsets(
+    model::Model,
+    node::NodeLabel,
+    neighbors,
+    constraint::ResolvedFactorizationConstraint,
+)
     result = BitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
-        for (j, v2) in enumerate(neighbors[(i + 1):end])
+        for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
-                delete!(result[i], j + i)
-                delete!(result[j + i], i)
+                delete!(@inbounds(result[i]), j + i)
+                delete!(@inbounds(result[j+i]), i)
             end
         end
     end
@@ -741,17 +785,20 @@ function convert_to_bitsets(model::Model, node::NodeLabel, constraint::ResolvedF
 end
 
 function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    return apply!(NodeBehaviour(fform(model[node])), model, node, constraint)
+    node_data = model[node]
+    return apply!(NodeBehaviour(fform(node_data)), model, node, node_data, constraint)
 end
 
-function apply!(::Deterministic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+function apply!(::Deterministic, model::Model, node::NodeLabel, node_data::FactorNodeData, constraint::ResolvedFactorizationConstraint)
     return nothing
 end
 
-function apply!(::Stochastic, model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    if is_applicable(model, node, constraint)
-        constraint = convert_to_bitsets(model, node, constraint)
-        save_constraint!(model, node, constraint)
+function apply!(::Stochastic, model::Model, node::NodeLabel, node_data::FactorNodeData, constraint::ResolvedFactorizationConstraint)
+    # Get data for the neighbors of the node and check if the constraint is applicable
+    neighbors = model[GraphPPL.neighbors(model, node)]
+    if is_applicable_neighbors(neighbors, constraint)
+        constraint = convert_to_bitsets(model, node, neighbors, constraint)
+        save_constraint!(model, node, node_data, constraint)
     end
     return nothing
 end
