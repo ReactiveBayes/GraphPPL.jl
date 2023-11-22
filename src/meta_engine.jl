@@ -65,7 +65,7 @@ struct GeneralSubModelMeta
 end
 
 getsubmodel(c::GeneralSubModelMeta) = c.fform
-getmetaobjects(c::GeneralSubModelMeta) = c.constraints
+getmetaobjects(c::GeneralSubModelMeta) = c.meta_objects
 Base.push!(m::GeneralSubModelMeta, o) = push!(m.meta_objects, o)
 GeneralSubModelMeta(fform::Any) = GeneralSubModelMeta(fform, MetaSpecification())
 is_generalsubmodelmeta(m::GeneralSubModelMeta) = true
@@ -115,7 +115,6 @@ function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S 
         save = true
         for variable in fargs(getnodedescriptor(meta))
             if !any(vertex -> vertex ∈ neighborhood, unroll(context[variable]))
-                # @show node
                 save = false
             end
         end

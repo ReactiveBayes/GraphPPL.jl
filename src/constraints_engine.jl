@@ -459,19 +459,26 @@ end
 
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
-save_constraint!(model::Model, node::NodeLabel, constraint_data) = save_constraint!(model, node, model[node], constraint_data)
-
-function save_constraint!(model::Model, node::NodeLabel, node_data::FactorNodeData, constraint_data::BitSetTuple)
+function save_constraint!(node_data::FactorNodeData, constraint_data::BitSetTuple)
     intersect!(node_data.factorization_constraint, constraint_data)
 end
 
-function save_constraint!(model::Model, node::NodeLabel, node_data::VariableNodeData, constraint_data)
-    opt = node_options(node_data)
-    if isnothing(opt.functional_form)
+function save_fform_constraint!(node_data::VariableNodeData, constraint_data)
+    opt = options(node_data)
+    if !isnothing(opt.functional_form)
         @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
         return nothing
     end
     opt.functional_form = constraint_data
+end
+
+function save_message_constraint!(node_data::VariableNodeData, constraint_data)
+    opt = options(node_data)
+    if !isnothing(message_constraint(opt))
+        @warn lazy"Node $node already has message constraint $(opt[:μ]) applied, therefore $constraint_data will not be applied"
+        return nothing
+    end
+    opt.message_constraint = constraint_data
 end
 
 """
@@ -546,7 +553,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
         if is_factorized(neighbor_data)
-            save_constraint!(model, node_label, node_data, constant_constraint(length(constraint), i))
+            save_constraint!(node_data, constant_constraint(length(constraint), i))
         end
     end
 
@@ -613,7 +620,7 @@ end
 function apply!(model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: IndexedVariable, F})
     applicable_nodes = unroll(context[getvariables(fform_constraint)])
     for node in applicable_nodes
-        save_constraint!(model, node, getconstraint(fform_constraint), :q)
+        save_fform_constraint!(model[node], getconstraint(fform_constraint))
     end
 end
 
@@ -624,7 +631,7 @@ end
 function apply!(model::Model, context::Context, fform_constraint::MessageConstraint)
     applicable_nodes = unroll(context[getvariables(fform_constraint)])
     for node in applicable_nodes
-        save_constraint!(model, node, getconstraint(fform_constraint), :μ)
+        save_message_constraint!(model[node], getconstraint(fform_constraint))
     end
 end
 
@@ -782,7 +789,7 @@ function apply!(::Stochastic, model::Model, node::NodeLabel, node_data::FactorNo
     neighbors = model[GraphPPL.neighbors(model, node)]
     if is_applicable_neighbors(neighbors, constraint)
         constraint = convert_to_bitsets(model, node, neighbors, constraint)
-        save_constraint!(model, node, node_data, constraint)
+        save_constraint!(node_data, constraint)
     end
     return nothing
 end

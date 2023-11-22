@@ -163,3 +163,15 @@ end
         end
     end
 end
+
+@model function child_model(in, out)
+    σ ~ Gamma(1, 1)
+    out ~ Normal(in, σ)
+end
+
+@model function parent_model()
+    x[1] ~ Normal(0, 1)
+    for i in 2:100
+        x[i] ~ child_model(in = x[i - 1])
+    end
+end
