@@ -353,6 +353,42 @@ end
         x := (a + b) where {created_by = (x := a + b)}
     end
     @test_expression_generating save_expression_in_tilde(input) output
+
+    # Test 16: test local for deterministic statement
+    input = quote
+        local x := a + b
+    end
+    output = quote
+        local x := (a + b) where {created_by = (local x := a + b)}
+    end
+    @test_expression_generating save_expression_in_tilde(input) output
+
+    # Test 17: test local for deterministic statement
+    input = quote
+        local x := (a + b) where {q = q(x)q(a)q(b)}
+    end
+    output = quote
+        local x := (a + b) where {q = q(x)q(a)q(b), created_by = (local x := (a + b) where {q = q(x)q(a)q(b)})}
+    end
+    @test_expression_generating save_expression_in_tilde(input) output
+
+    # Test 18: test local for broadcasting statement
+    input = quote
+        local x .~ Normal(μ, σ)
+    end
+    output = quote
+        local x .~ Normal(μ, σ) where {created_by = (local x .~ Normal(μ, σ))}
+    end
+    @test_expression_generating save_expression_in_tilde(input) output
+
+    # Test 19: test local for broadcasting statement
+    input = quote
+        local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)}
+    end
+    output = quote
+        local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ), created_by = (local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)})}
+    end
+    @test_expression_generating save_expression_in_tilde(input) output
 end
 
 @testitem "get_created_by" begin

@@ -62,7 +62,6 @@ Base.getindex(label::NodeLabel, any) = label
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
-vec(label::NodeLabel) = [label]
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 unroll(label) = label
@@ -173,7 +172,6 @@ set_factorization_constraint!(node::FactorNodeData, constraint) = node.factoriza
 const NodeData = Union{FactorNodeData, VariableNodeData}
 
 options(node::NodeData) = node.options
-add_to_node_options!(node::NodeData, name::Symbol, value) = node.options = merge(node_options(node), (name => value,))
 
 getcontext(node::NodeData) = node.context
 meta(node::NodeData) = meta(options(node))
@@ -542,7 +540,7 @@ Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::
 
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = c.tensor_variables[key] = val
 
-getcontext(model::Model) = model.graph[]
+getcontext(model::Model) = model[]
 
 function get_principal_submodel(model::Model)
     context = getcontext(model)
@@ -782,9 +780,7 @@ end
 
 factor_alias(any, interfaces) = any
 factor_alias(::typeof(+), interfaces) = sum
-factor_alias(::typeof(-), interfaces) = sub
 factor_alias(::typeof(*), interfaces) = prod
-factor_alias(::typeof(/), interfaces) = div
 
 """
 Add a composite factor node to the model with the given name.

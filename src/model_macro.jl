@@ -595,9 +595,6 @@ end
 
 what_walk(::typeof(convert_tilde_expression)) = guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
 
-extend(ms_args::AbstractArray, new_interface::Symbol) = vcat(ms_args, new_interface)
-extend(ms_args::AbstractArray, new_interface::Expr) = vcat(ms_args, new_interface.args)
-
 """
     options_vector_to_named_tuple(options::AbstractArray)
 

@@ -1,3 +1,27 @@
+@testitem "check_reserved_variable_names_constraints" begin
+    import GraphPPL: apply_pipeline, check_reserved_variable_names_constraints
+
+    # Test 1: test that reserved variable name __parent_options__ throws an error
+    input = quote
+        __constraints__ = 1
+        q(x,y) = q(x)q(y)
+    end
+    @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names_constraints)
+
+    # Test 2: test that reserved variable name __debug__ throws an error
+    input = quote
+        __outer_constraints__ = 1
+        q(x,y) = q(x)q(y)
+    end
+    @test_throws ErrorException apply_pipeline(input, check_reserved_variable_names_constraints)
+
+    # Test 3: test that other variable names do not throw an error
+    input = quote
+        q(x,y) = q(x)q(y)
+    end
+    @test apply_pipeline(input, check_reserved_variable_names_constraints) == input
+end
+
 @testitem "check_for_returns" begin
     using GraphPPL
     using MacroTools
