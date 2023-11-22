@@ -72,14 +72,15 @@ Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_co
 mutable struct VariableNodeOptions
     value::Any
     functional_form::Any
+    message_constraint::Any
     constant::Bool
     datavar::Bool
     factorized::Bool
     meta::Any
 end
 
-VariableNodeOptions(; value = nothing, functional_form = nothing, constant = false, datavar = false, factorized = false, meta = nothing) =
-    VariableNodeOptions(value, functional_form, constant, datavar, factorized, meta)
+VariableNodeOptions(; value = nothing, functional_form = nothing, message_constraint = nothing, constant = false, datavar = false, factorized = false, meta = nothing) =
+    VariableNodeOptions(value, functional_form, message_constraint, constant, datavar, factorized, meta)
 
 Base.:(==)(left::VariableNodeOptions, right::VariableNodeOptions) =
     left.value == right.value &&
@@ -93,6 +94,7 @@ is_datavar(options::VariableNodeOptions) = options.datavar
 is_constant(options::VariableNodeOptions) = options.constant
 value(options::VariableNodeOptions) = options.value
 fform_constraint(options::VariableNodeOptions) = options.functional_form
+message_constraint(options::VariableNodeOptions) = options.message_constraint
 meta(options::VariableNodeOptions) = options.meta
 
 """
@@ -113,6 +115,7 @@ getlink(node::VariableNodeData) = node.link
 index(node::VariableNodeData) = node.index
 value(node::VariableNodeData) = value(options(node))
 fform_constraint(node::VariableNodeData) = fform_constraint(options(node))
+message_constraint(node::VariableNodeData) = message_constraint(options(node))
 
 is_datavar(node::VariableNodeData) = is_datavar(options(node))
 is_constant(node::VariableNodeData) = is_constant(options(node))
@@ -227,6 +230,7 @@ struct EdgeLabel
 end
 
 getname(label::EdgeLabel) = label.name
+getname(labels::Tuple) = map(group -> getname(group), labels)
 
 to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
 to_symbol(label::EdgeLabel, ::Nothing) = label.name
@@ -927,15 +931,7 @@ make_node!(::Atomic, model::Model, ctx::Context, fform, lhs_interface, rhs_inter
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
-    atomic::Atomic,
-    deterministic::Deterministic,
-    model::Model,
-    ctx::Context,
-    fform,
-    lhs_interface,
-    rhs_interfaces;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    atomic::Atomic, deterministic::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false
 ) = make_node!(
     contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__
 )
@@ -946,16 +942,7 @@ make_node!(
 ) = fform(rhs_interfaces...)
 
 make_node!(
-    ::False,
-    ::Atomic,
-    ::Deterministic,
-    model::Model,
-    ctx::Context,
-    fform,
-    lhs_interface,
-    rhs_interfaces::NamedTuple;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    ::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false
 ) = fform(; rhs_interfaces...)
 
 make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::MixedArguments; __parent_options__ = nothing, __debug__ = false) =

@@ -218,3 +218,76 @@ end
     @test meta(model[node])[:meta] == SomeMeta()
     @test meta(model[node])[:other] == 1
 end
+
+@testitem "meta macro pipeline" begin
+    using GraphPPL
+    import GraphPPL: apply!, meta
+    include("model_zoo.jl")
+
+    # Test constraints macro with single variables and no nesting
+    model = create_terminated_model(simple_model)
+    ctx = GraphPPL.getcontext(model)
+    metaspec = @meta begin
+        Normal(x, y, z) -> SomeMeta()
+        x -> SomeMeta()
+        y -> (meta = SomeMeta(), other = 1)
+    end
+    apply!(model, metaspec)
+
+    @test meta(model[ctx[NormalMeanVariance, 1]]) === nothing
+    @test meta(model[ctx[NormalMeanVariance, 2]]) == SomeMeta()
+
+    @test meta(model[ctx[:x]]) == SomeMeta()
+    @test meta(model[ctx[:y]]) == (meta = SomeMeta(), other = 1)
+
+    # Test meta macro with single variables and no nesting
+    model = create_terminated_model(outer)
+    ctx = GraphPPL.getcontext(model)
+    metaobj = @meta begin
+        Gamma(w) -> SomeMeta()
+    end
+    apply!(model, metaobj)
+    for node in filter(GraphPPL.as_node(Gamma) & GraphPPL.as_context(outer), model)
+        @test meta(model[node]) == SomeMeta()
+    end
+
+    # Test meta macro with nested model
+    model = create_terminated_model(outer)
+    ctx = GraphPPL.getcontext(model)
+    metaobj = @meta begin
+        for meta in inner
+            α -> SomeMeta()
+        end
+    end
+    apply!(model, metaobj)
+    @test meta(model[ctx[:y]]) == SomeMeta()
+
+    # Test with specifying specific submodel
+    model = create_terminated_model(parent_model)
+    ctx = GraphPPL.getcontext(model)
+    metaobj = @meta begin
+        for meta in (child_model, 1)
+            Normal(in, out) -> SomeMeta()
+        end
+    end
+
+    apply!(model, metaobj)
+    @test meta(model[ctx[child_model, 1][NormalMeanVariance, 1]]) == SomeMeta()
+    for i in 2:99
+        @test meta(model[ctx[child_model, i][NormalMeanVariance, 1]]) === nothing
+    end
+
+    # Test with specifying general submodel
+    model = create_terminated_model(parent_model)
+    ctx = GraphPPL.getcontext(model)
+    metaobj = @meta begin
+        for meta in child_model
+            Normal(in, out) -> SomeMeta()
+        end
+    end
+
+    apply!(model, metaobj)
+    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
+        @test meta(model[node]) == SomeMeta()
+    end
+end
