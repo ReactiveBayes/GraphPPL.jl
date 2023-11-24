@@ -65,6 +65,7 @@ getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 unroll(label) = label
+to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.global_counter))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
@@ -76,10 +77,11 @@ mutable struct VariableNodeOptions
     datavar::Bool
     factorized::Bool
     meta::Any
+    others::Any
 end
 
-VariableNodeOptions(; value = nothing, functional_form = nothing, message_constraint = nothing, constant = false, datavar = false, factorized = false, meta = nothing) =
-    VariableNodeOptions(value, functional_form, message_constraint, constant, datavar, factorized, meta)
+VariableNodeOptions(; value = nothing, functional_form = nothing, message_constraint = nothing, constant = false, datavar = false, factorized = false, meta = nothing, others=nothing) =
+    VariableNodeOptions(value, functional_form, message_constraint, constant, datavar, factorized, meta, others)
 
 Base.:(==)(left::VariableNodeOptions, right::VariableNodeOptions) =
     left.value == right.value &&

@@ -74,7 +74,7 @@ end
 
 @testitem "apply!(::Model, ::Context, ::MetaObject)" begin
     include("model_zoo.jl")
-    import GraphPPL: apply!, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, meta, as_node
+    import GraphPPL: apply!, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, meta, as_node, options
 
     # Test apply for a FactorMeta over a single factor
     model = create_terminated_model(simple_model)
@@ -117,8 +117,8 @@ end
     metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
     apply!(model, context, metadata)
     node = first(intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y])))
-    @test meta(model[node])[:meta] == SomeMeta()
-    @test meta(model[node])[:other] == 1
+    @test meta(model[node]) == SomeMeta()
+    @test options(model[node]).others[:other] == 1
 
     # Test apply for a FactorMeta over a single factor with NamedTuple as meta
     model = create_terminated_model(simple_model)
@@ -126,8 +126,8 @@ end
     metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, nothing), (meta = SomeMeta(), other = 1))
     apply!(model, context, metadata)
     node = first(intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y])))
-    @test meta(model[node])[:meta] == SomeMeta()
-    @test meta(model[node])[:other] == 1
+    @test meta(model[node]) == SomeMeta()
+    @test options(model[node]).others[:other] == 1
 
     # Test apply for a FactorMeta over a vector of factors with NamedTuple as meta
     model = create_terminated_model(vector_model)
@@ -135,8 +135,8 @@ end
     metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
     apply!(model, context, metadata)
     for node in intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y]))
-        @test meta(model[node])[:meta] == SomeMeta()
-        @test meta(model[node])[:other] == 1
+        @test meta(model[node]) == SomeMeta()
+        @test options(model[node]).others[:other] == 1
     end
 
     # Test apply for a FactorMeta over a factor that is specified by an Index
@@ -145,8 +145,8 @@ end
     metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, 1), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
     apply!(model, context, metadata)
     node = first(intersect(GraphPPL.neighbors(model, context[:x][1]), GraphPPL.neighbors(model, context[:y])))
-    @test meta(model[node])[:meta] == SomeMeta()
-    @test meta(model[node])[:other] == 1
+    @test meta(model[node]) == SomeMeta()
+    @test options(model[node]).others[:other] == 1
     other_node = last(intersect(GraphPPL.neighbors(model, context[:x][3]), GraphPPL.neighbors(model, context[:y])))
 
     @test meta(model[other_node]) === nothing
@@ -157,8 +157,8 @@ end
     metaobject = MetaObject(FactorMetaDescriptor(NormalMeanVariance, nothing), (meta = SomeMeta(), other = 1))
     apply!(model, context, metaobject)
     for node in intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y]))
-        @test meta(model[node])[:meta] == SomeMeta()
-        @test meta(model[node])[:other] == 1
+        @test meta(model[node]) == SomeMeta()
+        @test options(model[node]).others[:other] == 1
     end
 
     # Test apply for a VariableMeta
@@ -173,33 +173,33 @@ end
     context = GraphPPL.getcontext(model)
     metaobject = MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(), other = 1))
     apply!(model, context, metaobject)
-    @test meta(model[context[:x]])[:meta] == SomeMeta()
+    @test meta(model[context[:x]]) == SomeMeta()
 
     # Test apply for a VariableMeta with NamedTuple as meta
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
     metaobject = MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(), other = 1))
     apply!(model, context, metaobject)
-    @test meta(model[context[:x][1]])[:meta] == SomeMeta()
-    @test meta(model[context[:x][2]])[:meta] == SomeMeta()
-    @test meta(model[context[:x][3]])[:meta] == SomeMeta()
+    @test meta(model[context[:x][1]]) == SomeMeta()
+    @test meta(model[context[:x][2]]) == SomeMeta()
+    @test meta(model[context[:x][3]]) == SomeMeta()
 
     # Test apply for a VariableMeta with NamedTuple as meta
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
     metaobject = MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(), other = 1))
     apply!(model, context, metaobject)
-    @test meta(model[context[:x][1]])[:meta] == SomeMeta()
-    @test meta(model[context[:x][1]])[:other] == 1
-    @test meta(model[context[:x][2]])[:meta] == SomeMeta()
-    @test meta(model[context[:x][2]])[:other] == 1
-    @test meta(model[context[:x][3]])[:meta] == SomeMeta()
-    @test meta(model[context[:x][3]])[:other] == 1
+    @test meta(model[context[:x][1]]) == SomeMeta()
+    @test options(model[context[:x][1]]).others[:other] == 1
+    @test meta(model[context[:x][2]]) == SomeMeta()
+    @test options(model[context[:x][2]]).others[:other] == 1
+    @test meta(model[context[:x][3]]) == SomeMeta()
+    @test options(model[context[:x][3]]).others[:other] == 1
 end
 
 @testitem "save_meta!(::Model, ::NodeLabel, ::MetaObject)" begin
     include("model_zoo.jl")
-    import GraphPPL: save_meta!, node_options, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, SomeMeta, neighbors, node_options, meta
+    import GraphPPL: save_meta!, options, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, SomeMeta, neighbors, meta
 
     # Test save_meta! for a FactorMeta over a single factor
     model = create_terminated_model(simple_model)
@@ -215,13 +215,13 @@ end
     node = first(intersect(neighbors(model, context[:x]), neighbors(model, context[:y])))
     metaobj = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (:x, :y)), (meta = SomeMeta(), other = 1))
     save_meta!(model, node, metaobj)
-    @test meta(model[node])[:meta] == SomeMeta()
-    @test meta(model[node])[:other] == 1
+    @test meta(model[node]) == SomeMeta()
+    @test options(model[node]).others[:other] == 1
 end
 
 @testitem "meta macro pipeline" begin
     using GraphPPL
-    import GraphPPL: apply!, meta
+    import GraphPPL: apply!, meta, options
     include("model_zoo.jl")
 
     # Test constraints macro with single variables and no nesting
@@ -238,7 +238,9 @@ end
     @test meta(model[ctx[NormalMeanVariance, 2]]) == SomeMeta()
 
     @test meta(model[ctx[:x]]) == SomeMeta()
-    @test meta(model[ctx[:y]]) == (meta = SomeMeta(), other = 1)
+    @test meta(model[ctx[:y]]) == SomeMeta()
+    @test options(model[ctx[:y]]).others[:other] == 1
+
 
     # Test meta macro with single variables and no nesting
     model = create_terminated_model(outer)
