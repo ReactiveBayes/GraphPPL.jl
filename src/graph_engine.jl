@@ -59,6 +59,7 @@ end
 
 Base.length(label::NodeLabel) = 1
 Base.getindex(label::NodeLabel, any) = label
+Base.:(<)(left::NodeLabel, right::NodeLabel) = left.global_counter < right.global_counter
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
