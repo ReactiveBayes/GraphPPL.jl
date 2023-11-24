@@ -105,10 +105,6 @@ end
             collection[i, j] = GraphPPL.NodeLabel(:x, i * j)
         end
     end
-
-    #@bvdmitri we should check if we should allow this at all (i.e. x[begin, begin]..x[end, end]), otherwise we can delete these broken tests and just disallow in general. I remember you saying this isn't possible, but I don't remember if it referenced this exact problem.
-
-    @test_broken __factorization_specification_resolve_index(index, collection) === SplittedRange([1, 1], [3, 5])
 end
 
 @testitem "factorization_split" begin
