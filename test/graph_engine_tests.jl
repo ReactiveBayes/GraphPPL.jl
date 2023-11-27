@@ -210,6 +210,18 @@ end
     end
 end
 
+@testitem "NodeLabel properties" begin
+    import GraphPPL: NodeLabel
+
+    x = NodeLabel(:x, 1)
+    @test x[1] == x
+    @test length(x) === 1
+    @test GraphPPL.to_symbol(x) === :x_1
+    
+    y = NodeLabel(:y, 2)
+    @test x < y
+end
+
 @testitem "getname(::NodeLabel)" begin
     import GraphPPL: ResizableArray, NodeLabel, getname
 
