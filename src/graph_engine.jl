@@ -125,7 +125,6 @@ mutable struct VariableNodeData
     index::Any
     link::Any
     context::Any
-    neighbors::NTuple{N, Tuple{NodeLabel, EdgeLabel}} where {N}
 end
 
 getname(node::VariableNodeData) = node.name
@@ -686,7 +685,7 @@ Returns:
 function add_variable_node!(model::Model, context::Context, variable_id::Symbol; index = nothing, link = nothing, __options__ = VariableNodeOptions())
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, link, context, ())
+    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, link, context)
     return variable_symbol
 end
 
