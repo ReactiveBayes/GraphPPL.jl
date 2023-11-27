@@ -333,6 +333,7 @@ end
     @test getname.(edges(model, a)) == (:edge, :edge)
     @test getname.(edges(model, b)) == (:edge,)
     @test getname.(edges(model, c)) == (:edge,)
+    @test getname.(edges(model, [a, b])) == (:edge, :edge, :edge)
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin

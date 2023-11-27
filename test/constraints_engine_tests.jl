@@ -605,31 +605,31 @@ end
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context(), ())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context, ())
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
     @test node_data ∈ variable
 end
 
@@ -776,7 +776,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This test should throw since we cannot resolve the constraint
-        @test_broken GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
+        @test_broken (try GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) catch e; e; end) isa Exception
     end
 end
 
