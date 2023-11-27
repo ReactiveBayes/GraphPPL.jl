@@ -503,7 +503,7 @@ end
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:μ, :σ, :out),)
+    @test get_constraint_names(factorization_constraint(model[node])) == ((:out, :μ, :σ),)
     materialize_constraints!(model, ctx[NormalMeanVariance, 1])
     @test get_constraint_names(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
 
@@ -513,7 +513,7 @@ end
     node = ctx[NormalMeanVariance, 2]
     GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:μ,), (:σ, :out))
+    @test get_constraint_names(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
 
     # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
@@ -605,31 +605,31 @@ end
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, [])
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context(), [])
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, [])
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, [])
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context, [])
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context, [])
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
+    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context, [])
     @test node_data ∈ variable
 end
 
@@ -653,7 +653,7 @@ end
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 2, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context),)))
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
+        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
     end
 
     let constraint = ResolvedFactorizationConstraint(
@@ -668,7 +668,7 @@ end
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, SplittedRange(2, 3), context),)),)
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
+        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
     end
 
     let constraint = ResolvedFactorizationConstraint(
@@ -690,9 +690,9 @@ end
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1], [2, 3], [2, 3]])
+        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2], [1, 3]])
         apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2], [1, 3]])
     end
 
     let constraint = ResolvedFactorizationConstraint(
@@ -703,7 +703,7 @@ end
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2], [1, 2], [3]])
+        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1], [2, 3], [2, 3]])
     end
 
     model = create_terminated_model(multidim_array)
@@ -841,7 +841,7 @@ end
         @test message_constraint(model[node]) === nothing
     end
     @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
-    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 2]])) == ((:μ, :out), (:σ,))
+    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 2]])) == ((:out, :μ), (:σ,))
 
     # Test constriants macro with nested model
     model = create_terminated_model(outer)
@@ -868,7 +868,7 @@ end
 
     @test fform_constraint(model[ctx[:y]]) == NormalMeanVariance()
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
-        @test getname(factorization_constraint(model[node])) == ((:μ, :σ), (:out,))
+        @test getname(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
     end
 
     # Test with specifying specific submodel
@@ -881,9 +881,9 @@ end
     end
 
     apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:μ, :out), (:σ,))
+    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
     for i in 2:99
-        @test getname(factorization_constraint(model[ctx[child_model, i][NormalMeanVariance, 1]])) == ((:μ, :out, :σ),)
+        @test getname(factorization_constraint(model[ctx[child_model, i][NormalMeanVariance, 1]])) == ((:out, :μ, :σ),)
     end
 
     # Test with specifying general submodel
@@ -896,9 +896,9 @@ end
     end
 
     apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:μ, :out), (:σ,))
+    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
-        @test getname(factorization_constraint(model[node])) == ((:μ, :out), (:σ,))
+        @test getname(factorization_constraint(model[node])) == ((:out, :μ), (:σ,))
     end
 
     # Test with ambiguous constraints

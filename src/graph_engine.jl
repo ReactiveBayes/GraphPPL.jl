@@ -111,6 +111,7 @@ struct VariableNodeData
     index::Any
     link::Any
     context::Any
+    neighbors::Any
 end
 
 getname(node::VariableNodeData) = node.name
@@ -167,6 +168,7 @@ mutable struct FactorNodeData
     context::Any
     factorization_constraint::Any
     options::FactorNodeOptions
+    neighbors::Any
 end
 
 fform(node::FactorNodeData) = node.fform
@@ -274,57 +276,9 @@ Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 MetaGraphsNext.label_for(model::Model, node_id::Int) = MetaGraphsNext.label_for(model.graph, node_id)
 
-function retrieve_interface_position(interfaces::StaticInterfaces{I}, x::EdgeLabel, max_length::Int) where {I}
-    index = x.index === nothing ? 0 : x.index
-    position = findfirst(isequal(x.name), I)
-    position = position === nothing ? begin
-        @warn(lazy"Interface $(x.name) not found in $I")
-        0
-    end : position
-    return max_length * findfirst(isequal(x.name), I) + index
-end
-
-function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
-    fform = model[node].fform
-    indices = [e.index for e in edges]
-    names = unique([e.name for e in edges])
-    interfaces = GraphPPL.interfaces(fform, static(length(names)))
-    max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices .!= nothing]) : 1
-    perm = sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
-    return perm
-end
-
-__get_neighbors(model::Model, node::NodeLabel) = Iterators.map(neighbor -> label_for(model, neighbor), MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node)))
-
-__neighbors(model::Model, node::NodeLabel; sorted = false) = __neighbors(model, node, model[node]; sorted = sorted)
-__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) = __get_neighbors(model, node)
-__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) = __neighbors(model, node, static(sorted))
-
-__neighbors(model::Model, node::NodeLabel, ::False) = __get_neighbors(model, node)
-function __neighbors(model::Model, node::NodeLabel, ::True)
-    neighbors = collect(__get_neighbors(model, node))
-    edges = __get_edges(model, node, neighbors)
-    perm = __sortperm(model, node, edges)
-    return neighbors[perm]
-end
-
-Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) = __neighbors(model, node; sorted = sorted)
-Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) = reduce(union, Graphs.neighbors.(Ref(model), nodes; sorted = sorted))
-
-Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
-MetaGraphsNext.labels(model::Model) = MetaGraphsNext.labels(model.graph)
-
-__get_edges(model::Model, node::NodeLabel, neighbors) = getindex.(Ref(model), Ref(node), neighbors)
-__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) = __get_edges(model, node, __get_neighbors(model, node))
-__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) = __edges(model, node, static(sorted))
-__edges(model::Model, node::NodeLabel, ::False) = __get_edges(model, node, __get_neighbors(model, node))
-function __edges(model::Model, node::NodeLabel, ::True)
-    neighbors = __get_neighbors(model, node)
-    edges = __get_edges(model, node, neighbors)
-    perm = __sortperm(model, node, edges)
-    return edges[perm]
-end
-Graphs.edges(model::Model, node::NodeLabel; sorted = false) = __edges(model, node, model[node]; sorted = sorted)
+Graphs.neighbors(model::Model, node::NodeLabel) = map(neighbor -> neighbor[1], model[node].neighbors)
+Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
+Graphs.edges(model::Model, node::NodeLabel) = map(edge -> edge[2], model[node].neighbors)
 
 abstract type AbstractModelFilterPredicate end
 
@@ -724,7 +678,7 @@ Returns:
 function add_variable_node!(model::Model, context::Context, variable_id::Symbol; index = nothing, link = nothing, __options__ = VariableNodeOptions())
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
-    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, link, context)
+    model[variable_symbol] = VariableNodeData(variable_id, __options__, index, link, context, [])
     return variable_symbol
 end
 
@@ -777,7 +731,7 @@ Returns:
 function add_atomic_factor_node!(model::Model, context::Context, fform; __options__ = FactorNodeOptions())
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__)
+    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__, [])
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end
@@ -811,7 +765,10 @@ end
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol; index = nothing)
-    model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index)
+    label = EdgeLabel(interface_name, index)
+    model.graph[unroll(variable_node_id), factor_node_id] = label
+    push!(model[factor_node_id].neighbors, (unroll(variable_node_id), label))
+    push!(model[unroll(variable_node_id)].neighbors, (factor_node_id, label))
 end
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol; index = 1)
