@@ -230,16 +230,16 @@ end
     import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext, VariableNodeOptions, FactorNodeOptions
 
     model = create_model()
-    model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing, ())
     @test nv(model) == 1 && ne(model) == 0
 
     @test_throws MethodError model[0] = 1
 
-    @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, [])
-    model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, [])
+    @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, ())
+    model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, ())
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions(), [])
+    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions(), ())
     @test nv(model) == 3 && ne(model) == 0
 end
 
@@ -250,8 +250,8 @@ end
     model = create_model()
     μ = NodeLabel(:μ, 1)
     x = NodeLabel(:x, 2)
-    model[μ] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing, [])
-    model[x] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[μ] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing, ())
+    model[x] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, ())
     model[μ, x] = EdgeLabel(:interface, 1)
     @test ne(model) == 1
 
@@ -278,7 +278,7 @@ end
 
     model = create_model()
     label = NodeLabel(:x, 1)
-    model[label] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[label] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing, ())
     @test isa(model[label], VariableNodeData)
     @test_throws KeyError model[NodeLabel(:x, 10)]
     @test_throws MethodError model[0]
@@ -302,8 +302,8 @@ end
     @test nv(model) == 0
     @test ne(model) == 0
 
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing, [])
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing, ())
+    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, ())
     @test nv(model) == 2
     @test ne(model) == 0
 
@@ -319,20 +319,20 @@ end
     model = create_model()
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
-    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing, [])
-    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing, ())
+    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, ())
     add_edge!(model, a, b, :edge; index=1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
-    model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, [])
+    model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, ())
     add_edge!(model, a, c, :edge; index=2)
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
-    @test getname.(edges(model, a)) == [:edge, :edge]
-    @test getname.(edges(model, b)) == [:edge]
-    @test getname.(edges(model, c)) == [:edge]
+    @test getname.(edges(model, a)) == (:edge, :edge)
+    @test getname.(edges(model, b)) == (:edge,)
+    @test getname.(edges(model, c)) == (:edge,)
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
@@ -343,8 +343,8 @@ end
 
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
-    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, __context__, [])
-    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__, [])
+    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, __context__, ())
+    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__, ())
     add_edge!(model, a, b, :edge; index=1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
@@ -354,9 +354,9 @@ end
     b = ResizableArray(NodeLabel, Val(1))
     for i in 1:3
         a[i] = NodeLabel(:a, i)
-        model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, nothing, __context__, [])
+        model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, nothing, __context__, ())
         b[i] = NodeLabel(:b, i)
-        model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__, [])
+        model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__, ())
         add_edge!(model, a[i], b[i], :edge; index=i)
     end
     for n in b
@@ -366,7 +366,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
-    @test getname.(neighbors(model, node)) == [:z, :x, :y]
+    @test getname.(neighbors(model, node)) == (:z, :x, :y)
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
     model = create_terminated_model(vector_model)
@@ -1007,8 +1007,8 @@ end
     # Test 2: Stochastic atomic call returns a new node
     node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
@@ -1041,8 +1041,8 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, Normal, x, [0, 1])
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(3)
 
     # Test 7: Stochastic node with instantiated object
@@ -1075,8 +1075,8 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
 
     #Test 10: Deterministic node with keyword arguments
     function abc(; a = 1, b = 2)
@@ -1153,8 +1153,8 @@ end
     # Test 1: Stochastic atomic call returns a new node
     node_id = materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
