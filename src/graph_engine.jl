@@ -70,7 +70,6 @@ to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.glo
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
-
 struct EdgeLabel
     name::Symbol
     index::Union{Int, Nothing}
@@ -278,9 +277,17 @@ Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 MetaGraphsNext.label_for(model::Model, node_id::Int) = MetaGraphsNext.label_for(model.graph, node_id)
 
-Graphs.neighbors(model::Model, node::NodeLabel) = map(neighbor -> neighbor[1], model[node].neighbors)
+Graphs.neighbors(model::Model, node::NodeLabel) = Graphs.neighbors(model, node, model[node])
+Graphs.neighbors(model::Model, node::NodeLabel, nodedata::FactorNodeData) = map(neighbor -> neighbor[1], nodedata.neighbors)
+Graphs.neighbors(model::Model, node::NodeLabel, nodedata::VariableNodeData) = MetaGraphsNext.neighbor_labels(model.graph, node)
 Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
-Graphs.edges(model::Model, node::NodeLabel) = map(edge -> edge[2], model[node].neighbors)
+
+Graphs.edges(model::Model, node::NodeLabel) = Graphs.edges(model, node, model[node])
+Graphs.edges(model::Model, node::NodeLabel, nodedata::FactorNodeData) = map(neighbor -> neighbor[2], nodedata.neighbors)
+function Graphs.edges(model::Model, node::NodeLabel, nodedata::VariableNodeData)
+    return Tuple(model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
+end
+Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.edges(model, node), nodes))
 
 abstract type AbstractModelFilterPredicate end
 
@@ -768,9 +775,8 @@ iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol; index = nothing)
     label = EdgeLabel(interface_name, index)
-    # model.graph[unroll(variable_node_id), factor_node_id] = label
     model[factor_node_id].neighbors = (model[factor_node_id].neighbors..., (unroll(variable_node_id), label))
-    # model[unroll(variable_node_id)].neighbors = (model[unroll(variable_node_id)].neighbors..., (factor_node_id, label))
+    model.graph[unroll(variable_node_id), factor_node_id] = label
 end
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol; index = 1)
@@ -783,7 +789,7 @@ increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
-    out_degree = length(model[factor_node_id].neighbors) 
+    out_degree = length(model[factor_node_id].neighbors)
     constraint = BitSetTuple(out_degree)
     set_factorization_constraint!(model[factor_node_id], constraint)
 end

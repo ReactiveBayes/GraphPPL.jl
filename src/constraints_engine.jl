@@ -568,7 +568,6 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     edges = GraphPPL.edges(model, node_label)
     constraint = Tuple(sort!(collect(constraint_set), by = first))
     constraint = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), constraint)
-    
 
     node_data.factorization_constraint = constraint
 end

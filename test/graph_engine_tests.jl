@@ -321,12 +321,12 @@ end
     b = NodeLabel(:b, 2)
     model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing, ())
     model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, ())
-    add_edge!(model, a, b, :edge; index=1)
+    add_edge!(model, a, b, :edge; index = 1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
     model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing, ())
-    add_edge!(model, a, c, :edge; index=2)
+    add_edge!(model, a, c, :edge; index = 2)
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
@@ -345,7 +345,7 @@ end
     b = NodeLabel(:b, 2)
     model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, __context__, ())
     model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__, ())
-    add_edge!(model, a, b, :edge; index=1)
+    add_edge!(model, a, b, :edge; index = 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
@@ -357,7 +357,7 @@ end
         model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, nothing, __context__, ())
         b[i] = NodeLabel(:b, i)
         model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__, ())
-        add_edge!(model, a[i], b[i], :edge; index=i)
+        add_edge!(model, a[i], b[i], :edge; index = i)
     end
     for n in b
         @test n ∈ neighbors(model, a)
@@ -1294,8 +1294,8 @@ end
 end
 
 @testitem "sort_interfaces" begin
-   import GraphPPL: sort_interfaces
-   include("model_zoo.jl")
+    import GraphPPL: sort_interfaces
+    include("model_zoo.jl")
 
     # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
     @test sort_interfaces(NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
@@ -1308,5 +1308,4 @@ end
     @test sort_interfaces(NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
 
     @test_throws ErrorException sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
-
 end
