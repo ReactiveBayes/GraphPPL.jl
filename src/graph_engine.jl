@@ -768,9 +768,9 @@ iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol; index = nothing)
     label = EdgeLabel(interface_name, index)
-    model.graph[unroll(variable_node_id), factor_node_id] = label
+    # model.graph[unroll(variable_node_id), factor_node_id] = label
     model[factor_node_id].neighbors = (model[factor_node_id].neighbors..., (unroll(variable_node_id), label))
-    model[unroll(variable_node_id)].neighbors = (model[unroll(variable_node_id)].neighbors..., (factor_node_id, label))
+    # model[unroll(variable_node_id)].neighbors = (model[unroll(variable_node_id)].neighbors..., (factor_node_id, label))
 end
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol; index = 1)
@@ -783,7 +783,7 @@ increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
-    out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
+    out_degree = length(model[factor_node_id].neighbors) 
     constraint = BitSetTuple(out_degree)
     set_factorization_constraint!(model[factor_node_id], constraint)
 end
