@@ -241,7 +241,6 @@ end
     @test meta(model[ctx[:y]]) == SomeMeta()
     @test options(model[ctx[:y]]).others[:other] == 1
 
-
     # Test meta macro with single variables and no nesting
     model = create_terminated_model(outer)
     ctx = GraphPPL.getcontext(model)

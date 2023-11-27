@@ -667,16 +667,12 @@ function apply!(model::Model, context::Context, constraint_set::Constraints, res
     end
 end
 
-function is_applicable(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    return is_applicable_neighbors(model[GraphPPL.neighbors(model, node)], constraint)
-end
-
-function is_applicable_neighbors(neighbors, constraint::ResolvedFactorizationConstraint)
+function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
     lhsc = lhs(constraint)
     return any(neighbors) do neighbor
         # The constraint is potentially applicable if any of the neighbor is directly listed in the LHS of the constraint
         # OR if any of its links 
-        return neighbor ∈ lhsc || (!isnothing(getlink(neighbor)) && any(link -> is_applicable(model, link, constraint), getlink(neighbor)))
+        return neighbor ∈ lhsc || (!isnothing(getlink(neighbor)) && any(link -> link ∈ lhsc, getlink(neighbor)))
     end
 end
 
@@ -690,7 +686,7 @@ function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constrai
     if !isnothing(linkvar_1) && !isnothing(linkvar_2)
         error(
             """
-          Cannot resolve the factorization constraint $(constaint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
+          Cannot resolve the factorization constraint $(constraint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
           As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
       """
         )
@@ -787,7 +783,7 @@ end
 function apply!(::Stochastic, model::Model, node::NodeLabel, node_data::FactorNodeData, constraint::ResolvedFactorizationConstraint)
     # Get data for the neighbors of the node and check if the constraint is applicable
     neighbors = model[GraphPPL.neighbors(model, node)]
-    if is_applicable_neighbors(neighbors, constraint)
+    if is_applicable(neighbors, constraint)
         constraint = convert_to_bitsets(model, node, neighbors, constraint)
         save_constraint!(node_data, constraint)
     end

@@ -1157,7 +1157,7 @@ end
     model = create_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, :x, nothing)
-    materialize_factor_node!(model, ctx, Normal, (out = x, in = (0, 1)))
+    materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node

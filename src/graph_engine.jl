@@ -81,8 +81,9 @@ mutable struct VariableNodeOptions
     others::Any
 end
 
-VariableNodeOptions(; value = nothing, functional_form = nothing, message_constraint = nothing, constant = false, datavar = false, factorized = false, meta = nothing, others=nothing) =
-    VariableNodeOptions(value, functional_form, message_constraint, constant, datavar, factorized, meta, others)
+VariableNodeOptions(;
+    value = nothing, functional_form = nothing, message_constraint = nothing, constant = false, datavar = false, factorized = false, meta = nothing, others = nothing
+) = VariableNodeOptions(value, functional_form, message_constraint, constant, datavar, factorized, meta, others)
 
 Base.:(==)(left::VariableNodeOptions, right::VariableNodeOptions) =
     left.value == right.value &&
@@ -1070,9 +1071,15 @@ function make_node!(
     return unroll(lhs_interface)
 end
 
-function materialize_factor_node!(model::Model, context::Context, fform, interfaces::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false)
-    factor_node_id = add_atomic_factor_node!(model, context, fform; __options__ = __parent_options__)
+sort_interfaces(fform, defined_interfaces::NamedTuple) = sort_interfaces(interfaces(fform, static(length(defined_interfaces))), defined_interfaces)
 
+function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) where {I}
+    return defined_interfaces[I]
+end
+
+function materialize_factor_node!(model::Model, context::Context, fform, interfaces::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false)
+    interfaces = sort_interfaces(fform, interfaces)
+    factor_node_id = add_atomic_factor_node!(model, context, fform; __options__ = __parent_options__)
     for (interface_name, neighbor_nodelabel) in iterator(interfaces)
         add_edge!(model, factor_node_id, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
     end
