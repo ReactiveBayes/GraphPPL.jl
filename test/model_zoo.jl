@@ -87,6 +87,33 @@ end
     y ~ Normal(μ = x[end], σ = 1.0)
 end
 
+@model function node_with_only_anonymous()
+    x[1] ~ Normal(0, 1)
+    y[1] ~ Normal(0, 1)
+    for i in 2:10
+        y[i] ~ Normal(0, 1)
+        x[i] ~ Normal(y[i - 1] + 1, 1)
+    end
+end
+
+@model function node_with_two_anonymous()
+    x[1] ~ Normal(0, 1)
+    y[1] ~ Normal(0, 1)
+    for i in 2:10
+        y[i] ~ Normal(0, 1)
+        x[i] ~ Normal(y[i - 1] + 1, y[i] + 1)
+    end
+end
+
+@model function node_with_ambiguous_anonymous()
+    x[1] ~ Normal(0, 1)
+    y[1] ~ Normal(0, 1)
+    for i in 2:10
+        y[i] ~ Normal(0, 1)
+        x[i] ~ Normal(y[i - 1] + y[i], 1)
+    end
+end
+
 @model function gcv(κ, ω, z, x, y)
     log_σ := κ * z + ω
     y ~ Normal(x, exp(log_σ))

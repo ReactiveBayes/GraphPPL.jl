@@ -652,7 +652,7 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 2:3, context),)),
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 2, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context),)))
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
     end
 
@@ -660,14 +660,14 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 4:5, context),)),
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 4, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 5, context),)))
         )
-        @test !GraphPPL.is_applicable(model, normal_node, constraint)
+        @test !GraphPPL.is_applicable(neighbors, constraint)
     end
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 2:3, context),)),
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, SplittedRange(2, 3), context),)),)
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
     end
 
@@ -678,7 +678,7 @@ end
                 ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, nothing, context),))
             )
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1], [2], [3]])
     end
 
@@ -689,7 +689,7 @@ end
                 ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context), ResolvedIndexedVariable(:y, nothing, context)))
             )
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1], [2, 3], [2, 3]])
         apply!(model, normal_node, constraint)
         @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1], [2, 3], [2, 3]])
@@ -702,7 +702,7 @@ end
                 ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, nothing, context),))
             )
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2], [1, 2], [3]])
     end
 
@@ -715,7 +715,7 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, SplittedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),)),)
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
         apply!(model, normal_node, constraint)
         @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
@@ -730,10 +730,53 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
             (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),)),)
         )
-        @test GraphPPL.is_applicable(model, normal_node, constraint)
+        @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
         apply!(model, normal_node, constraint)
         @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
+    end
+
+    # Test ResolvedFactorizationConstraints over anonymous variables
+
+    model = create_terminated_model(node_with_only_anonymous)
+    context = GraphPPL.getcontext(model)
+    normal_node = context[NormalMeanVariance, 6]
+    neighbors = model[GraphPPL.neighbors(model, normal_node)]
+    let constraint = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((ResolvedIndexedVariable(:y, nothing, context),),),
+            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, SplittedRange(1, 10), context),)),)
+        )
+        @test GraphPPL.is_applicable(neighbors, constraint)
+    end
+
+    # Test ResolvedFactorizationConstraints over multiple anonymous variables
+    model = create_terminated_model(node_with_two_anonymous)
+    context = GraphPPL.getcontext(model)
+    normal_node = context[NormalMeanVariance, 6]
+    neighbors = model[GraphPPL.neighbors(model, normal_node)]
+    let constraint = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((ResolvedIndexedVariable(:y, nothing, context),),),
+            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, SplittedRange(1, 10), context),)),)
+        )
+        @test GraphPPL.is_applicable(neighbors, constraint)
+
+        # This shouldn't throw and resolve because both anonymous variables are 1-to-1 and referenced by constraint.
+        @test_broken GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
+    end
+
+    # Test ResolvedFactorizationConstraints over ambiguous anonymouys variables
+    model = create_terminated_model(node_with_ambiguous_anonymous)
+    context = GraphPPL.getcontext(model)
+    normal_node = context[NormalMeanVariance, 6]
+    neighbors = model[GraphPPL.neighbors(model, normal_node)]
+    let constraint = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((ResolvedIndexedVariable(:y, nothing, context),),),
+            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, SplittedRange(1, 10), context),)),)
+        )
+        @test GraphPPL.is_applicable(neighbors, constraint)
+
+        # This test should throw since we cannot resolve the constraint
+        @test_broken GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
     end
 end
 

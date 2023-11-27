@@ -131,7 +131,7 @@ function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S 
     end
 end
 
-function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T<:NamedTuple})
+function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T <: NamedTuple})
     data = getmetainfo(meta)
     if !haskey(data, :meta)
         @warn "Meta object $(meta) does not have a meta field"
