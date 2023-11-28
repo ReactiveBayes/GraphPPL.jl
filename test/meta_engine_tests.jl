@@ -144,6 +144,7 @@ end
     context = GraphPPL.getcontext(model)
     metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, 1), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
     apply!(model, context, metadata)
+    @show GraphPPL.neighbors(model, context[:x][1]), GraphPPL.neighbors(model, context[:y])
     node = first(intersect(GraphPPL.neighbors(model, context[:x][1]), GraphPPL.neighbors(model, context[:y])))
     @test meta(model[node]) == SomeMeta()
     @test options(model[node]).others[:other] == 1

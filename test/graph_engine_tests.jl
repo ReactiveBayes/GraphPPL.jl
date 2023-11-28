@@ -210,6 +210,18 @@ end
     end
 end
 
+@testitem "NodeLabel properties" begin
+    import GraphPPL: NodeLabel
+
+    x = NodeLabel(:x, 1)
+    @test x[1] == x
+    @test length(x) === 1
+    @test GraphPPL.to_symbol(x) === :x_1
+    
+    y = NodeLabel(:y, 2)
+    @test x < y
+end
+
 @testitem "getname(::NodeLabel)" begin
     import GraphPPL: ResizableArray, NodeLabel, getname
 
@@ -235,11 +247,11 @@ end
 
     @test_throws MethodError model[0] = 1
 
-    @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions())
+    @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions())
+    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions(), ())
     @test nv(model) == 3 && ne(model) == 0
 end
 
@@ -313,34 +325,40 @@ end
 end
 
 @testitem "edges" begin
-    import GraphPPL: edges, create_model, VariableNodeData, NodeLabel, EdgeLabel, getname, VariableNodeOptions
+    import GraphPPL: edges, create_model, VariableNodeData, NodeLabel, EdgeLabel, getname, VariableNodeOptions, add_edge!, FactorNodeOptions, FactorNodeData
 
     # Test 1: Test getting all edges from a model
     model = create_model()
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
-    model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+    a = NodeLabel(:a, 1)
+    b = NodeLabel(:b, 2)
+    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
+    model[b] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    add_edge!(model, b, a, :edge; index = 1)
     @test length(edges(model)) == 1
 
-    model[NodeLabel(:c, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
-    model[NodeLabel(:a, 1), NodeLabel(:c, 2)] = EdgeLabel(:edge, 2)
+    c = NodeLabel(:c, 2)
+    model[NodeLabel(:c, 2)] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    add_edge!(model, c, a, :edge; index = 2)
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
-    @test getname.(edges(model, NodeLabel(:a, 1))) == [:edge, :edge]
-    @test getname.(edges(model, NodeLabel(:b, 2))) == [:edge]
-    @test getname.(edges(model, NodeLabel(:c, 2))) == [:edge]
+    @test getname.(edges(model, a)) == (:edge, :edge)
+    @test getname.(edges(model, b)) == (:edge,)
+    @test getname.(edges(model, c)) == (:edge,)
+    @test getname.(edges(model, [a, b])) == (:edge, :edge, :edge)
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
     include("model_zoo.jl")
-    import GraphPPL: create_model, getcontext, neighbors, VariableNodeData, NodeLabel, EdgeLabel, getname, ResizableArray, VariableNodeOptions
+    import GraphPPL: create_model, getcontext, neighbors, VariableNodeData, NodeLabel, EdgeLabel, getname, ResizableArray, VariableNodeOptions, add_edge!, FactorNodeData, FactorNodeOptions
     model = create_model()
     __context__ = getcontext(model)
 
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, __context__)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
-    model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+    a = NodeLabel(:a, 1)
+    b = NodeLabel(:b, 2)
+    model[a] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
+    add_edge!(model, a, b, :edge; index = 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
@@ -349,24 +367,25 @@ end
     b = ResizableArray(NodeLabel, Val(1))
     for i in 1:3
         a[i] = NodeLabel(:a, i)
-        model[a[i]] = VariableNodeData(:a, VariableNodeOptions(), i, nothing, __context__)
+        model[a[i]] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
         b[i] = NodeLabel(:b, i)
         model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__)
-        model[a[i], b[i]] = EdgeLabel(:edge, i)
+        add_edge!(model, a[i], b[i], :edge; index = i)
     end
-    @test neighbors(model, a; sorted = true) == [b[1], b[2], b[3]]
-
+    for n in b
+        @test n ∈ neighbors(model, a)
+    end
     # Test 2: Test getting sorted neighbors
     model = create_terminated_model(simple_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
-    @test getname.(neighbors(model, node; sorted = true)) == [:z, :x, :y]
+    @test getname.(neighbors(model, node)) == (:z, :x, :y)
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
     model = create_terminated_model(vector_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
-    @test getname.(collect(neighbors(model, node; sorted = true))) == [:z, :x, :y]
+    @test getname.(collect(neighbors(model, node))) == [:z, :x, :y]
 end
 
 @testitem "filter(::Predicate, ::Model)" begin
@@ -930,29 +949,27 @@ end
 
     model = create_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, :x, nothing)
+    x = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
     y = getorcreate!(model, ctx, :y, nothing)
+    
     add_edge!(model, x, y, :interface)
 
     @test ne(model) == 1
 
     @test_throws MethodError add_edge!(model, x, y, 123)
-
-    add_edge!(model, generate_nodelabel(model, :factor_node), generate_nodelabel(model, :factor_node2), :interface)
-    @test ne(model) == 1
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
     import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!
     model = create_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, :x, nothing)
+    x = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
     variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
-    add_edge!(model, y, variable_nodes, :interface)
+    add_edge!(model, x, variable_nodes, :interface)
 
-    @test ne(model) == 3 && model[y, variable_nodes[1]] == EdgeLabel(:interface, 1)
+    @test ne(model) == 3 && model[x, variable_nodes[1]] == EdgeLabel(:interface, 1)
 end
 
 @testitem "default_parametrization" begin
@@ -1004,8 +1021,8 @@ end
     # Test 2: Stochastic atomic call returns a new node
     node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
@@ -1038,8 +1055,8 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, Normal, x, [0, 1])
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(3)
 
     # Test 7: Stochastic node with instantiated object
@@ -1072,8 +1089,8 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
 
     #Test 10: Deterministic node with keyword arguments
     function abc(; a = 1, b = 2)
@@ -1150,8 +1167,8 @@ end
     # Test 1: Stochastic atomic call returns a new node
     node_id = materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
-    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
@@ -1223,7 +1240,7 @@ end
     model = create_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, :x, nothing)
-    y = getorcreate!(model, ctx, :y, nothing)
+    y = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
     z = getorcreate!(model, ctx, :z, nothing)
     w = getorcreate!(model, ctx, :w, nothing)
 
@@ -1288,4 +1305,21 @@ end
     for (i, interface) in enumerate(interfaces)
         @test sinterfaces[i] === interface
     end
+end
+
+@testitem "sort_interfaces" begin
+    import GraphPPL: sort_interfaces
+    include("model_zoo.jl")
+
+    # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
+    @test sort_interfaces(NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+
+    @test_throws ErrorException sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
 end

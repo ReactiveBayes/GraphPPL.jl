@@ -70,6 +70,20 @@ to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.glo
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
+struct EdgeLabel
+    name::Symbol
+    index::Union{Int, Nothing}
+end
+
+getname(label::EdgeLabel) = label.name
+getname(labels::Tuple) = map(group -> getname(group), labels)
+
+to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
+to_symbol(label::EdgeLabel, ::Nothing) = label.name
+to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(label.index) * "]")
+
+Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
+
 mutable struct VariableNodeOptions
     value::Any
     functional_form::Any
@@ -105,7 +119,7 @@ meta(options::VariableNodeOptions) = options.meta
 
 Data associated with a variable node in a probabilistic graphical model.
 """
-struct VariableNodeData
+mutable struct VariableNodeData
     name::Symbol
     options::VariableNodeOptions
     index::Any
@@ -167,6 +181,7 @@ mutable struct FactorNodeData
     context::Any
     factorization_constraint::Any
     options::FactorNodeOptions
+    neighbors::NTuple{N, Tuple{NodeLabel, EdgeLabel}} where {N}
 end
 
 fform(node::FactorNodeData) = node.fform
@@ -226,20 +241,6 @@ Base.last(label::ProxyLabel) = last(label.proxied, label)
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
-struct EdgeLabel
-    name::Symbol
-    index::Union{Int, Nothing}
-end
-
-getname(label::EdgeLabel) = label.name
-getname(labels::Tuple) = map(group -> getname(group), labels)
-
-to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
-to_symbol(label::EdgeLabel, ::Nothing) = label.name
-to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(label.index) * "]")
-
-Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
-
 Model(graph::MetaGraph) = Model(graph, Base.RefValue(0))
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
@@ -247,7 +248,8 @@ Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = B
 Base.getindex(model::Model) = Base.getindex(model.graph)
 Base.getindex(model::Model, key::NodeLabel) = Base.getindex(model.graph, key)
 Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) = Base.getindex(model.graph, src, dst)
-Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = [model[key] for key in keys]
+Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = map(key -> model[key], keys)
+Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(key -> model[key], keys))
 
 Base.getindex(model::Model, keys::Base.Generator) = [model[key] for key in keys]
 
@@ -272,59 +274,18 @@ increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter 
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
-MetaGraphsNext.label_for(model::Model, node_id::Int) = MetaGraphsNext.label_for(model.graph, node_id)
 
-function retrieve_interface_position(interfaces::StaticInterfaces{I}, x::EdgeLabel, max_length::Int) where {I}
-    index = x.index === nothing ? 0 : x.index
-    position = findfirst(isequal(x.name), I)
-    position = position === nothing ? begin
-        @warn(lazy"Interface $(x.name) not found in $I")
-        0
-    end : position
-    return max_length * findfirst(isequal(x.name), I) + index
+Graphs.neighbors(model::Model, node::NodeLabel) = Graphs.neighbors(model, node, model[node])
+Graphs.neighbors(model::Model, node::NodeLabel, nodedata::FactorNodeData) = map(neighbor -> neighbor[1], nodedata.neighbors)
+Graphs.neighbors(model::Model, node::NodeLabel, nodedata::VariableNodeData) = MetaGraphsNext.neighbor_labels(model.graph, node)
+Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
+
+Graphs.edges(model::Model, node::NodeLabel) = Graphs.edges(model, node, model[node])
+Graphs.edges(model::Model, node::NodeLabel, nodedata::FactorNodeData) = map(neighbor -> neighbor[2], nodedata.neighbors)
+function Graphs.edges(model::Model, node::NodeLabel, nodedata::VariableNodeData)
+    return Tuple(model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
 end
-
-function __sortperm(model::Model, node::NodeLabel, edges::AbstractArray)
-    fform = model[node].fform
-    indices = [e.index for e in edges]
-    names = unique([e.name for e in edges])
-    interfaces = GraphPPL.interfaces(fform, static(length(names)))
-    max_length = any(x -> x !== nothing, indices) ? maximum(indices[indices .!= nothing]) : 1
-    perm = sortperm(edges, by = (x -> retrieve_interface_position(interfaces, x, max_length)))
-    return perm
-end
-
-__get_neighbors(model::Model, node::NodeLabel) = Iterators.map(neighbor -> label_for(model, neighbor), MetaGraphsNext.neighbors(model.graph, code_for(model.graph, node)))
-
-__neighbors(model::Model, node::NodeLabel; sorted = false) = __neighbors(model, node, model[node]; sorted = sorted)
-__neighbors(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) = __get_neighbors(model, node)
-__neighbors(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) = __neighbors(model, node, static(sorted))
-
-__neighbors(model::Model, node::NodeLabel, ::False) = __get_neighbors(model, node)
-function __neighbors(model::Model, node::NodeLabel, ::True)
-    neighbors = collect(__get_neighbors(model, node))
-    edges = __get_edges(model, node, neighbors)
-    perm = __sortperm(model, node, edges)
-    return neighbors[perm]
-end
-
-Graphs.neighbors(model::Model, node::NodeLabel; sorted = false) = __neighbors(model, node; sorted = sorted)
-Graphs.neighbors(model::Model, nodes::AbstractArray; sorted = false) = reduce(union, Graphs.neighbors.(Ref(model), nodes; sorted = sorted))
-
-Graphs.vertices(model::Model) = MetaGraphsNext.vertices(model.graph)
-MetaGraphsNext.labels(model::Model) = MetaGraphsNext.labels(model.graph)
-
-__get_edges(model::Model, node::NodeLabel, neighbors) = getindex.(Ref(model), Ref(node), neighbors)
-__edges(model::Model, node::NodeLabel, node_data::VariableNodeData; sorted = false) = __get_edges(model, node, __get_neighbors(model, node))
-__edges(model::Model, node::NodeLabel, node_data::FactorNodeData; sorted = false) = __edges(model, node, static(sorted))
-__edges(model::Model, node::NodeLabel, ::False) = __get_edges(model, node, __get_neighbors(model, node))
-function __edges(model::Model, node::NodeLabel, ::True)
-    neighbors = __get_neighbors(model, node)
-    edges = __get_edges(model, node, neighbors)
-    perm = __sortperm(model, node, edges)
-    return edges[perm]
-end
-Graphs.edges(model::Model, node::NodeLabel; sorted = false) = __edges(model, node, model[node]; sorted = sorted)
+Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Tuple(Iterators.flatten(map(node -> Graphs.edges(model, node), nodes)))
 
 abstract type AbstractModelFilterPredicate end
 
@@ -777,7 +738,7 @@ Returns:
 function add_atomic_factor_node!(model::Model, context::Context, fform; __options__ = FactorNodeOptions())
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__)
+    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__, ())
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end
@@ -811,7 +772,9 @@ end
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol; index = nothing)
-    model.graph[unroll(variable_node_id), factor_node_id] = EdgeLabel(interface_name, index)
+    label = EdgeLabel(interface_name, index)
+    model[factor_node_id].neighbors = (model[factor_node_id].neighbors..., (unroll(variable_node_id), label))
+    model.graph[unroll(variable_node_id), factor_node_id] = label
 end
 
 function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol; index = 1)
@@ -824,7 +787,7 @@ increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
 function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel)
-    out_degree = outdegree(model.graph, code_for(model.graph, factor_node_id))
+    out_degree = length(model[factor_node_id].neighbors)
     constraint = BitSetTuple(out_degree)
     set_factorization_constraint!(model[factor_node_id], constraint)
 end
