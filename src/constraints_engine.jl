@@ -361,6 +361,8 @@ getconstraints(c::Constraints) = vcat(
 Base.push!(c_set::GeneralSubModelConstraints, c) = push!(getconstraint(c_set), c)
 Base.push!(c_set::SpecificSubModelConstraints, c) = push!(getconstraint(c_set), c)
 
+default_constraints(any) = Constraints()
+
 struct ResolvedIndexedVariable{T}
     variable::IndexedVariable{T}
     context::Context
@@ -659,7 +661,7 @@ function apply!(model::Model, context::Context, constraint_set::Constraints, res
         elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
             apply!(model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), resolved_factorization_constraints)
         else
-            apply!(model, child, Constraints(), resolved_factorization_constraints)
+            apply!(model, child, default_constraints(fform(factor_id)), resolved_factorization_constraints)
         end
     end
     while pop!(resolved_factorization_constraints, context)
