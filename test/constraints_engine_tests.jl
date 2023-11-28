@@ -909,3 +909,51 @@ end
     end
     @test_throws ErrorException apply!(model, constraints)
 end
+
+@testitem "default_constraints" begin
+    import GraphPPL: default_constraints, factorization_constraint
+    include("model_zoo.jl")
+
+    @test default_constraints(simple_model) == GraphPPL.Constraints()
+    @test default_constraints(model_with_default_constraints) == @constraints(begin
+    q(a, d) = q(a)q(d)
+end)
+
+    model = create_terminated_model(contains_default_constraints)
+    ctx = GraphPPL.getcontext(model)
+    # Test that default constraints are applied
+    GraphPPL.apply!(model, GraphPPL.Constraints())
+    for i in 1:10
+        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+    end
+
+    # Test that default constraints are not applied if we specify constraints in the context
+    model = create_terminated_model(contains_default_constraints)
+    ctx = GraphPPL.getcontext(model)
+    c = @constraints begin
+        for q in model_with_default_constraints
+            q(a, d) = q(a, d)
+        end
+    end
+    GraphPPL.apply!(model, c)
+    for i in 1:10
+        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ,), (:σ,))
+    end
+
+    # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel
+    model = create_terminated_model(contains_default_constraints)
+    ctx = GraphPPL.getcontext(model)
+    c = @constraints begin
+        for q in (model_with_default_constraints, 1)
+            q(a, d) = q(a, d)
+        end
+    end
+    GraphPPL.apply!(model, c)
+    for i in 1:10
+        if i == 1
+            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ,), (:σ,))
+        else
+            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+        end
+    end
+end

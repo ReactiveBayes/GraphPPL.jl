@@ -202,3 +202,21 @@ end
         x[i] ~ child_model(in = x[i - 1])
     end
 end
+
+@model function model_with_default_constraints(a, b, c, d)
+    a := b + c
+    d ~ Normal(a, 1)
+end
+
+@model function contains_default_constraints()
+    a ~ Normal(0, 1)
+    b ~ Normal(0, 1)
+    c ~ Normal(0, 1)
+    for i in 1:10
+        d[i] ~ model_with_default_constraints(a = a, b = b, c = c)
+    end
+end
+
+GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(begin
+    q(a, d) = q(a)q(d)
+end)
