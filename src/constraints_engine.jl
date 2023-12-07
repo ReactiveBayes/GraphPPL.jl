@@ -637,6 +637,11 @@ function apply!(model::Model, context::Context, fform_constraint::MessageConstra
     end
 end
 
+"""
+    apply!(model::Model, constraints::Constraints)
+
+Applies the constraints in `constraints` to `model`. This function materializes the constraints in `constraints` and applies them to `model`.
+"""
 function apply!(model::Model, constraints::Constraints)
     apply!(model, GraphPPL.get_principal_submodel(model), constraints, ConstraintStack())
     materialize_constraints!(model)

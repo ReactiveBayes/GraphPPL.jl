@@ -131,6 +131,13 @@ getname(node::VariableNodeData) = node.name
 getlink(node::VariableNodeData) = node.link
 index(node::VariableNodeData) = node.index
 value(node::VariableNodeData) = value(options(node))
+"""
+    fform_constraint(options::VariableNodeData)
+    
+Get the functional form constraint of a variable node. A functional form constraint
+tells the inference engine to constrain the functional form of a variable in the variational posterior
+distribution to a certain family of distributions.
+"""
 fform_constraint(node::VariableNodeData) = fform_constraint(options(node))
 message_constraint(node::VariableNodeData) = message_constraint(options(node))
 
@@ -185,6 +192,13 @@ mutable struct FactorNodeData
 end
 
 fform(node::FactorNodeData) = node.fform
+"""
+    factorization_constraint(node::FactorNodeData)
+
+Get the factorization constraint of a factor node. The factorization constraint is saved as a `BitSetTuple` where 
+each bit represents an interface to the factor node. Indices that occur together in the same 
+`BitSet` have a dependency in the variational posterior distribution.
+"""
 factorization_constraint(node::FactorNodeData) = node.factorization_constraint
 set_factorization_constraint!(node::FactorNodeData, constraint) = node.factorization_constraint = constraint
 
@@ -505,6 +519,13 @@ Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::
 
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = c.tensor_variables[key] = val
 
+"""
+    getcontext(model::Model)
+
+Retrieves the context of a model. The context of a model contains the complete hierarchy of variables and factor nodes. 
+Additionally, contains all child submodels and their respective contexts. The Context supplies a mapping from symbols to `GraphPPL.NodeLabel` structures
+with which the model can be queried.
+"""
 getcontext(model::Model) = model[]
 
 function get_principal_submodel(model::Model)
@@ -623,7 +644,6 @@ The variable (edge) found or created in the factor graph model and context.
 Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
 getorcreate!(model, context, :x)
 """
-
 function getorcreate!(model::Model, ctx::Context, name::Symbol, index::Nothing; options = VariableNodeOptions())
     check_if_vector_variable(ctx, name)
     check_if_tensor_variable(ctx, name)
@@ -681,7 +701,6 @@ Args:
 Returns:
     - The generated symbol for the variable.
 """
-
 function add_variable_node!(model::Model, context::Context, variable_id::Symbol; index = nothing, link = nothing, __options__ = VariableNodeOptions())
     variable_symbol = generate_nodelabel(model, variable_id)
     context[variable_id, index] = variable_symbol
@@ -734,7 +753,6 @@ Args:
 Returns:
     - The generated symbol for the node.
 """
-
 function add_atomic_factor_node!(model::Model, context::Context, fform; __options__ = FactorNodeOptions())
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)

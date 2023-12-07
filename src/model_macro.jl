@@ -434,9 +434,9 @@ Converts an expression into its proxied equivalent. Used to pass variables in su
 
 ```jldoctest
 julia> x = GraphPPL.NodeLabel(:x, 1)
-
+x_1
 julia> GraphPPL.proxy_args(:(y = x))
-GraphPPL.ProxyLabel(:y, nothing, GraphPPL.NodeLabel(:x, 1))
+:(y = GraphPPL.proxylabel(:x, nothing, x))
 ```
 """
 function proxy_args end
