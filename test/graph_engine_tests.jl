@@ -217,7 +217,7 @@ end
     @test x[1] == x
     @test length(x) === 1
     @test GraphPPL.to_symbol(x) === :x_1
-    
+
     y = NodeLabel(:y, 2)
     @test x < y
 end
@@ -350,7 +350,8 @@ end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
     include("model_zoo.jl")
-    import GraphPPL: create_model, getcontext, neighbors, VariableNodeData, NodeLabel, EdgeLabel, getname, ResizableArray, VariableNodeOptions, add_edge!, FactorNodeData, FactorNodeOptions
+    import GraphPPL:
+        create_model, getcontext, neighbors, VariableNodeData, NodeLabel, EdgeLabel, getname, ResizableArray, VariableNodeOptions, add_edge!, FactorNodeData, FactorNodeOptions
     model = create_model()
     __context__ = getcontext(model)
 
@@ -951,7 +952,7 @@ end
     ctx = getcontext(model)
     x = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
     y = getorcreate!(model, ctx, :y, nothing)
-    
+
     add_edge!(model, x, y, :interface)
 
     @test ne(model) == 1
