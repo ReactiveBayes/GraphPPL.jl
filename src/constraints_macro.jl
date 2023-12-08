@@ -8,6 +8,13 @@ function check_reserved_variable_names_constraints(e::Expr)
     return e
 end
 
+function check_for_returns(e::Expr; tag = "model")
+    if e.head == :return
+        error("The $tag macro does not support return statements.")
+    end
+    return e
+end
+
 check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 
 function add_constraints_construction(e::Expr)
