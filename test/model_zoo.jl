@@ -105,6 +105,14 @@ end
     end
 end
 
+@model function type_arguments(n::Int, x)
+    local y
+    for i in 1:n
+        y[i] ~ Normal(0, 1)
+        x[i] ~ Normal(y[i], 1)
+    end
+end
+
 @model function node_with_ambiguous_anonymous()
     x[1] ~ Normal(0, 1)
     y[1] ~ Normal(0, 1)

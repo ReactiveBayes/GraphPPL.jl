@@ -93,13 +93,6 @@ function check_reserved_variable_names_model(e::Expr)
     return e
 end
 
-function check_for_returns(e::Expr; tag = "model")
-    if e.head == :return
-        error("The $tag macro does not support return statements.")
-    end
-    return e
-end
-
 function check_incomplete_factorization_constraint(e::Expr)
     if @capture(e, q(args__))
         error("Incomplete factorization constraint is not supported in the model macro.")
@@ -640,6 +633,7 @@ Returns a quote block containing boilerplate functions for a model macro.
 """
 function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
+    ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
@@ -649,15 +643,28 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
     end
 end
 
+preprocess_interface_expression(arg::Symbol; warn = true) = arg
+function preprocess_interface_expression(arg::Expr; warn = true)
+    if arg.head == :(::)
+        if warn
+            @warn "Type annotation found in interface $(prettify(arg)). While this will check that $(arg.args[1]) is an $(arg.args[2]), dynamic creation of submodels using multiple dispatch is not supported."
+        end
+        return arg.args[1]
+    else
+        error("Encountered expression in interface $(prettify(arg))")
+    end
+end
+
 function get_make_node_function(ms_body, ms_args, ms_name)
     # TODO (bvdmitri): prettify
     init_input_arguments = map(ms_args) do arg
+        arg_name = preprocess_interface_expression(arg; warn = false)
         error_msg = "Missing interface $(arg)"
         return quote
-            if !haskey(__interfaces__, $(QuoteNode(arg)))
+            if !haskey(__interfaces__, $(QuoteNode(arg_name)))
                 error($error_msg)
             end
-            $arg = __interfaces__[$(QuoteNode(arg))]
+            $arg = __interfaces__[$(QuoteNode(arg_name))]
         end
     end
     make_node_function = quote
@@ -704,10 +711,12 @@ function model_macro_interior(model_specification)
     end)) || error("Model specification language requires full function definition")
 
     num_interfaces = Base.length(ms_args)
+    if !isnothing(ms_kwargs) && length(ms_kwargs) > 0
+        warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
+    end
     boilerplate_functions = GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
     ms_body = apply_pipeline(ms_body, check_reserved_variable_names_model)
-    ms_body = apply_pipeline(ms_body, check_for_returns)
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
     ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)

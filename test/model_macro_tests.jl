@@ -79,27 +79,6 @@ end
     @test apply_pipeline(input, check_incomplete_factorization_constraint) == input
 end
 
-@testitem "check_for_returns" begin
-    import GraphPPL: check_for_returns, apply_pipeline
-
-    input = quote
-        x = 1
-        return x
-    end
-    @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
-
-    input = quote
-        x = 1
-        return nothing
-    end
-    @test_throws ErrorException("The model macro does not support return statements.") apply_pipeline(input, check_for_returns)
-
-    input = quote
-        x = 1
-    end
-    @test apply_pipeline(input, check_for_returns) == input
-end
-
 @testitem "warn_datavar_constvar_randomvar" begin
     import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
 

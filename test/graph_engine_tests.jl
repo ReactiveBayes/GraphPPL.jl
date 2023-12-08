@@ -1324,3 +1324,14 @@ end
 
     @test_throws ErrorException sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
 end
+
+@testitem "prepare_interfaces" begin
+    import GraphPPL: prepare_interfaces
+    include("model_zoo.jl")
+
+    @test prepare_interfaces(anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
+    @test prepare_interfaces(anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
+
+    @test prepare_interfaces(type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
+    @test prepare_interfaces(type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
+end
