@@ -16,6 +16,6 @@ makedocs(
 
 if get(ENV, "CI", nothing) == "true"
     deploydocs(
-        repo = "github.com/biaslab/GraphPPL.jl.git"
+        repo = "github.com/reactivebayes/GraphPPL.jl.git"
     )
 end

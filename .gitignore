@@ -33,6 +33,7 @@ demo/*wip.ipynb
 demo/*.jl
 
 .idea
+.vscode
 
 **/*.aux
 **/*.log

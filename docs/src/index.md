@@ -4,7 +4,7 @@ Welcome to the documentation for GraphPPL.jl.
 
 Useful links:
 
-- [`ReactiveMP.jl` documentation](https://biaslab.github.io/ReactiveMP.jl/stable/)
+- [`ReactiveMP.jl` documentation](https://reactivebayes.github.io/ReactiveMP.jl/stable/)
 - [User guide: Model specification](@ref user-guide-model-specification)
 - [User guide: Constraints specification](@ref user-guide-constraints-specification)
 - [User guide: Meta specification](@ref user-guide-meta-specification)
