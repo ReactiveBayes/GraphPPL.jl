@@ -108,28 +108,42 @@ function attach_plugin(plugins::PluginCollection, plugin)
 end
 
 """
+    modify_plugin(f, [throw_if_not_present::Val{true/false}], collection::PluginCollection, ::Type{T})
+
 Applies a function `f` to a plugin of type `T` in the collection in-place. Returns the same collection.
+By default throws an error if the plugin of type `T` is not present in the collection.
+Use `modify_plugin!(f, Val(false), collection, T)` to suppress the error.
 """
 function modify_plugin!(f, collection::PluginCollection, ::Type{T}) where {T}
-    return modify_plugin!(f, collection, collection.plugins, T)
+    # The second argument is compile-time constant and is used to throw an error if the plugin is not present
+    return modify_plugin!(f, Val(true), collection, T)
+end
+
+function modify_plugin!(f, throw_if_not_present, collection::PluginCollection, ::Type{T}) where {T}
+    return modify_plugin!(f, throw_if_not_present, collection, collection.plugins, T)
 end
 
 # If the reached the end of the collection it means that the plugin is not present
-function modify_plugin!(f, collection::PluginCollection, ::Tuple{}, ::Type{T}) where {T}
+function modify_plugin!(f, ::Val{true}, collection::PluginCollection, ::Tuple{}, ::Type{T}) where {T}
+    # The second argument is `true` thus we throw an error
     error("Cannot modify a plugin of type `$(T)` in the collection $(collection). The plugin is not present.")
 end
+function modify_plugin!(f, ::Val{false}, collection::PluginCollection, ::Tuple{}, ::Type{T}) where {T}
+    # The second argument is `false` thus we do nothing
+    return collection
+end
 
-function modify_plugin!(f, collection::PluginCollection, plugins::Tuple, ::Type{T}) where {T}
-    return modify_plugin!(f, collection, first(plugins), Base.tail(plugins), T)
+function modify_plugin!(f, throw_if_not_present, collection::PluginCollection, plugins::Tuple, ::Type{T}) where {T}
+    return modify_plugin!(f, throw_if_not_present, collection, first(plugins), Base.tail(plugins), T)
 end
 
 # If the type of the `current` is matched with `T` we apply the function `f` to it and return the collection
-function modify_plugin!(f, collection::PluginCollection, current::T, remaining, ::Type{T}) where {T}
+function modify_plugin!(f, _, collection::PluginCollection, current::T, remaining, ::Type{T}) where {T}
     f(current)
     return collection
 end
 
 # If the type of the `current` is not matched with `T` we skip it and process the remaining plugins
-function modify_plugin!(f, collection::PluginCollection, current, remaining, ::Type{T}) where {T}
-    return modify_plugin!(f, collection, remaining, T)
+function modify_plugin!(f, throw_if_not_present, collection::PluginCollection, current, remaining, ::Type{T}) where {T}
+    return modify_plugin!(f, throw_if_not_present, collection, remaining, T)
 end

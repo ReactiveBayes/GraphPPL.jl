@@ -141,4 +141,8 @@ end
     @test_throws ErrorException GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin 
         nothing
     end
+
+    @test collection === GraphPPL.modify_plugin!(Val(false), collection, SomeArbitraryPluginGlobal3) do plugin 
+        nothing
+    end
 end
