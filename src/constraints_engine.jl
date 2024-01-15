@@ -691,14 +691,8 @@ function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constrai
     linkvar_2 = getlink(var_2)
 
     if !isnothing(linkvar_1)
-        if length(linkvar_1) > 1
-            error("anonymous variable $var_1 is linked to more than one variable and therefore factorization constraint cannot be decoupled")
-        end
         return is_decoupled_one_linked(linkvar_1, var_2, constraint)
     elseif !isnothing(linkvar_2)
-        if length(linkvar_2) > 1
-            error("anonymous variable $var_2 is linked to more than one variable and therefore factorization constraint cannot be decoupled")
-        end
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 

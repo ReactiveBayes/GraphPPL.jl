@@ -785,11 +785,22 @@ end
     mixture_node = first(filter(GraphPPL.as_node(Mixture), model))
     neighbors = model[GraphPPL.neighbors(model, mixture_node)]
     let constraint = ResolvedFactorizationConstraint(
-        ResolvedConstraintLHS((ResolvedIndexedVariable(:m1, nothing, context), ResolvedIndexedVariable(:m2, nothing, context), ResolvedIndexedVariable(:m3, nothing, context), ResolvedIndexedVariable(:m4, nothing, context)),),
-        (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m1, nothing, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m2, nothing, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m3, nothing, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m4, nothing, context),)))
-    )   
+            ResolvedConstraintLHS((
+                ResolvedIndexedVariable(:m1, nothing, context),
+                ResolvedIndexedVariable(:m2, nothing, context),
+                ResolvedIndexedVariable(:m3, nothing, context),
+                ResolvedIndexedVariable(:m4, nothing, context)
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m1, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m2, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m3, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m4, nothing, context),))
+            )
+        )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint) == BitSetTuple([collect(1:9), [1,2,6,7,8,9], [1,3,6,7,8,9], [1,4,6,7,8,9], [1,5,6,7,8,9], collect(1:9), collect(1:9), collect(1:9), collect(1:9)])
+        @test GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint) ==
+            BitSetTuple([collect(1:9), [1, 2, 6, 7, 8, 9], [1, 3, 6, 7, 8, 9], [1, 4, 6, 7, 8, 9], [1, 5, 6, 7, 8, 9], collect(1:9), collect(1:9), collect(1:9), collect(1:9)])
     end
 end
 

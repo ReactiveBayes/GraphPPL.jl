@@ -123,8 +123,8 @@ end
     x[1] ~ Normal(0, 1)
     y[1] ~ Normal(0, 1)
     for i in 2:10
-        y[i] ~ Normal(0, 1)
-        y[i] ~ Normal(y[i - 1] + y[i], 1)
+        x[i] ~ Normal(x[i - 1], 1)
+        y[i] ~ Normal(x[i] + y[i - 1], 1)
     end
 end
 
@@ -240,7 +240,7 @@ end
     t2 ~ Normal(0, 1)
     t3 ~ Normal(0, 1)
     t4 ~ Normal(0, 1)
-    y ~ Mixture(m = [ m1, m2, m3, m4 ], τ = [ t1, t2, t3, t4 ])
+    y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
 end
 
 GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(

@@ -120,7 +120,7 @@ end
     end
 end
 
-@testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation with constants/datavars" begin
     using Distributions, LinearAlgebra
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
 
