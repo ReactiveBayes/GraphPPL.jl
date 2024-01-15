@@ -5,6 +5,7 @@ using MacroTools
 include("resizable_array.jl")
 include("indexedvariable.jl")
 include("plugins_engine.jl")
+include("plugins/node_created_by.jl")
 include("graph_engine.jl")
 include("model_macro.jl")
 include("constraints_engine.jl")

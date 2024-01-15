@@ -1,3 +1,4 @@
+export GraphPlugin
 
 """
     GraphPlugin(PluginType)
@@ -14,6 +15,7 @@ struct GraphPlugins{T}
 end
 
 GraphPlugin(::Type{T}) where {T} = GraphPlugins((GraphPlugin{T}(),))
+GraphPlugins() = GraphPlugins(())
 
 function Base.:(+)(left::GraphPlugins, right::GraphPlugins)
     return GraphPlugins((left.specification..., right.specification...))

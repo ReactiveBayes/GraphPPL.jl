@@ -1520,18 +1520,18 @@ end
 
     # Test 1: Test with empty input
     input = []
-    output = nothing
+    output = :((;))
     @test options_vector_to_named_tuple(input) == output
 
     # Test 2: Test with input with two clauses
 
-    input = [:(anonymous = true), :(created_by = (x ~ Normal(Normal(0, 1), 0)))]
-    output = (anonymous = true, created_by = :(x ~ Normal(Normal(0, 1), 0)))
+    input = [:(anonymous = true), :(created_by = :(x ~ Normal(Normal(0, 1), 0)))]
+    output = :((anonymous = true, created_by = :(x ~ Normal(Normal(0, 1), 0))))
     @test options_vector_to_named_tuple(input) == output
 
     # Test 3: Test with factorized input on rhs
     input = [:(q = q(y_mean)q(y_var)q(y))]
-    output = (q = :(q(y_mean)q(y_var)q(y)),)
+    output = :((q = q(y_mean)q(y_var)q(y),))
     @test options_vector_to_named_tuple(input) == output
 end
 

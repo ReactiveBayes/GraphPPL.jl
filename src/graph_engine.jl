@@ -37,10 +37,12 @@ Fields:
 """
 struct Model
     graph::MetaGraph
+    plugins::GraphPlugins
     counter::Base.RefValue{Int64}
 end
 
 labels(model::Model) = MetaGraphsNext.labels(model.graph)
+getplugins(model::Model) = model.plugins
 
 """
     NodeLabel(name::Symbol, global_counter::Int64)
@@ -179,19 +181,23 @@ created_by(options::FactorNodeOptions) = options.created_by
 meta(options::FactorNodeOptions) = options.meta
 
 """
-    FactorNodeData(fform::Any, options::NamedTuple)
+    FactorNodeData(fform::Any, plugins::PluginCollection, options::NamedTuple)
 
 Data associated with a factor node in a probabilistic graphical model.
 """
 mutable struct FactorNodeData
     fform::Any
     context::Any
+    plugins::PluginCollection
     factorization_constraint::Any
     options::FactorNodeOptions
     neighbors::NTuple{N, Tuple{NodeLabel, EdgeLabel}} where {N}
 end
 
 fform(node::FactorNodeData) = node.fform
+getplugins(node::FactorNodeData) = node.plugins
+getplugin(node::FactorNodeData, ::Type{T}, throw_if_not_present = Val(true)) where {T} = getplugin(getplugins(node), T, throw_if_not_present)
+
 """
     factorization_constraint(node::FactorNodeData)
 
@@ -255,7 +261,8 @@ Base.last(label::ProxyLabel) = last(label.proxied, label)
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
-Model(graph::MetaGraph) = Model(graph, Base.RefValue(0))
+Model(graph::MetaGraph) = Model(graph, GraphPlugins())
+Model(graph::MetaGraph, plugins::GraphPlugins) = Model(graph, plugins, Base.RefValue(0))
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
 Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = Base.setindex!(model.graph, val, src, dst)
@@ -559,9 +566,9 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(; fform = identity)
-    model = MetaGraph(Graph(), label_type = NodeLabel, vertex_data_type = NodeData, graph_data = Context(fform), edge_data_type = EdgeLabel)
-    model = Model(model)
+function create_model(; fform = identity, plugins = GraphPlugins())
+    graph = MetaGraph(Graph(), label_type = NodeLabel, vertex_data_type = NodeData, graph_data = Context(fform), edge_data_type = EdgeLabel)
+    model = Model(graph, plugins)
     return model
 end
 
@@ -756,7 +763,13 @@ Returns:
 function add_atomic_factor_node!(model::Model, context::Context, fform; __options__ = FactorNodeOptions())
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    model[factornode_label] = FactorNodeData(fform, context, nothing, __options__, ())
+    plugins = materialize_plugins(FactorNodePlugin(), getplugins(model))
+
+    modify_plugin!(plugins, NodeCreatedByPlugin, Val(false)) do plugin
+        plugin.created_by = __options__.created_by
+    end
+
+    model[factornode_label] = FactorNodeData(fform, context, plugins, nothing, __options__, ())
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end

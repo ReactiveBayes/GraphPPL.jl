@@ -600,11 +600,9 @@ Converts the array found by pattern matching on the where clause in a tilde expr
 - `result`: A named tuple of options.
 """
 function options_vector_to_named_tuple(options::AbstractArray)
-    if length(options) == 0
-        return nothing
-    end
-    result = map(elem -> Pair(elem.args[1], elem.args[2]), options)
-    return NamedTuple(result)
+    parameters = Expr(:parameters)
+    parameters.args = map(option -> Expr(:kw, option[1], option[2]), options)
+    return Expr(:tuple, parameters)
 end
 
 function prepare_options(parent_options::FactorNodeOptions, node_options::FactorNodeOptions, debug::Bool)
@@ -612,9 +610,9 @@ function prepare_options(parent_options::FactorNodeOptions, node_options::Factor
     if !(parent_options == FactorNodeOptions())
         node_options.parent_options = parent_options
     end
-    if !debug
-        node_options.created_by = nothing
-    end
+    # if !debug
+    #     node_options.created_by = nothing
+    # end
     return node_options
 end
 
