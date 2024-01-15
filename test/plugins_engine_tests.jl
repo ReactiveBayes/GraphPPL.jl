@@ -91,3 +91,54 @@ end
 
     @test false
 end
+
+@testitem "Modify a particular plugin instance within the collection" begin
+    import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins
+    
+    mutable struct SomeArbitraryPluginGlobal1 
+        field::Int
+    end
+
+    mutable struct SomeArbitraryPluginGlobal2 
+        field::Float64
+    end
+
+    # We don't include this plugin in the specification
+    # to test that the `modify_plugin!` throws an error
+    struct SomeArbitraryPluginGlobal3 end
+
+    GraphPPL.plugin_type(::Type{SomeArbitraryPluginGlobal1}) = GraphGlobalPlugin()
+    GraphPPL.plugin_type(::Type{SomeArbitraryPluginGlobal2}) = GraphGlobalPlugin()
+
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginGlobal1}) = SomeArbitraryPluginGlobal1(0)
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginGlobal2}) = SomeArbitraryPluginGlobal2(0.0)
+
+    specification = GraphPlugin(SomeArbitraryPluginGlobal1) | GraphPlugin(SomeArbitraryPluginGlobal2)
+    collection = materialize_plugins(specification)
+
+    plugin1 = collection.plugins[1]
+    plugin2 = collection.plugins[2]
+
+    @test plugin1.field === 0
+    @test plugin2.field === 0.0
+
+    for value in 1:10
+        GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal1) do plugin 
+            plugin.field = value
+        end
+        @test plugin1.field === value
+        @test plugin2.field === 0.0
+    end
+
+    for value in float.(1:10)
+        GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal2) do plugin 
+            plugin.field = value
+        end
+        @test plugin1.field === 10 # the last value in the previous test was 10
+        @test plugin2.field === value
+    end
+
+    @test_throws ErrorException GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin 
+        nothing
+    end
+end

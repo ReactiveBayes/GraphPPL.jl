@@ -106,3 +106,30 @@ function attach_plugin(plugins::PluginCollection, plugin)
     end
     return PluginCollection((plugins.plugins..., plugin))
 end
+
+"""
+Applies a function `f` to a plugin of type `T` in the collection in-place. Returns the same collection.
+"""
+function modify_plugin!(f, collection::PluginCollection, ::Type{T}) where {T}
+    return modify_plugin!(f, collection, collection.plugins, T)
+end
+
+# If the reached the end of the collection it means that the plugin is not present
+function modify_plugin!(f, collection::PluginCollection, ::Tuple{}, ::Type{T}) where {T}
+    error("Cannot modify a plugin of type `$(T)` in the collection $(collection). The plugin is not present.")
+end
+
+function modify_plugin!(f, collection::PluginCollection, plugins::Tuple, ::Type{T}) where {T}
+    return modify_plugin!(f, collection, first(plugins), Base.tail(plugins), T)
+end
+
+# If the type of the `current` is matched with `T` we apply the function `f` to it and return the collection
+function modify_plugin!(f, collection::PluginCollection, current::T, remaining, ::Type{T}) where {T}
+    f(current)
+    return collection
+end
+
+# If the type of the `current` is not matched with `T` we skip it and process the remaining plugins
+function modify_plugin!(f, collection::PluginCollection, current, remaining, ::Type{T}) where {T}
+    return modify_plugin!(f, collection, remaining, T)
+end
