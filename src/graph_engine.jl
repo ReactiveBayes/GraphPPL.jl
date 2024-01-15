@@ -90,6 +90,8 @@ struct NodeCreationOptions{N <: NamedTuple}
     options::N
 end
 
+NodeCreationOptions() = NodeCreationOptions((;))
+
 mutable struct VariableNodeOptions
     value::Any
     functional_form::Any
