@@ -50,6 +50,12 @@ function create_terminated_model(fform)
     return __model__
 end
 
+struct Mixture end
+
+GraphPPL.interfaces(::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
+
+GraphPPL.NodeBehaviour(::Type{Mixture}) = GraphPPL.Stochastic()
+
 @model function simple_model()
     x ~ Normal(0, 1)
     y ~ Gamma(1, 1)
@@ -117,8 +123,8 @@ end
     x[1] ~ Normal(0, 1)
     y[1] ~ Normal(0, 1)
     for i in 2:10
-        y[i] ~ Normal(0, 1)
-        x[i] ~ Normal(y[i - 1] + y[i], 1)
+        x[i] ~ Normal(x[i - 1], 1)
+        y[i] ~ Normal(x[i] + y[i - 1], 1)
     end
 end
 
@@ -223,6 +229,18 @@ end
     for i in 1:10
         d[i] ~ model_with_default_constraints(a = a, b = b, c = c)
     end
+end
+
+@model function mixture()
+    m1 ~ Normal(0, 1)
+    m2 ~ Normal(0, 1)
+    m3 ~ Normal(0, 1)
+    m4 ~ Normal(0, 1)
+    t1 ~ Normal(0, 1)
+    t2 ~ Normal(0, 1)
+    t3 ~ Normal(0, 1)
+    t4 ~ Normal(0, 1)
+    y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
 end
 
 GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(

@@ -290,7 +290,8 @@ Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 
 Graphs.neighbors(model::Model, node::NodeLabel) = Graphs.neighbors(model, node, model[node])
-Graphs.neighbors(model::Model, node::NodeLabel, nodedata::FactorNodeData) = map(neighbor -> neighbor[1], nodedata.neighbors)
+Graphs.neighbors(model::Model, node::NodeLabel, nodedata::FactorNodeData) = Graphs.neighbors(model[node])
+Graphs.neighbors(nodedata::FactorNodeData) = map(neighbor -> neighbor[1], nodedata.neighbors)
 Graphs.neighbors(model::Model, node::NodeLabel, nodedata::VariableNodeData) = MetaGraphsNext.neighbor_labels(model.graph, node)
 Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
 

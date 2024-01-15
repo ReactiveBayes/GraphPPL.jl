@@ -761,13 +761,13 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This shouldn't throw and resolve because both anonymous variables are 1-to-1 and referenced by constraint.
-        @test_broken GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
+        @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
     end
 
     # Test ResolvedFactorizationConstraints over ambiguous anonymouys variables
     model = create_terminated_model(node_with_ambiguous_anonymous)
     context = GraphPPL.getcontext(model)
-    normal_node = context[NormalMeanVariance, 6]
+    normal_node = last(filter(GraphPPL.as_node(NormalMeanVariance), model))
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:y, nothing, context),),),
@@ -776,13 +776,31 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This test should throw since we cannot resolve the constraint
-        @test_broken (
-            try
-                GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
-            catch e
-                e
-            end
-        ) isa Exception
+        @test_throws ErrorException GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
+    end
+
+    # Test ResolvedFactorizationConstraint with a Mixture node
+    model = create_terminated_model(mixture)
+    context = GraphPPL.getcontext(model)
+    mixture_node = first(filter(GraphPPL.as_node(Mixture), model))
+    neighbors = model[GraphPPL.neighbors(model, mixture_node)]
+    let constraint = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((
+                ResolvedIndexedVariable(:m1, nothing, context),
+                ResolvedIndexedVariable(:m2, nothing, context),
+                ResolvedIndexedVariable(:m3, nothing, context),
+                ResolvedIndexedVariable(:m4, nothing, context)
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m1, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m2, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m3, nothing, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:m4, nothing, context),))
+            )
+        )
+        @test GraphPPL.is_applicable(neighbors, constraint)
+        @test GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint) ==
+            BitSetTuple([collect(1:9), [1, 2, 6, 7, 8, 9], [1, 3, 6, 7, 8, 9], [1, 4, 6, 7, 8, 9], [1, 5, 6, 7, 8, 9], collect(1:9), collect(1:9), collect(1:9), collect(1:9)])
     end
 end
 

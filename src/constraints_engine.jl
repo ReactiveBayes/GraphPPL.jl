@@ -690,14 +690,7 @@ function is_decoupled(var_1::VariableNodeData, var_2::VariableNodeData, constrai
     linkvar_1 = getlink(var_1)
     linkvar_2 = getlink(var_2)
 
-    if !isnothing(linkvar_1) && !isnothing(linkvar_2)
-        error(
-            """
-          Cannot resolve the factorization constraint $(constraint) for linked for anonymous variables anon_1 and anon_2 connected to variables $(join(linkvar_1, ',')) and $(join(linkvar_2, ',')) respectively.
-          As a workaround specify the name and the factorization constraint for the anonymous variables explicitly.
-      """
-        )
-    elseif !isnothing(linkvar_1)
+    if !isnothing(linkvar_1)
         return is_decoupled_one_linked(linkvar_1, var_2, constraint)
     elseif !isnothing(linkvar_2)
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
