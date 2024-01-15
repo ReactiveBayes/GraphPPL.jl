@@ -108,10 +108,24 @@ function attach_plugin(plugins::PluginCollection, plugin)
 end
 
 """
+An object that is returned from `getplugin` if the plugin is not present in the collection.
+"""
+struct MissingPlugin end
+
+"""
+    is_plugin_present(collection::PluginCollection, ::Type{T}) where {T}
+
+Tests either a plugin of type `T` is present in the collection. Returns `true` if the plugin is present and `false` otherwise.
+"""
+function is_plugin_present(collection::PluginCollection, ::Type{T}) where {T}
+    return getplugin(collection, T, Val(false)) !== MissingPlugin()
+end
+
+"""
     getplugin(plugins::PluginCollection, ::Type{T}, [throw_if_not_present::Val{true/false}])
 
 Returns a plugin of type `T` from the collection. By default throws an error if the plugin of type `T` is not present in the collection.
-Use `getplugin(plugins, T, Val(false))` to suppress the error and return `nothing` instead.
+Use `getplugin(plugins, T, Val(false))` to suppress the error and return `MissingPlugin()` instead.
 """
 function getplugin(collection::PluginCollection, ::Type{T}) where {T}
     return getplugin(collection, T, Val(true))
@@ -129,8 +143,8 @@ function getplugin(collection::PluginCollection, ::Tuple{}, ::Type{T}, ::Val{tru
 end
 
 function getplugin(collection::PluginCollection, ::Tuple{}, ::Type{T}, ::Val{false}) where {T}
-    # The `throw_if_not_present` argument is `false` thus we do nothing
-    return nothing
+    # The `throw_if_not_present` argument is `false` thus we return `MissingPlugin`
+    return MissingPlugin()
 end
 
 function getplugin(collection::PluginCollection, remaining::Tuple, ::Type{T}, throw_if_not_present) where {T}
@@ -161,7 +175,7 @@ end
 
 function modify_plugin!(f, collection::PluginCollection, ::Type{T}, throw_if_not_present) where {T}
     plugin = getplugin(collection, T, throw_if_not_present)
-    if !isnothing(plugin)
+    if plugin !== MissingPlugin()
         f(plugin)
     end
     return collection

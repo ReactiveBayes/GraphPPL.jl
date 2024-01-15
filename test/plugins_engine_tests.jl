@@ -92,8 +92,8 @@ end
     @test false
 end
 
-@testitem "Modify a particular plugin instance within the collection" begin
-    import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins, getplugin, modify_plugin!
+@testitem "Get and modify a particular plugin instance within the collection" begin
+    import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins, is_plugin_present, getplugin, modify_plugin!
     
     mutable struct SomeArbitraryPluginGlobal1 
         field::Int
@@ -116,6 +116,10 @@ end
     specification = GraphPlugin(SomeArbitraryPluginGlobal1) | GraphPlugin(SomeArbitraryPluginGlobal2)
     collection = materialize_plugins(specification)
 
+    @test is_plugin_present(collection, SomeArbitraryPluginGlobal1)
+    @test is_plugin_present(collection, SomeArbitraryPluginGlobal2)
+    @test !is_plugin_present(collection, SomeArbitraryPluginGlobal3)
+
     plugin1 = getplugin(collection, SomeArbitraryPluginGlobal1)
     plugin2 = getplugin(collection, SomeArbitraryPluginGlobal2)
 
@@ -123,7 +127,7 @@ end
     @test plugin2 isa SomeArbitraryPluginGlobal2
 
     @test_throws ErrorException getplugin(collection, SomeArbitraryPluginGlobal3)
-    @test getplugin(collection, SomeArbitraryPluginGlobal3, Val(false)) === nothing
+    @test getplugin(collection, SomeArbitraryPluginGlobal3, Val(false)) === GraphPPL.MissingPlugin()
 
     @test plugin1.field === 0
     @test plugin2.field === 0.0
