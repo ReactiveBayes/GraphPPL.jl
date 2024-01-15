@@ -93,7 +93,7 @@ end
 end
 
 @testitem "Modify a particular plugin instance within the collection" begin
-    import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins
+    import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins, getplugin, modify_plugin!
     
     mutable struct SomeArbitraryPluginGlobal1 
         field::Int
@@ -116,14 +116,20 @@ end
     specification = GraphPlugin(SomeArbitraryPluginGlobal1) | GraphPlugin(SomeArbitraryPluginGlobal2)
     collection = materialize_plugins(specification)
 
-    plugin1 = collection.plugins[1]
-    plugin2 = collection.plugins[2]
+    plugin1 = getplugin(collection, SomeArbitraryPluginGlobal1)
+    plugin2 = getplugin(collection, SomeArbitraryPluginGlobal2)
+
+    @test plugin1 isa SomeArbitraryPluginGlobal1
+    @test plugin2 isa SomeArbitraryPluginGlobal2
+
+    @test_throws ErrorException getplugin(collection, SomeArbitraryPluginGlobal3)
+    @test getplugin(collection, SomeArbitraryPluginGlobal3, Val(false)) === nothing
 
     @test plugin1.field === 0
     @test plugin2.field === 0.0
 
     for value in 1:10
-        GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal1) do plugin 
+        modify_plugin!(collection, SomeArbitraryPluginGlobal1) do plugin 
             plugin.field = value
         end
         @test plugin1.field === value
@@ -131,18 +137,18 @@ end
     end
 
     for value in float.(1:10)
-        GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal2) do plugin 
+        modify_plugin!(collection, SomeArbitraryPluginGlobal2) do plugin 
             plugin.field = value
         end
         @test plugin1.field === 10 # the last value in the previous test was 10
         @test plugin2.field === value
     end
 
-    @test_throws ErrorException GraphPPL.modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin 
+    @test_throws ErrorException modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin 
         nothing
     end
 
-    @test collection === GraphPPL.modify_plugin!(Val(false), collection, SomeArbitraryPluginGlobal3) do plugin 
+    @test collection === modify_plugin!(collection, SomeArbitraryPluginGlobal3, Val(false)) do plugin 
         nothing
     end
 end
