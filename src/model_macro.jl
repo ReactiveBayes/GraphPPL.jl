@@ -123,22 +123,22 @@ Save the expression found in the tilde syntax in the `created_by` field of the e
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs ~ $rhs where {$(options...), created_by = $(prettify(e))})
+        return :(local $lhs ~ $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     elseif @capture(e, (local lhs_ .~ rhs_ where {options__}) | (local lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs .~ $rhs where {$(options...), created_by = $(prettify(e))})
+        return :(local $lhs .~ $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     elseif @capture(e, (local lhs_ := rhs_ where {options__}) | (local lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs := $rhs where {$(options...), created_by = $(prettify(e))})
+        return :(local $lhs := $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     elseif @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs ~ $rhs where {$(options...), created_by = $(prettify(e))})
+    return :($lhs ~ $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs .~ $rhs where {$(options...), created_by = $(prettify(e))})
+        return :($lhs .~ $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     elseif @capture(e, (lhs_ := rhs_ where {options__}) | (lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :($lhs := $rhs where {$(options...), created_by = $(prettify(e))})
+        return :($lhs := $rhs where {$(options...), created_by = $(QuoteNode(prettify(e)))})
     else
         return e
     end
@@ -547,35 +547,32 @@ end
 function convert_tilde_expression(e::Expr)
     if @capture(e, (lhs_ ~ fform_(args__; kwargs__) where {options__}) | (lhs_ ~ fform_(args__) where {options__}) | (lhs_ ~ fform_ where {options__}))
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
-        options = GraphPPL.FactorNodeOptions(GraphPPL.options_vector_to_named_tuple(options))
-        @capture(lhs, (var_[index__]) | (var_))
+        options = GraphPPL.options_vector_to_named_tuple(options)
+        @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
             $lhs = GraphPPL.make_node!(
                 __model__,
                 __context__,
+                GraphPPL.NodeCreationOptions($(options)),
                 $fform,
                 $(generate_lhs_proxylabel(var, index)),
-                $args;
-                __parent_options__ = GraphPPL.prepare_options(__parent_options__, $(options), __debug__),
-                __debug__ = __debug__
+                $args
             )
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
         (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
-        options = GraphPPL.FactorNodeOptions(GraphPPL.options_vector_to_named_tuple(options))
+        options = GraphPPL.options_vector_to_named_tuple(options)
         broadcastable_variables = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
-
-        @capture(lhs, (var_[index__]) | (var_))
+        @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
             $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
                     __context__,
+                    GraphPPL.NodeCreationOptions($(options)),
                     $fform,
                     GraphPPL.Broadcasted($(QuoteNode(var))),
-                    $parsed_args;
-                    __parent_options__ = GraphPPL.prepare_options(__parent_options__, $(options), __debug__),
-                    __debug__ = __debug__
+                    $parsed_args
                 )
             end
             $lhs = GraphPPL.ResizableArray($lhs)
@@ -601,19 +598,11 @@ Converts the array found by pattern matching on the where clause in a tilde expr
 """
 function options_vector_to_named_tuple(options::AbstractArray)
     parameters = Expr(:parameters)
-    parameters.args = map(option -> Expr(:kw, option[1], option[2]), options)
-    return Expr(:tuple, parameters)
-end
-
-function prepare_options(parent_options::FactorNodeOptions, node_options::FactorNodeOptions, debug::Bool)
-    node_options = deepcopy(node_options)
-    if !(parent_options == FactorNodeOptions())
-        node_options.parent_options = parent_options
+    parameters.args = map(options) do option 
+        @capture(option, lhs_ = rhs_) || error("Invalid option $(option). Must be in a `lhs = rhs` form.")
+        return Expr(:kw, lhs, rhs)
     end
-    # if !debug
-    #     node_options.created_by = nothing
-    # end
-    return node_options
+    return Expr(:tuple, parameters)
 end
 
 """
@@ -670,29 +659,27 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             ::GraphPPL.Composite,
             __model__::GraphPPL.Model,
             __parent_context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
             __lhs_interface__::GraphPPL.ProxyLabel,
             __rhs_interfaces__::NamedTuple,
-            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))};
-            __parent_options__ = GraphPPL.FactorNodeOptions(),
-            __debug__ = false
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
             __interfaces__ = GraphPPL.prepare_interfaces($ms_name, __lhs_interface__, __rhs_interfaces__)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
-            GraphPPL.add_terminated_submodel!(__model__, __context__, $ms_name, __interfaces__, __n_interfaces__; __parent_options__ = __parent_options__, __debug__ = __debug__)
+            GraphPPL.add_terminated_submodel!(__model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__)
             return GraphPPL.unroll(__lhs_interface__)
         end
 
         function GraphPPL.add_terminated_submodel!(
             __model__::GraphPPL.Model,
             __context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
             __interfaces__::NamedTuple,
-            ::GraphPPL.StaticInt{$(length(ms_args))};
-            __parent_options__ = GraphPPL.FactorNodeOptions(),
-            __debug__ = false
+            ::GraphPPL.StaticInt{$(length(ms_args))}
         )
             $(init_input_arguments...)
             $ms_body

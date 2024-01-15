@@ -1526,53 +1526,21 @@ end
     # Test 2: Test with input with two clauses
 
     input = [:(anonymous = true), :(created_by = :(x ~ Normal(Normal(0, 1), 0)))]
-    output = :((anonymous = true, created_by = :(x ~ Normal(Normal(0, 1), 0))))
+    output = :((; anonymous = true, created_by = :(x ~ Normal(Normal(0, 1), 0))))
     @test options_vector_to_named_tuple(input) == output
 
     # Test 3: Test with factorized input on rhs
     input = [:(q = q(y_mean)q(y_var)q(y))]
-    output = :((q = q(y_mean)q(y_var)q(y),))
+    output = :((; q = q(y_mean)q(y_var)q(y),))
     @test options_vector_to_named_tuple(input) == output
-end
 
-@testitem "prepare_options" begin
-    import GraphPPL: prepare_options, FactorNodeOptions
+    # Test 4. Test invalid options spec 
+    input = [ :a ]
+    @test_throws ErrorException options_vector_to_named_tuple(input)
 
-    # Test 1: Test if both parent options and node options are nothing
-    parent_options = FactorNodeOptions()
-    node_options = FactorNodeOptions()
-    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions()
-    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions()
-
-    # Test 2: Test if parent options are nothing and node options have value
-    parent_options = FactorNodeOptions()
-    node_options = FactorNodeOptions((q = :(MeanField()),))
-    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions((q = :(MeanField()),))
-    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions((q = :(MeanField()),))
-
-    # Test 3: Test if parent options have value and node options are nothing
-    parent_options = FactorNodeOptions((prod_1 = (q = :(MeanField()),),))
-    node_options = FactorNodeOptions()
-    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions((parent_options = parent_options,),)
-    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions((parent_options = parent_options,),)
-
-    # Test 4: Test if parent options and node options have value
-    parent_options = FactorNodeOptions((prod_1 = (q = :(MeanField()),),))
-    node_options = FactorNodeOptions((q = :(MeanField()),))
-    output = FactorNodeOptions((parent_options = parent_options, q = :(MeanField())))
-    @test prepare_options(parent_options, node_options, true) == output
-
-    # Test 5: Test if parent options are nothing, node options have value and created_by clause exists
-    parent_options = FactorNodeOptions()
-    node_options = FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)), q = :(MeanField())))
-    @test prepare_options(parent_options, node_options, true) == node_options
-    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions((q = :(MeanField()),))
-
-    # Test 6: Test if parent options are nothing and node options only has created_by clause
-    parent_options = FactorNodeOptions()
-    node_options = FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)),))
-    @test prepare_options(parent_options, node_options, true) == FactorNodeOptions((created_by = :(x ~ Normal(Normal(0, 1), 0)),))
-    @test prepare_options(parent_options, node_options, false) == FactorNodeOptions()
+    # Test 5. Test invalid options spec 
+    input = [ :("hello") ]
+    @test_throws ErrorException options_vector_to_named_tuple(input)
 end
 
 @testitem "model_macro_interior" begin

@@ -86,6 +86,10 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
+struct NodeCreationOptions{N <: NamedTuple}
+    options::N
+end
+
 mutable struct VariableNodeOptions
     value::Any
     functional_form::Any
@@ -190,7 +194,6 @@ mutable struct FactorNodeData
     context::Any
     plugins::PluginCollection
     factorization_constraint::Any
-    options::FactorNodeOptions
     neighbors::NTuple{N, Tuple{NodeLabel, EdgeLabel}} where {N}
 end
 
@@ -760,16 +763,17 @@ Args:
 Returns:
     - The generated symbol for the node.
 """
-function add_atomic_factor_node!(model::Model, context::Context, fform; __options__ = FactorNodeOptions())
+function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
     plugins = materialize_plugins(FactorNodePlugin(), getplugins(model))
 
     modify_plugin!(plugins, NodeCreatedByPlugin, Val(false)) do plugin
-        plugin.created_by = __options__.created_by
+        # bvdmitri: TODO
+        plugin.created_by = options.options[:created_by]
     end
 
-    model[factornode_label] = FactorNodeData(fform, context, plugins, nothing, __options__, ())
+    model[factornode_label] = FactorNodeData(fform, context, plugins, nothing, ())
     context.factor_nodes[factornode_id] = factornode_label
     return factornode_label
 end
@@ -903,49 +907,49 @@ end
 # TODO improve documentation
 
 # Special case which should materialize anonymous variable
-function make_node!(model::Model, ctx::Context, fform, lhs_interface::AnonymousVariable, rhs_interfaces; __parent_options__ = nothing, __debug__ = false)
+function make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface::AnonymousVariable, rhs_interfaces)
     lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)
-    return make_node!(model, ctx, fform, lhs_materialized, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+    return make_node!(model, ctx, options, fform, lhs_materialized, rhs_interfaces)
 end
 
-make_node!(model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false) =
-    make_node!(NodeType(fform), model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
+    make_node!(NodeType(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #if it is composite, we assume it should be materialized and it is stochastic
-make_node!(nodetype::Composite, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false) =
-    make_node!(True(), nodetype, Stochastic(), model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+make_node!(nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
+    make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
-make_node!(model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::Nothing; __parent_options__ = FactorNodeOptions(), __debug__ = false) =
-    make_node!(True(), Atomic(), Stochastic(), model, ctx, fform, lhs_interface, NamedTuple{}(); __parent_options__ = __parent_options__, __debug__ = __debug__)
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::Nothing) =
+    make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
 # If node is Atomic, check stochasticity
-make_node!(::Atomic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false) =
-    make_node!(Atomic(), NodeBehaviour(fform), model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
+    make_node!(Atomic(), NodeBehaviour(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
-    atomic::Atomic, deterministic::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false
+    atomic::Atomic, deterministic::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces
 ) = make_node!(
-    contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__
+    contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces
 )
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
 make_node!(
-    ::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::AbstractArray; __parent_options__ = FactorNodeOptions(), __debug__ = false
+    ::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::AbstractArray
 ) = fform(rhs_interfaces...)
 
 make_node!(
-    ::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false
+    ::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::NamedTuple
 ) = fform(; rhs_interfaces...)
 
-make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces::MixedArguments; __parent_options__ = nothing, __debug__ = false) =
+make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::MixedArguments) =
     fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
 
 # If a node is Stochastic, we always materialize.
 make_node!(
-    node_type::Atomic, behaviour::Stochastic, model::Model, ctx::Context, fform, lhs_interface, rhs_interfaces; __parent_options__ = FactorNodeOptions(), __debug__ = false
-) = make_node!(True(), Atomic(), Stochastic(), model, ctx, fform, lhs_interface, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+    node_type::Atomic, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces
+) = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If we have to materialize but lhs_interface is nothing, we create a variable for it
 function make_node!(
@@ -954,14 +958,13 @@ function make_node!(
     behaviour::NodeBehaviour,
     model::Model,
     ctx::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Broadcasted,
-    rhs_interfaces;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    rhs_interfaces
 )
     lhs_node = ProxyLabel(getname(lhs_interface), nothing, add_variable_node!(model, ctx, gensym(getname(lhs_interface))))
-    return make_node!(True(), node_type, behaviour, model, ctx, fform, lhs_node, rhs_interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+    return make_node!(True(), node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
 end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
@@ -971,22 +974,20 @@ make_node!(
     behaviour::NodeBehaviour,
     model::Model,
     ctx::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::AbstractArray;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    rhs_interfaces::AbstractArray
 ) = make_node!(
     True(),
     node_type,
     behaviour,
     model,
     ctx,
+    options,
     fform,
     lhs_interface,
-    GraphPPL.default_parametrization(node_type, fform, rhs_interfaces);
-    __parent_options__ = __parent_options__,
-    __debug__ = __debug__
+    GraphPPL.default_parametrization(node_type, fform, rhs_interfaces)
 )
 
 make_node!(
@@ -995,11 +996,10 @@ make_node!(
     behaviour::NodeBehaviour,
     model::Model,
     ctx::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::MixedArguments;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    rhs_interfaces::MixedArguments
 ) = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
 make_node!(
@@ -1008,14 +1008,13 @@ make_node!(
     behaviour::Stochastic,
     model::Model,
     ctx::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::AbstractArray;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
+    rhs_interfaces::AbstractArray
 ) =
     if length(rhs_interfaces) == 0
-        make_node!(True(), Composite(), Stochastic(), model, ctx, fform, lhs_interface, NamedTuple{}(); __parent_options__ = __parent_options__, __debug__ = __debug__)
+        make_node!(True(), Composite(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
     else
         error(lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple")
     end
@@ -1026,12 +1025,11 @@ make_node!(
     behaviour::Stochastic,
     model::Model,
     ctx::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::NamedTuple;
-    __parent_options__ = FactorNodeOptions(),
-    __debug__ = false
-) = make_node!(Composite(), model, ctx, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1); __parent_options__ = __parent_options__, __debug__ = __debug__)
+    rhs_interfaces::NamedTuple
+) = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
 """
     make_node!
@@ -1053,6 +1051,7 @@ function make_node!(
     behaviour::NodeBehaviour,
     model::Model,
     context::Context,
+    options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple;
@@ -1061,7 +1060,7 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    materialize_factor_node!(model, context, fform, interfaces; __parent_options__ = __parent_options__, __debug__ = __debug__)
+    materialize_factor_node!(model, context, options, fform, interfaces)
     return unroll(lhs_interface)
 end
 
@@ -1071,17 +1070,20 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
     return defined_interfaces[I]
 end
 
-function materialize_factor_node!(model::Model, context::Context, fform, interfaces::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false)
+function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
     interfaces = sort_interfaces(fform, interfaces)
-    factor_node_id = add_atomic_factor_node!(model, context, fform; __options__ = __parent_options__)
+    factor_node_id = add_atomic_factor_node!(model, context, options, fform)
     for (interface_name, neighbor_nodelabel) in iterator(interfaces)
         add_edge!(model, factor_node_id, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
     end
     add_factorization_constraint!(model, factor_node_id)
 end
 
-add_terminated_submodel!(__model__::Model, __context__::Context, fform, __interfaces__::NamedTuple; __parent_options__ = FactorNodeOptions(), __debug__ = false) =
-    add_terminated_submodel!(__model__, __context__, fform, __interfaces__, static(length(__interfaces__)); __parent_options__ = __parent_options__, __debug__ = __debug__)
+add_terminated_submodel!(__model__::Model, __context__::Context, fform, __interfaces__::NamedTuple) = 
+    add_terminated_submodel!(__model__, __context__, NodeCreationOptions((; created_by = :($QuoteNode(fform)))), fform, __interfaces__)
+
+add_terminated_submodel!(__model__::Model, __context__::Context, __options__::NodeCreationOptions, fform, __interfaces__::NamedTuple) =
+    add_terminated_submodel!(__model__, __context__, __options__, fform, __interfaces__, static(length(__interfaces__)))
 
 """
     prune!(m::Model)
