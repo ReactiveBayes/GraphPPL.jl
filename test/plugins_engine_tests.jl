@@ -1,5 +1,4 @@
 
-
 @testitem "Unknown types should have unknown plygin type" begin
     import GraphPPL: plugin_type, UnknownPluginType
 
@@ -69,7 +68,7 @@ end
 end
 
 @testitem "Filter `PluginCollection` by `plugin_type`" begin
-    import GraphPPL: plugin_type, GraphGlobalPlugin, FactorNodePlugin, VariableNodePlugin, UnknownPluginType, PluginCollection
+    import GraphPPL: plugin_type, GraphGlobalPlugin, FactorNodePlugin, VariableNodePlugin, UnknownPluginType, PluginCollection, materialize_plugins, getplugin
 
     struct SomeArbitraryPluginGlobal1 end
     struct SomeArbitraryPluginGlobal2 end
@@ -77,11 +76,17 @@ end
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginGlobal1}) = GraphGlobalPlugin()
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginGlobal2}) = GraphGlobalPlugin()
 
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginGlobal1}) = SomeArbitraryPluginGlobal1()
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginGlobal2}) = SomeArbitraryPluginGlobal2()
+
     struct SomeArbitraryPluginFactor1 end
     struct SomeArbitraryPluginFactor2 end
 
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginFactor1}) = FactorNodePlugin()
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginFactor2}) = FactorNodePlugin()
+
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginFactor1}) = SomeArbitraryPluginFactor1()
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginFactor2}) = SomeArbitraryPluginFactor2()
 
     struct SomeArbitraryPluginVariable1 end
     struct SomeArbitraryPluginVariable2 end
@@ -89,17 +94,35 @@ end
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginVariable1}) = VariableNodePlugin()
     GraphPPL.plugin_type(::Type{SomeArbitraryPluginVariable2}) = VariableNodePlugin()
 
-    @test false
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginVariable1}) = SomeArbitraryPluginVariable1()
+    GraphPPL.materialize_plugin(::Type{SomeArbitraryPluginVariable2}) = SomeArbitraryPluginVariable2()
+
+    specification =
+        GraphPlugin(SomeArbitraryPluginGlobal1) +
+        GraphPlugin(SomeArbitraryPluginGlobal2) +
+        GraphPlugin(SomeArbitraryPluginFactor1) +
+        GraphPlugin(SomeArbitraryPluginFactor2) +
+        GraphPlugin(SomeArbitraryPluginVariable1) +
+        GraphPlugin(SomeArbitraryPluginVariable2)
+
+    collection = materialize_plugins(specification)
+
+    @test getplugin(collection, SomeArbitraryPluginGlobal1) isa SomeArbitraryPluginGlobal1
+    @test getplugin(collection, SomeArbitraryPluginGlobal2) isa SomeArbitraryPluginGlobal2
+    @test getplugin(collection, SomeArbitraryPluginFactor1) isa SomeArbitraryPluginFactor1
+    @test getplugin(collection, SomeArbitraryPluginFactor2) isa SomeArbitraryPluginFactor2
+    @test getplugin(collection, SomeArbitraryPluginVariable1) isa SomeArbitraryPluginVariable1
+    @test getplugin(collection, SomeArbitraryPluginVariable2) isa SomeArbitraryPluginVariable2
 end
 
 @testitem "Get and modify a particular plugin instance within the collection" begin
     import GraphPPL: GraphGlobalPlugin, GraphPlugin, materialize_plugins, is_plugin_present, getplugin, modify_plugin!
-    
-    mutable struct SomeArbitraryPluginGlobal1 
+
+    mutable struct SomeArbitraryPluginGlobal1
         field::Int
     end
 
-    mutable struct SomeArbitraryPluginGlobal2 
+    mutable struct SomeArbitraryPluginGlobal2
         field::Float64
     end
 
@@ -133,7 +156,7 @@ end
     @test plugin2.field === 0.0
 
     for value in 1:10
-        modify_plugin!(collection, SomeArbitraryPluginGlobal1) do plugin 
+        modify_plugin!(collection, SomeArbitraryPluginGlobal1) do plugin
             plugin.field = value
         end
         @test plugin1.field === value
@@ -141,18 +164,18 @@ end
     end
 
     for value in float.(1:10)
-        modify_plugin!(collection, SomeArbitraryPluginGlobal2) do plugin 
+        modify_plugin!(collection, SomeArbitraryPluginGlobal2) do plugin
             plugin.field = value
         end
         @test plugin1.field === 10 # the last value in the previous test was 10
         @test plugin2.field === value
     end
 
-    @test_throws ErrorException modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin 
+    @test_throws ErrorException modify_plugin!(collection, SomeArbitraryPluginGlobal3) do plugin
         nothing
     end
 
-    @test collection === modify_plugin!(collection, SomeArbitraryPluginGlobal3, Val(false)) do plugin 
+    @test collection === modify_plugin!(collection, SomeArbitraryPluginGlobal3, Val(false)) do plugin
         nothing
     end
 end
