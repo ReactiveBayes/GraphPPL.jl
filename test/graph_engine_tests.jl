@@ -134,21 +134,17 @@ end
     @test haskey(NodeCreationOptions(arbitrary_option = 1), :arbitrary_option)
     @test NodeCreationOptions(arbitrary_option = 1)[:arbitrary_option] === 1
 
-    @test haskey(NodeCreationOptions(a = 1, b = 2), :b)
-    @test NodeCreationOptions(a = 1, b = 2)[:b] === 2
-end
+    @test @inferred(haskey(NodeCreationOptions(a = 1, b = 2), :b)) === true
+    @test @inferred(haskey(NodeCreationOptions(a = 1, b = 2), :c)) === false
+    @test @inferred(NodeCreationOptions(a = 1, b = 2)[:a]) === 1
+    @test @inferred(NodeCreationOptions(a = 1, b = 2)[:b]) === 2
+    
+    @test_throws ErrorException NodeCreationOptions(a = 1, b = 2)[:c]
 
-@testitem "FactorNodeOptions" begin
-    import GraphPPL: FactorNodeOptions
+    @test NodeCreationOptions(a = 1, b = 2)[(:a, )] === NodeCreationOptions(a = 1)
+    @test NodeCreationOptions(a = 1, b = 2)[(:b, )] === NodeCreationOptions(b = 2)
 
-    @test FactorNodeOptions(nothing) == FactorNodeOptions(nothing, nothing, nothing, nothing)
-    @test FactorNodeOptions() == FactorNodeOptions(nothing, nothing, nothing, nothing)
-    @test FactorNodeOptions((anonymous = true,)) == FactorNodeOptions(nothing, nothing, nothing, (anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)),)) == FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, nothing)
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true)) == FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, (anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true)) == FactorNodeOptions(:(x ~ Normal(0, 1)), nothing, nothing, (anonymous = true,))
-    @test FactorNodeOptions((created_by = :(x ~ Normal(0, 1)), anonymous = true, parent_options = FactorNodeOptions())) ==
-        FactorNodeOptions(:(x ~ Normal(0, 1)), FactorNodeOptions(), nothing, (anonymous = true,))
+    @test keys(NodeCreationOptions(a = 1, b = 2)) == (:a, :b)
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin

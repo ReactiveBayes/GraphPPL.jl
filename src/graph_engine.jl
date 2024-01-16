@@ -106,7 +106,9 @@ end
 NodeCreationOptions(; kwargs...) = NodeCreationOptions((; kwargs...))
 
 Base.haskey(options::NodeCreationOptions, key::Symbol) = haskey(options.options, key)
-Base.getindex(options::NodeCreationOptions, key::Symbol) = getindex(options.options, key)
+Base.getindex(options::NodeCreationOptions, keys...) = getindex(options.options, keys...)
+Base.getindex(options::NodeCreationOptions, keys::NTuple{N, Symbol}) where {N} = NodeCreationOptions(getindex(options.options, keys))
+Base.keys(options::NodeCreationOptions) = keys(options.options)
 
 mutable struct VariableNodeOptions
     value::Any
@@ -177,32 +179,6 @@ function Base.show(io::IO, node::VariableNodeData)
         print(io, ", linked to ", node.link)
     end
 end
-
-mutable struct FactorNodeOptions
-    created_by::Any
-    parent_options::Union{Nothing, FactorNodeOptions}
-    meta::Any
-    others::Any
-end
-
-Base.:(==)(left::FactorNodeOptions, right::FactorNodeOptions) = left.created_by == right.created_by && left.parent_options == right.parent_options && left.others == right.others
-
-FactorNodeOptions() = FactorNodeOptions(nothing, nothing, nothing, nothing)
-FactorNodeOptions(::Nothing) = FactorNodeOptions()
-
-function FactorNodeOptions(options::NamedTuple)
-    created_by = get(options, :created_by, nothing)
-    parent_options = get(options, :parent_options, nothing)
-    meta = get(options, :meta, nothing)
-    # Type-stable deletion of keys
-    _remaining_options = options[filter(key -> key ∉ (:created_by, :parent_options, :meta), keys(options))]
-    remaining_options = isempty(_remaining_options) ? nothing : _remaining_options
-
-    return FactorNodeOptions(created_by, parent_options, meta, remaining_options)
-end
-
-created_by(options::FactorNodeOptions) = options.created_by
-meta(options::FactorNodeOptions) = options.meta
 
 """
     FactorNodeData(fform::Any, plugins::PluginCollection, options::NamedTuple)
