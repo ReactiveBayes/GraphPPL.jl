@@ -10,20 +10,21 @@ struct GraphPlugin{T} end
 
 # Holds a collection of `GraphPlugin`'s in a form of a tuple
 # We use this structure to dispatch on the `+` and `|` operators
-struct GraphPlugins{T}
+struct PluginSpecification{T}
     specification::T
 end
 
-GraphPlugin(::Type{T}) where {T} = GraphPlugins((GraphPlugin{T}(),))
-GraphPlugins() = GraphPlugins(())
+PluginSpecification() = PluginSpecification(())
 
-function Base.:(+)(left::GraphPlugins, right::GraphPlugins)
-    return GraphPlugins((left.specification..., right.specification...))
+function Base.:(+)(left::PluginSpecification, right::PluginSpecification)
+    return PluginSpecification((left.specification..., right.specification...))
 end
 
-function Base.:(|)(left::GraphPlugins, right::GraphPlugins)
-    return GraphPlugins((left.specification..., right.specification...))
+function Base.:(|)(left::PluginSpecification, right::PluginSpecification)
+    return PluginSpecification((left.specification..., right.specification...))
 end
+
+GraphPlugin(::Type{T}) where {T} = PluginSpecification((GraphPlugin{T}(),))
 
 plugin_type(::Type) = UnknownPluginType()
 plugin_type(::GraphPlugin{T}) where {T} = plugin_type(T)
@@ -51,8 +52,8 @@ A trait object for plugins that add extra functionality for variable nodes.
 """
 struct VariableNodePlugin <: AbstractPluginTraitType end
 
-function Base.filter(ptype::AbstractPluginTraitType, specification::GraphPlugins)
-    return GraphPlugins(filter(p -> plugin_type(p) === ptype, specification.specification))
+function Base.filter(ptype::AbstractPluginTraitType, specification::PluginSpecification)
+    return PluginSpecification(filter(p -> plugin_type(p) === ptype, specification.specification))
 end
 
 """
@@ -65,11 +66,11 @@ end
 # By default the collection is empty
 PluginCollection() = PluginCollection(())
 
-function materialize_plugins(plugins::GraphPlugins)
+function materialize_plugins(plugins::PluginSpecification)
     return materialize_plugins(PluginCollection(), plugins.specification)
 end
 
-function materialize_plugins(ptype::AbstractPluginTraitType, plugins::GraphPlugins)
+function materialize_plugins(ptype::AbstractPluginTraitType, plugins::PluginSpecification)
     return materialize_plugins(filter(ptype, plugins))
 end
 

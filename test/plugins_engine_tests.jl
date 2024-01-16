@@ -7,6 +7,22 @@
     @test plugin_type(SomeArbitraryType) isa UnknownPluginType
 end
 
+@testitem "Test `+` and `|` oeprators" begin 
+    import GraphPPL: plugin_type, GraphPlugin, GraphGlobalPlugin, FactorNodePlugin, VariableNodePlugin, PluginSpecification
+
+    struct SomeArbitraryTypeGlobal end
+    struct SomeArbitraryTypeFactor end
+    struct SomeArbitraryTypeVariable end
+
+    GraphPPL.plugin_type(::Type{SomeArbitraryTypeGlobal}) = GraphGlobalPlugin()
+    GraphPPL.plugin_type(::Type{SomeArbitraryTypeFactor}) = FactorNodePlugin()
+    GraphPPL.plugin_type(::Type{SomeArbitraryTypeVariable}) = VariableNodePlugin()
+
+    @test GraphPlugin(SomeArbitraryTypeGlobal) + GraphPlugin(SomeArbitraryTypeFactor) + GraphPlugin(SomeArbitraryTypeVariable) == PluginSpecification((GraphPlugin{SomeArbitraryTypeGlobal}(), GraphPlugin{SomeArbitraryTypeFactor}(), GraphPlugin{SomeArbitraryTypeVariable}()))
+    @test GraphPlugin(SomeArbitraryTypeGlobal) | GraphPlugin(SomeArbitraryTypeFactor) | GraphPlugin(SomeArbitraryTypeVariable) == PluginSpecification((GraphPlugin{SomeArbitraryTypeGlobal}(), GraphPlugin{SomeArbitraryTypeFactor}(), GraphPlugin{SomeArbitraryTypeVariable}()))
+    @test GraphPlugin(SomeArbitraryTypeGlobal) + GraphPlugin(SomeArbitraryTypeFactor) + GraphPlugin(SomeArbitraryTypeVariable) == GraphPlugin(SomeArbitraryTypeGlobal) | GraphPlugin(SomeArbitraryTypeFactor) | GraphPlugin(SomeArbitraryTypeVariable)
+end
+
 @testitem "`GraphPlugin{T}` should have the same plugin type as `T`" begin
     import GraphPPL: plugin_type, GraphPlugin, GraphGlobalPlugin, FactorNodePlugin, VariableNodePlugin
 

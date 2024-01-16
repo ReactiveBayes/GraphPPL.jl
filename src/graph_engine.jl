@@ -37,7 +37,7 @@ Fields:
 """
 struct Model
     graph::MetaGraph
-    plugins::GraphPlugins
+    plugins::PluginSpecification
     counter::Base.RefValue{Int64}
 end
 
@@ -272,8 +272,8 @@ Base.last(label::ProxyLabel) = last(label.proxied, label)
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
-Model(graph::MetaGraph) = Model(graph, GraphPlugins())
-Model(graph::MetaGraph, plugins::GraphPlugins) = Model(graph, plugins, Base.RefValue(0))
+Model(graph::MetaGraph) = Model(graph, PluginSpecification())
+Model(graph::MetaGraph, plugins::PluginSpecification) = Model(graph, plugins, Base.RefValue(0))
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
 Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = Base.setindex!(model.graph, val, src, dst)
@@ -577,7 +577,7 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(; fform = identity, plugins = GraphPlugins())
+function create_model(; fform = identity, plugins = PluginSpecification())
     graph = MetaGraph(Graph(), label_type = NodeLabel, vertex_data_type = NodeData, graph_data = Context(fform), edge_data_type = EdgeLabel)
     model = Model(graph, plugins)
     return model
