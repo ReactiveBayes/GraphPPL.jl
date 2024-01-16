@@ -322,12 +322,13 @@ end
 end
 
 @testitem "getindex(::Model, ::NodeLabel)" begin
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, VariableNodeOptions
+    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties
 
     model = create_model()
+    ctx = getcontext(model)
     label = NodeLabel(:x, 1)
-    model[label] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
-    @test isa(model[label], VariableNodeData)
+    model[label] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
+    @test isa(model[label], NodeData{VariableNodeProperties})
     @test_throws KeyError model[NodeLabel(:x, 10)]
     @test_throws MethodError model[0]
 end
@@ -344,14 +345,15 @@ end
 end
 
 @testitem "nv_ne(::Model)" begin
-    import GraphPPL: create_model, nv, ne, VariableNodeData, NodeLabel, EdgeLabel, VariableNodeOptions
+    import GraphPPL: create_model, getcontext, nv, ne, NodeData, VariableNodeProperties, NodeLabel, EdgeLabel
 
     model = create_model()
+    ctx = getcontext(model)
     @test nv(model) == 0
     @test ne(model) == 0
 
-    model[NodeLabel(:a, 1)] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
-    model[NodeLabel(:b, 2)] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, nothing)
+    model[NodeLabel(:a, 1)] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
+    model[NodeLabel(:b, 2)] = NodeData(ctx, VariableNodeProperties(name = :b, index = nothing))
     @test nv(model) == 2
     @test ne(model) == 0
 
@@ -361,19 +363,20 @@ end
 end
 
 @testitem "edges" begin
-    import GraphPPL: edges, create_model, VariableNodeData, NodeLabel, EdgeLabel, getname, VariableNodeOptions, add_edge!, FactorNodeOptions, FactorNodeData
+    import GraphPPL: edges, create_model, getcontext, getproperties, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, add_edge!
 
     # Test 1: Test getting all edges from a model
     model = create_model()
+    ctx = getcontext(model)
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
-    model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
-    model[b] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
+    model[a] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
+    model[b] = NodeData(ctx, FactorNodeProperties(fform = sum))
     add_edge!(model, b, a, :edge; index = 1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
-    model[NodeLabel(:c, 2)] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
+    model[NodeLabel(:c, 2)] = NodeData(ctx, FactorNodeProperties(fform = sum))
     add_edge!(model, c, a, :edge; index = 2)
     @test length(edges(model)) == 2
 
@@ -387,26 +390,26 @@ end
 @testitem "neighbors(::Model, ::NodeData)" begin
     include("model_zoo.jl")
     import GraphPPL:
-        create_model, getcontext, neighbors, VariableNodeData, NodeLabel, EdgeLabel, getname, ResizableArray, VariableNodeOptions, add_edge!, FactorNodeData, FactorNodeOptions
+        create_model, getcontext, neighbors, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, ResizableArray, add_edge!
     model = create_model()
-    __context__ = getcontext(model)
+    ctx = getcontext(model)
 
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
-    model[a] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
-    model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
+    model[a] = NodeData(ctx, FactorNodeProperties(fform = sum))
+    model[b] = NodeData(ctx, VariableNodeProperties(name = :b, index = nothing))
     add_edge!(model, a, b, :edge; index = 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
-    __context__ = getcontext(model)
+    ctx = getcontext(model)
     a = ResizableArray(NodeLabel, Val(1))
     b = ResizableArray(NodeLabel, Val(1))
     for i in 1:3
         a[i] = NodeLabel(:a, i)
-        model[a[i]] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
+        model[a[i]] = NodeData(ctx, FactorNodeProperties(fform = sum))
         b[i] = NodeLabel(:b, i)
-        model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__)
+        model[b[i]] = NodeData(ctx, VariableNodeProperties(name = :b, index = i))
         add_edge!(model, a[i], b[i], :edge; index = i)
     end
     for n in b

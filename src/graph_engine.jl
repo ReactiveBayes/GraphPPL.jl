@@ -1,8 +1,10 @@
 using MetaGraphsNext, MetaGraphsNext.Graphs
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 using BitSetTuples
 using Static
 using NamedTupleTools
+
+import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
+import MetaGraphsNext.Graphs: neighbors
 
 aliases(f) = (f,)
 
@@ -352,7 +354,7 @@ abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
-    return apply(IsFactorNode(), model, something) && fform(model[something]) ∈ aliases(N)
+    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(N)
 end
 
 struct IsFactorNode <: AbstractModelFilterPredicate end
@@ -364,7 +366,7 @@ end
 struct VariableNodePredicate{V} <: AbstractModelFilterPredicate end
 
 function apply(::VariableNodePredicate{N}, model, something) where {N}
-    return apply(IsVariableNode(), model, something) && getname(model[something]) === N
+    return apply(IsVariableNode(), model, something) && getname(getproperties(model[something])) === N
 end
 
 struct IsVariableNode <: AbstractModelFilterPredicate end
