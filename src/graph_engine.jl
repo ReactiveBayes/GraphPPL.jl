@@ -86,6 +86,12 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
+"""
+    NodeCreationOptions(namedtuple)
+
+Options for creating a node in a probabilistic graphical model. These are typically coming from the `where {}` block 
+in the `@model` macro, but can also be created manually. Expects a `NamedTuple` as an input.
+"""
 struct NodeCreationOptions{N <: NamedTuple}
     options::N
 end
@@ -148,6 +154,8 @@ distribution to a certain family of distributions.
 """
 fform_constraint(node::VariableNodeData) = fform_constraint(options(node))
 message_constraint(node::VariableNodeData) = message_constraint(options(node))
+
+options(nodedata::VariableNodeData) = nodedata.options
 
 is_datavar(node::VariableNodeData) = is_datavar(options(node))
 is_constant(node::VariableNodeData) = is_constant(options(node))
@@ -214,8 +222,6 @@ factorization_constraint(node::FactorNodeData) = node.factorization_constraint
 set_factorization_constraint!(node::FactorNodeData, constraint) = node.factorization_constraint = constraint
 
 const NodeData = Union{FactorNodeData, VariableNodeData}
-
-options(node::NodeData) = node.options
 
 getcontext(node::NodeData) = node.context
 meta(node::NodeData) = meta(options(node))

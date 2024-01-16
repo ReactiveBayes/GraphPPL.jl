@@ -138,17 +138,33 @@ end
         FactorNodeOptions(:(x ~ Normal(0, 1)), FactorNodeOptions(), nothing, (anonymous = true,))
 end
 
-@testitem "Check that FactorNodeOptions are unique" begin
-    import GraphPPL: options, factor_nodes
+@testitem "Check that factor node plugins are uniquely recreated" begin
+    import GraphPPL: getplugins, getplugin, factor_nodes
 
     include("model_zoo.jl")
+
+    mutable struct AnArbitraryPluginForTestUniqeness
+        value::Int
+    end
+
+    value = Ref(0)
+
+    GraphPPL.plugin_type(::Type{AnArbitraryPluginForTestUniqeness}) = GraphPPL.FactorNodePlugin()
+
+    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForTestUniqeness})
+        value[] = value[] + 1
+        return AnArbitraryPluginForTestUniqeness(value[])
+    end
+
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
-        for f1 in factor_nodes(model)
-            for f2 in factor_nodes(model)
-                if f1 !== f2
-                    @test options(model[f1]) !== options(model[f2])
-                end
+        model = create_terminated_model(model_name; plugins = GraphPPL.GraphPlugin(AnArbitraryPluginForTestUniqeness))
+        for f1 in factor_nodes(model), f2 in factor_nodes(model)
+            if f1 !== f2
+                @test getplugins(model[f1]) !== getplugins(model[f2])
+                @test getplugin(model[f1], AnArbitraryPluginForTestUniqeness).value !== getplugin(model[f2], AnArbitraryPluginForTestUniqeness).value
+            else
+                @test getplugins(model[f1]) === getplugins(model[f2])
+                @test getplugin(model[f1], AnArbitraryPluginForTestUniqeness).value === getplugin(model[f2], AnArbitraryPluginForTestUniqeness).value
             end
         end
     end
@@ -239,7 +255,7 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext, VariableNodeOptions, FactorNodeOptions
+    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext, VariableNodeOptions, FactorNodeOptions, PluginCollection
 
     model = create_model()
     model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing)
@@ -251,7 +267,7 @@ end
     model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), nothing, FactorNodeOptions(), ())
+    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), PluginCollection(), nothing, ())
     @test nv(model) == 3 && ne(model) == 0
 end
 
@@ -332,12 +348,12 @@ end
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
     model[a] = VariableNodeData(:a, VariableNodeOptions(), nothing, nothing, nothing)
-    model[b] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    model[b] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
     add_edge!(model, b, a, :edge; index = 1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
-    model[NodeLabel(:c, 2)] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    model[NodeLabel(:c, 2)] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
     add_edge!(model, c, a, :edge; index = 2)
     @test length(edges(model)) == 2
 
@@ -357,7 +373,7 @@ end
 
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
-    model[a] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+    model[a] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
     model[b] = VariableNodeData(:b, VariableNodeOptions(), nothing, nothing, __context__)
     add_edge!(model, a, b, :edge; index = 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
@@ -368,7 +384,7 @@ end
     b = ResizableArray(NodeLabel, Val(1))
     for i in 1:3
         a[i] = NodeLabel(:a, i)
-        model[a[i]] = FactorNodeData(sum, GraphPPL.Context(), nothing, FactorNodeOptions(), ())
+        model[a[i]] = FactorNodeData(sum, GraphPPL.Context(), GraphPPL.PluginCollection(), nothing, ())
         b[i] = NodeLabel(:b, i)
         model[b[i]] = VariableNodeData(:b, VariableNodeOptions(), i, nothing, __context__)
         add_edge!(model, a[i], b[i], :edge; index = i)
@@ -892,33 +908,38 @@ end
 @testitem "add_atomic_factor_node!" begin
     using Distributions
     using Graphs
-    import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, options, getcontext, getorcreate!, label_for, getname, FactorNodeOptions
+    import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, getcontext, getorcreate!, label_for, getname, NodeCreationOptions
 
     # Test 1: Add an atomic factor node to the model
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = add_atomic_factor_node!(model, ctx, sum)
+    node_id = add_atomic_factor_node!(model, ctx, options, sum)
     @test nv(model) == 2 && getname(label_for(model.graph, 2)) == sum
 
     # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
-    node_id = add_atomic_factor_node!(model, ctx, sum)
+    node_id = add_atomic_factor_node!(model, ctx, options, sum)
     @test nv(model) == 3 && getname(label_for(model.graph, 3)) == sum
 
     # Test 3: Add an atomic factor node with options
-    node_id = add_atomic_factor_node!(model, ctx, sum; __options__ = FactorNodeOptions((is_constrained = true,)))
-    @test options(model[node_id]) == FactorNodeOptions((is_constrained = true,))
+    options = NodeCreationOptions((; an_arbitrary_option = true, ))
+    node_id = add_atomic_factor_node!(model, ctx, options, sum)
+    @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
+    @test_broken false # TODO: ideally we would like to test that the option affects the creation here
 
-    #Test 4: Make sure alias is added
-    node_id = add_atomic_factor_node!(model, ctx, sum; __options__ = FactorNodeOptions((is_constrained = true,)))
+    #Test 4: Make sure alias is added for the `+` node
+    options = NodeCreationOptions()
+    node_id = add_atomic_factor_node!(model, ctx, options, sum)
     @test getname(node_id) == sum
+    @test_broken false # TODO: check with Wouter the purpose of this test
 
     # Test 5: Test that creating a node with an instantiated object is supported
-
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     prior = Normal(0, 1)
-    node_id = add_atomic_factor_node!(model, ctx, prior)
+    node_id = add_atomic_factor_node!(model, ctx, options, prior)
     @test nv(model) == 1 && getname(label_for(model.graph, 1)) == Normal(0, 1)
 end
 
@@ -946,11 +967,12 @@ end
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
-    import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel
+    import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel, NodeCreationOptions
 
     model = create_model()
     ctx = getcontext(model)
-    x = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
+    options = NodeCreationOptions()
+    x = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
     add_edge!(model, x, y, :interface)
@@ -961,10 +983,11 @@ end
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
-    import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!
+    import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, NodeCreationOptions
     model = create_model()
     ctx = getcontext(model)
-    x = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
+    options = NodeCreationOptions()
+    x = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
     variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
@@ -1010,17 +1033,18 @@ end
     using Graphs
     using BitSetTuples
     import GraphPPL:
-        getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, getname, label_for, edges, MixedArguments, options, prune!, fform, value
+        getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, getname, label_for, edges, MixedArguments, prune!, fform, value, NodeCreationOptions
     # Test 1: Deterministic call returns result of deterministic function and does not create new node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    @test make_node!(model, ctx, +, x, [1, 1]) == 2
-    @test make_node!(model, ctx, sin, x, [0]) == 0
+    @test make_node!(model, ctx, options, +, x, [1, 1]) == 2
+    @test make_node!(model, ctx, options, sin, x, [0]) == 0
     @test nv(model) == 1
 
     # Test 2: Stochastic atomic call returns a new node
-    node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
+    node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
@@ -1028,33 +1052,37 @@ end
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, Normal, x, [0, 1])
+    make_node!(model, ctx, options, Normal, x, [0, 1])
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, +, out, [in1, in2])
+    make_node!(model, ctx, options, +, out, [in1, in2])
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 5: Deterministic atomic call with nodelabels should create the actual node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, +, out, (in = [in1, in2],))
+    make_node!(model, ctx, options, +, out, (in = [in1, in2],))
     @test nv(model) == 4
 
     # Test 6: Stochastic node with default arguments
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, Normal, x, [0, 1])
+    node_id = make_node!(model, ctx, options, Normal, x, [0, 1])
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
@@ -1063,32 +1091,36 @@ end
     # Test 7: Stochastic node with instantiated object
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     uprior = Normal(0, 1)
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, uprior, x, nothing)
+    node_id = make_node!(model, ctx, options, uprior, x, nothing)
     @test nv(model) == 2
     @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(1)
 
     # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_throws AssertionError make_node!(model, ctx, +, out, (in = in1, out = in2))
+    @test_throws AssertionError make_node!(model, ctx, options, +, out, (in = in1, out = in2))
 
     # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, ArbitraryNode, out, (in = [0, 1],))
+    make_node!(model, ctx, options, ArbitraryNode, out, (in = [0, 1],))
     @test nv(model) == 3 && value(model[ctx[:constvar_3]]) == [0, 1]
 
     # Test 9: Stochastic node with all interfaces defined as constants
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, ArbitraryNode, out, [1, 1]; __debug__ = false)
+    make_node!(model, ctx, options, ArbitraryNode, out, [1, 1])
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
@@ -1099,8 +1131,9 @@ end
     end
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    out = make_node!(model, ctx, abc, out, (a = 1, b = 2))
+    out = make_node!(model, ctx, options, abc, out, (a = 1, b = 2))
     @test out == 3
 
     # Test 11: Deterministic node with mixed arguments
@@ -1109,49 +1142,55 @@ end
     end
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    out = make_node!(model, ctx, abc, out, MixedArguments([2], (b = 2,)))
+    out = make_node!(model, ctx, options, abc, out, MixedArguments([2], (b = 2,)))
     @test out == 4
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
     a = getorcreate!(model, ctx, :a, nothing)
-    @test_throws ErrorException make_node!(model, ctx, abc, out, MixedArguments([a], (b = 2,)))
+    @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments([a], (b = 2,)))
 
     # Test 13: Make stochastic node with aliases
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, Normal, x, (μ = 0, τ = 1))
+    node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, τ = 1))
     @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
     @test factorization_constraint(model[label_for(model.graph, 2)]) == BitSetTuple(3)
 
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, Normal, x, (μ = 0, σ = 1))
+    node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, Normal, x, [0, 1])
+    node_id = make_node!(model, ctx, options, Normal, x, [0, 1])
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     x = ProxyLabel(:x, nothing, x)
     y = getorcreate!(model, ctx, :y, nothing)
     y = ProxyLabel(:y, nothing, y)
     z = getorcreate!(model, ctx, :z, nothing)
-    node_id = make_node!(model, ctx, +, z, [x, y])
+    node_id = make_node!(model, ctx, options, +, z, [x, y])
     prune!(model)
     @test nv(model) == 4
 end
@@ -1159,14 +1198,15 @@ end
 @testitem "materialize_factor_node!" begin
     using Distributions
     using Graphs
-    import GraphPPL: getcontext, materialize_factor_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, prune!, getname, label_for, edges
+    import GraphPPL: getcontext, materialize_factor_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, prune!, getname, label_for, edges, NodeCreationOptions
 
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
 
     # Test 1: Stochastic atomic call returns a new node
-    node_id = materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
+    node_id = materialize_factor_node!(model, ctx, options, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
@@ -1174,28 +1214,31 @@ end
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    materialize_factor_node!(model, ctx, Normal, (out = x, μ = 0, σ = 1))
+    materialize_factor_node!(model, ctx, options, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    materialize_factor_node!(model, ctx, +, (out = out, in = (in1, in2)))
+    materialize_factor_node!(model, ctx, options, +, (out = out, in = (in1, in2)))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     x = ProxyLabel(:x, nothing, x)
     y = getorcreate!(model, ctx, :y, nothing)
     y = ProxyLabel(:y, nothing, y)
     z = getorcreate!(model, ctx, :z, nothing)
-    node_id = materialize_factor_node!(model, ctx, +, (out = z, in = (x, y)))
+    node_id = materialize_factor_node!(model, ctx, options, +, (out = z, in = (x, y)))
     prune!(model)
     @test nv(model) == 4
 end
@@ -1203,32 +1246,35 @@ end
 @testitem "make_node!(::Composite)" begin
     include("model_zoo.jl")
     using Graphs
-    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel
+    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, NodeCreationOptions
     #test make node for priors
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, prior, ProxyLabel(:x, nothing, x), [])
+    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), [])
     @test nv(model) == 4
     @test ctx[prior, 1][:a] === ProxyLabel(:x, nothing, x)
 
     #test make node for other composite models
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, gcv, ProxyLabel(:x, nothing, x), [0, 1])
+    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, x), [0, 1])
 
     # test make node of broadcastable composite model
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, broadcaster, ProxyLabel(:out, nothing, out), [])
+    make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), [])
     @test nv(model) == 103
 end
 
 @testitem "prune!(m::Model)" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, getorcreate!, prune!, create_model, getorcreate!, add_edge!
+    import GraphPPL: create_model, getcontext, getorcreate!, prune!, create_model, getorcreate!, add_edge!, NodeCreationOptions
 
     # Test 1: Prune a node with no edges
     model = create_model()
@@ -1240,8 +1286,9 @@ end
     # Test 2: Prune two nodes
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    y = GraphPPL.add_atomic_factor_node!(model, ctx, sum)
+    y = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     z = getorcreate!(model, ctx, :z, nothing)
     w = getorcreate!(model, ctx, :w, nothing)
 
@@ -1251,23 +1298,25 @@ end
 end
 
 @testitem "broadcast" begin
-    import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, Broadcasted
+    import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, Broadcasted, NodeCreationOptions
 
     # Test 1: Broadcast a vector node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1)
     x = getorcreate!(model, ctx, :x, 2)
     y = getorcreate!(model, ctx, :y, 1)
     y = getorcreate!(model, ctx, :y, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
     end, x, y)
     @test size(z) == (2,)
 
     # Test 2: Broadcast a matrix node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1, 1)
     x = getorcreate!(model, ctx, :x, 1, 2)
     x = getorcreate!(model, ctx, :x, 2, 1)
@@ -1278,13 +1327,14 @@ end
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
     end, x, y)
     @test size(z) == (2, 2)
 
     # Test 3: Broadcast a vector node with a matrix node
     model = create_model()
     ctx = getcontext(model)
+    options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1)
     x = getorcreate!(model, ctx, :x, 2)
     y = getorcreate!(model, ctx, :y, 1, 1)
@@ -1292,7 +1342,7 @@ end
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
     end, x, y)
     @test size(z) == (2, 2)
 end
