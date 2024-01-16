@@ -47,33 +47,35 @@ end
 end
 
 @testitem "is_constant" begin
-    import GraphPPL: is_constant, variable_nodes, getname
+    import GraphPPL: is_constant, variable_nodes, getname, getproperties
     include("model_zoo.jl")
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
         model = create_terminated_model(model_name)
         for label in variable_nodes(model)
-            if occursin("constvar", string(getname(model[label])))
-                @test is_constant(model[label])
+            node = model[label]
+            props = getproperties(node)
+            if occursin("constvar", string(getname(props)))
+                @test is_constant(props)
             else
-                @test !is_constant(model[label])
+                @test !is_constant(props)
             end
         end
     end
 end
 
 @testitem "is_datavar" begin
-    import GraphPPL: is_datavar, create_model, getcontext, getorcreate!, variable_nodes, VariableNodeOptions
+    import GraphPPL: is_datavar, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
     include("model_zoo.jl")
 
     m = create_model()
     ctx = getcontext(m)
-    x = getorcreate!(m, ctx, :x, nothing; options = VariableNodeOptions(datavar = true))
-    @test is_datavar(m[x])
+    x = getorcreate!(m, ctx, NodeCreationOptions(datavar = true), :x, nothing)
+    @test is_datavar(getproperties(m[x]))
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
         model = create_terminated_model(model_name)
         for label in variable_nodes(model)
-            @test !is_datavar(model[label])
+            @test !is_datavar(getproperties(model[label]))
         end
     end
 end
