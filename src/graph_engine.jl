@@ -33,16 +33,23 @@ of nodes in the graph.
 
 Fields:
 - `graph`: A `MetaGraph` object representing the factor graph.
+- `plugin_specification`: A `PluginSpecification` object representing the plugins enabled in the model.
+- `plugins`: A `PluginCollection` object representing the global plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
 struct Model
     graph::MetaGraph
-    plugins::PluginSpecification
+    plugin_specification::PluginSpecification
+    plugins::PluginCollection
     counter::Base.RefValue{Int64}
 end
 
 labels(model::Model) = MetaGraphsNext.labels(model.graph)
+
+getplugins_specification(model::Model) = model.plugin_specification
+
 getplugins(model::Model) = model.plugins
+getplugin(model::Model, ::Type{T}, throw_if_not_present = Val(true)) where {T} = getplugin(getplugins(model), T, throw_if_not_present)
 
 """
     NodeLabel(name::Symbol, global_counter::Int64)
@@ -96,7 +103,10 @@ struct NodeCreationOptions{N <: NamedTuple}
     options::N
 end
 
-NodeCreationOptions() = NodeCreationOptions((;))
+NodeCreationOptions(; kwargs...) = NodeCreationOptions((; kwargs...))
+
+Base.haskey(options::NodeCreationOptions, key::Symbol) = haskey(options.options, key)
+Base.getindex(options::NodeCreationOptions, key::Symbol) = getindex(options.options, key)
 
 mutable struct VariableNodeOptions
     value::Any
@@ -273,7 +283,11 @@ Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
 Model(graph::MetaGraph) = Model(graph, PluginSpecification())
-Model(graph::MetaGraph, plugins::PluginSpecification) = Model(graph, plugins, Base.RefValue(0))
+
+function Model(graph::MetaGraph, plugin_specification::PluginSpecification) 
+    plugins = materialize_plugins(GraphGlobalPlugin(), plugin_specification)
+    return Model(graph, plugin_specification, plugins, Base.RefValue(0))
+end
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
 Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = Base.setindex!(model.graph, val, src, dst)
@@ -414,7 +428,6 @@ end
     Context
 
 Contains all information about a submodel in a probabilistic graphical model.
-
 """
 struct Context
     depth::Int64
@@ -758,23 +771,25 @@ function materialize_anonymous_variable!(::Stochastic, model::Model, context::Co
 end
 
 """
-Add an atomic factor node to the model with the given name.
+    add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
 
+Add an atomic factor node to the model with the given name.
 The function generates a new symbol for the node and adds it to the model with
 the generated symbol as the key and a `FactorNodeData` struct.
 
 Args:
     - `model::Model`: The model to which the node is added.
     - `context::Context`: The context to which the symbol is added.
-    - `node_name::Any`: The name of the node.
+    - `options::NodeCreationOptions`: The options for the creation process.
+    - `fform::Any`: The functional form of the node.
 
 Returns:
-    - The generated symbol for the node.
+    - The generated label for the node.
 """
 function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
-    plugins = materialize_plugins(FactorNodePlugin(), getplugins(model))
+    plugins = materialize_plugins(FactorNodePlugin(), getplugins_specification(model))
 
     modify_plugin!(plugins, NodeCreatedByPlugin, Val(false)) do plugin
         # bvdmitri: TODO
@@ -804,7 +819,7 @@ Args:
     - `node_name::Symbol`: The name of the node.
 
 Returns:
-    - The generated symbol for the node.
+    - The generated id for the node.
 """
 function add_composite_factor_node!(model::Model, parent_context::Context, context::Context, node_name)
     node_id = generate_factor_nodelabel(parent_context, node_name)

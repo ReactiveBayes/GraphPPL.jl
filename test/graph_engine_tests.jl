@@ -125,6 +125,19 @@ end
     end
 end
 
+@testitem "NodeCreationOptions" begin 
+    import GraphPPL: NodeCreationOptions
+
+    @test NodeCreationOptions() == NodeCreationOptions()
+    @test NodeCreationOptions(arbitrary_option = 1) == NodeCreationOptions((; arbitrary_option = 1))
+
+    @test haskey(NodeCreationOptions(arbitrary_option = 1), :arbitrary_option)
+    @test NodeCreationOptions(arbitrary_option = 1)[:arbitrary_option] === 1
+
+    @test haskey(NodeCreationOptions(a = 1, b = 2), :b)
+    @test NodeCreationOptions(a = 1, b = 2)[:b] === 2
+end
+
 @testitem "FactorNodeOptions" begin
     import GraphPPL: FactorNodeOptions
 
