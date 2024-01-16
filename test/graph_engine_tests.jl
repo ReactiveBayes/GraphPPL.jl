@@ -126,7 +126,7 @@ end
 end
 
 @testitem "NodeCreationOptions" begin 
-    import GraphPPL: NodeCreationOptions
+    import GraphPPL: NodeCreationOptions, withopts
 
     @test NodeCreationOptions() == NodeCreationOptions()
     @test NodeCreationOptions(arbitrary_option = 1) == NodeCreationOptions((; arbitrary_option = 1))
@@ -145,6 +145,8 @@ end
     @test NodeCreationOptions(a = 1, b = 2)[(:b, )] === NodeCreationOptions(b = 2)
 
     @test keys(NodeCreationOptions(a = 1, b = 2)) == (:a, :b)
+
+    @test @inferred(withopts(NodeCreationOptions(a = 1, b = 2), c = 3)) === NodeCreationOptions(a = 1, b = 2, c = 3)
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
@@ -264,34 +266,39 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, FactorNodeData, getcontext, VariableNodeOptions, FactorNodeOptions, PluginCollection
+    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, FactorNodeProperties, PluginCollection
 
     model = create_model()
-    model[NodeLabel(:μ, 1)] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing)
+    ctx = getcontext(model)
+    model[NodeLabel(:μ, 1)] = NodeData(ctx, VariableNodeProperties(name = :μ))
     @test nv(model) == 1 && ne(model) == 0
 
-    @test_throws MethodError model[0] = 1
-
-    @test_throws MethodError model["string"] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
-    model[NodeLabel(:x, 2)] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
+    model[NodeLabel(:x, 2)] = NodeData(ctx, VariableNodeProperties(name = :x))
     @test nv(model) == 2 && ne(model) == 0
 
-    model[NodeLabel(sum, 3)] = FactorNodeData(sum, getcontext(model), PluginCollection(), nothing, ())
+    model[NodeLabel(sum, 3)] = NodeData(ctx, FactorNodeProperties(fform = sum))
     @test nv(model) == 3 && ne(model) == 0
+
+    @test_throws MethodError model[0] = 1
+    @test_throws MethodError model["string"] = NodeData(ctx, VariableNodeProperties(name = :x))
+    @test_throws MethodError model["string"] = NodeData(ctx, FactorNodeProperties(fform = sum))
 end
 
 @testitem "setindex!(::Model, ::EdgeLabel, ::NodeLabel, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, NodeLabel, VariableNodeData, EdgeLabel, VariableNodeOptions
+    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, EdgeLabel
 
     model = create_model()
+    ctx = getcontext(model)
+
     μ = NodeLabel(:μ, 1)
     x = NodeLabel(:x, 2)
-    model[μ] = VariableNodeData(:μ, VariableNodeOptions(), nothing, nothing, nothing)
-    model[x] = VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, nothing)
-    model[μ, x] = EdgeLabel(:interface, 1)
-    @test ne(model) == 1
 
+    model[μ] = NodeData(ctx, VariableNodeProperties(name = :μ))
+    model[x] = NodeData(ctx, VariableNodeProperties(name = :x))
+    model[μ, x] = EdgeLabel(:interface, 1)
+
+    @test ne(model) == 1
     @test_throws MethodError model[0, 1] = 1
 
     # Test that we can't add an edge between two nodes that don't exist

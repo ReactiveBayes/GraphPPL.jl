@@ -357,9 +357,9 @@ A `quote` block with the code to get or create the variable in the graph.
 function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
+            GraphPPL.getorcreate!(__model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), nothing)
         else
-            (GraphPPL.check_variate_compatability($s, nothing) ? $s : GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing))
+            (GraphPPL.check_variate_compatability($s, nothing) ? $s : GraphPPL.getorcreate!(__model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), nothing))
         end
     end
 end
@@ -380,9 +380,9 @@ A `quote` block with the code to get or create the variable in the graph.
 function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
+            GraphPPL.getorcreate!(__model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), $(index...))
         else
-            (GraphPPL.check_variate_compatability($s, $(index...)) ? $s : GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...)))
+            (GraphPPL.check_variate_compatability($s, $(index...)) ? $s : GraphPPL.getorcreate!(__model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), $(index...)))
         end
     end
 end

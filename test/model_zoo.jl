@@ -225,8 +225,9 @@ end
     end
 end
 
-GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
-    begin
-        q(a, d) = q(a)q(d)
-    end
-)
+# TODO: (bvdmitri) uncomment!
+# GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
+#     begin
+#         q(a, d) = q(a)q(d)
+#     end
+# )
