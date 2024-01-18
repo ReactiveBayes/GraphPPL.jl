@@ -368,13 +368,13 @@ Data associated with a factor node in a probabilistic graphical model.
 """
 mutable struct FactorNodeProperties
     fform::Any
-    neighbors::Any
+    neighbors::Vector{Tuple{NodeLabel, EdgeLabel}}
     factorization_constraint::Any
 end
 
 FactorNodeProperties(;
     fform,
-    neighbors = (),
+    neighbors = Tuple{NodeLabel, EdgeLabel}[],
     factorization_constraint = nothing,
 ) = FactorNodeProperties(fform, neighbors, factorization_constraint)
 
@@ -384,14 +384,16 @@ is_variable(::FactorNodeProperties) = false
 function Base.convert(::Type{FactorNodeProperties}, fform, options::NodeCreationOptions)
     return FactorNodeProperties(
         fform = fform,
-        neighbors = get(options, :neighbors, ()),
+        neighbors = get(options, :neighbors, Tuple{NodeLabel, EdgeLabel}[]),
         factorization_constraint = get(options, :factorization_constraint, nothing),
     )
 end
 
 fform(properties::FactorNodeProperties) = properties.fform
 factorization_constraint(properties::FactorNodeProperties) = properties.factorization_constraint
+
 neighbors(properties::FactorNodeProperties) = properties.neighbors
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel) = push!(properties.neighbors, (variable, edge))
 
 set_factorization_constraint!(properties::FactorNodeProperties, constraint) = properties.factorization_constraint = constraint
 
@@ -489,13 +491,13 @@ Graphs.neighbors(model::Model, node::NodeLabel, nodedata::NodeData, properties::
 Graphs.neighbors(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties) = MetaGraphsNext.neighbor_labels(model.graph, node)
 
 Graphs.edges(model::Model, node::NodeLabel) = Graphs.edges(model, node, model[node])
-Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Tuple(Iterators.flatten(map(node -> Graphs.edges(model, node), nodes)))
+Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.edges(model, node), nodes))
 
 Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData) = Graphs.edges(model, node, nodedata, getproperties(nodedata))
 Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties) = map(neighbor -> neighbor[2], neighbors(properties))
 
 function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties)
-    return Tuple(model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
+    return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
 end
 
 abstract type AbstractModelFilterPredicate end
@@ -859,7 +861,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     model[factornode_label] = nodedata
     context.factor_nodes[factornode_id] = factornode_label
     
-    return factornode_label
+    return factornode_label, nodedata, properties
 end
 
 factor_alias(any, interfaces) = any
@@ -890,23 +892,25 @@ end
 
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
-function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol)
-    return add_edge!(model, factor_node_id, variable_node_id, interface_name, nothing)
+function add_edge!(model::Model, factor_node_id::NodeLabel, factor_node_propeties::FactorNodeProperties, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol)
+    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
 end
 
-function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol, index)
+function add_edge!(model::Model, factor_node_id::NodeLabel, factor_node_propeties::FactorNodeProperties, variable_node_id::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol)
+    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, 1)
+end
+
+function add_edge!(model::Model, factor_node_id::NodeLabel, factor_node_propeties::FactorNodeProperties, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol, index)
     label = EdgeLabel(interface_name, index)
-    nodedata = model[factor_node_id]
-    properties = getproperties(nodedata)
     # TODO: (bvdmitri) perhaps we should use a different data structure for neighbors, tuples extension might be slow
-    properties.neighbors = (properties.neighbors..., (unroll(variable_node_id), label))
+    addneighbor!(factor_node_propeties, unroll(variable_node_id), label)
+    # factor_node_propeties.neighbors = (factor_node_propeties.neighbors..., (unroll(variable_node_id), label))
     model.graph[unroll(variable_node_id), factor_node_id] = label
 end
 
-function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol)
-    index = 1
+function add_edge!(model::Model, factor_node_id::NodeLabel, factor_node_propeties::FactorNodeProperties, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol, index)
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, variable_node, interface_name, index)
+        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, index)
         index += increase_index(variable_node)
     end
 end
@@ -1147,9 +1151,9 @@ end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
     interfaces = sort_interfaces(fform, interfaces)
-    factor_node_id = add_atomic_factor_node!(model, context, options, fform)
+    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
     for (interface_name, neighbor_nodelabel) in iterator(interfaces)
-        add_edge!(model, factor_node_id, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
+        add_edge!(model, factor_node_id, factor_node_properties, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
     end
     # TODO (bvdmitri): this must be a part of the addons, perhaps move to the `add_atomic_factor_node!`
     add_factorization_constraint!(model, factor_node_id)

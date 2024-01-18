@@ -1530,7 +1530,7 @@ end
     using GraphPPL
     using Graphs
     using MetaGraphsNext
-    import GraphPPL: model_macro_interior, create_model, getcontext, getorcreate!, make_node!, proxylabel, add_terminated_submodel!, NodeCreationOptions
+    import GraphPPL: model_macro_interior, create_model, getcontext, getorcreate!, make_node!, proxylabel, add_terminated_submodel!, NodeCreationOptions, getproperties
 
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)
@@ -1561,7 +1561,7 @@ end
     make_node!(model, ctx, options, test_model, proxylabel(:μ, nothing, μ), (σ = σ,))
     x = ctx[test_model, 1][:x]
     for i in x
-        @test isa(i, GraphPPL.NodeLabel) && isa(model[i], GraphPPL.NodeData{GraphPPL.VariableNodeProperties})
+        @test isa(i, GraphPPL.NodeLabel) && isa(model[i], GraphPPL.NodeData) && isa(getproperties(model[i]), GraphPPL.VariableNodeProperties)
     end
     @test nv(model) == 24
 

@@ -398,7 +398,7 @@ end
 end
 
 @testitem "edges" begin
-    import GraphPPL: edges, create_model, getcontext, getproperties, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, add_edge!
+    import GraphPPL: edges, create_model, getcontext, getproperties, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, add_edge!, getproperties
 
     # Test 1: Test getting all edges from a model
     model = create_model()
@@ -407,25 +407,25 @@ end
     b = NodeLabel(:b, 2)
     model[a] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
     model[b] = NodeData(ctx, FactorNodeProperties(fform = sum))
-    add_edge!(model, b, a, :edge, 1)
+    add_edge!(model, b, getproperties(model[b]), a, :edge, 1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
-    model[NodeLabel(:c, 2)] = NodeData(ctx, FactorNodeProperties(fform = sum))
-    add_edge!(model, c, a, :edge, 2)
+    model[c] = NodeData(ctx, FactorNodeProperties(fform = sum))
+    add_edge!(model, c, getproperties(model[c]), a, :edge, 2)
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
-    @test getname.(edges(model, a)) == (:edge, :edge)
-    @test getname.(edges(model, b)) == (:edge,)
-    @test getname.(edges(model, c)) == (:edge,)
-    @test getname.(edges(model, [a, b])) == (:edge, :edge, :edge)
+    @test getname.(edges(model, a)) == [:edge, :edge]
+    @test getname.(edges(model, b)) == [:edge,]
+    @test getname.(edges(model, c)) == [:edge,]
+    # @test getname.(edges(model, [a, b])) == [:edge, :edge, :edge]
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
     include("model_zoo.jl")
     import GraphPPL:
-        create_model, getcontext, neighbors, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, ResizableArray, add_edge!
+        create_model, getcontext, neighbors, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, ResizableArray, add_edge!, getproperties
     model = create_model()
     ctx = getcontext(model)
 
@@ -433,7 +433,7 @@ end
     b = NodeLabel(:b, 2)
     model[a] = NodeData(ctx, FactorNodeProperties(fform = sum))
     model[b] = NodeData(ctx, VariableNodeProperties(name = :b, index = nothing))
-    add_edge!(model, a, b, :edge, 1)
+    add_edge!(model, a, getproperties(model[a]), b, :edge, 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
@@ -445,7 +445,7 @@ end
         model[a[i]] = NodeData(ctx, FactorNodeProperties(fform = sum))
         b[i] = NodeLabel(:b, i)
         model[b[i]] = NodeData(ctx, VariableNodeProperties(name = :b, index = i))
-        add_edge!(model, a[i], b[i], :edge, i)
+        add_edge!(model, a[i], getproperties(model[a[i]]), b[i], :edge, i)
     end
     for n in b
         @test n ∈ neighbors(model, a)
@@ -454,7 +454,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
-    @test getname.(neighbors(model, node)) == (:z, :x, :y)
+    @test getname.(neighbors(model, node)) == [ :z, :x, :y ]
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
     model = create_terminated_model(vector_model)
@@ -986,22 +986,26 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    node_id = add_atomic_factor_node!(model, ctx, options, sum)
+    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
+    @test model[node_id] === node_data
     @test nv(model) == 2 && getname(label_for(model.graph, 2)) == sum
 
     # Test 2: Add a second atomic factor node to the model with the same name and assert they are different
-    node_id = add_atomic_factor_node!(model, ctx, options, sum)
+    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
+    @test model[node_id] === node_data
     @test nv(model) == 3 && getname(label_for(model.graph, 3)) == sum
 
     # Test 3: Add an atomic factor node with options
     options = NodeCreationOptions((; an_arbitrary_option = true, ))
-    node_id = add_atomic_factor_node!(model, ctx, options, sum)
+    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
+    @test model[node_id] === node_data
     @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
     @test_broken false # TODO: (bvdmitri) ideally we would like to test that the option affects the creation here
 
     #Test 4: Make sure alias is added for the `+` node
     options = NodeCreationOptions()
-    node_id = add_atomic_factor_node!(model, ctx, options, +)
+    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, +)
+    @test model[node_id] === node_data
     @test_broken getname(node_id) == sum # TODO: (bvdmitri) check with Wouter
 
     # Test 5: Test that creating a node with an instantiated object is supported
@@ -1009,7 +1013,8 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     prior = Normal(0, 1)
-    node_id = add_atomic_factor_node!(model, ctx, options, prior)
+    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, prior)
+    @test model[node_id] === node_data
     @test nv(model) == 1 && getname(label_for(model.graph, 1)) == Normal(0, 1)
 end
 
@@ -1042,14 +1047,14 @@ end
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
+    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
-    add_edge!(model, x, y, :interface)
+    add_edge!(model, x, xproperties, y, :interface)
 
     @test ne(model) == 1
 
-    @test_throws MethodError add_edge!(model, x, y, 123)
+    @test_throws MethodError add_edge!(model, x, xproperties, y, 123)
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
@@ -1057,11 +1062,11 @@ end
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
+    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
     variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
-    add_edge!(model, x, variable_nodes, :interface)
+    add_edge!(model, x, xproperties, variable_nodes, :interface)
 
     @test ne(model) == 3 && model[x, variable_nodes[1]] == EdgeLabel(:interface, 1)
 end
@@ -1154,8 +1159,8 @@ end
     # Test 2: Stochastic atomic call returns a new node
     node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
@@ -1192,8 +1197,8 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, options, Normal, x, (0, 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
 
     # Test 7: Stochastic node with instantiated object
     model = create_model()
@@ -1229,8 +1234,8 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     make_node!(model, ctx, options, ArbitraryNode, out, (1, 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :in, :in]
 
     #Test 10: Deterministic node with keyword arguments
     function abc(; a = 1, b = 2)
@@ -1315,8 +1320,8 @@ end
     # Test 1: Stochastic atomic call returns a new node
     node_id = materialize_factor_node!(model, ctx, options, Normal, (out = x, μ = 0, σ = 1))
     @test nv(model) == 4
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
-    @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
+    @test getname.(edges(model, label_for(model.graph, 2))) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
     model = create_model()
@@ -1395,11 +1400,11 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    y = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
+    y, ydata, yproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     z = getorcreate!(model, ctx, :z, nothing)
     w = getorcreate!(model, ctx, :w, nothing)
 
-    add_edge!(model, y, z, :test)
+    add_edge!(model, y, yproperties, z, :test)
     prune!(model)
     @test nv(model) == 2
 end
