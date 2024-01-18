@@ -83,26 +83,26 @@ function recursive_setindex!(::Val{N}, array::Vector{V}, value::T, findex, index
     return nothing
 end
 
-function Base.isassigned(array::ResizableArray{T, V, N}, index::Integer...) where {T, V, N}
+function Base.isassigned(array::ResizableArray{T, V, N}, index::Integer...)::Bool where {T, V, N}
     if length(index) !== N
         return false
     else
-        return recursive_isassigned(Val(N), array.data, index)
+        return recursive_isassigned(Val(N), array.data, index)::Bool
     end
 end
 
-function recursive_isassigned(::Val{N}, array, indices) where {N}
+function recursive_isassigned(::Val{N}, array, indices)::Bool where {N}
     findex = first(indices)
     tindices = Base.tail(indices)
-    if isassigned(array, findex)
-        return recursive_isassigned(Val(N - 1), @inbounds(array[findex]), tindices)
+    if isassigned(array, findex)::Bool
+        return recursive_isassigned(Val(N - 1), @inbounds(array[findex]), tindices)::Bool
     else
         return false
     end
 end
 
-function recursive_isassigned(::Val{1}, array, index::Tuple{Integer})
-    return isassigned(array, first(index))
+function recursive_isassigned(::Val{1}, array, index::Tuple{Integer})::Bool
+    return isassigned(array, first(index))::Bool
 end
 
 function getindex(array::ResizableArray{T, V, N}, index::UnitRange) where {T, V, N}
@@ -135,7 +135,7 @@ end
 function vec(array::ResizableArray{T, V, N}) where {T, V, N}
     result = T[]
     for index in Tuple.(CartesianIndices(size(array)))
-        if isassigned(array, index...)
+        if isassigned(array, index...)::Bool
             push!(result, array[index...])
         end
     end
@@ -146,7 +146,7 @@ Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = iterat
 
 function Base.first(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in Tuple.(CartesianIndices(size(array)))
-        if isassigned(array, index...)
+        if isassigned(array, index...)::Bool
             return array[index...]
         end
     end

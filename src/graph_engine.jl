@@ -138,7 +138,7 @@ struct Context
     children::Dict{FactorID, Context}
     individual_variables::Dict{Symbol, NodeLabel}
     vector_variables::Dict{Symbol, ResizableArray{NodeLabel}}
-    tensor_variables::Dict{Symbol, ResizableArray}
+    tensor_variables::Dict{Symbol, ResizableArray{NodeLabel}}
     factor_nodes::Dict{FactorID, NodeLabel}
     proxies::Dict{Symbol, ProxyLabel}
     submodel_counts::Dict{Any, Int}
