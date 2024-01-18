@@ -1,11 +1,7 @@
 @testitem "model constructor" begin
-    using Graphs
-    using MetaGraphsNext
-    import GraphPPL: Model, NodeLabel, NodeData, Context, EdgeLabel
+    import GraphPPL: create_model, Model
 
-    g = MetaGraph(Graph(), label_type = NodeLabel, vertex_data_type = NodeData, graph_data = Context(), edge_data_type = EdgeLabel)
-
-    @test typeof(Model(g)) == Model
+    @test typeof(create_model()) <: Model
 
     @test_throws MethodError Model()
 end
@@ -411,12 +407,12 @@ end
     b = NodeLabel(:b, 2)
     model[a] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
     model[b] = NodeData(ctx, FactorNodeProperties(fform = sum))
-    add_edge!(model, b, a, :edge; index = 1)
+    add_edge!(model, b, a, :edge, 1)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
     model[NodeLabel(:c, 2)] = NodeData(ctx, FactorNodeProperties(fform = sum))
-    add_edge!(model, c, a, :edge; index = 2)
+    add_edge!(model, c, a, :edge, 2)
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
@@ -437,7 +433,7 @@ end
     b = NodeLabel(:b, 2)
     model[a] = NodeData(ctx, FactorNodeProperties(fform = sum))
     model[b] = NodeData(ctx, VariableNodeProperties(name = :b, index = nothing))
-    add_edge!(model, a, b, :edge; index = 1)
+    add_edge!(model, a, b, :edge, 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
     model = create_model()
@@ -449,7 +445,7 @@ end
         model[a[i]] = NodeData(ctx, FactorNodeProperties(fform = sum))
         b[i] = NodeLabel(:b, i)
         model[b[i]] = NodeData(ctx, VariableNodeProperties(name = :b, index = i))
-        add_edge!(model, a[i], b[i], :edge; index = i)
+        add_edge!(model, a[i], b[i], :edge, i)
     end
     for n in b
         @test n ∈ neighbors(model, a)

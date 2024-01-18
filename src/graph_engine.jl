@@ -890,7 +890,11 @@ end
 
 iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
-function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol; index = nothing)
+function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol)
+    return add_edge!(model, factor_node_id, variable_node_id, interface_name, nothing)
+end
+
+function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Union{ProxyLabel, NodeLabel}, interface_name::Symbol, index)
     label = EdgeLabel(interface_name, index)
     nodedata = model[factor_node_id]
     properties = getproperties(nodedata)
@@ -899,12 +903,14 @@ function add_edge!(model::Model, factor_node_id::NodeLabel, variable_node_id::Un
     model.graph[unroll(variable_node_id), factor_node_id] = label
 end
 
-function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol; index = 1)
+function add_edge!(model::Model, factor_node_id::NodeLabel, variable_nodes::Union{AbstractArray, Tuple, NamedTuple}, interface_name::Symbol)
+    index = 1
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, variable_node, interface_name; index = index)
+        add_edge!(model, factor_node_id, variable_node, interface_name, index)
         index += increase_index(variable_node)
     end
 end
+
 increase_index(any) = 1
 increase_index(x::AbstractArray) = length(x)
 
