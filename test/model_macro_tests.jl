@@ -1561,7 +1561,7 @@ end
     make_node!(model, ctx, options, test_model, proxylabel(:μ, nothing, μ), (σ = σ,))
     x = ctx[test_model, 1][:x]
     for i in x
-        @test isa(i, GraphPPL.NodeLabel) && isa(model[i], GraphPPL.VariableNodeData)
+        @test isa(i, GraphPPL.NodeLabel) && isa(model[i], GraphPPL.NodeData{GraphPPL.VariableNodeProperties})
     end
     @test nv(model) == 24
 
@@ -1610,7 +1610,7 @@ end
     y = getorcreate!(model, ctx, :y, nothing)
     x = make_node!(model, ctx, options, model_with_deep_anonymous_call, proxylabel(:x, nothing, x), (y = y,))
     # Test that lhs of deterministic node call gets the corresponding value
-    @test GraphPPL.value(model[label_for(model.graph, 8)]) == Matrix{Float64}(Diagonal(ones(4)))
+    @test GraphPPL.value(GraphPPL.getproperties(model[label_for(model.graph, 8)])) == Matrix{Float64}(Diagonal(ones(4)))
     GraphPPL.prune!(model)
     @test GraphPPL.nv(model) == 7 && GraphPPL.ne(model) == 6
 
