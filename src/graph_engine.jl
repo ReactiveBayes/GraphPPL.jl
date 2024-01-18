@@ -911,9 +911,9 @@ function add_factorization_constraint!(model::Model, factor_node_id::NodeLabel, 
     return nothing
 end
 
-struct MixedArguments
-    args::AbstractArray
-    kwargs::NamedTuple
+struct MixedArguments{A <: Tuple, K <: NamedTuple}
+    args::A
+    kwargs::K
 end
 
 """
@@ -954,7 +954,7 @@ function prepare_interfaces(::StaticInterfaces{I}, lhs_interface, rhs_interfaces
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
-default_parametrization(::Atomic, fform, rhs) = (in = Tuple(rhs),)
+default_parametrization(::Atomic, fform, rhs::Tuple) = (in = rhs,)
 default_parametrization(::Composite, fform, rhs) = error("Composite nodes always have to be initialized with named arguments")
 
 # maybe change name
@@ -964,28 +964,16 @@ is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
 is_nodelabel(x::GraphPPL.NodeLabel) = true
 is_nodelabel(x::ProxyLabel) = true
 
-function contains_nodelabel(collection::AbstractArray)
-    if any(element -> is_nodelabel(element), collection)
-        return True()
-    else
-        return False()
-    end
+function contains_nodelabel(collection::Tuple)
+    return any(element -> is_nodelabel(element), collection) ? True() : False()
 end
 
 function contains_nodelabel(collection::NamedTuple)
-    if any(element -> is_nodelabel(element), values(collection))
-        return True()
-    else
-        return False()
-    end
+    return any(element -> is_nodelabel(element), values(collection)) ? True() : False()
 end
 
 function contains_nodelabel(collection::MixedArguments)
-    if any(element -> is_nodelabel(element), collection.args) || any(element -> is_nodelabel(element), values(collection.kwargs))
-        return True()
-    else
-        return False()
-    end
+    return contains_nodelabel(collection.args) | contains_nodelabel(collection.kwargs)
 end
 
 # TODO improve documentation
@@ -1020,7 +1008,7 @@ make_node!(atomic::Atomic, deterministic::Deterministic, model::Model, ctx::Cont
     make_node!(contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
-make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::AbstractArray) =
+make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::Tuple) =
     fform(rhs_interfaces...)
 
 make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces::NamedTuple) =
@@ -1051,7 +1039,7 @@ make_node!(
     options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::AbstractArray
+    rhs_interfaces::Tuple
 ) = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, GraphPPL.default_parametrization(node_type, fform, rhs_interfaces))
 
 make_node!(
@@ -1075,13 +1063,20 @@ make_node!(
     options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::AbstractArray
-) =
-    if length(rhs_interfaces) == 0
-        make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
-    else
-        error(lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple")
-    end
+    rhs_interfaces::Tuple{}
+) = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
+
+make_node!(
+    materialize::True,
+    node_type::Composite,
+    behaviour::Stochastic,
+    model::Model,
+    ctx::Context,
+    options::NodeCreationOptions,
+    fform,
+    lhs_interface::Union{NodeLabel, ProxyLabel},
+    rhs_interfaces::Tuple
+) = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
 make_node!(
     materialize::True,

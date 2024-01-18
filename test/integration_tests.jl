@@ -1,3 +1,30 @@
+@testitem "simple @model creation" begin 
+    using Distributions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, as_node, NodeCreationOptions, prune!
+
+    include("./model_zoo.jl")
+
+    @model function simple_model(a, b, c)
+        x ~ Gamma(α = b, θ = sqrt(c))
+        a ~ Normal(μ = x, τ = 1)
+    end
+
+    model = create_model()
+    context = getcontext(model)
+
+    a = getorcreate!(model, context, NodeCreationOptions(datavar = true), :a, nothing)
+    b = getorcreate!(model, context, NodeCreationOptions(datavar = true), :b, nothing)
+    c = 1.0
+
+    add_terminated_submodel!(model, context, simple_model, (a = a, b = b, c = c))
+
+    prune!(model)
+
+    @test length(collect(filter(as_node(Gamma), model))) === 1
+    @test length(collect(filter(as_node(Normal), model))) === 1
+    @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
+end
+
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions

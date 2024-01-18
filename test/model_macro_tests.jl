@@ -1243,7 +1243,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ Normal(0, 1)))),
             sum,
             GraphPPL.proxylabel(:x, nothing, x),
-            [0, 1]
+            (0, 1)
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1275,7 +1275,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(x[i] ~ sum(μ[i], σ[i])))),
             sum,
             GraphPPL.proxylabel(:x, (i,), x),
-            [μ[i], σ[i]]
+            (μ[i], σ[i])
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1297,7 +1297,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(z ~ Normal(x + 1, y)))),
             Normal,
             GraphPPL.proxylabel(:z, nothing, z),
-            [
+            (
                 (
                     begin
                         anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
@@ -1307,12 +1307,12 @@ end
                             GraphPPL.NodeCreationOptions((; anonymous = true, created_by = :(z ~ Normal(x + 1, y)))),
                             +,
                             GraphPPL.proxylabel(:anon_1, nothing, anon_1),
-                            [x, 1]
+                            (x, 1)
                         )
                     end
                 ),
                 y
-            ]
+            )
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1379,7 +1379,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)))),
             sum,
             GraphPPL.proxylabel(:x, nothing, x),
-            GraphPPL.MixedArguments([1, 2], (σ = 1, μ = 2))
+            GraphPPL.MixedArguments((1, 2), (σ = 1, μ = 2))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1395,7 +1395,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(μ, σ) where {q = q(μ)q(σ)}), q = q(μ)q(σ))),
             sum,
             GraphPPL.proxylabel(:x, nothing, x),
-            [μ, σ]
+            (μ, σ)
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1426,7 +1426,7 @@ end
             GraphPPL.NodeCreationOptions((; created_by = :(y ~ prior()),)),
             prior,
             GraphPPL.proxylabel(:y, nothing, y),
-            []
+            ()
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1444,7 +1444,7 @@ end
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)),
                 Normal,
                 GraphPPL.Broadcasted(:a),
-                [$(invars...)]
+                $(Expr(:tuple, invars...))
             )
         end
         a = GraphPPL.ResizableArray(a)
@@ -1486,7 +1486,7 @@ end
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),))),
                 some_node,
                 GraphPPL.Broadcasted(:a),
-                GraphPPL.MixedArguments([$(invars[1:2]...)], (μ = $(invars[3]), σ = $(invars[4])))
+                GraphPPL.MixedArguments(($(invars[1:2]...), ), (μ = $(invars[3]), σ = $(invars[4])))
             )
         end
         a = GraphPPL.ResizableArray(a)

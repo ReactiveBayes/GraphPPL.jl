@@ -1043,15 +1043,15 @@ end
     import GraphPPL: default_parametrization, Composite, Atomic
 
     # Test 1: Add default arguments to Normal call
-    @test default_parametrization(Atomic(), Normal, [0, 1]) == (μ = 0, σ = 1)
+    @test default_parametrization(Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
 
     # Test 2: Add :in to function call that has default behaviour 
-    @test default_parametrization(Atomic(), +, [1, 2]) == (in = (1, 2),)
+    @test default_parametrization(Atomic(), +, (1, 2)) == (in = (1, 2),)
 
     # Test 3: Add :in to function call that has default behaviour with nested interfaces
-    @test default_parametrization(Atomic(), +, [[1, 1], 2]) == (in = ([1, 1], 2),)
+    @test default_parametrization(Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
 
-    @test_throws ErrorException default_parametrization(Composite(), gcv, [1, 2])
+    @test_throws ErrorException default_parametrization(Composite(), gcv, (1, 2))
 end
 
 @testitem "mean_field_constraint" begin
@@ -1070,6 +1070,44 @@ end
     @test mean_field_constraint(5, (1, 2)) == BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
 end
 
+@testitem "contains_nodelabel" begin 
+    import GraphPPL: create_model, getcontext, getorcreate!, contains_nodelabel, NodeCreationOptions, True, False, MixedArguments
+
+    model = create_model()
+    ctx = getcontext(model)
+    a = getorcreate!(model, ctx, :x, nothing)
+    b = getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :x, nothing)
+    c = 1.0
+
+    # Test 1. Tuple based input
+    @test contains_nodelabel(( a, b, c )) === True()
+    @test contains_nodelabel(( a, b )) === True()
+    @test contains_nodelabel(( a, )) === True()
+    @test contains_nodelabel(( b, )) === True()
+    @test contains_nodelabel(( c, )) === False()
+
+    # Test 2. Named tuple based input
+    @test @inferred(contains_nodelabel((; a = a, b = b, c = c ))) === True()
+    @test @inferred(contains_nodelabel((; a = a, b = b ))) === True()
+    @test @inferred(contains_nodelabel((; a = a ))) === True()
+    @test @inferred(contains_nodelabel((; b = b ))) === True()
+    @test @inferred(contains_nodelabel((; c = c))) === False()
+
+    # Test 3. MixedArguments based input
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b, c = c )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; b = b )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; c = c)))) === False()
+
+    @test @inferred(contains_nodelabel(MixedArguments((a, ), (; b = b, c = c )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c, ), (; a = a, b = b )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((b, ), (; a = a )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c, ), (; b = b )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c, ), (;)))) === False()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; c = c)))) === False()
+end
+
 @testitem "make_node!(::Atomic)" begin
     include("model_zoo.jl")
     using Graphs
@@ -1081,8 +1119,8 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    @test make_node!(model, ctx, options, +, x, [1, 1]) == 2
-    @test make_node!(model, ctx, options, sin, x, [0]) == 0
+    @test make_node!(model, ctx, options, +, x, (1, 1)) == 2
+    @test make_node!(model, ctx, options, sin, x, (0, )) == 0
     @test nv(model) == 1
 
     # Test 2: Stochastic atomic call returns a new node
@@ -1096,7 +1134,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, Normal, x, [0, 1])
+    make_node!(model, ctx, options, Normal, x, (0, 1))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
@@ -1106,7 +1144,7 @@ end
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, options, +, out, [in1, in2])
+    make_node!(model, ctx, options, +, out, (in1, in2))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 5: Deterministic atomic call with nodelabels should create the actual node
@@ -1124,7 +1162,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, Normal, x, [0, 1])
+    node_id = make_node!(model, ctx, options, Normal, x, (0, 1))
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :μ, :σ)
@@ -1161,7 +1199,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, options, ArbitraryNode, out, [1, 1])
+    make_node!(model, ctx, options, ArbitraryNode, out, (1, 1))
     @test nv(model) == 4
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
     @test getname.(edges(model, label_for(model.graph, 2))) == (:out, :in, :in)
@@ -1185,7 +1223,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    out = make_node!(model, ctx, options, abc, out, MixedArguments([2], (b = 2,)))
+    out = make_node!(model, ctx, options, abc, out, MixedArguments((2, ), (b = 2,)))
     @test out == 4
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
@@ -1194,7 +1232,7 @@ end
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
     a = getorcreate!(model, ctx, :a, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments([a], (b = 2,)))
+    @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments((a, ), (b = 2,)))
 
     # Test 13: Make stochastic node with aliases
     model = create_model()
@@ -1218,7 +1256,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, Normal, x, [0, 1])
+    node_id = make_node!(model, ctx, options, Normal, x, (0, 1))
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
@@ -1231,7 +1269,7 @@ end
     y = getorcreate!(model, ctx, :y, nothing)
     y = ProxyLabel(:y, nothing, y)
     z = getorcreate!(model, ctx, :z, nothing)
-    node_id = make_node!(model, ctx, options, +, z, [x, y])
+    node_id = make_node!(model, ctx, options, +, z, (x, y))
     prune!(model)
     @test nv(model) == 4
 end
@@ -1293,7 +1331,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), [])
+    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), ())
     @test nv(model) == 4
     @test ctx[prior, 1][:a] === ProxyLabel(:x, nothing, x)
 
@@ -1302,14 +1340,14 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, x), [0, 1])
+    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, x), (0, 1))
 
     # test make node of broadcastable composite model
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), [])
+    make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), ())
     @test nv(model) == 103
 end
 
@@ -1350,7 +1388,7 @@ end
     y = getorcreate!(model, ctx, :y, 1)
     y = getorcreate!(model, ctx, :y, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
     end, x, y)
     @test size(z) == (2,)
 
@@ -1368,7 +1406,7 @@ end
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
     end, x, y)
     @test size(z) == (2, 2)
 
@@ -1383,7 +1421,7 @@ end
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
     z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), [x_, y_])
+        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
     end, x, y)
     @test size(z) == (2, 2)
 end

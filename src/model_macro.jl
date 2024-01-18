@@ -469,7 +469,7 @@ Combines a vector of arguments into a single expression.
 # Returns
 An `Expr` with the combined arguments.
 """
-combine_args(args::Vector, kwargs::Nothing) = Expr(:vect, args...)
+combine_args(args::Vector, kwargs::Nothing) = Expr(:tuple, args...)
 
 """
     combine_args(args::Vector, kwargs::Vector)
@@ -484,7 +484,7 @@ Combines a vector of arguments and a vector of keyword arguments into a single e
 An `Expr` with the combined arguments and keyword arguments.
 """
 combine_args(args::Vector, kwargs::Vector) =
-    length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) : :(GraphPPL.MixedArguments($(Expr(:vect, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
+    length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) : :(GraphPPL.MixedArguments($(Expr(:tuple, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
 
 """
     combine_args(args::Nothing, kwargs::Nothing)
@@ -499,7 +499,7 @@ combine_args(args::Nothing, kwargs::Nothing) = nothing
 
 function combine_broadcast_args(args::Vector, kwargs::Nothing)
     invars = MacroTools.gensym_ids.(gensym.(args))
-    return invars, Expr(:vect, invars...)
+    return invars, Expr(:tuple, invars...)
 end
 
 function combine_broadcast_args(args::Vector, kwargs::Vector)
@@ -511,7 +511,7 @@ function combine_broadcast_args(args::Vector, kwargs::Vector)
         return invars_kwargs, kwargs_tuple
     else
         invars_args = MacroTools.gensym_ids.(gensym.(args))
-        return vcat(invars_args, invars_kwargs), :(GraphPPL.MixedArguments($(Expr(:vect, invars_args...)), $kwargs_tuple))
+        return vcat(invars_args, invars_kwargs), :(GraphPPL.MixedArguments($(Expr(:tuple, invars_args...)), $kwargs_tuple))
     end
 end
 
