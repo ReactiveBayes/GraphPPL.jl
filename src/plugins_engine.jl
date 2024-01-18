@@ -8,6 +8,8 @@ be combined with other plugins using the `+` or `|` operators.
 """
 struct GraphPlugin{T} end
 
+materialize_plugin(::GraphPlugin{T}, options) where {T} = materialize_plugin(T, options)
+
 # Holds a collection of `GraphPlugin`'s in a form of a tuple
 # We use this structure to dispatch on the `+` and `|` operators
 struct PluginSpecification{T}
@@ -66,48 +68,46 @@ end
 # By default the collection is empty
 PluginCollection() = PluginCollection(())
 
-function materialize_plugins(plugins::PluginSpecification)
-    return materialize_plugins(PluginCollection(), plugins.specification)
+function materialize_plugins(ptype::AbstractPluginTraitType, plugins::PluginSpecification, options)
+    return materialize_plugins(filter(ptype, plugins), options)
 end
 
-function materialize_plugins(ptype::AbstractPluginTraitType, plugins::PluginSpecification)
-    return materialize_plugins(filter(ptype, plugins))
-end
-
-# We stop if there is nothing to attach anymore§
-function materialize_plugins(collection::PluginCollection, remaining::Tuple{})
-    return collection
-end
-
-function materialize_plugins(collection::PluginCollection, remaining::Tuple)
-    return materialize_plugins(collection, first(remaining), Base.tail(remaining))
-end
-
-function materialize_plugins(collection::PluginCollection, current::GraphPlugin{T}, remaining) where {T}
-    return materialize_plugins(attach_plugin(collection, T), remaining)
+function materialize_plugins(plugins::PluginSpecification, options)
+    specification = plugins.specification
+    newcollection, newoptions = reduce(specification; init = ((), options)) do current_state, current_spec
+        current_collection, current_options = current_state
+        new_collection, new_options = GraphPPL.attach_plugin(current_collection, current_spec, current_options)
+        return (new_collection, new_options)
+    end
+    return PluginCollection(newcollection), newoptions
 end
 
 """
-    materialize_plugin(::Type{T}) where {T}
+    materialize_plugin(::Type{T}, options) where {T}
 
-Materializes a plugin of type `T` and returns an instance of a plugin that can be attached to a `PluginCollection`.`
+Materializes a plugin of type `T` and returns an instance of a plugin that can be attached to a `PluginCollection`
+and modified options.
 """
 function materialize_plugin end
 
 """
-    attach_plugin(plugins::PluginCollection, ::Type{T})
+    attach_plugin(plugins::Tuple, ::Type{T}, options)
 
 Attaches a plugin of type `T` to the existing collection of plugins.
-Returns a new `PluginCollection`.
+Returns a new collection and a new options.
 """
-attach_plugin(plugins::PluginCollection, ::Type{T}) where {T} = attach_plugin(plugins, materialize_plugin(T))
+function attach_plugin(plugins::Tuple, ::GraphPlugin{T}, options) where {T} 
+    plugin, newoptions = materialize_plugin(T, options)
+    newcollection = attach_plugin_check_existing(plugins, plugin)
+    return newcollection, newoptions
+end
 
-function attach_plugin(plugins::PluginCollection, plugin)
+function attach_plugin_check_existing(plugins::Tuple, plugin)
     # Check if the `plugins` already have the same plugin attached
-    if any(p -> typeof(p) == typeof(plugin), plugins.plugins)
+    if any(p -> typeof(p) == typeof(plugin), plugins)
         error("Plugin of type $(typeof(plugin)) have already been attached to the collection $(plugins).")
     end
-    return PluginCollection((plugins.plugins..., plugin))
+    return (plugins..., plugin)
 end
 
 """
@@ -134,34 +134,16 @@ function getplugin(collection::PluginCollection, ::Type{T}) where {T}
     return getplugin(collection, T, Val(true))
 end
 
-function getplugin(collection::PluginCollection, ::Type{T}, throw_if_not_present) where {T}
+function getplugin(collection::PluginCollection, ::Type{T}, ::Val{throw_if_not_present}) where {T, throw_if_not_present}
     # The `throw_if_not_present` argument is compile-time constant and is used to throw an error if the plugin is not present
-    return getplugin(collection, collection.plugins, T, throw_if_not_present)
-end
-
-# If the reached the end of the collection it means that the plugin is not present
-function getplugin(collection::PluginCollection, ::Tuple{}, ::Type{T}, ::Val{true}) where {T}
-    # The `throw_if_not_present` argument is `true` thus we throw an error
-    error("The plugin of type `$(T)` is not present in the collection $(collection).")
-end
-
-function getplugin(collection::PluginCollection, ::Tuple{}, ::Type{T}, ::Val{false}) where {T}
-    # The `throw_if_not_present` argument is `false` thus we return `MissingPlugin`
-    return MissingPlugin()
-end
-
-function getplugin(collection::PluginCollection, remaining::Tuple, ::Type{T}, throw_if_not_present) where {T}
-    return getplugin(collection, first(remaining), Base.tail(remaining), T, throw_if_not_present)
-end
-
-# If the type of the `current` is matched with `T` we return it
-function getplugin(collection::PluginCollection, current::T, remaining::Tuple, ::Type{T}, throw_if_not_present) where {T}
-    return current
-end
-
-# If the type of the `current` is not matched with `T` we skip it and process the remaining plugins
-function getplugin(collection::PluginCollection, current, remaining::Tuple, ::Type{T}, throw_if_not_present) where {T}
-    return getplugin(collection, remaining, T, throw_if_not_present)
+    index = findfirst(p -> typeof(p) === T, collection.plugins)
+    if isnothing(index) && throw_if_not_present
+        error("The plugin of type `$(T)` is not present in the collection $(collection).")
+    elseif isnothing(index)
+        return MissingPlugin()
+    else
+        return collection.plugins[index]
+    end
 end
 
 """

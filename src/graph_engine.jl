@@ -124,6 +124,21 @@ Base.getindex(::NodeCreationOptions{Nothing}, keys...) = error("type `NodeCreati
 Base.keys(::NodeCreationOptions{Nothing}) = ()
 Base.get(::NodeCreationOptions{Nothing}, key::Symbol, default) = default
 
+withopts(::NodeCreationOptions{Nothing}, options::NamedTuple) = NodeCreationOptions(options)
+withopts(options::NodeCreationOptions, extra::NamedTuple) = NodeCreationOptions((; options.options..., extra...))
+
+withoutopts(::NodeCreationOptions{Nothing}, ::Val) = NodeCreationOptions(nothing)
+
+function withoutopts(options::NodeCreationOptions, ::Val{K}) where { K }
+    newoptions = options.options[ filter(key -> key ∉ K, keys(options.options)) ]
+    # Should be compiled out, there are tests for it
+    if isempty(newoptions)
+        return NodeCreationOptions(nothing)
+    else
+        return NodeCreationOptions(newoptions)
+    end
+end
+
 # TODO: (bvdmitri) move mutable fields to the plugins and make the struct immutable
 mutable struct VariableNodeProperties
     name::Symbol

@@ -130,7 +130,7 @@ end
 end
 
 @testitem "NodeCreationOptions" begin 
-    import GraphPPL: NodeCreationOptions, withopts
+    import GraphPPL: NodeCreationOptions, withopts, withoutopts
 
     @test NodeCreationOptions() == NodeCreationOptions()
     @test NodeCreationOptions(arbitrary_option = 1) == NodeCreationOptions((; arbitrary_option = 1))
@@ -158,6 +158,14 @@ end
     @test NodeCreationOptions(a = 1, b = 2)[(:b, )] === NodeCreationOptions(b = 2)
 
     @test keys(NodeCreationOptions(a = 1, b = 2)) == (:a, :b)
+
+    @test @inferred(withopts(NodeCreationOptions(), (a = 1, ))) == NodeCreationOptions(a = 1)
+    @test @inferred(withopts(NodeCreationOptions(b = 2), (a = 1, ))) == NodeCreationOptions(b = 2, a = 1)
+
+    @test @inferred(withoutopts(NodeCreationOptions(), Val((:a, )))) == NodeCreationOptions()
+    @test @inferred(withoutopts(NodeCreationOptions(b = 1), Val((:a, )))) == NodeCreationOptions(b = 1)
+    @test @inferred(withoutopts(NodeCreationOptions(a = 1), Val((:a, )))) == NodeCreationOptions()
+    @test @inferred(withoutopts(NodeCreationOptions(a = 1, b = 2), Val((:c, )))) == NodeCreationOptions(a = 1, b = 2)
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
