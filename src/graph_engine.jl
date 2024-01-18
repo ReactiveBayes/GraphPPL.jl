@@ -320,7 +320,7 @@ Base.last(proxied, ::ProxyLabel) = proxied
 Model(graph::MetaGraph) = Model(graph, PluginSpecification())
 
 function Model(graph::MetaGraph, plugin_specification::PluginSpecification)
-    plugins = materialize_plugins(GraphGlobalPlugin(), plugin_specification)
+    plugins, _ = materialize_plugins(GraphGlobalPlugin(), plugin_specification, nothing)
     return Model(graph, plugin_specification, plugins, Base.RefValue(0))
 end
 
@@ -783,8 +783,8 @@ end
 function add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     variable_symbol = generate_nodelabel(model, name)
 
-    properties = convert(VariableNodeProperties, name, index, options)
-    plugins = materialize_plugins(VariableNodePlugin(), getplugins_specification(model))
+    plugins, newoptions = materialize_plugins(VariableNodePlugin(), getplugins_specification(model), options)
+    properties = convert(VariableNodeProperties, name, index, newoptions)
     nodedata = NodeData(context, properties, plugins)
     
     context[name, index] = variable_symbol
@@ -850,14 +850,9 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
 
-    properties = convert(FactorNodeProperties, fform, options)
-    plugins = materialize_plugins(FactorNodePlugin(), getplugins_specification(model))
+    plugins, newoptions = materialize_plugins(FactorNodePlugin(), getplugins_specification(model), options)
+    properties = convert(FactorNodeProperties, fform, newoptions)
     nodedata = NodeData(context, properties, plugins)
-
-    modify_plugin!(plugins, NodeCreatedByPlugin, Val(false)) do plugin
-        # bvdmitri: TODO
-        plugin.created_by = options.options[:created_by]
-    end
 
     model[factornode_label] = nodedata
     context.factor_nodes[factornode_id] = factornode_label
