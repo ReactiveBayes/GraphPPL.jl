@@ -181,9 +181,9 @@ end
 
     GraphPPL.plugin_type(::Type{AnArbitraryPluginForTestUniqeness}) = GraphPPL.FactorNodePlugin()
 
-    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForTestUniqeness})
+    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForTestUniqeness}, options)
         value[] = value[] + 1
-        return AnArbitraryPluginForTestUniqeness(value[])
+        return (AnArbitraryPluginForTestUniqeness(value[]), options)
     end
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
@@ -196,6 +196,29 @@ end
                 @test getplugins(model[f1]) === getplugins(model[f2])
                 @test getplugin(model[f1], AnArbitraryPluginForTestUniqeness).value === getplugin(model[f2], AnArbitraryPluginForTestUniqeness).value
             end
+        end
+    end
+end
+
+@testitem "Check that plugins may change the options" begin
+    import GraphPPL: getplugins, getplugin, withopts, variable_nodes, is_constant, getproperties, value
+
+    include("model_zoo.jl")
+
+    struct AnArbitraryPluginForChangingOptions end
+
+    GraphPPL.plugin_type(::Type{AnArbitraryPluginForChangingOptions}) = GraphPPL.VariableNodePlugin()
+
+    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForChangingOptions}, options)
+        return (AnArbitraryPluginForChangingOptions(), withopts(options, (constant = true, value = 1.0)))
+    end
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name; plugins = GraphPPL.GraphPlugin(AnArbitraryPluginForChangingOptions))
+        for v in variable_nodes(model)
+            @test getplugin(model[v], AnArbitraryPluginForChangingOptions) === AnArbitraryPluginForChangingOptions()
+            @test is_constant(getproperties(model[v])) === true
+            @test value(getproperties(model[v])) === 1.0
         end
     end
 end

@@ -1148,7 +1148,7 @@ function materialize_factor_node!(model::Model, context::Context, options::NodeC
 end
 
 add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple) =
-    add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = :($QuoteNode(fform)))), fform, interfaces)
+    add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces)
 
 add_terminated_submodel!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple) =
     add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))

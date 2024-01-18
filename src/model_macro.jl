@@ -123,22 +123,22 @@ Save the expression found in the tilde syntax in the `created_by` field of the e
 function save_expression_in_tilde(e::Expr)
     if @capture(e, (local lhs_ ~ rhs_ where {options__}) | (local lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs ~ $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+        return :(local $lhs ~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (local lhs_ .~ rhs_ where {options__}) | (local lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs .~ $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+        return :(local $lhs .~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (local lhs_ := rhs_ where {options__}) | (local lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :(local $lhs := $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+        return :(local $lhs := $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-    return :($lhs ~ $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+    return :($lhs ~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
         options = options === nothing ? [] : options
-        return :($lhs .~ $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+        return :($lhs .~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (lhs_ := rhs_ where {options__}) | (lhs_ := rhs_))
         options = options === nothing ? [] : options
-        return :($lhs := $rhs where {$(options...), created_by = $(Expr(:quote, prettify(e)))})
+        return :($lhs := $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     else
         return e
     end

@@ -208,8 +208,8 @@ end
 
     # Test 1: save expression in tilde
     input = :(x ~ Normal(0, 1))
-    output = :(x ~ Normal(0, 1) where {created_by = :(x ~ Normal(0, 1))})
-    @test save_expression_in_tilde(input) == output
+    output = :(x ~ Normal(0, 1) where {created_by = () -> :(x ~ Normal(0, 1))})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 2: save expression in tilde with multiple expressions
     input = quote
@@ -217,15 +217,15 @@ end
         y ~ Normal(0, 1)
     end
     output = quote
-        x ~ Normal(0, 1) where {created_by = :(x ~ Normal(0, 1))}
-        y ~ Normal(0, 1) where {created_by = :(y ~ Normal(0, 1))}
+        x ~ Normal(0, 1) where {created_by = () -> :(x ~ Normal(0, 1))}
+        y ~ Normal(0, 1) where {created_by = () -> :(y ~ Normal(0, 1))}
     end
     @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 3: save expression in tilde with broadcasted operation
     input = :(x .~ Normal(0, 1))
-    output = :(x .~ Normal(0, 1) where {created_by = :(x .~ Normal(0, 1))})
-    @test save_expression_in_tilde(input) == output
+    output = :(x .~ Normal(0, 1) where {created_by = () -> :(x .~ Normal(0, 1))})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 4: save expression in tilde with multiple broadcast expressions
     input = quote
@@ -234,16 +234,16 @@ end
     end
 
     output = quote
-        x .~ Normal(0, 1) where {created_by = :(x .~ Normal(0, 1))}
-        y .~ Normal(0, 1) where {created_by = :(y .~ Normal(0, 1))}
+        x .~ Normal(0, 1) where {created_by = () -> :(x .~ Normal(0, 1))}
+        y .~ Normal(0, 1) where {created_by = () -> :(y .~ Normal(0, 1))}
     end
 
     @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 5: save expression in tilde with deterministic operation
     input = :(x := Normal(0, 1))
-    output = :(x := Normal(0, 1) where {created_by = :(x := Normal(0, 1))})
-    @test save_expression_in_tilde(input) == output
+    output = :(x := Normal(0, 1) where {created_by = () -> :(x := Normal(0, 1))})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 6: save expression in tilde with multiple deterministic expressions
     input = quote
@@ -252,8 +252,8 @@ end
     end
 
     output = quote
-        x := Normal(0, 1) where {created_by = :(x := Normal(0, 1))}
-        y := Normal(0, 1) where {created_by = :(y := Normal(0, 1))}
+        x := Normal(0, 1) where {created_by = () -> :(x := Normal(0, 1))}
+        y := Normal(0, 1) where {created_by = () -> :(y := Normal(0, 1))}
     end
 
     @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
@@ -264,29 +264,29 @@ end
         y ~ Normal(0, 1) where {q = MeanField()}
     end
     output = quote
-        x ~ Normal(0, 1) where {q = MeanField(), created_by = :(x ~ Normal(0, 1) where {q = MeanField()})}
-        y ~ Normal(0, 1) where {q = MeanField(), created_by = :(y ~ Normal(0, 1) where {q = MeanField()})}
+        x ~ Normal(0, 1) where {q = MeanField(), created_by = () -> :(x ~ Normal(0, 1) where {q = MeanField()})}
+        y ~ Normal(0, 1) where {q = MeanField(), created_by = () -> :(y ~ Normal(0, 1) where {q = MeanField()})}
     end
     @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 8: with different variable names
     input = :(y ~ Normal(0, 1))
-    output = :(y ~ Normal(0, 1) where {created_by = :(y ~ Normal(0, 1))})
-    @test save_expression_in_tilde(input) == output
+    output = :(y ~ Normal(0, 1) where {created_by = () -> :(y ~ Normal(0, 1))})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 9: with different parameter options
     input = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})
-    output = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5, created_by = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})})
-    @test save_expression_in_tilde(input) == output
+    output = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5, created_by = () -> :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 10: with different parameter options
     input = :(y ~ Normal(0, 1) where {mu = 1.0})
-    output = :(y ~ Normal(0, 1) where {mu = 1.0, created_by = :(y ~ Normal(0, 1) where {mu = 1.0})})
-    @test save_expression_in_tilde(input) == output
+    output = :(y ~ Normal(0, 1) where {mu = 1.0, created_by = () -> :(y ~ Normal(0, 1) where {mu = 1.0})})
+    @test_expression_generating save_expression_in_tilde(input) output
 
     # Test 11: with no parameter options
     input = :(x ~ Normal(0, 1) where {})
-    output = :(x ~ Normal(0, 1) where {created_by = :(x ~ Normal(0, 1) where {})})
+    output = :(x ~ Normal(0, 1) where {created_by = () -> :(x ~ Normal(0, 1) where {})})
 
     # Test 12: check unmatching pattern
     input = quote
@@ -306,7 +306,7 @@ end
     end
     output = quote
         for i in 1:10
-            x[i] ~ Normal(0, 1) where {created_by = :(x[i] ~ Normal(0, 1))}
+            x[i] ~ Normal(0, 1) where {created_by = () -> :(x[i] ~ Normal(0, 1))}
         end
     end
     @test_expression_generating save_expression_in_tilde(input) input
@@ -318,8 +318,8 @@ end
     end
 
     output = quote
-        local x ~ (Normal(0, 1)) where {created_by = :(local x ~ Normal(0, 1))}
-        local y ~ (Normal(0, 1)) where {created_by = :(local y ~ Normal(0, 1))}
+        local x ~ (Normal(0, 1)) where {created_by = () -> :(local x ~ Normal(0, 1))}
+        local y ~ (Normal(0, 1)) where {created_by = () -> :(local y ~ Normal(0, 1))}
     end
 
     @test_expression_generating save_expression_in_tilde(input) input
@@ -329,7 +329,7 @@ end
         x := a + b
     end
     output = quote
-        x := (a + b) where {created_by = :(x := a + b)}
+        x := (a + b) where {created_by = () -> :(x := a + b)}
     end
     @test_expression_generating save_expression_in_tilde(input) output
 
@@ -338,7 +338,7 @@ end
         local x := a + b
     end
     output = quote
-        local x := (a + b) where {created_by = :(local x := a + b)}
+        local x := (a + b) where {created_by = () -> :(local x := a + b)}
     end
     @test_expression_generating save_expression_in_tilde(input) output
 
@@ -347,7 +347,7 @@ end
         local x := (a + b) where {q = q(x)q(a)q(b)}
     end
     output = quote
-        local x := (a + b) where {q = q(x)q(a)q(b), created_by = :(local x := (a + b) where {q = q(x)q(a)q(b)})}
+        local x := (a + b) where {q = q(x)q(a)q(b), created_by = () -> :(local x := (a + b) where {q = q(x)q(a)q(b)})}
     end
     @test_expression_generating save_expression_in_tilde(input) output
 
@@ -356,7 +356,7 @@ end
         local x .~ Normal(μ, σ)
     end
     output = quote
-        local x .~ Normal(μ, σ) where {created_by = :(local x .~ Normal(μ, σ))}
+        local x .~ Normal(μ, σ) where {created_by = () -> :(local x .~ Normal(μ, σ))}
     end
     @test_expression_generating save_expression_in_tilde(input) output
 
@@ -365,7 +365,7 @@ end
         local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)}
     end
     output = quote
-        local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ), created_by = :(local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)})}
+        local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ), created_by = () -> :(local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)})}
     end
     @test_expression_generating save_expression_in_tilde(input) output
 end
