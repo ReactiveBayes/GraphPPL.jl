@@ -360,13 +360,14 @@ end
 end
 
 @testitem "getindex(::Model, ::NodeLabel)" begin
-    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties
+    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, getproperties
 
     model = create_model()
     ctx = getcontext(model)
     label = NodeLabel(:x, 1)
     model[label] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
-    @test isa(model[label], NodeData{VariableNodeProperties})
+    @test isa(model[label], NodeData)
+    @test isa(getproperties(model[label]), VariableNodeProperties)
     @test_throws KeyError model[NodeLabel(:x, 10)]
     @test_throws MethodError model[0]
 end

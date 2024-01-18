@@ -39,10 +39,10 @@ Fields:
 - `plugins`: A `PluginCollection` object representing the global plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model
-    graph::MetaGraph
-    plugin_specification::PluginSpecification
-    plugins::PluginCollection
+struct Model{G, S, P}
+    graph::G
+    plugin_specification::S
+    plugins::P
     counter::Base.RefValue{Int64}
 end
 
