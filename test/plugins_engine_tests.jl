@@ -184,7 +184,5 @@ end
         nothing
     end
 
-    @test collection === modify_plugin!(collection, SomeArbitraryPluginGlobal3, Val(false)) do plugin
-        nothing
-    end
+    @test collection === @inferred(modify_plugin!(plugin -> nothing, collection, SomeArbitraryPluginGlobal3, Val(false)))
 end
