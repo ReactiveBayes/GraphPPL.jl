@@ -95,6 +95,161 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
+struct ProxyLabel{T}
+    name::Symbol
+    index::T
+    proxied::Any
+end
+
+proxylabel(name::Symbol, index::T, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) where {T} = ProxyLabel(name, index, proxied)
+proxylabel(name::Symbol, index::T, proxied) where {T} = proxied
+
+getname(label::ProxyLabel) = label.name
+index(label::ProxyLabel) = label.index
+
+unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
+
+__proxy_unroll(something) = something
+__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
+__proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
+__proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
+__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index]
+
+Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
+Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
+Base.show(io::IO, proxy::ProxyLabel) = print(io, getname(proxy), "[", index(proxy)[1], "]")
+Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
+
+Base.last(label::ProxyLabel) = last(label.proxied, label)
+
+Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
+Base.last(proxied, ::ProxyLabel) = proxied
+
+"""
+    Context
+
+Contains all information about a submodel in a probabilistic graphical model.
+"""
+struct Context
+    depth::Int64
+    fform::Function
+    prefix::String
+    parent::Union{Context, Nothing}
+    children::Dict{FactorID, Context}
+    individual_variables::Dict{Symbol, NodeLabel}
+    vector_variables::Dict{Symbol, ResizableArray{NodeLabel}}
+    tensor_variables::Dict{Symbol, ResizableArray}
+    factor_nodes::Dict{FactorID, NodeLabel}
+    proxies::Dict{Symbol, ProxyLabel}
+    submodel_counts::Dict{Any, Int}
+end
+
+fform(context::Context) = context.fform
+parent(context::Context) = context.parent
+individual_variables(context::Context) = context.individual_variables
+vector_variables(context::Context) = context.vector_variables
+tensor_variables(context::Context) = context.tensor_variables
+factor_nodes(context::Context) = context.factor_nodes
+proxies(context::Context) = context.proxies
+children(context::Context) = context.children
+count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+
+path_to_root(::Nothing) = []
+path_to_root(context::Context) = [context, path_to_root(parent(context))...]
+
+function generate_factor_nodelabel(context::Context, fform::Any)
+    if count(context, fform) == 0
+        context.submodel_counts[fform] = 1
+    else
+        context.submodel_counts[fform] += 1
+    end
+    return FactorID(fform, count(context, fform))
+end
+
+function Base.show(io::IO, context::Context)
+    indentation = 2 * context.depth
+    println(io, "$("    " ^ indentation)Context: $(context.prefix)")
+    println(io, "$("    " ^ (indentation + 1))Individual variables:")
+    for (variable_name, variable_label) in context.individual_variables
+        println(io, "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)")
+    end
+    println(io, "$("    " ^ (indentation + 1))Vector variables:")
+    for (variable_name, variable_labels) in context.vector_variables
+        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
+    end
+    println(io, "$("    " ^ (indentation + 1))Tensor variables: ")
+    for (variable_name, variable_labels) in context.tensor_variables
+        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
+    end
+    println(io, "$("    " ^ (indentation + 1))Factor nodes: ")
+    for (factor_label, factor_context) in context.factor_nodes
+        if isa(factor_context, Context)
+            println(io, "$("    " ^ (indentation + 2))$(factor_label) : ")
+            show(io, factor_context)
+        else
+            println(io, "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)")
+        end
+    end
+    println(io, "$("    " ^ (indentation + 1))Child Contexts: ")
+    for (child_name, child_context) in context.children
+        println(io, "$("    " ^ (indentation + 2))$(child_name) : ")
+        show(io, child_context)
+    end
+    println(io, "$("    " ^ (indentation + 1))Proxies from parent: ")
+    for (proxy_name, proxy_label) in context.proxies
+        println(io, "$("    " ^ (indentation + 2))$(proxy_name) : $(proxy_label)")
+    end
+end
+
+getname(f::Function) = String(Symbol(f))
+
+Context(depth::Int, fform::Function, prefix::String, parent) = Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
+
+Context(parent::Context, model_fform::Function) = Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
+Context(fform) = Context(0, fform, "", nothing)
+Context() = Context(identity)
+
+haskey(context::Context, key::Symbol) =
+    haskey(context.individual_variables, key) || haskey(context.vector_variables, key) || haskey(context.tensor_variables, key) || haskey(context.proxies, key)
+
+haskey(context::Context, key::FactorID) = haskey(context.factor_nodes, key) || haskey(context.children, key)
+
+function Base.getindex(c::Context, key::Any)
+    if haskey(c.individual_variables, key)
+        return c.individual_variables[key]
+    elseif haskey(c.vector_variables, key)
+        return c.vector_variables[key]
+    elseif haskey(c.tensor_variables, key)
+        return c.tensor_variables[key]
+    elseif haskey(c.factor_nodes, key)
+        return c.factor_nodes[key]
+    elseif haskey(c.children, key)
+        return c.children[key]
+    elseif haskey(c.proxies, key)
+        return c.proxies[key]
+    end
+    throw(KeyError(key))
+end
+
+function Base.getindex(c::Context, fform, index::Int)
+    return c[FactorID(fform, index)]
+end
+
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
+    return c.individual_variables[key] = val
+end
+
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
+    return c.vector_variables[key][index] = val
+end
+
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N, Int64}) where {N}
+    return c.tensor_variables[key][index...] = val
+end
+
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = c.vector_variables[key] = val
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = c.tensor_variables[key] = val
+
 """
     NodeCreationOptions(namedtuple)
 
@@ -248,9 +403,9 @@ The `context` field stores the context of the node.
 The `properties` field stores the properties of the node. 
 The `plugins` field stores additional properties of the node depending on which plugins were enabled.
 """
-struct NodeData{P}
-    context    :: Any
-    properties :: P
+struct NodeData
+    context    :: Context
+    properties :: Union{VariableNodeProperties, FactorNodeProperties}
     plugins    :: PluginCollection
 end
 
@@ -286,36 +441,6 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
-
-struct ProxyLabel{T}
-    name::Symbol
-    index::T
-    proxied::Any
-end
-
-proxylabel(name::Symbol, index::T, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) where {T} = ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::T, proxied) where {T} = proxied
-
-getname(label::ProxyLabel) = label.name
-index(label::ProxyLabel) = label.index
-
-unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
-
-__proxy_unroll(something) = something
-__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
-__proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
-__proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
-__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index]
-
-Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
-Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
-Base.show(io::IO, proxy::ProxyLabel) = print(io, getname(proxy), "[", index(proxy)[1], "]")
-Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
-
-Base.last(label::ProxyLabel) = last(label.proxied, label)
-
-Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
-Base.last(proxied, ::ProxyLabel) = proxied
 
 Model(graph::MetaGraph) = Model(graph, PluginSpecification())
 
@@ -465,132 +590,6 @@ function Base.gensym(model::Model, name::Symbol)
 end
 
 """
-    Context
-
-Contains all information about a submodel in a probabilistic graphical model.
-"""
-struct Context
-    depth::Int64
-    fform::Function
-    prefix::String
-    parent::Union{Context, Nothing}
-    children::Dict{FactorID, Context}
-    individual_variables::Dict{Symbol, NodeLabel}
-    vector_variables::Dict{Symbol, ResizableArray{NodeLabel}}
-    tensor_variables::Dict{Symbol, ResizableArray}
-    factor_nodes::Dict{FactorID, NodeLabel}
-    proxies::Dict{Symbol, ProxyLabel}
-    submodel_counts::Dict{Any, Int}
-end
-
-fform(context::Context) = context.fform
-parent(context::Context) = context.parent
-individual_variables(context::Context) = context.individual_variables
-vector_variables(context::Context) = context.vector_variables
-tensor_variables(context::Context) = context.tensor_variables
-factor_nodes(context::Context) = context.factor_nodes
-proxies(context::Context) = context.proxies
-children(context::Context) = context.children
-count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
-
-path_to_root(::Nothing) = []
-path_to_root(context::Context) = [context, path_to_root(parent(context))...]
-
-function generate_factor_nodelabel(context::Context, fform::Any)
-    if count(context, fform) == 0
-        context.submodel_counts[fform] = 1
-    else
-        context.submodel_counts[fform] += 1
-    end
-    return FactorID(fform, count(context, fform))
-end
-
-function Base.show(io::IO, context::Context)
-    indentation = 2 * context.depth
-    println(io, "$("    " ^ indentation)Context: $(context.prefix)")
-    println(io, "$("    " ^ (indentation + 1))Individual variables:")
-    for (variable_name, variable_label) in context.individual_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Vector variables:")
-    for (variable_name, variable_labels) in context.vector_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Tensor variables: ")
-    for (variable_name, variable_labels) in context.tensor_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Factor nodes: ")
-    for (factor_label, factor_context) in context.factor_nodes
-        if isa(factor_context, Context)
-            println(io, "$("    " ^ (indentation + 2))$(factor_label) : ")
-            show(io, factor_context)
-        else
-            println(io, "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)")
-        end
-    end
-    println(io, "$("    " ^ (indentation + 1))Child Contexts: ")
-    for (child_name, child_context) in context.children
-        println(io, "$("    " ^ (indentation + 2))$(child_name) : ")
-        show(io, child_context)
-    end
-    println(io, "$("    " ^ (indentation + 1))Proxies from parent: ")
-    for (proxy_name, proxy_label) in context.proxies
-        println(io, "$("    " ^ (indentation + 2))$(proxy_name) : $(proxy_label)")
-    end
-end
-
-getname(f::Function) = String(Symbol(f))
-
-Context(depth::Int, fform::Function, prefix::String, parent) = Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
-
-Context(parent::Context, model_fform::Function) = Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
-Context(fform) = Context(0, fform, "", nothing)
-Context() = Context(identity)
-
-haskey(context::Context, key::Symbol) =
-    haskey(context.individual_variables, key) || haskey(context.vector_variables, key) || haskey(context.tensor_variables, key) || haskey(context.proxies, key)
-
-haskey(context::Context, key::FactorID) = haskey(context.factor_nodes, key) || haskey(context.children, key)
-
-function Base.getindex(c::Context, key::Any)
-    if haskey(c.individual_variables, key)
-        return c.individual_variables[key]
-    elseif haskey(c.vector_variables, key)
-        return c.vector_variables[key]
-    elseif haskey(c.tensor_variables, key)
-        return c.tensor_variables[key]
-    elseif haskey(c.factor_nodes, key)
-        return c.factor_nodes[key]
-    elseif haskey(c.children, key)
-        return c.children[key]
-    elseif haskey(c.proxies, key)
-        return c.proxies[key]
-    end
-    throw(KeyError(key))
-end
-
-function Base.getindex(c::Context, fform, index::Int)
-    return c[FactorID(fform, index)]
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
-    return c.individual_variables[key] = val
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
-    return c.vector_variables[key][index] = val
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N, Int64}) where {N}
-    return c.tensor_variables[key][index...] = val
-end
-
-Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = c.vector_variables[key] = val
-
-Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = c.tensor_variables[key] = val
-
-"""
     getcontext(model::Model)
 
 Retrieves the context of a model. The context of a model contains the complete hierarchy of variables and factor nodes. 
@@ -631,7 +630,10 @@ Returns:
 A `Model` object representing the probabilistic graphical model.
 """
 function create_model(; fform = identity, plugins = PluginSpecification())
-    graph = MetaGraph(Graph(), label_type = NodeLabel, vertex_data_type = NodeData, graph_data = Context(fform), edge_data_type = EdgeLabel)
+    label_type = NodeLabel
+    edge_data_type = EdgeLabel
+    vertex_data_type = NodeData
+    graph = MetaGraph(Graph(), label_type = label_type, vertex_data_type = vertex_data_type, edge_data_type = edge_data_type, graph_data = Context(fform))
     model = Model(graph, plugins)
     return model
 end
