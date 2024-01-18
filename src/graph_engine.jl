@@ -101,11 +101,16 @@ Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 Options for creating a node in a probabilistic graphical model. These are typically coming from the `where {}` block 
 in the `@model` macro, but can also be created manually. Expects a `NamedTuple` as an input.
 """
-struct NodeCreationOptions{N <: NamedTuple}
+struct NodeCreationOptions{N}
     options::N
 end
 
-NodeCreationOptions(; kwargs...) = NodeCreationOptions((; kwargs...))
+const EmptyNodeCreationOptions = NodeCreationOptions{Nothing}(nothing)
+
+NodeCreationOptions(; kwargs...) = convert(NodeCreationOptions, kwargs)
+
+Base.convert(::Type{NodeCreationOptions}, ::@Kwargs{}) = NodeCreationOptions(nothing)
+Base.convert(::Type{NodeCreationOptions}, options) = NodeCreationOptions(NamedTuple(options))
 
 Base.haskey(options::NodeCreationOptions, key::Symbol) = haskey(options.options, key)
 Base.getindex(options::NodeCreationOptions, keys...) = getindex(options.options, keys...)
@@ -113,7 +118,11 @@ Base.getindex(options::NodeCreationOptions, keys::NTuple{N, Symbol}) where {N} =
 Base.keys(options::NodeCreationOptions) = keys(options.options)
 Base.get(options::NodeCreationOptions, key::Symbol, default) = get(options.options, key, default)
 
-withopts(options::NodeCreationOptions; kwargs...) = NodeCreationOptions((; options.options..., kwargs...))
+# Fast fallback for empty options
+Base.haskey(::NodeCreationOptions{Nothing}, key::Symbol) = false
+Base.getindex(::NodeCreationOptions{Nothing}, keys...) = error("type `NodeCreationOptions{Nothing}` has no field $(keys)")
+Base.keys(::NodeCreationOptions{Nothing}) = ()
+Base.get(::NodeCreationOptions{Nothing}, key::Symbol, default) = default
 
 # TODO: (bvdmitri) move mutable fields to the plugins and make the struct immutable
 mutable struct VariableNodeProperties
@@ -132,7 +141,7 @@ end
 
 VariableNodeProperties(;
     name,
-    index = nothing,
+    index,
     link = nothing,
     value = nothing,
     functional_form = nothing,
@@ -148,10 +157,10 @@ is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
 
 # TODO: (bvdmitri) maybe there is a better way (?)
-function Base.convert(::Type{VariableNodeProperties}, options::NodeCreationOptions)
+function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, options::NodeCreationOptions)
     return VariableNodeProperties(
-        name = getindex(options, :name),
-        index = get(options, :index, nothing),
+        name = name,
+        index = index,
         link = get(options, :link, nothing),
         value = get(options, :value, nothing),
         functional_form = get(options, :functional_form, nothing),
@@ -189,24 +198,24 @@ Data associated with a factor node in a probabilistic graphical model.
 """
 mutable struct FactorNodeProperties
     fform::Any
-    factorization_constraint::Any
     neighbors::Any
+    factorization_constraint::Any
 end
 
 FactorNodeProperties(;
     fform,
-    factorization_constraint = nothing,
     neighbors = (),
-) = FactorNodeProperties(fform, factorization_constraint, neighbors)
+    factorization_constraint = nothing,
+) = FactorNodeProperties(fform, neighbors, factorization_constraint)
 
 is_factor(::FactorNodeProperties)   = true
 is_variable(::FactorNodeProperties) = false
 
-function Base.convert(::Type{FactorNodeProperties}, options::NodeCreationOptions)
+function Base.convert(::Type{FactorNodeProperties}, fform, options::NodeCreationOptions)
     return FactorNodeProperties(
-        fform = getindex(options, :fform),
-        factorization_constraint = get(options, :factorization_constraint, nothing),
+        fform = fform,
         neighbors = get(options, :neighbors, ()),
+        factorization_constraint = get(options, :factorization_constraint, nothing),
     )
 end
 
@@ -671,33 +680,37 @@ check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothin
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
 
 """
-    getorcreate!(model::Model, context::Context, edge, index)
+    getorcreate!(model::Model, context::Context, options::NodeCreationOptions, name, index)
 
-Get or create a variable (edge) from a factor graph model and context, using an index if provided.
+Get or create a variable (name) from a factor graph model and context, using an index if provided.
 
-This function searches for a variable (edge) in the factor graph model and context specified by the arguments `model` and `context`. If the variable exists, 
+This function searches for a variable (name) in the factor graph model and context specified by the arguments `model` and `context`. If the variable exists, 
 it returns it. Otherwise, it creates a new variable and returns it.
 
 # Arguments
 - `model::Model`: The factor graph model to search for or create the variable in.
 - `context::Context`: The context to search for or create the variable in.
-- `edge`: The variable (edge) to search for or create. Can be a symbol, a tuple of symbols, or an array of symbols.
+- `name`: The variable (name) to search for or create. Must be a symbol.
 - `index`: Optional index for the variable. Can be an integer, a tuple of integers, or `nothing`.
 
 # Returns
-The variable (edge) found or created in the factor graph model and context.
-
-# Examples
-Suppose we have a factor graph model `model` and a context `context`. We can get or create a variable "x" in the context using the following code:
-getorcreate!(model, context, :x)
+The variable (name) found or created in the factor graph model and context.
 """
+function getorcreate! end
+
+function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
+    return getorcreate!(model, ctx, EmptyNodeCreationOptions, name, index...)
+end
+
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::Nothing)
     throw_if_vector_variable(ctx, name)
     throw_if_tensor_variable(ctx, name)
     return get(() -> add_variable_node!(model, ctx, options, name, index), ctx.individual_variables, name)
 end
 
-getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::AbstractArray{Int}) = getorcreate!(model, ctx, options, name, index...)
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::AbstractArray{Int}) 
+    return getorcreate!(model, ctx, options, name, index...)
+end
 
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::Integer)
     throw_if_individual_variable(ctx, name)
@@ -731,27 +744,31 @@ getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) = add_variable_node!(model, context, NodeCreationOptions(value = var, constant = true), gensym(model, :constvar), nothing)
 
 """
-Add a variable node to the model with the given ID. This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
+    add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
 
-The function generates a new symbol for the variable and puts it in the
-context with the given ID. It then adds a node to the model with the generated
-symbol as the key and a `NodeData` struct with `is_variable` set to `true` and
-`variable_id` set to the given ID.
+Add a variable node to the model with the given `name` and `index`.
+This function is unsafe (doesn't check if a variable with the given name already exists in the model). 
 
 Args:
     - `model::Model`: The model to which the node is added.
     - `context::Context`: The context to which the symbol is added.
-    - `variable_id::Symbol`: The ID of the variable.
+    - `options::NodeCreationOptions`: The options for the creation process.
+    - `name::Symbol`: The ID of the variable.
     - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
-    - `options::Dict{Symbol, Any} = nothing`: The options to attach to the NodeData of the variable node.
 
 Returns:
     - The generated symbol for the variable.
 """
+function add_variable_node! end
+
+function add_variable_node!(model::Model, context::Context, name::Symbol, index)
+    return add_variable_node!(model, context, EmptyNodeCreationOptions, name, index)
+end
+
 function add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     variable_symbol = generate_nodelabel(model, name)
 
-    properties = convert(VariableNodeProperties, withopts(options, name = name, index = index))
+    properties = convert(VariableNodeProperties, name, index, options)
     plugins = materialize_plugins(VariableNodePlugin(), getplugins_specification(model))
     nodedata = NodeData(context, properties, plugins)
     
@@ -808,11 +825,17 @@ Args:
 Returns:
     - The generated label for the node.
 """
+function add_atomic_factor_node! end
+
+function add_atomic_factor_node!(model::Model, context::Context, fform)
+    return add_atomic_factor_node!(model, context, EmptyNodeCreationOptions, fform)
+end
+
 function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
     factornode_label = generate_nodelabel(model, fform)
 
-    properties = convert(FactorNodeProperties, withopts(options, fform = fform))
+    properties = convert(FactorNodeProperties, fform, options)
     plugins = materialize_plugins(FactorNodePlugin(), getplugins_specification(model))
     nodedata = NodeData(context, properties, plugins)
 
@@ -967,6 +990,10 @@ end
 
 # TODO improve documentation
 
+function make_node!(model::Model, ctx::Context, fform, lhs_interfaces, rhs_interfaces)
+    return make_node!(model, ctx, EmptyNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
+end
+
 # Special case which should materialize anonymous variable
 function make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface::AnonymousVariable, rhs_interfaces)
     lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)
@@ -1003,15 +1030,15 @@ make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, optio
     fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
 
 # If a node is Stochastic, we always materialize.
-make_node!(node_type::Atomic, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
+make_node!(::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
     make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If we have to materialize but lhs_interface is nothing, we create a variable for it
 function make_node!(
     materialize::True, node_type::NodeType, behaviour::NodeBehaviour, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface::Broadcasted, rhs_interfaces
 )
-    lhs_node = ProxyLabel(getname(lhs_interface), nothing, add_variable_node!(model, ctx, gensym(getname(lhs_interface))))
-    return make_node!(True(), node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
+    lhs_node = ProxyLabel(getname(lhs_interface), nothing, add_variable_node!(model, ctx, EmptyNodeCreationOptions, gensym(getname(lhs_interface)), nothing))
+    return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
 end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
@@ -1025,7 +1052,7 @@ make_node!(
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::AbstractArray
-) = make_node!(True(), node_type, behaviour, model, ctx, options, fform, lhs_interface, GraphPPL.default_parametrization(node_type, fform, rhs_interfaces))
+) = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, GraphPPL.default_parametrization(node_type, fform, rhs_interfaces))
 
 make_node!(
     ::True,
@@ -1051,7 +1078,7 @@ make_node!(
     rhs_interfaces::AbstractArray
 ) =
     if length(rhs_interfaces) == 0
-        make_node!(True(), Composite(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
+        make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
     else
         error(lazy"Composite node $fform cannot be called with an Array as interfaces, should be called with a NamedTuple")
     end
@@ -1091,9 +1118,7 @@ function make_node!(
     options::NodeCreationOptions,
     fform,
     lhs_interface::Union{NodeLabel, ProxyLabel},
-    rhs_interfaces::NamedTuple;
-    __parent_options__ = nothing,
-    __debug__ = false
+    rhs_interfaces::NamedTuple
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
@@ -1113,14 +1138,15 @@ function materialize_factor_node!(model::Model, context::Context, options::NodeC
     for (interface_name, neighbor_nodelabel) in iterator(interfaces)
         add_edge!(model, factor_node_id, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
     end
+    # TODO (bvdmitri): this must be a part of the addons, perhaps move to the `add_atomic_factor_node!`
     add_factorization_constraint!(model, factor_node_id)
 end
 
-add_terminated_submodel!(__model__::Model, __context__::Context, fform, __interfaces__::NamedTuple) =
-    add_terminated_submodel!(__model__, __context__, NodeCreationOptions((; created_by = :($QuoteNode(fform)))), fform, __interfaces__)
+add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple) =
+    add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = :($QuoteNode(fform)))), fform, interfaces)
 
-add_terminated_submodel!(__model__::Model, __context__::Context, __options__::NodeCreationOptions, fform, __interfaces__::NamedTuple) =
-    add_terminated_submodel!(__model__, __context__, __options__, fform, __interfaces__, static(length(__interfaces__)))
+add_terminated_submodel!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple) =
+    add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
 
 """
     prune!(m::Model)
