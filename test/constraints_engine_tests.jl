@@ -17,7 +17,7 @@
 end
 
 @testitem "CombinedRange" begin
-    import GraphPPL: CombinedRange, is_splitted, FunctionalIndex
+    import GraphPPL: CombinedRange, is_splitted, FunctionalIndex, IndexedVariable
     for left in 1:3, right in 5:8
         cr = CombinedRange(left, right)
 
@@ -35,10 +35,20 @@ end
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
+
+    # Test IndexedVariable with CombinedRange equality
+    lhs = IndexedVariable(:x, CombinedRange(1, 2))
+    rhs = IndexedVariable(:x, CombinedRange(1, 2))
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != IndexedVariable(:x, CombinedRange(1, 3))
+    @test lhs !== IndexedVariable(:x, CombinedRange(1, 3))
+    @test lhs != IndexedVariable(:y, CombinedRange(1, 2))
+    @test lhs !== IndexedVariable(:y, CombinedRange(1, 2))
 end
 
 @testitem "SplittedRange" begin
-    import GraphPPL: SplittedRange, is_splitted, FunctionalIndex
+    import GraphPPL: SplittedRange, is_splitted, FunctionalIndex, IndexedVariable
     for left in 1:3, right in 5:8
         cr = SplittedRange(left, right)
 
@@ -56,6 +66,16 @@ end
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
+
+    # Test IndexedVariable with SplittedRange equality
+    lhs = IndexedVariable(:x, SplittedRange(1, 2))
+    rhs = IndexedVariable(:x, SplittedRange(1, 2))
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != IndexedVariable(:x, SplittedRange(1, 3))
+    @test lhs !== IndexedVariable(:x, SplittedRange(1, 3))
+    @test lhs != IndexedVariable(:y, SplittedRange(1, 2))
+    @test lhs !== IndexedVariable(:y, SplittedRange(1, 2))
 end
 
 @testitem "__factorization_specification_resolve_index" begin
@@ -964,4 +984,20 @@ end
             @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
         end
     end
+end
+
+@testitem "mean_field_constraint" begin
+    using BitSetTuples
+    import GraphPPL: mean_field_constraint
+
+    @test mean_field_constraint(5) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test mean_field_constraint(10) == BitSetTuple([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
+
+    @test mean_field_constraint(1, (1,)) == BitSetTuple(1)
+    @test mean_field_constraint(2, (1,)) == BitSetTuple([[1], [2]])
+    @test mean_field_constraint(2, (2,)) == BitSetTuple([[1], [2]])
+    @test mean_field_constraint(5, (1, 3, 5)) == BitSetTuple([[1], [2, 4], [3], [2, 4], [5]])
+    @test mean_field_constraint(5, (1, 2, 3, 4, 5)) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test mean_field_constraint(5, (1, 2)) == BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
 end

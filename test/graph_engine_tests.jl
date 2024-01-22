@@ -1,3 +1,56 @@
+@testitem "IndexedVariable" begin
+    import GraphPPL: IndexedVariable, CombinedRange, SplittedRange, getname, index
+
+    # Test 1: Test IndexedVariable
+    @test IndexedVariable(:x, nothing) isa IndexedVariable
+
+    # Test 2: Test IndexedVariable equality
+    lhs = IndexedVariable(:x, nothing)
+    rhs = IndexedVariable(:x, nothing)
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != IndexedVariable(:y, nothing)
+    @test lhs !== IndexedVariable(:y, nothing)
+    @test getname(IndexedVariable(:x, nothing)) === :x
+    @test getname(IndexedVariable(:x, 1)) === :x
+    @test getname(IndexedVariable(:y, nothing)) === :y
+    @test getname(IndexedVariable(:y, 1)) === :y
+    @test index(IndexedVariable(:x, nothing)) === nothing
+    @test index(IndexedVariable(:x, 1)) === 1
+    @test index(IndexedVariable(:y, nothing)) === nothing
+    @test index(IndexedVariable(:y, 1)) === 1
+end
+
+@testitem "FunctionalIndex" begin
+    import GraphPPL: FunctionalIndex
+
+    collection = [1, 2, 3, 4, 5]
+
+    # Test 1: Test FunctionalIndex{:begin}
+    index = FunctionalIndex{:begin}(firstindex)
+    @test index(collection) === firstindex(collection)
+
+    # Test 2: Test FunctionalIndex{:end}
+    index = FunctionalIndex{:end}(lastindex)
+    @test index(collection) === lastindex(collection)
+
+    # Test 3: Test FunctionalIndex{:begin} + 1
+    index = FunctionalIndex{:begin}(firstindex) + 1
+    @test index(collection) === firstindex(collection) + 1
+
+    # Test 4: Test FunctionalIndex{:end} - 1
+    index = FunctionalIndex{:end}(lastindex) - 1
+    @test index(collection) === lastindex(collection) - 1
+
+    # Test 5: Test FunctionalIndex equality
+    lhs = FunctionalIndex{:begin}(firstindex)
+    rhs = FunctionalIndex{:begin}(firstindex)
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != FunctionalIndex{:end}(lastindex)
+    @test lhs !== FunctionalIndex{:end}(lastindex)
+end
+
 @testitem "model constructor" begin
     import GraphPPL: create_model, Model
 
@@ -1085,22 +1138,6 @@ end
     @test default_parametrization(Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
 
     @test_throws ErrorException default_parametrization(Composite(), gcv, (1, 2))
-end
-
-@testitem "mean_field_constraint" begin
-    using BitSetTuples
-    import GraphPPL: mean_field_constraint
-
-    @test mean_field_constraint(5) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test mean_field_constraint(10) == BitSetTuple([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
-
-    @test mean_field_constraint(1, (1,)) == BitSetTuple(1)
-    @test mean_field_constraint(2, (1,)) == BitSetTuple([[1], [2]])
-    @test mean_field_constraint(2, (2,)) == BitSetTuple([[1], [2]])
-    @test mean_field_constraint(5, (1, 3, 5)) == BitSetTuple([[1], [2, 4], [3], [2, 4], [5]])
-    @test mean_field_constraint(5, (1, 2, 3, 4, 5)) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == BitSetTuple([[1], [2], [3], [4], [5]])
-    @test mean_field_constraint(5, (1, 2)) == BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
 end
 
 @testitem "contains_nodelabel" begin 
