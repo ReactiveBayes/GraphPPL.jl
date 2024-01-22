@@ -75,8 +75,8 @@ Base.length(index::IndexedVariable{T} where {T}) = 1
 Base.iterate(index::IndexedVariable{T} where {T}) = (index, nothing)
 Base.iterate(index::IndexedVariable{T} where {T}, any) = nothing
 Base.:(==)(left::IndexedVariable, right::IndexedVariable) = (left.name == right.name && left.index == right.index)
-Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.variable)
-Base.show(io::IO, variable::IndexedVariable) = print(io, variable.variable, "[", variable.index, "]")
+Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
+Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
 struct FactorID
     fform::Any
@@ -669,8 +669,8 @@ function get_principal_submodel(model::Model)
     return context
 end
 
-Base.getindex(context::Context, index::IndexedVariable{Nothing}) = context[index.variable]
-Base.getindex(context::Context, index::IndexedVariable) = context[index.variable][index.index]
+Base.getindex(context::Context, ivar::IndexedVariable{Nothing}) = context[getname(ivar)]
+Base.getindex(context::Context, ivar::IndexedVariable) = context[getname(ivar)][index(ivar)]
 
 abstract type NodeType end
 

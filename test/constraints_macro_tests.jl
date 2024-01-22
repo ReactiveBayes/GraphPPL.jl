@@ -559,4 +559,5 @@ end
         end
     end
     @test constraints isa Constraints
+    # TODO: (bvdmitri) this requires more tests, e.g. what constraints have been created
 end

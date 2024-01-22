@@ -413,82 +413,86 @@ end
 end
 
 @testitem "apply FunctionalFormConstraint" begin
-    import GraphPPL: FunctionalFormConstraint, IndexedVariable, apply!, fform_constraint
+    import GraphPPL: FunctionalFormConstraint, IndexedVariable, apply!, fform_constraint, getproperties
 
     include("model_zoo.jl")
+
+    struct ArbitraryFunctionalFormConstraint end
 
     # Test saving of FunctionalFormConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
+    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
+        @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
     end
 
     # Test saving of FunctionalFormConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
+    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
+        @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test fform_constraint(model[node]) === nothing
+        @test fform_constraint(getproperties(model[node])) === nothing
     end
 
     # Test saving of FunctionalFormConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), NormalMeanVariance())
+    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
     apply!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test fform_constraint(model[node]) == NormalMeanVariance()
+            @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
         else
-            @test fform_constraint(model[node]) === nothing
+            @test fform_constraint(getproperties(model[node])) === nothing
         end
     end
 end
 
 @testitem "apply MessageConstraint" begin
-    import GraphPPL: MessageConstraint, IndexedVariable, apply!, message_constraint
+    import GraphPPL: MessageConstraint, IndexedVariable, apply!, message_constraint, getproperties
 
     include("model_zoo.jl")
+
+    struct ArbitraryMessageFormConstraint end
 
     # Test saving of MessageConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
+    constraint = MessageConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     node = first(filter(GraphPPL.as_variable(:x), model))
     apply!(model, context, constraint)
-    @test message_constraint(model[node]) == NormalMeanVariance()
+    @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
 
     # Test saving of MessageConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
+    constraint = MessageConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     apply!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test message_constraint(model[node]) == NormalMeanVariance()
+        @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test message_constraint(model[node]) === nothing
+        @test message_constraint(getproperties(model[node])) === nothing
     end
 
     # Test saving of MessageConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, 1), NormalMeanVariance())
+    constraint = MessageConstraint(IndexedVariable(:x, 1), ArbitraryMessageFormConstraint())
     apply!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test message_constraint(model[node]) == NormalMeanVariance()
+            @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
         else
-            @test message_constraint(model[node]) === nothing
+            @test message_constraint(getproperties(model[node])) === nothing
         end
     end
 end
@@ -497,35 +501,35 @@ end
     include("model_zoo.jl")
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: save_constraint!, constant_constraint, factorization_constraint
+    import GraphPPL: save_constraint!, constant_constraint, factorization_constraint, getproperties
 
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
     save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2, 3], [2, 3]])
     save_constraint!(model[node], constant_constraint(3, 2))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2], [3]])
+    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2], [3]])
 
     node = ctx[NormalMeanVariance, 1]
     save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2, 3], [2, 3]])
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
     include("model_zoo.jl")
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names, factorization_constraint
+    import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names, factorization_constraint, getproperties
 
     # Test 1: Test materialize with a Full Factorization constraint
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:out, :μ, :σ),)
+    @test get_constraint_names(factorization_constraint(getproperties(model[node]))) == ((:out, :μ, :σ),)
     materialize_constraints!(model, ctx[NormalMeanVariance, 1])
-    @test get_constraint_names(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+    @test get_constraint_names(factorization_constraint(getproperties(model[ctx[NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
 
     # Test 2: Test materialize with an applied constraint
     model = create_terminated_model(simple_model)
@@ -533,7 +537,7 @@ end
     node = ctx[NormalMeanVariance, 2]
     GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
+    @test get_constraint_names(factorization_constraint(getproperties(model[node]))) == ((:out,), (:μ, :σ))
 
     # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
@@ -621,40 +625,40 @@ end
 @testitem "Resolved Constraints in" begin
     using GraphPPL
     import GraphPPL:
-        ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, getname, index, VariableNodeOptions
+        ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, getname, index, VariableNodeProperties
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
+    node_data = GraphPPL.NodeData(GraphPPL.Context(), VariableNodeProperties(name = :w, index = 2))
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = nothing))
     @test node_data ∈ variable
 end
 
 @testitem "ResolvedFactorizationConstraint" begin
-    import GraphPPL: ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, CombinedRange, apply!
+    import GraphPPL: ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, CombinedRange, apply!, getproperties
 
     using BitSetTuples
 
@@ -712,7 +716,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2], [1, 3]])
         apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2], [1, 3]])
+        @test GraphPPL.factorization_constraint(getproperties(model[normal_node])) == BitSetTuple([[1, 3], [2], [1, 3]])
     end
 
     let constraint = ResolvedFactorizationConstraint(
@@ -738,7 +742,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
         apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
+        @test GraphPPL.factorization_constraint(getproperties(model[normal_node])) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
     end
 
     model = create_terminated_model(multidim_array)
@@ -753,7 +757,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
         apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
+        @test GraphPPL.factorization_constraint(getproperties(model[normal_node])) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
     end
 
     # Test ResolvedFactorizationConstraints over anonymous variables
@@ -841,7 +845,7 @@ end
 
 @testitem "constraints macro pipeline" begin
     using GraphPPL
-    import GraphPPL: apply!, fform_constraint, message_constraint, factorization_constraint, getname
+    import GraphPPL: apply!, fform_constraint, message_constraint, factorization_constraint, getname, getproperties
     include("model_zoo.jl")
 
     # Test constraints macro with single variables and no nesting
@@ -855,19 +859,19 @@ end
     end
     apply!(model, constraints)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
-        @test message_constraint(model[node]) === nothing
+        @test fform_constraint(getproperties(model[node])) == NormalMeanVariance()
+        @test message_constraint(getproperties(model[node])) === nothing
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test fform_constraint(model[node]) === nothing
-        @test message_constraint(model[node]) == NormalMeanVariance()
+        @test fform_constraint(getproperties(model[node])) === nothing
+        @test message_constraint(getproperties(model[node])) == NormalMeanVariance()
     end
     for node in filter(GraphPPL.as_variable(:z), model)
-        @test fform_constraint(model[node]) === nothing
-        @test message_constraint(model[node]) === nothing
+        @test fform_constraint(getproperties(model[node])) === nothing
+        @test message_constraint(getproperties(model[node])) === nothing
     end
-    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
-    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 2]])) == ((:out, :μ), (:σ,))
+    @test getname(factorization_constraint(getproperties(model[ctx[NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
+    @test getname(factorization_constraint(getproperties(model[ctx[NormalMeanVariance, 2]]))) == ((:out, :μ), (:σ,))
 
     # Test constriants macro with nested model
     model = create_terminated_model(outer)
@@ -880,21 +884,21 @@ end
         end
     end
     apply!(model, constraints)
-    @test fform_constraint(model[ctx[:w][1]]) === nothing
-    @test fform_constraint(model[ctx[:w][2]]) === nothing
-    @test fform_constraint(model[ctx[:w][3]]) === nothing
-    @test fform_constraint(model[ctx[:w][4]]) === nothing
-    @test fform_constraint(model[ctx[:w][5]]) === nothing
+    @test fform_constraint(getproperties(model[ctx[:w][1]])) === nothing
+    @test fform_constraint(getproperties(model[ctx[:w][2]])) === nothing
+    @test fform_constraint(getproperties(model[ctx[:w][3]])) === nothing
+    @test fform_constraint(getproperties(model[ctx[:w][4]])) === nothing
+    @test fform_constraint(getproperties(model[ctx[:w][5]])) === nothing
 
-    @test message_constraint(model[ctx[:w][1]]) === nothing
-    @test message_constraint(model[ctx[:w][2]]) === NormalMeanVariance()
-    @test message_constraint(model[ctx[:w][3]]) === NormalMeanVariance()
-    @test message_constraint(model[ctx[:w][4]]) === nothing
-    @test message_constraint(model[ctx[:w][5]]) === nothing
+    @test message_constraint(getproperties(model[ctx[:w][1]])) === nothing
+    @test message_constraint(getproperties(model[ctx[:w][2]])) === NormalMeanVariance()
+    @test message_constraint(getproperties(model[ctx[:w][3]])) === NormalMeanVariance()
+    @test message_constraint(getproperties(model[ctx[:w][4]])) === nothing
+    @test message_constraint(getproperties(model[ctx[:w][5]])) === nothing
 
-    @test fform_constraint(model[ctx[:y]]) == NormalMeanVariance()
+    @test fform_constraint(getproperties(model[ctx[:y]])) == NormalMeanVariance()
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
-        @test getname(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
+        @test getname(factorization_constraint(getproperties(model[node]))) == ((:out,), (:μ, :σ))
     end
 
     # Test with specifying specific submodel
@@ -907,9 +911,9 @@ end
     end
 
     apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+    @test getname(factorization_constraint(getproperties(model[ctx[child_model, 1][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
     for i in 2:99
-        @test getname(factorization_constraint(model[ctx[child_model, i][NormalMeanVariance, 1]])) == ((:out, :μ, :σ),)
+        @test getname(factorization_constraint(getproperties(model[ctx[child_model, i][NormalMeanVariance, 1]]))) == ((:out, :μ, :σ),)
     end
 
     # Test with specifying general submodel
@@ -922,9 +926,9 @@ end
     end
 
     apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+    @test getname(factorization_constraint(getproperties(model[ctx[child_model, 1][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
-        @test getname(factorization_constraint(model[node])) == ((:out, :μ), (:σ,))
+        @test getname(factorization_constraint(getproperties(model[node]))) == ((:out, :μ), (:σ,))
     end
 
     # Test with ambiguous constraints
@@ -937,7 +941,7 @@ end
 end
 
 @testitem "default_constraints" begin
-    import GraphPPL: default_constraints, factorization_constraint
+    import GraphPPL: default_constraints, factorization_constraint, getproperties
     include("model_zoo.jl")
 
     @test default_constraints(simple_model) == GraphPPL.Constraints()
@@ -952,7 +956,7 @@ end
     # Test that default constraints are applied
     GraphPPL.apply!(model, GraphPPL.Constraints())
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+        @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints in the context
@@ -965,7 +969,7 @@ end
     end
     GraphPPL.apply!(model, c)
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+        @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel
@@ -979,9 +983,9 @@ end
     GraphPPL.apply!(model, c)
     for i in 1:10
         if i == 1
-            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+            @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
         else
-            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+            @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
         end
     end
 end
