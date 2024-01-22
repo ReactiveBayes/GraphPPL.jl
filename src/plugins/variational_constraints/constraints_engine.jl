@@ -605,7 +605,10 @@ function resolve(model::Model, context::Context, variable::IndexedVariable{Split
     global_node_data = model[global_label[firstindex(resolved_indices):lastindex(resolved_indices)]]
     firstdata = first(global_node_data)
     lastdata = last(global_node_data)
-    return ResolvedIndexedVariable(getname(firstdata), SplittedRange(index(firstdata), index(lastdata)), getcontext(firstdata))
+    if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
+        error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
+    end
+    return ResolvedIndexedVariable(getname(getproperties(firstdata)), SplittedRange(index(getproperties(firstdata)), index(getproperties(lastdata))), getcontext(firstdata))
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{Nothing})

@@ -27,7 +27,7 @@ end
 
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, getproperties, NodeCreationOptions
 
     include("./model_zoo.jl")
 
@@ -46,23 +46,23 @@ end
         model = create_model()
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, :a, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
-        b = something(b, getorcreate!(model, context, :b, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
-        c = something(c, getorcreate!(model, context, :c, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
+        a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
+        b = something(b, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :b, nothing))
+        c = something(c, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :c, nothing))
 
         add_terminated_submodel!(model, context, simple_model, (a = a, b = b, c = c))
         apply!(model, constraints)
 
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            return factorization_constraint(model[node]) === (map(interface -> (interface,), interfaces)...,)
+            return factorization_constraint(getproperties(model[node])) === (map(interface -> (interface,), interfaces)...,)
         end
     end
 end
 
 @testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
 
     include("./model_zoo.jl")
 
@@ -89,7 +89,7 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
+                y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
             end
 
             add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
@@ -105,14 +105,14 @@ end
             @test all(filter(as_node(NormalMeanVariance), model)) do node
                 # This must be factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(model[node]) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                return factorization_constraint(getproperties(model[node])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
             end
 
             @test all(filter(as_node(NormalMeanPrecision), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to structured, since empty constraints do not factorize out this case
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(model[node]) === ((interfaces[1], interfaces[2]), (interfaces[3],))
+                return factorization_constraint(getproperties(model[node])) === ((interfaces[1], interfaces[2]), (interfaces[3],))
             end
         end
 
@@ -122,7 +122,7 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
+                y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
             end
 
             add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
@@ -141,7 +141,7 @@ end
                 # the interfaces must be factorized out
                 # The reset are factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(model[node]) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                return factorization_constraint(getproperties(model[node])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
             end
         end
     end
@@ -149,7 +149,7 @@ end
 
 @testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions, LinearAlgebra
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
 
     include("./model_zoo.jl")
 
@@ -178,12 +178,12 @@ end
         model = create_model()
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, :a, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
-        b = something(b, getorcreate!(model, context, :b, nothing, options = VariableNodeOptions(datavar = true, factorized = true)))
+        a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
+        b = something(b, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :b, nothing))
 
         y = nothing
         for i in 1:n
-            y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
+            y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
         end
 
         add_terminated_submodel!(model, context, simple_model, (a = a, b = b, y = y))
@@ -196,7 +196,7 @@ end
             # desired constraints 
             desired = Set([(interfaces[1], interfaces[2]), (interfaces[3],)])
             # actual constraints 
-            actual = Set(map(cluster -> GraphPPL.getname.(cluster), factorization_constraint(model[node])))
+            actual = Set(map(cluster -> GraphPPL.getname.(cluster), factorization_constraint(getproperties(model[node]))))
             return isequal(desired, actual)
         end
     end
@@ -204,7 +204,7 @@ end
 
 @testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, VariableNodeOptions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -266,7 +266,7 @@ end
         y = nothing
 
         for i in 1:n
-            y = getorcreate!(model, context, :y, i, options = VariableNodeOptions(datavar = true, factorized = true))
+            y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
         end
 
         add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
@@ -283,7 +283,7 @@ end
             # Note that in this particular test we simply test all Gaussian nodes because 
             # other Gaussians are also mean-field due to other (implicit) constraints
             interfaces = GraphPPL.edges(model, gnode)
-            return factorization_constraint(model[gnode]) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+            return factorization_constraint(getproperties(model[gnode])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
         end
     end
 end
