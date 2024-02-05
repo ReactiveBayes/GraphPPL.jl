@@ -217,6 +217,7 @@ factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
 count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+shortname(context::Context) = string(context.prefix, "_", context.fform) 
 
 path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
@@ -420,7 +421,7 @@ meta(properties::VariableNodeProperties) = properties.meta
 
 function Base.show(io::IO, properties::VariableNodeProperties)
     print(io, "name = ", properties.name, ", index = ", properties.index)
-    if !isnothing(node.link)
+    if !isnothing(properties.link)
         print(io, "(linked to ", node.link, ")")
     end
 end
@@ -478,13 +479,13 @@ end
 NodeData(context, properties) = NodeData(context, properties, PluginCollection())
 
 function Base.show(io::IO, nodedata::NodeData)
-    print(io, properties.name, "[", properties.index, "] in context ", node.context.prefix, "_", node.context.fform)
-    print(io, "NodeData with properties: ")
-    print(io, nodedata.properties)
-    print(io, " in context ", nodedata.context.prefix, "_", node.context.fform)
-    if !isempty(nodedata.plugins)
+    context = getcontext(nodedata)
+    properties = getproperties(nodedata)
+    print(io, "NodeData in context ", shortname(context), "with properties ", properties)
+    plugins = getplugins(nodedata)
+    if !isempty(plugins)
         print(io, " with plugins: ")
-        print(io, nodedata.plugins)
+        print(io, plugins)
     end
 end
 

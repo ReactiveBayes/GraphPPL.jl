@@ -59,6 +59,49 @@ end
     @test_throws MethodError Model()
 end
 
+@testitem "NodeData constructor" begin 
+    import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties
+
+    model = create_model()
+    context = getcontext(model)
+
+    @testset "FactorNodeProperties" begin 
+        properties = FactorNodeProperties(fform = String)
+        nodedata = NodeData(context, properties)
+
+        @test getcontext(nodedata) === context
+        @test getproperties(nodedata) === properties
+
+        io = IOBuffer()
+
+        show(io, nodedata)
+
+        output = String(take!(io))
+
+        @test !isempty(output)
+        @test contains(output, "String") # fform
+    end
+
+    @testset "VariableNodeProperties" begin
+        properties = VariableNodeProperties(name = :x, index = 1)
+        nodedata = NodeData(context, properties)
+
+        @test getcontext(nodedata) === context
+        @test getproperties(nodedata) === properties
+
+        io = IOBuffer()
+
+        show(io, nodedata)
+
+        output = String(take!(io))
+
+        @test !isempty(output)
+        @test contains(output, "x") # name
+        @test contains(output, "1") # index
+    end
+
+end
+
 @testitem "factor_nodes" begin
     import GraphPPL: factor_nodes, is_factor, labels
     include("model_zoo.jl")

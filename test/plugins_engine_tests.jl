@@ -7,6 +7,13 @@
     @test @inferred(plugin_type(SomeArbitraryType)) isa UnknownPluginType
 end
 
+@testitem "PluginCollection" begin 
+    import GraphPPL: PluginCollection
+
+    @test isempty(PluginCollection())
+    @test !isempty(PluginCollection((1, )))
+end
+
 @testitem "Test `+` and `|` oeprators" begin 
     import GraphPPL: plugin_type, GraphPlugin, GraphGlobalPlugin, FactorNodePlugin, VariableNodePlugin, PluginSpecification
 

@@ -68,6 +68,8 @@ end
 # By default the collection is empty
 PluginCollection() = PluginCollection(())
 
+Base.isempty(collection::PluginCollection) = isempty(collection.plugins)
+
 function materialize_plugins(ptype::AbstractPluginTraitType, plugins::PluginSpecification, options)
     return materialize_plugins(filter(ptype, plugins), options)
 end
