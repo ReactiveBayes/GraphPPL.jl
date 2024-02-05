@@ -1,19 +1,63 @@
-@testitem "NodeCreatedByPlugin" begin 
-    import GraphPPL: NodeCreatedByPlugin, NodeCreationOptions, materialize_plugin, EmptyCreatedBy
+@testitem "NodeCreatedByPlugin: model with the plugin" begin
+    using Distributions
 
-    plugin, options = @inferred(materialize_plugin(NodeCreatedByPlugin, NodeCreationOptions()))
-    @test plugin.created_by == EmptyCreatedBy
-    @test options == NodeCreationOptions()
+    import GraphPPL: NodeCreatedByPlugin, EmptyCreatedBy, CreatedBy, NodeCreationOptions, PluginsCollection, add_atomic_factor_node!, create_model, getcontext, hasextra, getextra
 
-    plugin, options = @inferred(materialize_plugin(NodeCreatedByPlugin, NodeCreationOptions(created_by = :(1 + 1))))
-    @test plugin.created_by == :(1 + 1)
-    @test options == NodeCreationOptions()
+    model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
+    ctx = getcontext(model)
 
-    plugin, options = @inferred(materialize_plugin(NodeCreatedByPlugin, NodeCreationOptions(created_by = :(x ~ Normal(0, 1)))))
-    @test plugin.created_by == :(x ~ Normal(0, 1))
-    @test options == NodeCreationOptions()
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(), Normal)
 
-    plugin, options = @inferred(materialize_plugin(NodeCreatedByPlugin, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1)))))
-    @test plugin.created_by == :(x ~ Normal(0, 1))
-    @test options == NodeCreationOptions()
+        @test hasextra(nodedata, :created_by)
+        @test getextra(nodedata, :created_by) === CreatedBy(EmptyCreatedBy)
+    end
+
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = :(x ~ Normal(0, 1))), Normal)
+
+        @test hasextra(nodedata, :created_by)
+
+        io = IOBuffer()
+
+        show(io, getextra(nodedata, :created_by))
+
+        @test String(take!(io)) == "x ~ Normal(0, 1)"
+    end
+
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal)
+
+        @test hasextra(nodedata, :created_by)
+
+        io = IOBuffer()
+
+        show(io, getextra(nodedata, :created_by))
+
+        @test String(take!(io)) == "x ~ Normal(0, 1)"
+    end
+end
+
+@testitem "NodeCreatedByPlugin: model without the plugin" begin
+    using Distributions
+
+    import GraphPPL: NodeCreatedByPlugin, EmptyCreatedBy, CreatedBy, NodeCreationOptions, PluginsCollection, add_atomic_factor_node!, create_model, getcontext, hasextra, getextra
+
+    model = create_model(plugins = PluginsCollection())
+    ctx = getcontext(model)
+
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(), Normal)
+        @test !hasextra(nodedata, :created_by)
+    end
+
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = :(x ~ Normal(0, 1))), Normal)
+        @test !hasextra(nodedata, :created_by)
+    end
+
+    @testset begin
+        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal)
+        @test !hasextra(nodedata, :created_by)
+    end
 end

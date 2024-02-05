@@ -261,54 +261,53 @@ end
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
-    import GraphPPL: getplugins, getplugin, factor_nodes
+    import GraphPPL: getplugins, factor_nodes, PluginsCollection, setextra!, getextra
 
     include("model_zoo.jl")
 
-    mutable struct AnArbitraryPluginForTestUniqeness
-        value::Int
-    end
+    struct AnArbitraryPluginForTestUniqeness end
 
-    value = Ref(0)
+    GraphPPL.plugin_type(::AnArbitraryPluginForTestUniqeness) = GraphPPL.FactorNodePlugin()
 
-    GraphPPL.plugin_type(::Type{AnArbitraryPluginForTestUniqeness}) = GraphPPL.FactorNodePlugin()
+    count = Ref(0)
 
-    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForTestUniqeness}, options)
-        value[] = value[] + 1
-        return (AnArbitraryPluginForTestUniqeness(value[]), options)
+    function GraphPPL.process_plugin(::AnArbitraryPluginForTestUniqeness, model, context, label, nodedata, options)
+        setextra!(nodedata, :count, count[])
+        count[] = count[] + 1
+        return label, nodedata
     end
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = GraphPPL.GraphPlugin(AnArbitraryPluginForTestUniqeness))
+        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForTestUniqeness()))
         for f1 in factor_nodes(model), f2 in factor_nodes(model)
             if f1 !== f2
-                @test getplugins(model[f1]) !== getplugins(model[f2])
-                @test getplugin(model[f1], AnArbitraryPluginForTestUniqeness).value !== getplugin(model[f2], AnArbitraryPluginForTestUniqeness).value
+                @test getextra(model[f1], :count) !== getextra(model[f2], :count)
             else
-                @test getplugins(model[f1]) === getplugins(model[f2])
-                @test getplugin(model[f1], AnArbitraryPluginForTestUniqeness).value === getplugin(model[f2], AnArbitraryPluginForTestUniqeness).value
+                @test getextra(model[f1], :count) === getextra(model[f2], :count)
             end
         end
     end
 end
 
 @testitem "Check that plugins may change the options" begin
-    import GraphPPL: getplugins, getplugin, withopts, variable_nodes, is_constant, getproperties, value
+    import GraphPPL: NodeData, variable_nodes, getname, index, is_constant, getproperties, value, PluginsCollection, VariableNodeProperties, NodeCreationOptions, create_terminated_model
 
     include("model_zoo.jl")
 
     struct AnArbitraryPluginForChangingOptions end
 
-    GraphPPL.plugin_type(::Type{AnArbitraryPluginForChangingOptions}) = GraphPPL.VariableNodePlugin()
+    GraphPPL.plugin_type(::AnArbitraryPluginForChangingOptions) = GraphPPL.VariableNodePlugin()
 
-    function GraphPPL.materialize_plugin(::Type{AnArbitraryPluginForChangingOptions}, options)
-        return (AnArbitraryPluginForChangingOptions(), withopts(options, (constant = true, value = 1.0)))
+    function GraphPPL.process_plugin(::AnArbitraryPluginForChangingOptions, model, context, label, nodedata, options)
+        # Here we replace the original options entirely
+        return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(constant = true, value = 1.0)))
     end
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = GraphPPL.GraphPlugin(AnArbitraryPluginForChangingOptions))
+        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForChangingOptions()))
         for v in variable_nodes(model)
-            @test getplugin(model[v], AnArbitraryPluginForChangingOptions) === AnArbitraryPluginForChangingOptions()
+            @test getname(getproperties(model[v])) === :x
+            @test index(getproperties(model[v])) === nothing
             @test is_constant(getproperties(model[v])) === true
             @test value(getproperties(model[v])) === 1.0
         end

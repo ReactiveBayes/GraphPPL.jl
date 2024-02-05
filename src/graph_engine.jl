@@ -2,6 +2,7 @@ using MetaGraphsNext, MetaGraphsNext.Graphs
 using BitSetTuples
 using Static
 using NamedTupleTools
+using Dictionaries
 
 import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 import MetaGraphsNext.Graphs: neighbors
@@ -99,23 +100,18 @@ of nodes in the graph.
 
 Fields:
 - `graph`: A `MetaGraph` object representing the factor graph.
-- `plugin_specification`: A `PluginSpecification` object representing the plugins enabled in the model.
-- `plugins`: A `PluginCollection` object representing the global plugins enabled in the model.
+- `plugins`: A `PluginCollection` object representing the plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, S, P}
+struct Model{G, P}
     graph::G
-    plugin_specification::S
     plugins::P
     counter::Base.RefValue{Int64}
 end
 
 labels(model::Model) = MetaGraphsNext.labels(model.graph)
 
-getplugins_specification(model::Model) = model.plugin_specification
-
 getplugins(model::Model) = model.plugins
-getplugin(model::Model, ::Type{T}, throw_if_not_present = Val(true)) where {T} = getplugin(getplugins(model), T, throw_if_not_present)
 
 """
     NodeLabel(name::Symbol, global_counter::Int64)
@@ -462,6 +458,10 @@ addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLa
 
 set_factorization_constraint!(properties::FactorNodeProperties, constraint) = properties.factorization_constraint = constraint
 
+function Base.show(io::IO, properties::FactorNodeProperties)
+    print(io, "fform = ", properties.fform, ", neighbors = ", properties.neighbors)
+end
+
 """
     NodeData(context, properties, plugins)
 
@@ -473,27 +473,29 @@ The `plugins` field stores additional properties of the node depending on which 
 struct NodeData
     context    :: Context
     properties :: Union{VariableNodeProperties, FactorNodeProperties}
-    plugins    :: PluginCollection
+    extra      :: ArrayDictionary{Symbol, Any}
 end
 
-NodeData(context, properties) = NodeData(context, properties, PluginCollection())
+NodeData(context, properties) = NodeData(context, properties, ArrayDictionary{Symbol, Any}())
 
 function Base.show(io::IO, nodedata::NodeData)
     context = getcontext(nodedata)
     properties = getproperties(nodedata)
-    print(io, "NodeData in context ", shortname(context), "with properties ", properties)
-    plugins = getplugins(nodedata)
-    if !isempty(plugins)
-        print(io, " with plugins: ")
-        print(io, plugins)
+    print(io, "NodeData in context ", shortname(context), " with properties ", properties)
+    extra = getextra(nodedata)
+    if !isempty(extra)
+        print(io, " with extra: ")
+        print(io, extra)
     end
 end
 
 getcontext(node::NodeData)    = node.context
 getproperties(node::NodeData) = node.properties
+getextra(node::NodeData)      = node.extra
 
-getplugins(node::NodeData) = node.plugins
-getplugin(node::NodeData, ::Type{T}, throw_if_not_present = Val(true)) where {T} = getplugin(getplugins(node), T, throw_if_not_present)
+hasextra(node::NodeData, key::Symbol) = haskey(node.extra, key)
+getextra(node::NodeData, key::Symbol) = getindex(node.extra, key)
+setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
 is_factor(node::NodeData)   = is_factor(getproperties(node))
 is_variable(node::NodeData) = is_variable(getproperties(node))
@@ -509,11 +511,10 @@ struct StaticInterfaces{I} end
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
 
-Model(graph::MetaGraph) = Model(graph, PluginSpecification())
+Model(graph::MetaGraph) = Model(graph, PluginsCollection())
 
-function Model(graph::MetaGraph, plugin_specification::PluginSpecification)
-    plugins, _ = materialize_plugins(GraphGlobalPlugin(), plugin_specification, nothing)
-    return Model(graph, plugin_specification, plugins, Base.RefValue(0))
+function Model(graph::MetaGraph, plugins::PluginsCollection)
+    return Model(graph, plugins, Base.RefValue(0))
 end
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
@@ -696,7 +697,7 @@ Create a new empty probabilistic graphical model.
 Returns:
 A `Model` object representing the probabilistic graphical model.
 """
-function create_model(; fform = identity, plugins = PluginSpecification())
+function create_model(; fform = identity, plugins = PluginsCollection())
     label_type = NodeLabel
     edge_data_type = EdgeLabel
     vertex_data_type = NodeData
@@ -850,16 +851,16 @@ function add_variable_node!(model::Model, context::Context, name::Symbol, index)
 end
 
 function add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
-    variable_symbol = generate_nodelabel(model, name)
-
-    plugins, newoptions = materialize_plugins(VariableNodePlugin(), getplugins_specification(model), options)
-    properties = convert(VariableNodeProperties, name, index, newoptions)
-    nodedata = NodeData(context, properties, plugins)
     
-    context[name, index] = variable_symbol
-    model[variable_symbol] = nodedata
+    # In theory plugins are able to overwrite this
+    potential_label = generate_nodelabel(model, name)
+    potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options))
+    label, nodedata = process_plugins(VariableNodePlugin(), model, context, potential_label, potential_nodedata, options)
+    
+    context[name, index] = label
+    model[label] = nodedata
 
-    return variable_symbol
+    return label
 end
 
 """
@@ -917,16 +918,16 @@ end
 
 function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
-    factornode_label = generate_nodelabel(model, fform)
 
-    plugins, newoptions = materialize_plugins(FactorNodePlugin(), getplugins_specification(model), options)
-    properties = convert(FactorNodeProperties, fform, newoptions)
-    nodedata = NodeData(context, properties, plugins)
+    potential_label = generate_nodelabel(model, fform)
+    potential_nodedata = NodeData(context, convert(FactorNodeProperties, fform, options))
 
-    model[factornode_label] = nodedata
-    context.factor_nodes[factornode_id] = factornode_label
+    label, nodedata = process_plugins(FactorNodePlugin(), model, context, potential_label, potential_nodedata, options)
+
+    model[potential_label] = nodedata
+    context.factor_nodes[factornode_id] = label
     
-    return factornode_label, nodedata, properties
+    return label, nodedata, getproperties(nodedata)
 end
 
 factor_alias(any, interfaces) = any
@@ -1241,3 +1242,23 @@ function prune!(m::Model)
     nodes_to_remove = sort(nodes_to_remove, rev = true)
     rem_vertex!.(Ref(m.graph), nodes_to_remove)
 end
+
+## Plugin steps
+
+"""
+A trait object for plugins that add extra functionality for factor nodes.
+"""
+struct FactorNodePlugin <: AbstractPluginTraitType end
+
+"""
+A trait object for plugins that add extra functionality for variable nodes.
+"""
+struct VariableNodePlugin <: AbstractPluginTraitType end
+
+function process_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label, nodedata, options)
+    plugins = filter(type, getplugins(model))
+    return foldl(plugins; init = (label, nodedata)) do (label, nodedata), plugin
+        return process_plugin(plugin, model, context, label, nodedata, options)
+    end
+end
+

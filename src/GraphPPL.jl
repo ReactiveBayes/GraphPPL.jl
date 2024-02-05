@@ -3,7 +3,8 @@ module GraphPPL
 using MacroTools
 
 include("resizable_array.jl")
-include("plugins_engine.jl")
+include("plugins_collection.jl")
+
 include("graph_engine.jl")
 include("model_macro.jl")
 
