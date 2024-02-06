@@ -50,7 +50,7 @@ end
 end
 
 @testitem "PluginsCollection filtering and getters" begin
-    import GraphPPL: PluginsCollection, AbstractPluginTraitType, plugin_type, UnknownPluginType
+    import GraphPPL: PluginsCollection, AbstractPluginTraitType, plugin_type, UnknownPluginType, UnionPluginType
 
     struct ArbitraryPluginType1 <: AbstractPluginTraitType end
     struct ArbitraryPluginType2 <: AbstractPluginTraitType end
@@ -66,5 +66,6 @@ end
     @test_throws ErrorException filter(UnknownPluginType(), collection)
     @test @inferred(filter(ArbitraryPluginType1(), collection)) === PluginsCollection(ArbitraryPlugin1())
     @test @inferred(filter(ArbitraryPluginType2(), collection)) === PluginsCollection(ArbitraryPlugin2())
+    @test @inferred(filter(UnionPluginType(ArbitraryPluginType1(), ArbitraryPluginType2()), collection)) === PluginsCollection(ArbitraryPlugin1(), ArbitraryPlugin2())
 
 end

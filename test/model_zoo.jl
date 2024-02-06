@@ -46,7 +46,7 @@ GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 function create_terminated_model(fform; plugins = GraphPPL.PluginsCollection())
     __model__ = GraphPPL.create_model(; fform = fform, plugins = plugins)
     __context__ = GraphPPL.getcontext(__model__)
-    GraphPPL.add_terminated_submodel!(__model__, __context__, fform, NamedTuple())
+    GraphPPL.add_toplevel_model!(__model__, __context__, fform, NamedTuple())
     return __model__
 end
 

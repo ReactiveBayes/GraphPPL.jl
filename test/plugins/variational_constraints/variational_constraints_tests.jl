@@ -1,33 +1,7 @@
-@testitem "simple @model creation" begin 
-    using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, as_node, NodeCreationOptions, prune!
-
-    include("../../model_zoo.jl")
-
-    @model function simple_model(a, b, c)
-        x ~ Gamma(α = b, θ = sqrt(c))
-        a ~ Normal(μ = x, τ = 1)
-    end
-
-    model = create_model()
-    context = getcontext(model)
-
-    a = getorcreate!(model, context, NodeCreationOptions(datavar = true), :a, nothing)
-    b = getorcreate!(model, context, NodeCreationOptions(datavar = true), :b, nothing)
-    c = 1.0
-
-    add_terminated_submodel!(model, context, simple_model, (a = a, b = b, c = c))
-
-    prune!(model)
-
-    @test length(collect(filter(as_node(Gamma), model))) === 1
-    @test length(collect(filter(as_node(Normal), model))) === 1
-    @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
-end
 
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, getproperties, NodeCreationOptions
+    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, hasextra, getextra, PluginsCollection, VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -43,26 +17,26 @@ end
 
     # `nothing` here will create a `datavar`
     for a in (nothing,), b in (nothing, 1, 1.0), c in (nothing, 1, 1.0)
-        model = create_model()
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
 
         a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
         b = something(b, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :b, nothing))
         c = something(c, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :c, nothing))
 
-        add_terminated_submodel!(model, context, simple_model, (a = a, b = b, c = c))
-        apply!(model, constraints)
+        add_toplevel_model!(model, simple_model, (a = a, b = b, c = c))
 
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            return factorization_constraint(getproperties(model[node])) === (map(interface -> (interface,), interfaces)...,)
+            @test hasextra(model[node], :factorization_constraint)
+            return getextra(model[node], :factorization_constraint) === (map(interface -> (interface,), interfaces)...,)
         end
     end
 end
 
 @testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
+    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -84,7 +58,7 @@ end
 
     @testset for n in 1:5
         @testset let constraints = empty_constraints
-            model = create_model()
+            model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
             context = getcontext(model)
             y = nothing
 
@@ -92,7 +66,7 @@ end
                 y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
+            add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -100,24 +74,24 @@ end
             @test length(collect(filter(as_node(prod), model))) === n - 1
             @test length(collect(filter(as_node(sum), model))) === n - 1
 
-            apply!(model, constraints)
-
             @test all(filter(as_node(NormalMeanVariance), model)) do node
                 # This must be factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(getproperties(model[node])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
             end
 
             @test all(filter(as_node(NormalMeanPrecision), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to structured, since empty constraints do not factorize out this case
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(getproperties(model[node])) === ((interfaces[1], interfaces[2]), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1], interfaces[2]), (interfaces[3],))
             end
         end
 
         @testset let constraints = mean_field_constraints
-            model = create_model()
+            model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
             context = getcontext(model)
             y = nothing
 
@@ -125,7 +99,7 @@ end
                 y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
             end
 
-            add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
+            add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -133,15 +107,14 @@ end
             @test length(collect(filter(as_node(prod), model))) === n - 1
             @test length(collect(filter(as_node(sum), model))) === n - 1
 
-            apply!(model, constraints)
-
             @test all(filter(as_node(NormalMeanPrecision) | as_node(NormalMeanVariance), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to mean-field, because `a * x[i - 1] + b` is deterministically linked to `x[i - 1]`, thus 
                 # the interfaces must be factorized out
                 # The reset are factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                return factorization_constraint(getproperties(model[node])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
             end
         end
     end
@@ -149,7 +122,7 @@ end
 
 @testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions, LinearAlgebra
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
+    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -175,7 +148,7 @@ end
 
     # `nothing` here will create a `datavar`
     for a in (nothing,), b in (nothing, 1, 1.0), n in (5, 10)
-        model = create_model()
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
 
         a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
@@ -186,17 +159,17 @@ end
             y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
         end
 
-        add_terminated_submodel!(model, context, simple_model, (a = a, b = b, y = y))
-        apply!(model, constraints)
+        add_toplevel_model!(model, context, simple_model, (a = a, b = b, y = y))
 
         @test length(collect(filter(as_node(MvNormal), model))) === n - 1
 
         @test all(filter(as_node(MvNormal), model)) do node
+            @test hasextra(model[node], :factorization_constraint)
             interfaces = GraphPPL.interfaces(MvNormal, static(3))
             # desired constraints 
             desired = Set([(interfaces[1], interfaces[2]), (interfaces[3],)])
             # actual constraints 
-            actual = Set(map(cluster -> GraphPPL.getname.(cluster), factorization_constraint(getproperties(model[node]))))
+            actual = Set(map(cluster -> GraphPPL.getname.(cluster), getextra(model[node], :factorization_constraint)))
             return isequal(desired, actual)
         end
     end
@@ -204,7 +177,7 @@ end
 
 @testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
+    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -261,7 +234,7 @@ end
     end
 
     @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5)
-        model = create_model()
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
         y = nothing
 
@@ -269,21 +242,21 @@ end
             y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
         end
 
-        add_terminated_submodel!(model, context, random_walk, (y = y, a = 1, b = 2))
-        apply!(model, constraints)
+        add_toplevel_model!(model, context, random_walk, (y = y, a = 1, b = 2))
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_node(prod), model))) === n - 1
         @test length(collect(filter(as_node(sum), model))) === n - 1
 
         @test all(filter(as_node(Normal), model)) do gnode
+            @test hasextra(model[gnode], :factorization_constraint)
             # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
             # is correctly resolved to mean-field, because `a * x[i - 1] + b` is deterministically linked to `x[i - 1]`, thus 
             # the interfaces must be factorized out
             # Note that in this particular test we simply test all Gaussian nodes because 
             # other Gaussians are also mean-field due to other (implicit) constraints
             interfaces = GraphPPL.edges(model, gnode)
-            return factorization_constraint(getproperties(model[gnode])) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+            return getextra(model[gnode], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
         end
     end
 end

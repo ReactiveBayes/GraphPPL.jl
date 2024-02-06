@@ -49,7 +49,8 @@ placeholders in a form of the `FunctionalIndex` structure. This function correct
 """
 function __factorization_specification_resolve_index end
 
-__factorization_specification_resolve_index(index::Any, collection::NodeLabel) = error("Attempt to access a single variable $(getname(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
+__factorization_specification_resolve_index(index::Any, collection::NodeLabel) =
+    error("Attempt to access a single variable $(getname(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
 __factorization_specification_resolve_index(index::Nothing, collection::NodeLabel) = nothing
 __factorization_specification_resolve_index(index::Nothing, collection::AbstractArray{<:NodeLabel}) = nothing
 __factorization_specification_resolve_index(index::Integer, collection::AbstractArray{<:NodeLabel}) =
@@ -63,10 +64,12 @@ __factorization_specification_resolve_index(index::Integer, collection::Abstract
 __factorization_specification_resolve_index(index::FunctionalIndex, collection::AbstractArray{<:NodeLabel}) =
     __factorization_specification_resolve_index(index(collection)::Integer, collection)::Integer
 __factorization_specification_resolve_index(index::CombinedRange, collection::AbstractArray{<:NodeLabel}) = CombinedRange(
-    __factorization_specification_resolve_index(firstindex(index), collection)::Integer, __factorization_specification_resolve_index(lastindex(index), collection)::Integer
+    __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
+    __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
 __factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel}) = SplittedRange(
-    __factorization_specification_resolve_index(firstindex(index), collection)::Integer, __factorization_specification_resolve_index(lastindex(index), collection)::Integer
+    __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
+    __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
 
 # Only these combinations are allowed to be merged
@@ -96,7 +99,8 @@ getindices(entry::FactorizationConstraintEntry) = map(index, entries(entry))
 Base.:(*)(left::FactorizationConstraintEntry, right::FactorizationConstraintEntry) = (left, right)
 Base.:(*)(left::NTuple{N, <:FactorizationConstraintEntry} where {N}, right::FactorizationConstraintEntry) = (left..., right)
 Base.:(*)(left::FactorizationConstraintEntry, right::NTuple{N, <:FactorizationConstraintEntry} where {N}) = (left, right...)
-Base.:(*)(left::NTuple{N, <:FactorizationConstraintEntry} where {N}, right::NTuple{N, <:FactorizationConstraintEntry} where {N}) = (left..., right...)
+Base.:(*)(left::NTuple{N, <:FactorizationConstraintEntry} where {N}, right::NTuple{N, <:FactorizationConstraintEntry} where {N}) =
+    (left..., right...)
 
 function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, "q(")
@@ -138,7 +142,9 @@ function factorization_split(left::FactorizationConstraintEntry, right::NTuple{N
     return (entry, right[(begin + 1):end]...)
 end
 
-function factorization_split(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::NTuple{N, FactorizationConstraintEntry} where {N})
+function factorization_split(
+    left::NTuple{N, FactorizationConstraintEntry} where {N}, right::NTuple{N, FactorizationConstraintEntry} where {N}
+)
     left_last = last(left)
     right_first = first(right)
     entry = factorization_split(left_last, right_first)
@@ -176,9 +182,11 @@ struct FactorizationConstraint{V, F}
     end
 end
 
-FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} = FactorizationConstraint(variables, (constriant,))
+FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} =
+    FactorizationConstraint(variables, (constriant,))
 
-Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) = left.variables == right.variables && left.constraint == right.constraint
+Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
+    left.variables == right.variables && left.constraint == right.constraint
 
 """
     FunctionalFormConstraint{V, F}
@@ -214,8 +222,10 @@ function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F
     print(io, join(getconstraint(constraint), ""))
 end
 
-Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: AbstractArray, F}) = print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: IndexedVariable, F}) = print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: AbstractArray, F}) =
+    print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: IndexedVariable, F}) =
+    print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
 """
     GeneralSubModelConstraints
@@ -260,9 +270,7 @@ getconstraint(c::SpecificSubModelConstraints) = c.constraints
 """
     Constraints
 
-An instance of `Constraints` represents a set of constraints to be applied to a variational posterior in a factor graph model. These constraints can be applied using `apply!`.
-
-See also: [`GraphPPL.apply!`](@ref)
+An instance of `Constraints` represents a set of constraints to be applied to a variational posterior in a factor graph model.
 """
 struct Constraints
     factorization_constraints::Vector{FactorizationConstraint}
@@ -319,14 +327,18 @@ end
 
 function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
     if any(keys(general_submodel_constraints(c)) .== Ref(getsubmodel(constraint)))
-        error("Cannot add $(constraint) to constraint set as constraints are already specified for submodels of type $(getsubmodel(constraint)).")
+        error(
+            "Cannot add $(constraint) to constraint set as constraints are already specified for submodels of type $(getsubmodel(constraint))."
+        )
     end
     general_submodel_constraints(c)[getsubmodel(constraint)] = constraint
 end
 
 function Base.push!(c::Constraints, constraint::SpecificSubModelConstraints)
     if any(keys(specific_submodel_constraints(c)) .== Ref(getsubmodel(constraint)))
-        error("Cannot add $(constraint) to $(c) to constraint set as constraints are already specified for submodel $(getsubmodel(constraint)).")
+        error(
+            "Cannot add $(constraint) to $(c) to constraint set as constraints are already specified for submodel $(getsubmodel(constraint))."
+        )
     end
     specific_submodel_constraints(c)[getsubmodel(constraint)] = constraint
 end
@@ -367,13 +379,18 @@ Base.show(io::IO, var::ResolvedIndexedVariable{T}) where {T} = print(io, getvari
 
 Base.in(nodedata::NodeData, var::ResolvedIndexedVariable) = in(nodedata, getproperties(nodedata), var)
 
-Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}) =
-    (getname(var) == getname(properties)) && (index(var) == index(properties)) && (getcontext(var) == getcontext(nodedata))
+Base.in(
+    nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}
+) = (getname(var) == getname(properties)) && (index(var) == index(properties)) && (getcontext(var) == getcontext(nodedata))
 
-Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) = (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
+Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) =
+    (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
 
-Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}) =
-    (getname(properties) == getname(var)) && (index(properties) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
+) = (getname(properties) == getname(var)) && (index(properties) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
 
 struct ResolvedConstraintLHS{V}
     variables::V
@@ -398,8 +415,10 @@ struct ResolvedFactorizationConstraint{V <: ResolvedConstraintLHS, F}
     rhs::F
 end
 
-Base.:(==)(left::ResolvedFactorizationConstraint{V, F} where {V <: ResolvedConstraintLHS, F}, right::ResolvedFactorizationConstraint{V, F} where {V <: ResolvedConstraintLHS, F}) =
-    left.lhs == right.lhs && left.rhs == right.rhs
+Base.:(==)(
+    left::ResolvedFactorizationConstraint{V, F} where {V <: ResolvedConstraintLHS, F},
+    right::ResolvedFactorizationConstraint{V, F} where {V <: ResolvedConstraintLHS, F}
+) = left.lhs == right.lhs && left.rhs == right.rhs
 
 lhs(constraint::ResolvedFactorizationConstraint) = constraint.lhs
 rhs(constraint::ResolvedFactorizationConstraint) = constraint.rhs
@@ -456,12 +475,9 @@ end
 
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
-function save_constraint!(nodedata::NodeData, constraint_data::BitSetTuple)
-    save_constraint!(getproperties(nodedata), constraint_data)
-end
-
-function save_constraint!(properties::FactorNodeProperties, constraint_data::BitSetTuple)
-    intersect!(properties.factorization_constraint, constraint_data)
+function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BitSetTuple)
+    constraint = getextra(nodedata, :factorization_constraint_bitset)
+    intersect!(constraint, constraint_data)
 end
 
 function save_fform_constraint!(properties::VariableNodeProperties, constraint_data)
@@ -545,23 +561,25 @@ This function converts the BitSet representation of a constraint in `node_data` 
 """
 function materialize_constraints! end
 
-materialize_constraints!(model::Model, node::NodeLabel) = materialize_constraints!(model, node, model[node])
+function materialize_constraints!(model::Model, node::NodeLabel)
+    return materialize_constraints!(model, node, model[node])
+end
 
-materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData) =
-    materialize_constraints!(model, node_label, node_data, getproperties(node_data))
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData)
+    return materialize_constraints!(model, node_label, node_data, getproperties(node_data))
+end
 
-function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, node_properties::FactorNodeProperties)
-
-    constraint = factorization_constraint(node_properties)
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
+    constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
 
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
         if is_factorized(getproperties(neighbor_data))
-            save_constraint!(node_data, constant_constraint(length(constraint), i))
+            intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
         end
     end
 
-    constraint_set = Set(BitSetTuples.contents(constraint)) #TODO test `unique`
+    constraint_set = Set(BitSetTuples.contents(constraint_bitset)) #TODO test `unique`
 
     if !is_valid_partition(constraint_set)
         error(
@@ -574,10 +592,12 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     new_constraint = Tuple(sort!(collect(constraint_set), by = first))
     new_constraint_ = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), new_constraint)
 
-    set_factorization_constraint!(node_properties, new_constraint_)
+    setextra!(node_data, :factorization_constraint, new_constraint_)
 end
 
-materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, node_properties::VariableNodeProperties) = nothing
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::VariableNodeProperties)
+    return nothing
+end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
 
@@ -596,7 +616,11 @@ function __resolve(data::AbstractArray{T} where {T <: NodeData})
     if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
         error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
     end
-    return ResolvedIndexedVariable(getname(getproperties(firstdata)), CombinedRange(index(getproperties(firstdata)), index(getproperties(lastdata))), getcontext(firstdata))
+    return ResolvedIndexedVariable(
+        getname(getproperties(firstdata)),
+        CombinedRange(index(getproperties(firstdata)), index(getproperties(lastdata))),
+        getcontext(firstdata)
+    )
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{SplittedRange})
@@ -608,7 +632,11 @@ function resolve(model::Model, context::Context, variable::IndexedVariable{Split
     if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
         error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
     end
-    return ResolvedIndexedVariable(getname(getproperties(firstdata)), SplittedRange(index(getproperties(firstdata)), index(getproperties(lastdata))), getcontext(firstdata))
+    return ResolvedIndexedVariable(
+        getname(getproperties(firstdata)),
+        SplittedRange(index(getproperties(firstdata)), index(getproperties(lastdata))),
+        getcontext(firstdata)
+    )
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{Nothing})
@@ -626,66 +654,14 @@ end
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
     vfiltered = filter(variable -> haskey(context, getname(variable)), getvariables(constraint))
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
-    rhs = map(entry -> begin
-        fentries = filter(var -> haskey(context, getname(var)), entries(entry))
-        ResolvedFactorizationConstraintEntry(map(variable -> resolve(model, context, variable), fentries))
-    end, getconstraint(constraint))
+    rhs = map(
+        entry -> begin
+            fentries = filter(var -> haskey(context, getname(var)), entries(entry))
+            ResolvedFactorizationConstraintEntry(map(variable -> resolve(model, context, variable), fentries))
+        end,
+        getconstraint(constraint)
+    )
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
-end
-
-function apply!(model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: IndexedVariable, F})
-    applicable_nodes = unroll(context[getvariables(fform_constraint)])
-    for node in applicable_nodes
-        save_fform_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
-    end
-end
-
-function apply!(model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: AbstractArray, F})
-    throw("Not implemented")
-end
-
-function apply!(model::Model, context::Context, fform_constraint::MessageConstraint)
-    applicable_nodes = unroll(context[getvariables(fform_constraint)])
-    for node in applicable_nodes
-        save_message_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
-    end
-end
-
-"""
-    apply!(model::Model, constraints::Constraints)
-
-Applies the constraints in `constraints` to `model`. This function materializes the constraints in `constraints` and applies them to `model`.
-"""
-function apply!(model::Model, constraints::Constraints)
-    apply!(model, GraphPPL.get_principal_submodel(model), constraints, ConstraintStack())
-    materialize_constraints!(model)
-end
-
-function apply!(model::Model, context::Context, constraint_set::Constraints, resolved_factorization_constraints::ConstraintStack)
-    for fc in factorization_constraints(constraint_set)
-        push!(resolved_factorization_constraints, resolve(model, context, fc), context)
-    end
-    for ffc in functional_form_constraints(constraint_set)
-        apply!(model, context, ffc)
-    end
-    for mc in message_constraints(constraint_set)
-        apply!(model, context, mc)
-    end
-    for rfc in constraints(resolved_factorization_constraints)
-        apply!(model, context, rfc)
-    end
-    for (factor_id, child) in children(context)
-        if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
-            apply!(model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), resolved_factorization_constraints)
-        elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
-            apply!(model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), resolved_factorization_constraints)
-        else
-            apply!(model, child, default_constraints(fform(factor_id)), resolved_factorization_constraints)
-        end
-    end
-    while pop!(resolved_factorization_constraints, context)
-        continue
-    end
 end
 
 function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
@@ -703,10 +679,12 @@ function is_decoupled(var_1::NodeData, var_2::NodeData, constraint::ResolvedFact
 end
 
 function is_decoupled(
-    var_1::NodeData, var_1_properties::VariableNodeProperties, 
-    var_2::NodeData, var_2_properties::VariableNodeProperties,
-    constraint::ResolvedFactorizationConstraint)::Bool
-
+    var_1::NodeData,
+    var_1_properties::VariableNodeProperties,
+    var_2::NodeData,
+    var_2_properties::VariableNodeProperties,
+    constraint::ResolvedFactorizationConstraint
+)::Bool
     if !in_lhs(constraint, var_1, var_1_properties) || !in_lhs(constraint, var_2, var_2_properties)
         return false
     end
@@ -802,29 +780,96 @@ function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint
     return result
 end
 
-function apply!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
-    node_data = model[node]
-    node_properties = getproperties(node_data)
-    return apply!(NodeBehaviour(fform(node_properties)), model, node, node_data, node_properties, constraint)
+function apply_constraints!(
+    model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: IndexedVariable, F}
+)
+    applicable_nodes = unroll(context[getvariables(fform_constraint)])
+    for node in applicable_nodes
+        save_fform_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
+    end
 end
 
-function apply!(::Deterministic, model::Model, node::NodeLabel, node_data::NodeData, node_properties::FactorNodeProperties, constraint::ResolvedFactorizationConstraint)
+function apply_constraints!(model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: AbstractArray, F})
+    throw("Not implemented")
+end
+
+function apply_constraints!(model::Model, context::Context, fform_constraint::MessageConstraint)
+    applicable_nodes = unroll(context[getvariables(fform_constraint)])
+    for node in applicable_nodes
+        save_message_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
+    end
+end
+
+function apply_constraints!(
+    model::Model, context::Context, constraint_set::Constraints, resolved_factorization_constraints::ConstraintStack
+)
+    for fc in factorization_constraints(constraint_set)
+        push!(resolved_factorization_constraints, resolve(model, context, fc), context)
+    end
+    for ffc in functional_form_constraints(constraint_set)
+        apply_constraints!(model, context, ffc)
+    end
+    for mc in message_constraints(constraint_set)
+        apply_constraints!(model, context, mc)
+    end
+    for rfc in constraints(resolved_factorization_constraints)
+        apply_constraints!(model, context, rfc)
+    end
+    for (factor_id, child) in children(context)
+        if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
+            apply_constraints!(
+                model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), resolved_factorization_constraints
+            )
+        elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
+            apply_constraints!(
+                model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), resolved_factorization_constraints
+            )
+        else
+            apply_constraints!(model, child, default_constraints(fform(factor_id)), resolved_factorization_constraints)
+        end
+    end
+    while pop!(resolved_factorization_constraints, context)
+        continue
+    end
+end
+
+function apply_constraints!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
+    node_data = model[node]
+    node_properties = getproperties(node_data)
+    return apply_constraints!(NodeBehaviour(fform(node_properties)), model, node, node_data, node_properties, constraint)
+end
+
+function apply_constraints!(
+    ::Deterministic,
+    model::Model,
+    node::NodeLabel,
+    node_data::NodeData,
+    node_properties::FactorNodeProperties,
+    constraint::ResolvedFactorizationConstraint
+)
     return nothing
 end
 
-function apply!(::Stochastic, model::Model, node::NodeLabel, node_data::NodeData, node_properties::FactorNodeProperties, constraint::ResolvedFactorizationConstraint)
+function apply_constraints!(
+    ::Stochastic,
+    model::Model,
+    node::NodeLabel,
+    node_data::NodeData,
+    node_properties::FactorNodeProperties,
+    constraint::ResolvedFactorizationConstraint
+)
     # Get data for the neighbors of the node and check if the constraint is applicable
     neighbors = model[GraphPPL.neighbors(model, node)]
     if is_applicable(neighbors, constraint)
         constraint = convert_to_bitsets(model, node, neighbors, constraint)
-        save_constraint!(node_properties, constraint)
+        intersect_constraint_bitset!(node_data, constraint)
     end
     return nothing
 end
 
-function apply!(model::Model, context::Context, constraint::ResolvedFactorizationConstraint)
+function apply_constraints!(model::Model, context::Context, constraint::ResolvedFactorizationConstraint)
     for node in values(factor_nodes(context))
-        apply!(model, node, constraint)
+        apply_constraints!(model, node, constraint)
     end
     return nothing
 end

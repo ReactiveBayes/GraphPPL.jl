@@ -65,7 +65,7 @@ end
 @testitem "Usage with the actual model" begin
     using Distributions
 
-    import GraphPPL: create_model, getcontext, add_terminated_submodel!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
+    import GraphPPL: create_model, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
 
     @model function simple_model()
         x ~ Normal(0, 1)
@@ -76,7 +76,7 @@ end
     model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
     context = getcontext(model)
 
-    add_terminated_submodel!(model, context, simple_model, NamedTuple())
+    add_toplevel_model!(model, simple_model, NamedTuple())
 
     fnormal = map(label -> model[label], filter(as_node(Normal), model))
     fgamma = map(label -> model[label], filter(as_node(Gamma), model))

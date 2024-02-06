@@ -271,7 +271,7 @@ end
 
     count = Ref(0)
 
-    function GraphPPL.process_plugin(::AnArbitraryPluginForTestUniqeness, model, context, label, nodedata, options)
+    function GraphPPL.preprocess_plugin(::AnArbitraryPluginForTestUniqeness, model, context, label, nodedata, options)
         setextra!(nodedata, :count, count[])
         count[] = count[] + 1
         return label, nodedata
@@ -298,7 +298,7 @@ end
 
     GraphPPL.plugin_type(::AnArbitraryPluginForChangingOptions) = GraphPPL.VariableNodePlugin()
 
-    function GraphPPL.process_plugin(::AnArbitraryPluginForChangingOptions, model, context, label, nodedata, options)
+    function GraphPPL.preprocess_plugin(::AnArbitraryPluginForChangingOptions, model, context, label, nodedata, options)
         # Here we replace the original options entirely
         return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(constant = true, value = 1.0)))
     end
@@ -479,15 +479,18 @@ end
 
     model = create_model()
     ctx = getcontext(model)
+    @test isempty(model)
     @test nv(model) == 0
     @test ne(model) == 0
 
     model[NodeLabel(:a, 1)] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
     model[NodeLabel(:b, 2)] = NodeData(ctx, VariableNodeProperties(name = :b, index = nothing))
+    @test !isempty(model)
     @test nv(model) == 2
     @test ne(model) == 0
 
     model[NodeLabel(:a, 1), NodeLabel(:b, 2)] = EdgeLabel(:edge, 1)
+    @test !isempty(model)
     @test nv(model) == 2
     @test ne(model) == 1
 end

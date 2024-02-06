@@ -51,9 +51,17 @@ function Base.filter(::UnknownPluginType, collection::PluginsCollection)
 end
 
 function Base.filter(trait::AbstractPluginTraitType, collection::PluginsCollection)
-    return PluginsCollection(filter(plugin -> plugin_type(plugin) === trait, collection.collection))
+    return PluginsCollection(filter(plugin -> isequal(plugin_type(plugin), trait), collection.collection))
 end
 
+struct UnionPluginType{T, U} <: AbstractPluginTraitType 
+    trait1::T
+    trait2::U
+end
+
+function Base.isequal(type::AbstractPluginTraitType, union::UnionPluginType) 
+    return isequal(type, union.trait1) || isequal(type, union.trait2)
+end
 
 
 # # OLD STUFF BELOW
