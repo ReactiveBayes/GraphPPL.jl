@@ -24,6 +24,10 @@ struct VariationalConstraintsPlugin{C}
     constraints::C
 end
 
+const EmptyConstraints = @constraints begin end
+
+VariationalConstraintsPlugin() = VariationalConstraintsPlugin(EmptyConstraints)
+
 GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin() 
 
 function preprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions)
@@ -32,7 +36,7 @@ function preprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model, c
 end
 
 function preprocess_vi_plugin!(::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::FactorNodeProperties)
-    if hasextra(nodedata, :factorization_constraints)
+    if hasextra(nodedata, :factorization_constraints) || hasextra(nodedata, :factorization_constraints_bitset)
         error("Factorizatiom constraints has been already defined for the node ", nodedata, ".")
     end
     return nothing

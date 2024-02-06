@@ -715,7 +715,7 @@ end
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2], [1, 3]])
-        apply!(model, normal_node, constraint)
+        apply_constraints!(model, normal_node, constraint)
         @test GraphPPL.factorization_constraint(getproperties(model[normal_node])) == BitSetTuple([[1, 3], [2], [1, 3]])
     end
 
@@ -941,7 +941,7 @@ end
 end
 
 @testitem "default_constraints" begin
-    import GraphPPL: default_constraints, factorization_constraint, getproperties
+    import GraphPPL: default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra
 
     include("../../model_zoo.jl")
 
@@ -952,41 +952,44 @@ end
         end
     )
 
-    model = create_terminated_model(contains_default_constraints)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
     # Test that default constraints are applied
-    GraphPPL.apply!(model, GraphPPL.Constraints())
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
+        @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints in the context
-    model = create_terminated_model(contains_default_constraints)
-    ctx = GraphPPL.getcontext(model)
     c = @constraints begin
         for q in model_with_default_constraints
             q(a, d) = q(a, d)
         end
     end
-    GraphPPL.apply!(model, c)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    ctx = GraphPPL.getcontext(model)
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
+        @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out, :μ), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel
-    model = create_terminated_model(contains_default_constraints)
-    ctx = GraphPPL.getcontext(model)
     c = @constraints begin
         for q in (model_with_default_constraints, 1)
             q(a, d) = q(a, d)
         end
     end
-    GraphPPL.apply!(model, c)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    ctx = GraphPPL.getcontext(model)
     for i in 1:10
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
         if i == 1
-            @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out, :μ), (:σ,))
+            @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out, :μ), (:σ,))
         else
-            @test GraphPPL.getname(factorization_constraint(getproperties(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
+            @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
         end
     end
 end
