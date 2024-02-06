@@ -2,7 +2,7 @@
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, as_node, NodeCreationOptions, prune!
 
-    include("./model_zoo.jl")
+    include("../../model_zoo.jl")
 
     @model function simple_model(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
@@ -29,7 +29,7 @@ end
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, getproperties, NodeCreationOptions
 
-    include("./model_zoo.jl")
+    include("../../model_zoo.jl")
 
     @model function simple_model(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
@@ -64,7 +64,7 @@ end
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
 
-    include("./model_zoo.jl")
+    include("../../model_zoo.jl")
 
     @model function random_walk(y, a, b)
         x[1] ~ NormalMeanVariance(0, 1)
@@ -151,7 +151,7 @@ end
     using Distributions, LinearAlgebra
     using GraphPPL: create_model, getcontext, getorcreate!, add_terminated_submodel!, apply!, as_node, factorization_constraint, NodeCreationOptions, getproperties
 
-    include("./model_zoo.jl")
+    include("../../model_zoo.jl")
 
     @model function simple_model(y, a, b)
         τ ~ Gamma(10, 10) # wrong for MvNormal, but test is for a different purpose

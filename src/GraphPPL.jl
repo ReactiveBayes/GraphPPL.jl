@@ -12,7 +12,7 @@ include("model_macro.jl")
 # include("meta_macro.jl")
 
 include("plugins/node_created_by.jl")
-include("plugins/variational_constraints/constraints.jl")
+include("plugins/variational_constraints/variational_constraints.jl")
 
 include("old/old.jl")
 

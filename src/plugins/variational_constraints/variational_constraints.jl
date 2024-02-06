@@ -12,5 +12,6 @@ struct MeanField end
 
 struct FullFactorization end
 
-include("constraints_macro.jl")
-include("constraints_engine.jl")
+include("variational_constraints_macro.jl")
+include("variational_constraints_engine.jl")
+

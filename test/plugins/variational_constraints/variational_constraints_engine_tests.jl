@@ -318,7 +318,7 @@ end
 end
 
 @testitem "push!(::SubModelConstraints, c::Constraint)" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         Constraint,
@@ -415,7 +415,7 @@ end
 @testitem "apply FunctionalFormConstraint" begin
     import GraphPPL: FunctionalFormConstraint, IndexedVariable, apply!, fform_constraint, getproperties
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
     struct ArbitraryFunctionalFormConstraint end
 
@@ -458,7 +458,7 @@ end
 @testitem "apply MessageConstraint" begin
     import GraphPPL: MessageConstraint, IndexedVariable, apply!, message_constraint, getproperties
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
     struct ArbitraryMessageFormConstraint end
 
@@ -498,7 +498,7 @@ end
 end
 
 @testitem "save constraints with constants" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using BitSetTuples
     using GraphPPL
     import GraphPPL: save_constraint!, constant_constraint, factorization_constraint, getproperties
@@ -517,7 +517,7 @@ end
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using BitSetTuples
     using GraphPPL
     import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names, factorization_constraint, getproperties
@@ -555,7 +555,7 @@ end
 end
 
 @testitem "Resolve Factorization Constraints" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         FactorizationConstraint,
@@ -662,7 +662,7 @@ end
 
     using BitSetTuples
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
     model = create_terminated_model(outer)
     context = GraphPPL.getcontext(model)
@@ -846,7 +846,7 @@ end
 @testitem "constraints macro pipeline" begin
     using GraphPPL
     import GraphPPL: apply!, fform_constraint, message_constraint, factorization_constraint, getname, getproperties
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
     # Test constraints macro with single variables and no nesting
     model = create_terminated_model(simple_model)
@@ -942,7 +942,8 @@ end
 
 @testitem "default_constraints" begin
     import GraphPPL: default_constraints, factorization_constraint, getproperties
-    include("model_zoo.jl")
+
+    include("../../model_zoo.jl")
 
     @test default_constraints(simple_model) == GraphPPL.Constraints()
     @test default_constraints(model_with_default_constraints) == @constraints(
