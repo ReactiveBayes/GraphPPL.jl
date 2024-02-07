@@ -4,6 +4,8 @@ using BitSetTuples
 using Static
 using NamedTupleTools
 
+export as_node, as_variable, as_context
+
 aliases(f) = (f,)
 
 struct Broadcasted
