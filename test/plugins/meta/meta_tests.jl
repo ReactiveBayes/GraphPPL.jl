@@ -17,8 +17,8 @@
     @test !hasextra(model[ctx[NormalMeanVariance, 1]], :meta)
     @test getextra(model[ctx[NormalMeanVariance, 2]], :meta) == SomeMeta()
 
-    @test getextra(model[ctx[:x]], :meta)  == SomeMeta()
-    @test getextra(model[ctx[:y]], :meta)  == SomeMeta()
+    @test getextra(model[ctx[:x]], :meta) == SomeMeta()
+    @test getextra(model[ctx[:y]], :meta) == SomeMeta()
     @test getextra(model[ctx[:y]], :other) == 1
 
     # Test meta macro with single variables and no nesting
@@ -27,7 +27,7 @@
     end
     model = create_terminated_model(outer; plugins = PluginsCollection(MetaPlugin(metaobj)))
     ctx = GraphPPL.getcontext(model)
-    
+
     for node in filter(GraphPPL.as_node(Gamma) & GraphPPL.as_context(outer), model)
         @test getextra(model[node], :meta) == SomeMeta()
     end
@@ -40,7 +40,7 @@
     end
     model = create_terminated_model(outer; plugins = PluginsCollection(MetaPlugin(metaobj)))
     ctx = GraphPPL.getcontext(model)
-    
+
     @test getextra(model[ctx[:y]], :meta) == SomeMeta()
 
     # Test with specifying specific submodel

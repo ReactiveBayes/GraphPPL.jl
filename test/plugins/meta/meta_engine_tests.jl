@@ -17,12 +17,14 @@ end
     include("../../model_zoo.jl")
     import GraphPPL: MetaObject, FactorMetaDescriptor, IndexedVariable, VariableMetaDescriptor
 
-    @test MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()) isa MetaObject{<:FactorMetaDescriptor, SomeMeta}
+    @test MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()) isa
+        MetaObject{<:FactorMetaDescriptor, SomeMeta}
     @test MetaObject(FactorMetaDescriptor(Normal, (:x, :k, :w)), (meta = SomeMeta(),)) isa MetaObject{<:FactorMetaDescriptor, <:NamedTuple}
     @test_throws MethodError MetaObject((Normal, (:x, :k, :w)), SomeMeta())
 
     @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), SomeMeta()) isa MetaObject{<:VariableMetaDescriptor, SomeMeta}
-    @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(),)) isa MetaObject{<:VariableMetaDescriptor, <:NamedTuple}
+    @test MetaObject(VariableMetaDescriptor(IndexedVariable(:x, nothing)), (meta = SomeMeta(),)) isa
+        MetaObject{<:VariableMetaDescriptor, <:NamedTuple}
     @test_throws MethodError MetaObject(:x, SomeMeta())
 end
 
@@ -37,24 +39,41 @@ end
     import GraphPPL: SpecificSubModelMeta, GeneralSubModelMeta, MetaSpecification, IndexedVariable, FactorMetaDescriptor, MetaObject
 
     @test SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()) isa SpecificSubModelMeta
-    push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1)), MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()))
-    push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()), SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()))
+    push!(
+        SpecificSubModelMeta(GraphPPL.FactorID(sum, 1)),
+        MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta())
+    )
+    push!(
+        SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()),
+        SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification())
+    )
     push!(SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()), GeneralSubModelMeta(gcv, MetaSpecification()))
 end
 
 @testitem "GeneralSubModelMeta" begin
     include("../../model_zoo.jl")
-    import GraphPPL: SpecificSubModelMeta, GeneralSubModelMeta, MetaSpecification, IndexedVariable, FactorMetaDescriptor, MetaObject, getgeneralssubmodelmeta
+    import GraphPPL:
+        SpecificSubModelMeta,
+        GeneralSubModelMeta,
+        MetaSpecification,
+        IndexedVariable,
+        FactorMetaDescriptor,
+        MetaObject,
+        getgeneralssubmodelmeta
 
     @test GeneralSubModelMeta(gcv, MetaSpecification()) isa GeneralSubModelMeta
-    push!(GeneralSubModelMeta(gcv, MetaSpecification()), MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta()))
+    push!(
+        GeneralSubModelMeta(gcv, MetaSpecification()),
+        MetaObject(FactorMetaDescriptor(Normal, (IndexedVariable(:x, nothing), :k, :w)), SomeMeta())
+    )
     push!(GeneralSubModelMeta(gcv, MetaSpecification()), SpecificSubModelMeta(GraphPPL.FactorID(sum, 1), MetaSpecification()))
     meta = MetaSpecification()
     push!(meta, GeneralSubModelMeta(gcv, MetaSpecification()))
 end
 
 @testitem "filter general and specific submodel meta" begin
-    import GraphPPL: MetaSpecification, GeneralSubModelMeta, SpecificSubModelMeta, getspecificsubmodelmeta, getgeneralsubmodelmeta, FactorID, getkey
+    import GraphPPL:
+        MetaSpecification, GeneralSubModelMeta, SpecificSubModelMeta, getspecificsubmodelmeta, getgeneralsubmodelmeta, FactorID, getkey
 
     meta = MetaSpecification()
     push!(meta, GeneralSubModelMeta(sin, MetaSpecification()))
@@ -75,12 +94,15 @@ end
 @testitem "apply!(::Model, ::Context, ::MetaObject)" begin
     include("../../model_zoo.jl")
 
-    import GraphPPL: apply_meta!, hasextra, getextra, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, as_node
+    import GraphPPL:
+        apply_meta!, hasextra, getextra, IndexedVariable, MetaObject, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, as_node
 
     # Test apply for a FactorMeta over a single factor
     model = create_terminated_model(simple_model)
     context = getcontext(model)
-    metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), SomeMeta())
+    metadata = MetaObject(
+        FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), SomeMeta()
+    )
     apply_meta!(model, context, metadata)
     node = last(filter(as_node(NormalMeanVariance), model))
     @test getextra(model[node], :meta) == SomeMeta()
@@ -115,7 +137,10 @@ end
     # Test apply for a FactorMeta over a single factor with NamedTuple as meta
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
+    metadata = MetaObject(
+        FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),
+        (meta = SomeMeta(), other = 1)
+    )
     apply_meta!(model, context, metadata)
     node = first(intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y])))
     @test getextra(model[node], :meta) == SomeMeta()
@@ -133,7 +158,10 @@ end
     # Test apply for a FactorMeta over a vector of factors with NamedTuple as meta
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
+    metadata = MetaObject(
+        FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),
+        (meta = SomeMeta(), other = 1)
+    )
     apply_meta!(model, context, metadata)
     for node in intersect(GraphPPL.neighbors(model, context[:x]), GraphPPL.neighbors(model, context[:y]))
         @test getextra(model[node], :meta) == SomeMeta()
@@ -143,7 +171,9 @@ end
     # Test apply for a FactorMeta over a factor that is specified by an Index
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    metadata = MetaObject(FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, 1), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1))
+    metadata = MetaObject(
+        FactorMetaDescriptor(NormalMeanVariance, (IndexedVariable(:x, 1), IndexedVariable(:y, nothing))), (meta = SomeMeta(), other = 1)
+    )
     apply_meta!(model, context, metadata)
     node = first(intersect(GraphPPL.neighbors(model, context[:x][1]), GraphPPL.neighbors(model, context[:y])))
     @test getextra(model[node], :meta) == SomeMeta()
@@ -200,7 +230,8 @@ end
 @testitem "save_meta!(::Model, ::NodeLabel, ::MetaObject)" begin
     include("../../model_zoo.jl")
 
-    import GraphPPL: save_meta!, IndexedVariable, MetaObject, getextra, hasextra, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, neighbors
+    import GraphPPL:
+        save_meta!, IndexedVariable, MetaObject, getextra, hasextra, getcontext, FactorMetaDescriptor, VariableMetaDescriptor, neighbors
 
     # Test save_meta! for a FactorMeta over a single factor
     model = create_terminated_model(simple_model)

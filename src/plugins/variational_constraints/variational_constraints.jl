@@ -28,9 +28,11 @@ const EmptyConstraints = @constraints begin end
 
 VariationalConstraintsPlugin() = VariationalConstraintsPlugin(EmptyConstraints)
 
-GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin() 
+GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin()
 
-function preprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions)
+function preprocess_plugin(
+    plugin::VariationalConstraintsPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+)
     preprocess_vi_plugin!(plugin, nodedata, getproperties(nodedata))
     return label, nodedata
 end
@@ -52,7 +54,7 @@ end
 ## Applies the constraints in `constraints` to `model`. This function materializes the constraints in `constraints` and applies them to `model`.
 function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
     # Attach `BitSetTuples` according to the number of neighbours of the factor node
-    foreach(factor_nodes(model)) do flabel 
+    foreach(factor_nodes(model)) do flabel
         nodedata = model[flabel]
         nodeproperties = getproperties(nodedata)
         number_of_neighbours = length(neighbors(nodeproperties))

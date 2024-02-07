@@ -8,7 +8,7 @@ struct NodeCreatedByPlugin end
 
 const EmptyCreatedBy = Expr(:line, 0)
 
-plugin_type(::NodeCreatedByPlugin) = FactorNodePlugin() 
+plugin_type(::NodeCreatedByPlugin) = FactorNodePlugin()
 
 # The `created_by` field is used to track the expression that created the node.
 # The field can be a lambda function in which case it must be evaluated to get the expression.
@@ -21,7 +21,9 @@ Base.show(io::IO, createdby::CreatedBy) = show_createdby(io, createdby.created_b
 show_createdby(io::IO, created_by::Expr) = print(io, created_by)
 show_createdby(io::IO, created_by::Function) = show_createdby(io, created_by())
 
-function preprocess_plugin(::NodeCreatedByPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions)
+function preprocess_plugin(
+    ::NodeCreatedByPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+)
     created_by = get(options, :created_by, EmptyCreatedBy)
     setextra!(nodedata, :created_by, CreatedBy(created_by))
     return label, nodedata

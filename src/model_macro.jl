@@ -132,7 +132,7 @@ function save_expression_in_tilde(e::Expr)
         return :(local $lhs := $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (lhs_ ~ rhs_ where {options__}) | (lhs_ ~ rhs_))
         options = options === nothing ? [] : options
-    return :($lhs ~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
+        return :($lhs ~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
     elseif @capture(e, (lhs_ .~ rhs_ where {options__}) | (lhs_ .~ rhs_))
         options = options === nothing ? [] : options
         return :($lhs .~ $rhs where {$(options...), created_by = () -> $(Expr(:quote, prettify(e)))})
@@ -146,8 +146,9 @@ end
 
 # For save_expression_in_tilde, we have to walk until we find the tilde syntax once, since we otherwise find tilde syntax twice in the following setting:
 # local x ~ Normal(0, 1)
-what_walk(::typeof(save_expression_in_tilde)) =
-    walk_until_occurrence((:(lhs_ ~ rhs_), :(local lhs_ ~ rhs_), :(lhs_ .~ rhs_), :(local lhs_ .~ rhs_), :(lhs_ := rhs_), :(local lhs_ := rhs_)))
+what_walk(::typeof(save_expression_in_tilde)) = walk_until_occurrence((
+    :(lhs_ ~ rhs_), :(local lhs_ ~ rhs_), :(lhs_ .~ rhs_), :(local lhs_ .~ rhs_), :(lhs_ := rhs_), :(local lhs_ := rhs_)
+))
 
 """
     get_created_by(options::AbstractArray)
@@ -315,7 +316,8 @@ function convert_anonymous_variables(e::Expr)
 end
 
 # This is necessary to ensure that we don't change the `created_by` option as well.
-what_walk(::typeof(convert_anonymous_variables)) = walk_until_occurrence((:(lhs_ ~ rhs_ where {options__}), :(lhs_ .~ rhs_ where {options__})))
+what_walk(::typeof(convert_anonymous_variables)) =
+    walk_until_occurrence((:(lhs_ ~ rhs_ where {options__}), :(lhs_ .~ rhs_ where {options__})))
 
 """
     add_get_or_create_expression(e::Expr)
@@ -359,7 +361,11 @@ function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
         $s = if !@isdefined($s)
             GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
         else
-            (GraphPPL.check_variate_compatability($s, nothing) ? $s : GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing))
+            (if GraphPPL.check_variate_compatability($s, nothing)
+                    $s
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
+                end)
         end
     end
 end
@@ -382,7 +388,13 @@ function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
         $s = if !@isdefined($s)
             GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
         else
-            (GraphPPL.check_variate_compatability($s, $(index...)) ? $s : GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...)))
+            (
+                if GraphPPL.check_variate_compatability($s, $(index...))
+                    $s
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
+                end
+            )
         end
     end
 end
@@ -483,8 +495,11 @@ Combines a vector of arguments and a vector of keyword arguments into a single e
 # Returns
 An `Expr` with the combined arguments and keyword arguments.
 """
-combine_args(args::Vector, kwargs::Vector) =
-    length(args) == 0 ? keyword_expressions_to_named_tuple(kwargs) : :(GraphPPL.MixedArguments($(Expr(:tuple, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
+combine_args(args::Vector, kwargs::Vector) = if length(args) == 0
+    keyword_expressions_to_named_tuple(kwargs)
+else
+    :(GraphPPL.MixedArguments($(Expr(:tuple, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
+end
 
 """
     combine_args(args::Nothing, kwargs::Nothing)
@@ -545,18 +560,16 @@ end
 ```
 """
 function convert_tilde_expression(e::Expr)
-    if @capture(e, (lhs_ ~ fform_(args__; kwargs__) where {options__}) | (lhs_ ~ fform_(args__) where {options__}) | (lhs_ ~ fform_ where {options__}))
+    if @capture(
+        e,
+        (lhs_ ~ fform_(args__; kwargs__) where {options__}) | (lhs_ ~ fform_(args__) where {options__}) | (lhs_ ~ fform_ where {options__})
+    )
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
             $lhs = GraphPPL.make_node!(
-                __model__,
-                __context__,
-                GraphPPL.NodeCreationOptions($(options)),
-                $fform,
-                $(generate_lhs_proxylabel(var, index)),
-                $args
+                __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
             )
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
@@ -598,7 +611,7 @@ Converts the array found by pattern matching on the where clause in a tilde expr
 """
 function options_vector_to_named_tuple(options::AbstractArray)
     parameters = Expr(:parameters)
-    parameters.args = map(options) do option 
+    parameters.args = map(options) do option
         @capture(option, lhs_ = rhs_) || error("Invalid option $(option). Must be in a `lhs = rhs` form.")
         return Expr(:kw, lhs, rhs)
     end

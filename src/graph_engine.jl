@@ -378,15 +378,7 @@ mutable struct VariableNodeProperties
 end
 
 VariableNodeProperties(;
-    name,
-    index,
-    link = nothing,
-    value = nothing,
-    constant = false,
-    datavar = false,
-    factorized = false,
-    meta = nothing,
-    others = nothing
+    name, index, link = nothing, value = nothing, constant = false, datavar = false, factorized = false, meta = nothing, others = nothing
 ) = VariableNodeProperties(name, index, link, value, constant, datavar, factorized, meta, others)
 
 is_factor(::VariableNodeProperties)   = false

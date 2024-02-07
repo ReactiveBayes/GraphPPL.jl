@@ -54,7 +54,12 @@ function isbroadcastedcall(expr, fsym)
         nextexpr = findnext(isexpr, expr.args, 1)
         return nextexpr !== nothing ? isbroadcastedcall(expr.args[nextexpr], fsym) : false
     end
-    (iscall(expr) && length(expr.args) >= 1 && first(string(first(expr.args))) === '.' && Symbol(string(first(expr.args))[2:end]) === fsym) || # Checks for `:(a .+ b)` syntax
+    (
+        iscall(expr) &&
+        length(expr.args) >= 1 &&
+        first(string(first(expr.args))) === '.' &&
+        Symbol(string(first(expr.args))[2:end]) === fsym
+    ) || # Checks for `:(a .+ b)` syntax
         (ishead(expr, :(.)) && first(expr.args) === fsym) # Checks for `:(f.(x))` syntax
 end
 
@@ -94,7 +99,11 @@ fold_linear_operator_call_tail_args(::typeof(foldr), args) = args[(begin + 1):(e
 
 function fold_linear_operator_call(expr::Expr, fold = foldl)
     if @capture(expr, op_(args__)) && length(args) > 2
-        return fold((res, el) -> Expr(:call, op, res, el), fold_linear_operator_call_tail_args(fold, expr.args); init = fold_linear_operator_call_first_arg(fold, expr.args))
+        return fold(
+            (res, el) -> Expr(:call, op, res, el),
+            fold_linear_operator_call_tail_args(fold, expr.args);
+            init = fold_linear_operator_call_first_arg(fold, expr.args)
+        )
     else
         return expr
     end

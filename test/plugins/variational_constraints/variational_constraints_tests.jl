@@ -1,7 +1,17 @@
 
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, hasextra, getextra, PluginsCollection, VariationalConstraintsPlugin
+    using GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        add_toplevel_model!,
+        as_node,
+        NodeCreationOptions,
+        hasextra,
+        getextra,
+        PluginsCollection,
+        VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -36,7 +46,18 @@ end
 
 @testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
+    using GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        add_toplevel_model!,
+        getextra,
+        hasextra,
+        as_node,
+        NodeCreationOptions,
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -122,7 +143,18 @@ end
 
 @testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation with constants/datavars" begin
     using Distributions, LinearAlgebra
-    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
+    using GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        add_toplevel_model!,
+        getextra,
+        hasextra,
+        as_node,
+        NodeCreationOptions,
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin
 
     include("../../model_zoo.jl")
 
@@ -177,7 +209,18 @@ end
 
 @testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, getextra, hasextra, as_node, NodeCreationOptions, getproperties, PluginsCollection, VariationalConstraintsPlugin
+    using GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        add_toplevel_model!,
+        getextra,
+        hasextra,
+        as_node,
+        NodeCreationOptions,
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -261,8 +304,7 @@ end
     end
 end
 
-@testitem "Simple @model + functional form constraints" begin 
-    
+@testitem "Simple @model + functional form constraints" begin
     using Distributions
 
     import GraphPPL:
@@ -278,8 +320,8 @@ end
     struct SomeArbitraryFormConstraint2 end
 
     @testset "Posterior functional form constraints" begin
-        constraints_posterior = @constraints begin 
-            q(z) :: SomeArbitraryFormConstraint1()
+        constraints_posterior = @constraints begin
+            q(z)::SomeArbitraryFormConstraint1()
         end
 
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_posterior)))
@@ -304,8 +346,8 @@ end
     end
 
     @testset "Messages functional form constraints" begin
-        constraints_messages = @constraints begin 
-            μ(z) :: SomeArbitraryFormConstraint2()
+        constraints_messages = @constraints begin
+            μ(z)::SomeArbitraryFormConstraint2()
         end
 
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_messages)))
@@ -330,9 +372,9 @@ end
     end
 
     @testset "Both posteriors and messages functional form constraints" begin
-        constraints_both = @constraints begin 
-            q(z) :: SomeArbitraryFormConstraint1()
-            μ(z) :: SomeArbitraryFormConstraint2()
+        constraints_both = @constraints begin
+            q(z)::SomeArbitraryFormConstraint1()
+            μ(z)::SomeArbitraryFormConstraint2()
         end
 
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_both)))
@@ -359,7 +401,6 @@ end
 end
 
 @testitem "@constraints macro pipeline" begin
-    
     import GraphPPL: apply!, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
 
     include("../../model_zoo.jl")
@@ -373,7 +414,7 @@ end
     # Test constraints macro with single variables and no nesting
     model = create_terminated_model(simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
     ctx = GraphPPL.getcontext(model)
-    
+
     for node in filter(GraphPPL.as_variable(:x), model)
         @test getextra(model[node], :posterior_form_constraint) == NormalMeanVariance()
         @test !hasextra(model[node], :message_form_constraint)
@@ -399,7 +440,7 @@ end
     end
     model = create_terminated_model(outer; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
     ctx = GraphPPL.getcontext(model)
-    
+
     @test hasextra(model[ctx[:w][1]], :posterior_form_constraint) === false
     @test hasextra(model[ctx[:w][2]], :posterior_form_constraint) === false
     @test hasextra(model[ctx[:w][3]], :posterior_form_constraint) === false
@@ -425,7 +466,6 @@ end
     end
     model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
     ctx = GraphPPL.getcontext(model)
-    
 
     @test getname(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ), (:σ,))
     for i in 2:99
@@ -450,5 +490,7 @@ end
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
     end
-    @test_throws ErrorException create_terminated_model(simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    @test_throws ErrorException create_terminated_model(
+        simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints))
+    )
 end

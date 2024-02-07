@@ -1,7 +1,6 @@
 include("meta_engine.jl")
 include("meta_macro.jl")
 
-
 """
     MetaPlugin(meta)
 
@@ -17,7 +16,9 @@ MetaPlugin() = MetaPlugin(EmptyMeta)
 
 GraphPPL.plugin_type(::MetaPlugin) = FactorNodePlugin()
 
-function preprocess_plugin(plugin::MetaPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions)
+function preprocess_plugin(
+    plugin::MetaPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+)
     preprocess_meta_plugin!(plugin, nodedata, getproperties(nodedata), options)
     return label, nodedata
 end
@@ -29,7 +30,9 @@ function preprocess_meta_plugin!(::MetaPlugin, nodedata::NodeData, nodepropertie
     return nothing
 end
 
-function preprocess_meta_plugin!(plugin::MetaPlugin, nodedata::NodeData, nodeproperties::VariableNodeProperties, options::NodeCreationOptions)
+function preprocess_meta_plugin!(
+    plugin::MetaPlugin, nodedata::NodeData, nodeproperties::VariableNodeProperties, options::NodeCreationOptions
+)
     return nothing
 end
 

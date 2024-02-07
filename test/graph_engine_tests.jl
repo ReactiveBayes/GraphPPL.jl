@@ -59,13 +59,13 @@ end
     @test_throws MethodError Model()
 end
 
-@testitem "NodeData constructor" begin 
+@testitem "NodeData constructor" begin
     import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties
 
     model = create_model()
     context = getcontext(model)
 
-    @testset "FactorNodeProperties" begin 
+    @testset "FactorNodeProperties" begin
         properties = FactorNodeProperties(fform = String)
         nodedata = NodeData(context, properties)
 
@@ -99,7 +99,6 @@ end
         @test contains(output, "x") # name
         @test contains(output, "1") # index
     end
-
 end
 
 @testitem "factor_nodes" begin
@@ -221,7 +220,7 @@ end
     end
 end
 
-@testitem "NodeCreationOptions" begin 
+@testitem "NodeCreationOptions" begin
     import GraphPPL: NodeCreationOptions, withopts, withoutopts
 
     @test NodeCreationOptions() == NodeCreationOptions()
@@ -236,7 +235,7 @@ end
     @test @inferred(haskey(NodeCreationOptions(a = 1, b = 2), :c)) === false
     @test @inferred(NodeCreationOptions(a = 1, b = 2)[:a]) === 1
     @test @inferred(NodeCreationOptions(a = 1, b = 2)[:b]) === 2
-    
+
     @test_throws ErrorException NodeCreationOptions(a = 1, b = 2)[:c]
 
     @test @inferred(get(NodeCreationOptions(), :a, 2)) === 2
@@ -246,18 +245,18 @@ end
     @test @inferred(get(NodeCreationOptions(a = 1, b = 2), :b, 3)) === 2
     @test @inferred(get(NodeCreationOptions(a = 1, b = 2), :c, 4)) === 4
 
-    @test NodeCreationOptions(a = 1, b = 2)[(:a, )] === NodeCreationOptions(a = 1)
-    @test NodeCreationOptions(a = 1, b = 2)[(:b, )] === NodeCreationOptions(b = 2)
+    @test NodeCreationOptions(a = 1, b = 2)[(:a,)] === NodeCreationOptions(a = 1)
+    @test NodeCreationOptions(a = 1, b = 2)[(:b,)] === NodeCreationOptions(b = 2)
 
     @test keys(NodeCreationOptions(a = 1, b = 2)) == (:a, :b)
 
-    @test @inferred(withopts(NodeCreationOptions(), (a = 1, ))) == NodeCreationOptions(a = 1)
-    @test @inferred(withopts(NodeCreationOptions(b = 2), (a = 1, ))) == NodeCreationOptions(b = 2, a = 1)
+    @test @inferred(withopts(NodeCreationOptions(), (a = 1,))) == NodeCreationOptions(a = 1)
+    @test @inferred(withopts(NodeCreationOptions(b = 2), (a = 1,))) == NodeCreationOptions(b = 2, a = 1)
 
-    @test @inferred(withoutopts(NodeCreationOptions(), Val((:a, )))) == NodeCreationOptions()
-    @test @inferred(withoutopts(NodeCreationOptions(b = 1), Val((:a, )))) == NodeCreationOptions(b = 1)
-    @test @inferred(withoutopts(NodeCreationOptions(a = 1), Val((:a, )))) == NodeCreationOptions()
-    @test @inferred(withoutopts(NodeCreationOptions(a = 1, b = 2), Val((:c, )))) == NodeCreationOptions(a = 1, b = 2)
+    @test @inferred(withoutopts(NodeCreationOptions(), Val((:a,)))) == NodeCreationOptions()
+    @test @inferred(withoutopts(NodeCreationOptions(b = 1), Val((:a,)))) == NodeCreationOptions(b = 1)
+    @test @inferred(withoutopts(NodeCreationOptions(a = 1), Val((:a,)))) == NodeCreationOptions()
+    @test @inferred(withoutopts(NodeCreationOptions(a = 1, b = 2), Val((:c,)))) == NodeCreationOptions(a = 1, b = 2)
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
@@ -290,7 +289,18 @@ end
 end
 
 @testitem "Check that plugins may change the options" begin
-    import GraphPPL: NodeData, variable_nodes, getname, index, is_constant, getproperties, value, PluginsCollection, VariableNodeProperties, NodeCreationOptions, create_terminated_model
+    import GraphPPL:
+        NodeData,
+        variable_nodes,
+        getname,
+        index,
+        is_constant,
+        getproperties,
+        value,
+        PluginsCollection,
+        VariableNodeProperties,
+        NodeCreationOptions,
+        create_terminated_model
 
     include("model_zoo.jl")
 
@@ -496,7 +506,19 @@ end
 end
 
 @testitem "edges" begin
-    import GraphPPL: edges, create_model, getcontext, getproperties, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, add_edge!, getproperties
+    import GraphPPL:
+        edges,
+        create_model,
+        getcontext,
+        getproperties,
+        NodeData,
+        VariableNodeProperties,
+        FactorNodeProperties,
+        NodeLabel,
+        EdgeLabel,
+        getname,
+        add_edge!,
+        getproperties
 
     # Test 1: Test getting all edges from a model
     model = create_model()
@@ -515,15 +537,26 @@ end
 
     # Test 2: Test getting all edges from a model with a specific node
     @test getname.(edges(model, a)) == [:edge, :edge]
-    @test getname.(edges(model, b)) == [:edge,]
-    @test getname.(edges(model, c)) == [:edge,]
+    @test getname.(edges(model, b)) == [:edge]
+    @test getname.(edges(model, c)) == [:edge]
     # @test getname.(edges(model, [a, b])) == [:edge, :edge, :edge]
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
     include("model_zoo.jl")
     import GraphPPL:
-        create_model, getcontext, neighbors, NodeData, VariableNodeProperties, FactorNodeProperties, NodeLabel, EdgeLabel, getname, ResizableArray, add_edge!, getproperties
+        create_model,
+        getcontext,
+        neighbors,
+        NodeData,
+        VariableNodeProperties,
+        FactorNodeProperties,
+        NodeLabel,
+        EdgeLabel,
+        getname,
+        ResizableArray,
+        add_edge!,
+        getproperties
     model = create_model()
     ctx = getcontext(model)
 
@@ -552,7 +585,7 @@ end
     model = create_terminated_model(simple_model)
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
-    @test getname.(neighbors(model, node)) == [ :z, :x, :y ]
+    @test getname.(neighbors(model, node)) == [:z, :x, :y]
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
     model = create_terminated_model(vector_model)
@@ -764,7 +797,8 @@ end
 end
 
 @testitem "copy_markov_blanket_to_child_context" begin
-    import GraphPPL: create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, ProxyLabel, unroll, getcontext, NodeCreationOptions
+    import GraphPPL:
+        create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, ProxyLabel, unroll, getcontext, NodeCreationOptions
 
     # Test 1: Copy individual variables
     model = create_model()
@@ -860,78 +894,142 @@ end
     import GraphPPL: create_model, getcontext, getorcreate!, check_variate_compatability, NodeLabel, ResizableArray, NodeCreationOptions
 
     let # let block to suppress the scoping warnings
-    # Test 1: Creation of regular one-dimensional variable
-    model = create_model()
-    ctx = getcontext(model)
-    x = !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) : (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
-    @test nv(model) == 1 && ne(model) == 0
+        # Test 1: Creation of regular one-dimensional variable
+        model = create_model()
+        ctx = getcontext(model)
+        x = if !@isdefined(x)
+            getorcreate!(model, ctx, :x, nothing)
+        else
+            (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
+        end
+        @test nv(model) == 1 && ne(model) == 0
 
-    # Test 2: Ensure that getorcreating this variable again does not create a new node
-    x2 = !@isdefined(x2) ? getorcreate!(model, ctx, :x, nothing) : (check_variate_compatability(x2, :x) ? x2 : getorcreate!(model, ctx, :x, nothing))
-    @test x == x2 && nv(model) == 1 && ne(model) == 0
+        # Test 2: Ensure that getorcreating this variable again does not create a new node
+        x2 = if !@isdefined(x2)
+            getorcreate!(model, ctx, :x, nothing)
+        else
+            (check_variate_compatability(x2, :x) ? x2 : getorcreate!(model, ctx, :x, nothing))
+        end
+        @test x == x2 && nv(model) == 1 && ne(model) == 0
 
-    # Test 3: Ensure that calling x another time gives us x
-    x = !@isdefined(x) ? getorcreate!(model, ctx, :x, nothing) : (check_variate_compatability(x, nothing) ? x : getorcreate!(model, ctx, :x, nothing))
-    @test x == x2 && nv(model) == 1 && ne(model) == 0
+        # Test 3: Ensure that calling x another time gives us x
+        x = if !@isdefined(x)
+            getorcreate!(model, ctx, :x, nothing)
+        else
+            (check_variate_compatability(x, nothing) ? x : getorcreate!(model, ctx, :x, nothing))
+        end
+        @test x == x2 && nv(model) == 1 && ne(model) == 0
 
-    # Test 4: Test that creating a vector variable creates an array of the correct size
-    model = create_model()
-    ctx = getcontext(model)
-    y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, [1]))
-    @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
+        # Test 4: Test that creating a vector variable creates an array of the correct size
+        model = create_model()
+        ctx = getcontext(model)
+        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, [1]))
+        @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
 
-    # Test 5: Test that recreating the same variable changes nothing
-    y2 = !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, [1]))
-    @test y == y2 && nv(model) == 1 && ne(model) == 0
+        # Test 5: Test that recreating the same variable changes nothing
+        y2 =
+            !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, [1]))
+        @test y == y2 && nv(model) == 1 && ne(model) == 0
 
-    # Test 6: Test that adding a variable to this vector variable increases the size of the array
-    y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) : (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, [2]))
-    @test nv(model) == 2 && y[2] isa NodeLabel && haskey(ctx.vector_variables, :y)
+        # Test 6: Test that adding a variable to this vector variable increases the size of the array
+        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) : (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, [2]))
+        @test nv(model) == 2 && y[2] isa NodeLabel && haskey(ctx.vector_variables, :y)
 
-    # Test 7: Test that getting this variable without index does not work
-    @test_throws ErrorException y = !@isdefined(y) ? getorcreate!(model, ctx, :y, nothing) : (check_variate_compatability(y, nothing) ? y : getorcreate!(model, ctx, :y, nothing))
+        # Test 7: Test that getting this variable without index does not work
+        @test_throws ErrorException y = if !@isdefined(y)
+            getorcreate!(model, ctx, :y, nothing)
+        else
+            (check_variate_compatability(y, nothing) ? y : getorcreate!(model, ctx, :y, nothing))
+        end
 
-    # Test 8: Test that getting this variable with an index that is too large does not work
-    @test_throws ErrorException y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1, 2) : (check_variate_compatability(y, 1, 2) ? y : getorcreate!(model, ctx, :y, [1, 2]))
+        # Test 8: Test that getting this variable with an index that is too large does not work
+        @test_throws ErrorException y = if !@isdefined(y)
+            getorcreate!(model, ctx, :y, 1, 2)
+        else
+            (check_variate_compatability(y, 1, 2) ? y : getorcreate!(model, ctx, :y, [1, 2]))
+        end
 
-    #Test 9: Test that creating a tensor variable creates a tensor of the correct size
-    model = create_model()
-    ctx = getcontext(model)
-    z = !@isdefined(z) ? getorcreate!(model, ctx, :z, 1, 1) : (check_variate_compatability(z, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
-    @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
+        #Test 9: Test that creating a tensor variable creates a tensor of the correct size
+        model = create_model()
+        ctx = getcontext(model)
+        z = if !@isdefined(z)
+            getorcreate!(model, ctx, :z, 1, 1)
+        else
+            (check_variate_compatability(z, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
+        end
+        @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
 
-    #Test 10: Test that recreating the same variable changes nothing
-    z2 = !@isdefined(z2) ? getorcreate!(model, ctx, :z, 1, 1) : (check_variate_compatability(z2, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
-    @test z == z2 && nv(model) == 1 && ne(model) == 0
+        #Test 10: Test that recreating the same variable changes nothing
+        z2 = if !@isdefined(z2)
+            getorcreate!(model, ctx, :z, 1, 1)
+        else
+            (check_variate_compatability(z2, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
+        end
+        @test z == z2 && nv(model) == 1 && ne(model) == 0
 
-    #Test 11: Test that adding a variable to this tensor variable increases the size of the array
-    z = !@isdefined(z) ? getorcreate!(model, ctx, :z, 2, 2) : (check_variate_compatability(z, 2, 2) ? z : getorcreate!(model, ctx, :z, [2, 2]))
-    @test nv(model) == 2 && z[2, 2] isa NodeLabel && haskey(ctx.tensor_variables, :z)
+        #Test 11: Test that adding a variable to this tensor variable increases the size of the array
+        z = if !@isdefined(z)
+            getorcreate!(model, ctx, :z, 2, 2)
+        else
+            (check_variate_compatability(z, 2, 2) ? z : getorcreate!(model, ctx, :z, [2, 2]))
+        end
+        @test nv(model) == 2 && z[2, 2] isa NodeLabel && haskey(ctx.tensor_variables, :z)
 
-    #Test 12: Test that getting this variable without index does not work
-    @test_throws ErrorException z = !@isdefined(z) ? getorcreate!(model, ctx, :z, nothing) : (check_variate_compatability(z, :z) ? z : getorcreate!(model, ctx, :z, nothing))
+        #Test 12: Test that getting this variable without index does not work
+        @test_throws ErrorException z = if !@isdefined(z)
+            getorcreate!(model, ctx, :z, nothing)
+        else
+            (check_variate_compatability(z, :z) ? z : getorcreate!(model, ctx, :z, nothing))
+        end
 
-    #Test 13: Test that getting this variable with an index that is too small does not work
-    @test_throws ErrorException z = !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) : (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, [1]))
+        #Test 13: Test that getting this variable with an index that is too small does not work
+        @test_throws ErrorException z =
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) : (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, [1]))
 
-    #Test 14: Test that getting this variable with an index that is too large does not work
-    @test_throws Union{AssertionError, ErrorException} z =
-        !@isdefined(z) ? getorcreate!(model, ctx, :z, [1, 2, 3]) : (check_variate_compatability(z, 1, 2, 3) ? z : getorcreate!(model, ctx, :z, [1, 2, 3]))
+        #Test 14: Test that getting this variable with an index that is too large does not work
+        @test_throws Union{AssertionError, ErrorException} z = if !@isdefined(z)
+            getorcreate!(model, ctx, :z, [1, 2, 3])
+        else
+            (check_variate_compatability(z, 1, 2, 3) ? z : getorcreate!(model, ctx, :z, [1, 2, 3]))
+        end
 
-    # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
-    model = create_model()
-    ctx = getcontext(model)
-    for i in 1:1
-        a = !@isdefined(a) ? getorcreate!(model, ctx, :a, nothing) : (check_variate_compatability(a, nothing) ? a : getorcreate!(model, ctx, :a, nothing))
-    end
-    @test_throws ErrorException a = !@isdefined(a) ? getorcreate!(model, ctx, :a, [1]) : (check_variate_compatability(a, :a) ? a : getorcreate!(model, ctx, :a, [1]))
-    @test_throws ErrorException a = !@isdefined(a) ? getorcreate!(model, ctx, :a, [1, 1]) : (check_variate_compatability(a, 1, 2) ? a : getorcreate!(model, ctx, :a, [1, 1]))
+        # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
+        model = create_model()
+        ctx = getcontext(model)
+        for i in 1:1
+            a = if !@isdefined(a)
+                getorcreate!(model, ctx, :a, nothing)
+            else
+                (check_variate_compatability(a, nothing) ? a : getorcreate!(model, ctx, :a, nothing))
+            end
+        end
+        @test_throws ErrorException a = if !@isdefined(a)
+            getorcreate!(model, ctx, :a, [1])
+        else
+            (check_variate_compatability(a, :a) ? a : getorcreate!(model, ctx, :a, [1]))
+        end
+        @test_throws ErrorException a = if !@isdefined(a)
+            getorcreate!(model, ctx, :a, [1, 1])
+        else
+            (check_variate_compatability(a, 1, 2) ? a : getorcreate!(model, ctx, :a, [1, 1]))
+        end
     end
 end
 
 @testitem "getifcreated" begin
     using Graphs
-    import GraphPPL: create_model, getifcreated, getorcreate!, getcontext, getproperties, getname, value, getorcreate!, ProxyLabel, value, NodeCreationOptions
+    import GraphPPL:
+        create_model,
+        getifcreated,
+        getorcreate!,
+        getcontext,
+        getproperties,
+        getname,
+        value,
+        getorcreate!,
+        ProxyLabel,
+        value,
+        NodeCreationOptions
     model = create_model()
     ctx = getcontext(model)
 
@@ -1009,7 +1107,19 @@ end
 end
 
 @testitem "add_variable_node!" begin
-    import GraphPPL: create_model, add_variable_node!, getcontext, options, NodeLabel, ResizableArray, nv, ne, NodeCreationOptions, getproperties, is_constant, value
+    import GraphPPL:
+        create_model,
+        add_variable_node!,
+        getcontext,
+        options,
+        NodeLabel,
+        ResizableArray,
+        nv,
+        ne,
+        NodeCreationOptions,
+        getproperties,
+        is_constant,
+        value
 
     # Test 1: simple add variable to model
     model = create_model()
@@ -1055,7 +1165,6 @@ end
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, ("a", "a"))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, ("a", 1))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, (1, "a"))
-    
 
     # Test 10: Add a variable with a negative index
     ctx.vector_variables[:x] = ResizableArray(NodeLabel, Val(1))
@@ -1065,7 +1174,11 @@ end
     model = create_model()
     ctx = getcontext(model)
     var = add_variable_node!(model, ctx, NodeCreationOptions(constant = true, value = 1.0), :x, nothing)
-    @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var && is_constant(getproperties(model[var])) && value(getproperties(model[var])) == 1.0
+    @test nv(model) == 1 &&
+        haskey(ctx, :x) &&
+        ctx[:x] == var &&
+        is_constant(getproperties(model[var])) &&
+        value(getproperties(model[var])) == 1.0
 
     # Test 12: Add a variable without options
     model = create_model()
@@ -1094,7 +1207,7 @@ end
     @test nv(model) == 3 && getname(label_for(model.graph, 3)) == sum
 
     # Test 3: Add an atomic factor node with options
-    options = NodeCreationOptions((; an_arbitrary_option = true, ))
+    options = NodeCreationOptions((; an_arbitrary_option = true,))
     node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
     @test model[node_id] === node_data
     @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
@@ -1127,20 +1240,30 @@ end
     add_variable_node!(model, child_ctx, :x, nothing)
     add_variable_node!(model, child_ctx, :y, nothing)
     node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :f)
-    @test nv(model) == 2 && haskey(children(parent_ctx), node_id) && children(parent_ctx)[node_id] === child_ctx && length(child_ctx.individual_variables) == 2
+    @test nv(model) == 2 &&
+        haskey(children(parent_ctx), node_id) &&
+        children(parent_ctx)[node_id] === child_ctx &&
+        length(child_ctx.individual_variables) == 2
 
     # Add a composite factor node with a different name
     node_id = add_composite_factor_node!(model, parent_ctx, child_ctx, :g)
-    @test nv(model) == 2 && haskey(children(parent_ctx), node_id) && children(parent_ctx)[node_id] === child_ctx && length(child_ctx.individual_variables) == 2
+    @test nv(model) == 2 &&
+        haskey(children(parent_ctx), node_id) &&
+        children(parent_ctx)[node_id] === child_ctx &&
+        length(child_ctx.individual_variables) == 2
 
     # Add a composite factor node with an empty child context
     empty_ctx = Context()
     node_id = add_composite_factor_node!(model, parent_ctx, empty_ctx, :h)
-    @test nv(model) == 2 && haskey(children(parent_ctx), node_id) && children(parent_ctx)[node_id] === empty_ctx && length(empty_ctx.individual_variables) == 0
+    @test nv(model) == 2 &&
+        haskey(children(parent_ctx), node_id) &&
+        children(parent_ctx)[node_id] === empty_ctx &&
+        length(empty_ctx.individual_variables) == 0
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::NodeLabel, ::Symbol)" begin
-    import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel, NodeCreationOptions
+    import GraphPPL:
+        create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel, NodeCreationOptions
 
     model = create_model()
     ctx = getcontext(model)
@@ -1185,7 +1308,7 @@ end
     @test_throws ErrorException default_parametrization(Composite(), gcv, (1, 2))
 end
 
-@testitem "contains_nodelabel" begin 
+@testitem "contains_nodelabel" begin
     import GraphPPL: create_model, getcontext, getorcreate!, contains_nodelabel, NodeCreationOptions, True, False, MixedArguments
 
     model = create_model()
@@ -1195,31 +1318,31 @@ end
     c = 1.0
 
     # Test 1. Tuple based input
-    @test contains_nodelabel(( a, b, c )) === True()
-    @test contains_nodelabel(( a, b )) === True()
-    @test contains_nodelabel(( a, )) === True()
-    @test contains_nodelabel(( b, )) === True()
-    @test contains_nodelabel(( c, )) === False()
+    @test contains_nodelabel((a, b, c)) === True()
+    @test contains_nodelabel((a, b)) === True()
+    @test contains_nodelabel((a,)) === True()
+    @test contains_nodelabel((b,)) === True()
+    @test contains_nodelabel((c,)) === False()
 
     # Test 2. Named tuple based input
-    @test @inferred(contains_nodelabel((; a = a, b = b, c = c ))) === True()
-    @test @inferred(contains_nodelabel((; a = a, b = b ))) === True()
-    @test @inferred(contains_nodelabel((; a = a ))) === True()
-    @test @inferred(contains_nodelabel((; b = b ))) === True()
+    @test @inferred(contains_nodelabel((; a = a, b = b, c = c))) === True()
+    @test @inferred(contains_nodelabel((; a = a, b = b))) === True()
+    @test @inferred(contains_nodelabel((; a = a))) === True()
+    @test @inferred(contains_nodelabel((; b = b))) === True()
     @test @inferred(contains_nodelabel((; c = c))) === False()
 
     # Test 3. MixedArguments based input
-    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b, c = c )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((), (; b = b )))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b, c = c)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a, b = b)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; a = a)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((), (; b = b)))) === True()
     @test @inferred(contains_nodelabel(MixedArguments((), (; c = c)))) === False()
 
-    @test @inferred(contains_nodelabel(MixedArguments((a, ), (; b = b, c = c )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((c, ), (; a = a, b = b )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((b, ), (; a = a )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((c, ), (; b = b )))) === True()
-    @test @inferred(contains_nodelabel(MixedArguments((c, ), (;)))) === False()
+    @test @inferred(contains_nodelabel(MixedArguments((a,), (; b = b, c = c)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c,), (; a = a, b = b)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((b,), (; a = a)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c,), (; b = b)))) === True()
+    @test @inferred(contains_nodelabel(MixedArguments((c,), (;)))) === False()
     @test @inferred(contains_nodelabel(MixedArguments((), (; c = c)))) === False()
 end
 
@@ -1228,14 +1351,28 @@ end
     using Graphs
     using BitSetTuples
     import GraphPPL:
-        getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, getname, label_for, edges, MixedArguments, prune!, fform, value, NodeCreationOptions, getproperties
+        getcontext,
+        make_node!,
+        create_model,
+        getorcreate!,
+        factorization_constraint,
+        ProxyLabel,
+        getname,
+        label_for,
+        edges,
+        MixedArguments,
+        prune!,
+        fform,
+        value,
+        NodeCreationOptions,
+        getproperties
     # Test 1: Deterministic call returns result of deterministic function and does not create new node
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     @test make_node!(model, ctx, options, +, x, (1, 1)) == 2
-    @test make_node!(model, ctx, options, sin, x, (0, )) == 0
+    @test make_node!(model, ctx, options, sin, x, (0,)) == 0
     @test nv(model) == 1
 
     # Test 2: Stochastic atomic call returns a new node
@@ -1290,7 +1427,6 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, options, uprior, x, nothing)
     @test nv(model) == 2
-    
 
     # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
     model = create_model()
@@ -1338,7 +1474,7 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    out = make_node!(model, ctx, options, abc, out, MixedArguments((2, ), (b = 2,)))
+    out = make_node!(model, ctx, options, abc, out, MixedArguments((2,), (b = 2,)))
     @test out == 4
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
@@ -1347,7 +1483,7 @@ end
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
     a = getorcreate!(model, ctx, :a, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments((a, ), (b = 2,)))
+    @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments((a,), (b = 2,)))
 
     # Test 13: Make stochastic node with aliases
     model = create_model()
@@ -1357,7 +1493,6 @@ end
     node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, τ = 1))
     @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
-    
 
     model = create_model()
     ctx = getcontext(model)
@@ -1392,7 +1527,18 @@ end
 @testitem "materialize_factor_node!" begin
     using Distributions
     using Graphs
-    import GraphPPL: getcontext, materialize_factor_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, prune!, getname, label_for, edges, NodeCreationOptions
+    import GraphPPL:
+        getcontext,
+        materialize_factor_node!,
+        create_model,
+        getorcreate!,
+        factorization_constraint,
+        ProxyLabel,
+        prune!,
+        getname,
+        label_for,
+        edges,
+        NodeCreationOptions
 
     model = create_model()
     ctx = getcontext(model)

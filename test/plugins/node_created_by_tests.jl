@@ -1,7 +1,17 @@
 @testitem "NodeCreatedByPlugin: model with the plugin" begin
     using Distributions
 
-    import GraphPPL: NodeCreatedByPlugin, EmptyCreatedBy, CreatedBy, NodeCreationOptions, PluginsCollection, add_atomic_factor_node!, create_model, getcontext, hasextra, getextra
+    import GraphPPL:
+        NodeCreatedByPlugin,
+        EmptyCreatedBy,
+        CreatedBy,
+        NodeCreationOptions,
+        PluginsCollection,
+        add_atomic_factor_node!,
+        create_model,
+        getcontext,
+        hasextra,
+        getextra
 
     model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
     ctx = getcontext(model)
@@ -26,7 +36,9 @@
     end
 
     @testset begin
-        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal)
+        label, nodedata, properties = add_atomic_factor_node!(
+            model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal
+        )
 
         @test hasextra(nodedata, :created_by)
 
@@ -41,7 +53,17 @@ end
 @testitem "NodeCreatedByPlugin: model without the plugin" begin
     using Distributions
 
-    import GraphPPL: NodeCreatedByPlugin, EmptyCreatedBy, CreatedBy, NodeCreationOptions, PluginsCollection, add_atomic_factor_node!, create_model, getcontext, hasextra, getextra
+    import GraphPPL:
+        NodeCreatedByPlugin,
+        EmptyCreatedBy,
+        CreatedBy,
+        NodeCreationOptions,
+        PluginsCollection,
+        add_atomic_factor_node!,
+        create_model,
+        getcontext,
+        hasextra,
+        getextra
 
     model = create_model(plugins = PluginsCollection())
     ctx = getcontext(model)
@@ -57,7 +79,9 @@ end
     end
 
     @testset begin
-        label, nodedata, properties = add_atomic_factor_node!(model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal)
+        label, nodedata, properties = add_atomic_factor_node!(
+            model, ctx, NodeCreationOptions(created_by = () -> :(x ~ Normal(0, 1))), Normal
+        )
         @test !hasextra(nodedata, :created_by)
     end
 end
@@ -65,7 +89,8 @@ end
 @testitem "Usage with the actual model" begin
     using Distributions
 
-    import GraphPPL: create_model, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
+    import GraphPPL:
+        create_model, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
 
     @model function simple_model()
         x ~ Normal(0, 1)

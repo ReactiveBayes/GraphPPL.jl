@@ -177,7 +177,15 @@ end
         some_function(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) -> some_meta()
     end
     output = quote
-        push!(__meta__, GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(some_function, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_meta()))
+        push!(
+            __meta__,
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(
+                    some_function, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))
+                ),
+                some_meta()
+            )
+        )
     end
     @test_expression_generating apply_pipeline(input, convert_meta_object) output
 
@@ -216,7 +224,10 @@ end
         push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))),
+                some_other_meta()
+            )
         )
         __meta__
     end
@@ -236,14 +247,22 @@ end
         push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))),
+                some_other_meta()
+            )
         )
         let __outer_meta__ = __meta__
             let __meta__ = GraphPPL.GeneralSubModelMeta(submodel)
                 push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
                 push!(
                     __meta__,
-                    GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+                    GraphPPL.MetaObject(
+                        GraphPPL.FactorMetaDescriptor(
+                            Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))
+                        ),
+                        some_other_meta()
+                    )
                 )
                 push!(__outer_meta__, __meta__)
             end

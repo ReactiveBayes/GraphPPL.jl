@@ -87,27 +87,30 @@ end
         x = datavar(Float64)
         x ~ Normal(0, 1)
     end
-    @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(
-        input, warn_datavar_constvar_randomvar
-    )
+    @test_logs (
+        :warn,
+        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
+    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
     # Test 2: test that constvar throws a warning
     input = quote
         x = constvar(1.0)
         x ~ Normal(0, 1)
     end
-    @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(
-        input, warn_datavar_constvar_randomvar
-    )
+    @test_logs (
+        :warn,
+        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
+    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
     # Test 3: test that randomvar throws a warning
     input = quote
         x = randomvar(Normal(0, 1))
         x ~ Normal(0, 1)
     end
-    @test_logs (:warn, "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead.") apply_pipeline(
-        input, warn_datavar_constvar_randomvar
-    )
+    @test_logs (
+        :warn,
+        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
+    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
 
     # Test 4: test that tilde syntax does not throw a warning
     input = quote
@@ -914,7 +917,9 @@ end
 
     #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
     input = quote
-        x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
+        x ~ Normal(
+            Normal(Normal(0, 1), 1), 1
+        ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
     sym1 = MacroTools.gensym_ids(gensym(:anon))
     sym2 = MacroTools.gensym_ids(gensym(:anon))
@@ -925,7 +930,9 @@ end
                 $sym1 ~ Normal(
                     begin
                         $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        $sym2 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
+                        $sym2 ~ Normal(
+                            0, 1
+                        ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
                     end,
                     1
                 ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
@@ -944,7 +951,9 @@ end
 
     # Test 10: Input expression with broadcasted call
     input = quote
-        x .~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
+        x .~ Normal(
+            Normal(Normal(0, 1), 1), 1
+        ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
     sym1 = MacroTools.gensym_ids(gensym(:anon))
     sym2 = MacroTools.gensym_ids(gensym(:anon))
@@ -955,7 +964,9 @@ end
                 $sym1 ~ Normal(
                     begin
                         $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        $sym2 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
+                        $sym2 ~ Normal(
+                            0, 1
+                        ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
                     end,
                     1
                 ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
@@ -1060,7 +1071,13 @@ end
                 $sym = if !@isdefined($sym)
                     GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing)
                 else
-                    (GraphPPL.check_variate_compatability($sym, nothing) ? $sym : GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing))
+                    (
+                        if GraphPPL.check_variate_compatability($sym, nothing)
+                            $sym
+                        else
+                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing)
+                        end
+                    )
                 end
                 $sym ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), 1)}
             end,
@@ -1282,13 +1299,15 @@ end
 
     # Test 4: Test node creation with anonymous variable
     input = quote
-        z ~ (Normal(
-            begin
-                anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                anon_1 ~ ((x + 1) where {anonymous = true, created_by = :(z ~ Normal(x + 1, y))})
-            end,
-            y
-        ) where {(created_by = :(z ~ Normal(x + 1, y)))})
+        z ~ (
+            Normal(
+                begin
+                    anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                    anon_1 ~ ((x + 1) where {anonymous = true, created_by = :(z ~ Normal(x + 1, y))})
+                end,
+                y
+            ) where {(created_by = :(z ~ Normal(x + 1, y)))}
+        )
     end
     output = quote
         z = GraphPPL.make_node!(
@@ -1486,7 +1505,7 @@ end
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),))),
                 some_node,
                 GraphPPL.Broadcasted(:a),
-                GraphPPL.MixedArguments(($(invars[1:2]...), ), (μ = $(invars[3]), σ = $(invars[4])))
+                GraphPPL.MixedArguments(($(invars[1:2]...),), (μ = $(invars[3]), σ = $(invars[4])))
             )
         end
         a = GraphPPL.ResizableArray(a)
@@ -1515,11 +1534,11 @@ end
     @test options_vector_to_named_tuple(input) == output
 
     # Test 4. Test invalid options spec 
-    input = [ :a ]
+    input = [:a]
     @test_throws ErrorException options_vector_to_named_tuple(input)
 
     # Test 5. Test invalid options spec 
-    input = [ :("hello") ]
+    input = [:("hello")]
     @test_throws ErrorException options_vector_to_named_tuple(input)
 end
 
@@ -1530,7 +1549,16 @@ end
     using GraphPPL
     using Graphs
     using MetaGraphsNext
-    import GraphPPL: model_macro_interior, create_model, getcontext, getorcreate!, make_node!, proxylabel, add_terminated_submodel!, NodeCreationOptions, getproperties
+    import GraphPPL:
+        model_macro_interior,
+        create_model,
+        getcontext,
+        getorcreate!,
+        make_node!,
+        proxylabel,
+        add_terminated_submodel!,
+        NodeCreationOptions,
+        getproperties
 
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)
@@ -1561,7 +1589,9 @@ end
     make_node!(model, ctx, options, test_model, proxylabel(:μ, nothing, μ), (σ = σ,))
     x = ctx[test_model, 1][:x]
     for i in x
-        @test isa(i, GraphPPL.NodeLabel) && isa(model[i], GraphPPL.NodeData) && isa(getproperties(model[i]), GraphPPL.VariableNodeProperties)
+        @test isa(i, GraphPPL.NodeLabel) &&
+            isa(model[i], GraphPPL.NodeData) &&
+            isa(getproperties(model[i]), GraphPPL.VariableNodeProperties)
     end
     @test nv(model) == 24
 

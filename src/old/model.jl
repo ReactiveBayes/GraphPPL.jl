@@ -42,10 +42,12 @@ function parse_varexpr(varexpr::Expr)
 
     # TODO: It might be handy to have this feature in the future for e.g. interacting with UnPack.jl package
     # TODO: For now however we fallback to a more informative error message since it is not obvious how to parse such expressions yet
-    @capture(varexpr, (tupled_ids__,)) &&
-        error("Multiple variable declarations, definitions and assigments are forbidden within @model macro. Try to split $(varexpr) into several independent statements.")
+    @capture(varexpr, (tupled_ids__,)) && error(
+        "Multiple variable declarations, definitions and assigments are forbidden within @model macro. Try to split $(varexpr) into several independent statements."
+    )
 
-    @capture(varexpr, id_[idx__]) || error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
+    @capture(varexpr, id_[idx__]) ||
+        error("Variable identificator can be in form of a single symbol (x ~ ...) or indexing expression (x[i] ~ ...)")
 
     varexpr  = varexpr
     short_id = id
@@ -76,7 +78,9 @@ function __normalize_arg(backend, model, arg)
     if @capture(arg, constvar(arguments__))
         return write_constvar_expression(backend, model, gensym(:anonymous_constvar), arguments)
     elseif @capture(arg, constvar.(arguments__))
-        return error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
+        return error(
+            "Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead."
+        )
     elseif @capture(arg, (f_(v__) where {options__}) | (f_(v__)) | (f_.(v__) where {options__}) | (f_.(v__)))
         if f === :(|>)
             @assert length(v) === 2 "Unsupported pipe syntax in model specification: $(arg)"
@@ -338,7 +342,9 @@ function generate_model_expression(backend, model_specification)
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return :($varexpr = constvar($(arguments...)))
         elseif @capture(expression, constvar.(arguments__))
-            error("Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead.")
+            error(
+                "Broadcasting of `constvar` in the constvar.(...) expression is dissalowed. Use `constvar((i) -> ..., dims...)` form instead."
+            )
         else
             return expression
         end
@@ -375,7 +381,10 @@ function generate_model_expression(backend, model_specification)
         elseif @capture(expression, varexpr_ = constvar(arguments__))
             return write_constvar_expression(backend, model, varexpr, arguments)
             # Step 3.2 Convert tilde expressions
-        elseif @capture(expression, ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) | ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__)))
+        elseif @capture(
+            expression,
+            ((nodeexpr_, varexpr_) ~ fform_(arguments__; kwarguments__)) | ((nodeexpr_, varexpr_) .~ fform_(arguments__; kwarguments__))
+        )
             varexpr, short_id, full_id = parse_varexpr(varexpr)
 
             if short_id ∈ bannedids
