@@ -260,8 +260,8 @@ end
         Constraint,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        FunctionalFormConstraint,
-        MessageConstraint,
+        PosteriorFormConstraint,
+        MessageFormConstraint,
         SpecificSubModelConstraints,
         GeneralSubModelConstraints,
         IndexedVariable,
@@ -284,25 +284,25 @@ end
     )
     @test_throws ErrorException push!(constraints, constraint)
 
-    # Test 2: Test push! with FunctionalFormConstraint
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    # Test 2: Test push! with PosteriorFormConstraint
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
+    constraint = PosteriorFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
+    constraint = PosteriorFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
-    # Test 3: Test push! with MessageConstraint
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    # Test 3: Test push! with MessageFormConstraint
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = MessageConstraint(IndexedVariable(:x, 2), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, 2), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
@@ -326,8 +326,8 @@ end
         SpecificSubModelConstraints,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        FunctionalFormConstraint,
-        MessageConstraint,
+        PosteriorFormConstraint,
+        MessageFormConstraint,
         getconstraint,
         Constraints,
         IndexedVariable
@@ -345,18 +345,18 @@ end
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 2: Test push! with FunctionalFormConstraint
+    # Test 2: Test push! with PosteriorFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 3: Test push! with MessageConstraint
+    # Test 3: Test push! with MessageFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([MessageConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MessageFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
     # Test 4: Test push! with SpecificSubModelConstraints
@@ -372,18 +372,18 @@ end
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 5: Test push! with FunctionalFormConstraint
+    # Test 5: Test push! with PosteriorFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 6: Test push! with MessageConstraint
+    # Test 6: Test push! with MessageFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([MessageConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MessageFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 end
 
@@ -412,87 +412,87 @@ end
     @test constant_constraint(5, 3) == BitSetTuple([[1, 2, 4, 5], [1, 2, 4, 5], [3], [1, 2, 4, 5], [1, 2, 4, 5]])
 end
 
-@testitem "apply FunctionalFormConstraint" begin
-    import GraphPPL: FunctionalFormConstraint, IndexedVariable, apply!, fform_constraint, getproperties
+@testitem "Application of PosteriorFormConstraint" begin
+    import GraphPPL: PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
 
     include("../../model_zoo.jl")
 
     struct ArbitraryFunctionalFormConstraint end
 
-    # Test saving of FunctionalFormConstraint in single variable
+    # Test saving of PosteriorFormConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
+        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
     end
 
-    # Test saving of FunctionalFormConstraint in multiple variables
+    # Test saving of PosteriorFormConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
+        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test fform_constraint(getproperties(model[node])) === nothing
+        @test !hasextra(model[node], :posterior_form_constraint)
     end
 
-    # Test saving of FunctionalFormConstraint in single variable in array
+    # Test saving of PosteriorFormConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test fform_constraint(getproperties(model[node])) == ArbitraryFunctionalFormConstraint()
+            @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
         else
-            @test fform_constraint(getproperties(model[node])) === nothing
+            @test !hasextra(model[node], :posterior_form_constraint)
         end
     end
 end
 
-@testitem "apply MessageConstraint" begin
-    import GraphPPL: MessageConstraint, IndexedVariable, apply!, message_constraint, getproperties
+@testitem "Application of MessageFormConstraint" begin
+    import GraphPPL: MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra
 
     include("../../model_zoo.jl")
 
     struct ArbitraryMessageFormConstraint end
 
-    # Test saving of MessageConstraint in single variable
+    # Test saving of MessageFormConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     node = first(filter(GraphPPL.as_variable(:x), model))
-    apply!(model, context, constraint)
-    @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
+    apply_constraints!(model, context, constraint)
+    @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
 
-    # Test saving of MessageConstraint in multiple variables
+    # Test saving of MessageFormConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
-    apply!(model, context, constraint)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
+        @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test message_constraint(getproperties(model[node])) === nothing
+        @test !hasextra(model[node], :message_form_constraint)
     end
 
-    # Test saving of MessageConstraint in single variable in array
+    # Test saving of MessageFormConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, 1), ArbitraryMessageFormConstraint())
-    apply!(model, context, constraint)
+    constraint = MessageFormConstraint(IndexedVariable(:x, 1), ArbitraryMessageFormConstraint())
+    apply_constraints!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test message_constraint(getproperties(model[node])) == ArbitraryMessageFormConstraint()
+            @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
         else
-            @test message_constraint(getproperties(model[node])) === nothing
+            @test !hasextra(model[node], :message_form_constraint)
         end
     end
 end
@@ -658,7 +658,7 @@ end
 end
 
 @testitem "ResolvedFactorizationConstraint" begin
-    import GraphPPL: ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, CombinedRange, apply!, getproperties
+    import GraphPPL: ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, CombinedRange, apply_constraints!, getproperties
 
     using BitSetTuples
 

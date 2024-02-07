@@ -370,8 +370,6 @@ mutable struct VariableNodeProperties
     index::Any
     link::Any
     value::Any
-    functional_form::Any
-    message_constraint::Any
     constant::Bool
     datavar::Bool
     factorized::Bool
@@ -384,14 +382,12 @@ VariableNodeProperties(;
     index,
     link = nothing,
     value = nothing,
-    functional_form = nothing,
-    message_constraint = nothing,
     constant = false,
     datavar = false,
     factorized = false,
     meta = nothing,
     others = nothing
-) = VariableNodeProperties(name, index, link, value, functional_form, message_constraint, constant, datavar, factorized, meta, others)
+) = VariableNodeProperties(name, index, link, value, constant, datavar, factorized, meta, others)
 
 is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
@@ -403,8 +399,6 @@ function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, optio
         index = index,
         link = get(options, :link, nothing),
         value = get(options, :value, nothing),
-        functional_form = get(options, :functional_form, nothing),
-        message_constraint = get(options, :message_constraint, nothing),
         constant = get(options, :constant, false),
         datavar = get(options, :datavar, false),
         factorized = get(options, :factorized, false),
@@ -422,8 +416,6 @@ is_factorized(properties::VariableNodeProperties) =
     (!isnothing(getlink(properties)) && all(l -> is_factorized(getproperties(l)), getlink(properties)))
 is_datavar(properties::VariableNodeProperties) = properties.datavar
 is_constant(properties::VariableNodeProperties) = properties.constant
-fform_constraint(properties::VariableNodeProperties) = properties.functional_form
-message_constraint(properties::VariableNodeProperties) = properties.message_constraint
 meta(properties::VariableNodeProperties) = properties.meta
 
 function Base.show(io::IO, properties::VariableNodeProperties)
@@ -686,7 +678,7 @@ abstract type NodeBehaviour end
 struct Stochastic <: NodeBehaviour end
 struct Deterministic <: NodeBehaviour end
 
-NodeBehaviour(x) = Deterministic()
+NodeBehaviour(::Any) = Deterministic()
 
 """
 create_model()

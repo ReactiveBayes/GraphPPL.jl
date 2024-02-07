@@ -225,9 +225,9 @@ end
 @model function contains_default_constraints()
     a ~ Normal(0, 1)
     b ~ Normal(0, 1)
-    c ~ Normal(0, 1)
+    constraints_posterior ~ Normal(0, 1)
     for i in 1:10
-        d[i] ~ model_with_default_constraints(a = a, b = b, c = c)
+        d[i] ~ model_with_default_constraints(a = a, b = b, c = constraints_posterior)
     end
 end
 

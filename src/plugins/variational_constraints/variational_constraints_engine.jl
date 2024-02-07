@@ -189,12 +189,12 @@ Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
 
 """
-    FunctionalFormConstraint{V, F}
+    PosteriorFormConstraint{V, F}
 
-A `FunctionalFormConstraint` represents a single functional form constraint in a variational posterior constraint specification. We use type parametrization
+A `PosteriorFormConstraint` represents a single functional form constraint in a variational posterior constraint specification. We use type parametrization
 to dispatch on different types of constraints, for example `q(x, y) :: MvNormal` should be treated different from `q(x) :: Normal`.
 """
-struct FunctionalFormConstraint{V, F}
+struct PosteriorFormConstraint{V, F}
     variables::V
     constraint::F
 end
@@ -202,15 +202,14 @@ end
 """
     MessageConstraint
 
-A `MessageConstraint` represents a single constraint on the messages in a message passing schema. These constraints closely resemble the `FunctionalFormConstraint` but are used to specify constraints on the messages in a message passing schema.
-See also: [`GraphPPL.FunctionalFormConstraint`](@ref)
+A `MessageConstraint` represents a single constraint on the messages in a message passing schema. These constraints closely resemble the `PosteriorFormConstraint` but are used to specify constraints on the messages in a message passing schema.
 """
-struct MessageConstraint{V, F}
+struct MessageFormConstraint{V, F}
     variables::V
     constraint::F
 end
 
-const MaterializedConstraints = Union{FactorizationConstraint, FunctionalFormConstraint, MessageConstraint}
+const MaterializedConstraints = Union{FactorizationConstraint, PosteriorFormConstraint, MessageFormConstraint}
 
 getvariables(c::MaterializedConstraints) = c.variables
 getconstraint(c::MaterializedConstraints) = c.constraint
@@ -222,9 +221,9 @@ function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F
     print(io, join(getconstraint(constraint), ""))
 end
 
-Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: AbstractArray, F}) =
+Base.show(io::IO, constraint::PosteriorFormConstraint{V, F} where {V <: AbstractArray, F}) =
     print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::FunctionalFormConstraint{V, F} where {V <: IndexedVariable, F}) =
+Base.show(io::IO, constraint::PosteriorFormConstraint{V, F} where {V <: IndexedVariable, F}) =
     print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
 """
@@ -274,15 +273,15 @@ An instance of `Constraints` represents a set of constraints to be applied to a 
 """
 struct Constraints
     factorization_constraints::Vector{FactorizationConstraint}
-    functional_form_constraints::Vector{FunctionalFormConstraint}
-    message_constraints::Vector{MessageConstraint}
+    posterior_form_constraints::Vector{PosteriorFormConstraint}
+    message_form_constraints::Vector{MessageFormConstraint}
     general_submodel_constraints::Dict{Function, GeneralSubModelConstraints}
     specific_submodel_constraints::Dict{FactorID, SpecificSubModelConstraints}
 end
 
 factorization_constraints(c::Constraints) = c.factorization_constraints
-functional_form_constraints(c::Constraints) = c.functional_form_constraints
-message_constraints(c::Constraints) = c.message_constraints
+posterior_form_constraints(c::Constraints) = c.posterior_form_constraints
+message_form_constraints(c::Constraints) = c.message_form_constraints
 general_submodel_constraints(c::Constraints) = c.general_submodel_constraints
 specific_submodel_constraints(c::Constraints) = c.specific_submodel_constraints
 
@@ -311,18 +310,18 @@ function Base.push!(c::Constraints, constraint::FactorizationConstraint{V, F} wh
     push!(c.factorization_constraints, constraint)
 end
 
-function Base.push!(c::Constraints, constraint::FunctionalFormConstraint)
-    if any(issetequal.(Set(getvariables.(c.functional_form_constraints)), Ref(getvariables(constraint))))
+function Base.push!(c::Constraints, constraint::PosteriorFormConstraint)
+    if any(issetequal.(Set(getvariables.(c.posterior_form_constraints)), Ref(getvariables(constraint))))
         error("Cannot add $(constraint) to constraint set as these variables already have a functional form constraint applied.")
     end
-    push!(c.functional_form_constraints, constraint)
+    push!(c.posterior_form_constraints, constraint)
 end
 
-function Base.push!(c::Constraints, constraint::MessageConstraint)
-    if any(getvariables.(c.message_constraints) .== Ref(getvariables(constraint)))
+function Base.push!(c::Constraints, constraint::MessageFormConstraint)
+    if any(getvariables.(c.message_form_constraints) .== Ref(getvariables(constraint)))
         error("Cannot add $(constraint) to constraint set as message on edge $(getvariables(constraint)) is already defined.")
     end
-    push!(c.message_constraints, constraint)
+    push!(c.message_form_constraints, constraint)
 end
 
 function Base.push!(c::Constraints, constraint::GeneralSubModelConstraints)
@@ -345,15 +344,15 @@ end
 
 Base.:(==)(left::Constraints, right::Constraints) =
     left.factorization_constraints == right.factorization_constraints &&
-    left.functional_form_constraints == right.functional_form_constraints &&
-    left.message_constraints == right.message_constraints &&
+    left.posterior_form_constraints == right.posterior_form_constraints &&
+    left.message_form_constraints == right.message_form_constraints &&
     left.general_submodel_constraints == right.general_submodel_constraints &&
     left.specific_submodel_constraints == right.specific_submodel_constraints
 
 getconstraints(c::Constraints) = vcat(
     factorization_constraints(c),
-    functional_form_constraints(c),
-    message_constraints(c),
+    posterior_form_constraints(c),
+    message_form_constraints(c),
     values(general_submodel_constraints(c))...,
     values(specific_submodel_constraints(c))...
 )
@@ -478,22 +477,6 @@ Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), st
 function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BitSetTuple)
     constraint = getextra(nodedata, :factorization_constraint_bitset)
     intersect!(constraint, constraint_data)
-end
-
-function save_fform_constraint!(properties::VariableNodeProperties, constraint_data)
-    if !isnothing(properties.functional_form)
-        @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
-        return nothing
-    end
-    properties.functional_form = constraint_data
-end
-
-function save_message_constraint!(properties::VariableNodeProperties, constraint_data)
-    if !isnothing(message_constraint(properties))
-        @warn lazy"Node $node already has message constraint $(opt[:μ]) applied, therefore $constraint_data will not be applied"
-        return nothing
-    end
-    properties.message_constraint = constraint_data
 end
 
 """
@@ -774,22 +757,30 @@ function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint
 end
 
 function apply_constraints!(
-    model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: IndexedVariable, F}
+    model::Model, context::Context, posterior_constraint::PosteriorFormConstraint{T, F} where {T <: IndexedVariable, F}
 )
-    applicable_nodes = unroll(context[getvariables(fform_constraint)])
+    applicable_nodes = unroll(context[getvariables(posterior_constraint)])
     for node in applicable_nodes
-        save_fform_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
+        if hasextra(model[node], :posterior_form_constraint)
+            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+        else
+            setextra!(model[node], :posterior_form_constraint, getconstraint(posterior_constraint))
+        end
     end
 end
 
-function apply_constraints!(model::Model, context::Context, fform_constraint::FunctionalFormConstraint{T, F} where {T <: AbstractArray, F})
+function apply_constraints!(model::Model, context::Context, posterior_constraint::PosteriorFormConstraint{T, F} where {T <: AbstractArray, F})
     throw("Not implemented")
 end
 
-function apply_constraints!(model::Model, context::Context, fform_constraint::MessageConstraint)
-    applicable_nodes = unroll(context[getvariables(fform_constraint)])
+function apply_constraints!(model::Model, context::Context, message_constraint::MessageFormConstraint)
+    applicable_nodes = unroll(context[getvariables(message_constraint)])
     for node in applicable_nodes
-        save_message_constraint!(getproperties(model[node]), getconstraint(fform_constraint))
+        if hasextra(model[node], :message_form_constraint)
+            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+        else
+            setextra!(model[node], :message_form_constraint, getconstraint(message_constraint))
+        end
     end
 end
 
@@ -799,10 +790,10 @@ function apply_constraints!(
     for fc in factorization_constraints(constraint_set)
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
     end
-    for ffc in functional_form_constraints(constraint_set)
+    for ffc in posterior_form_constraints(constraint_set)
         apply_constraints!(model, context, ffc)
     end
-    for mc in message_constraints(constraint_set)
+    for mc in message_form_constraints(constraint_set)
         apply_constraints!(model, context, mc)
     end
     for rfc in constraints(resolved_factorization_constraints)

@@ -260,3 +260,100 @@ end
         end
     end
 end
+
+@testitem "Simple @model + functional form constraints" begin 
+    
+    using Distributions
+
+    import GraphPPL:
+        create_model, add_toplevel_model!, variable_nodes, getextra, hasextra, as_variable, PluginsCollection, VariationalConstraintsPlugin
+
+    @model function simple_model_for_fform_constraints()
+        x ~ Normal(0, 1)
+        y ~ Gamma(1, 1)
+        z ~ Normal(x, y)
+    end
+
+    struct SomeArbitraryFormConstraint1 end
+    struct SomeArbitraryFormConstraint2 end
+
+    @testset "Posterior functional form constraints" begin
+        constraints_posterior = @constraints begin 
+            q(z) :: SomeArbitraryFormConstraint1()
+        end
+
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_posterior)))
+
+        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+
+        zvariables = map(label -> model[label], filter(as_variable(:z), model))
+        xvariables = map(label -> model[label], filter(as_variable(:x), model))
+        yvariables = map(label -> model[label], filter(as_variable(:y), model))
+
+        @test length(zvariables) === 1
+        @test length(xvariables) === 1
+        @test length(yvariables) === 1
+        @test hasextra(first(zvariables), :posterior_form_constraint)
+        @test getextra(first(zvariables), :posterior_form_constraint) === SomeArbitraryFormConstraint1()
+        @test !hasextra(first(zvariables), :message_form_constraint)
+
+        @test !hasextra(first(xvariables), :posterior_form_constraint)
+        @test !hasextra(first(xvariables), :message_form_constraint)
+        @test !hasextra(first(yvariables), :posterior_form_constraint)
+        @test !hasextra(first(yvariables), :message_form_constraint)
+    end
+
+    @testset "Messages functional form constraints" begin
+        constraints_messages = @constraints begin 
+            μ(z) :: SomeArbitraryFormConstraint2()
+        end
+
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_messages)))
+
+        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+
+        zvariables = map(label -> model[label], filter(as_variable(:z), model))
+        xvariables = map(label -> model[label], filter(as_variable(:x), model))
+        yvariables = map(label -> model[label], filter(as_variable(:y), model))
+
+        @test length(zvariables) === 1
+        @test length(xvariables) === 1
+        @test length(yvariables) === 1
+        @test hasextra(first(zvariables), :message_form_constraint)
+        @test getextra(first(zvariables), :message_form_constraint) === SomeArbitraryFormConstraint2()
+        @test !hasextra(first(zvariables), :posterior_form_constraint)
+
+        @test !hasextra(first(xvariables), :posterior_form_constraint)
+        @test !hasextra(first(xvariables), :message_form_constraint)
+        @test !hasextra(first(yvariables), :posterior_form_constraint)
+        @test !hasextra(first(yvariables), :message_form_constraint)
+    end
+
+    @testset "Both posteriors and messages functional form constraints" begin
+        constraints_both = @constraints begin 
+            q(z) :: SomeArbitraryFormConstraint1()
+            μ(z) :: SomeArbitraryFormConstraint2()
+        end
+
+        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_both)))
+
+        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+
+        zvariables = map(label -> model[label], filter(as_variable(:z), model))
+        xvariables = map(label -> model[label], filter(as_variable(:x), model))
+        yvariables = map(label -> model[label], filter(as_variable(:y), model))
+
+        @test length(zvariables) === 1
+        @test length(xvariables) === 1
+        @test length(yvariables) === 1
+        @test hasextra(first(zvariables), :posterior_form_constraint)
+        @test getextra(first(zvariables), :posterior_form_constraint) === SomeArbitraryFormConstraint1()
+        @test hasextra(first(zvariables), :message_form_constraint)
+        @test getextra(first(zvariables), :message_form_constraint) === SomeArbitraryFormConstraint2()
+
+        @test !hasextra(first(xvariables), :posterior_form_constraint)
+        @test !hasextra(first(xvariables), :message_form_constraint)
+        @test !hasextra(first(yvariables), :posterior_form_constraint)
+        @test !hasextra(first(yvariables), :message_form_constraint)
+    end
+end

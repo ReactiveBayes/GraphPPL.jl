@@ -36,14 +36,16 @@ function preprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model, c
 end
 
 function preprocess_vi_plugin!(::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::FactorNodeProperties)
-    if hasextra(nodedata, :factorization_constraints) || hasextra(nodedata, :factorization_constraints_bitset)
-        error("Factorizatiom constraints has been already defined for the node ", nodedata, ".")
-    end
+    # if hasextra(nodedata, :factorization_constraints) || hasextra(nodedata, :factorization_constraints_bitset)
+    #     error("Factorizatiom constraints has been already defined for the node ", nodedata, ".")
+    # end
     return nothing
 end
 
 function preprocess_vi_plugin!(::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::VariableNodeProperties)
-    # TODO bvdmitri: todo, add functional form constraints and messages constraints here
+    # if hasextra(nodedata, :posterior_form_constraint) || hasextra(nodedata, :messages_form_constraint)
+    #     error("Functional form constraints have been already defined for the node ", nodedata, ".")
+    # end
     return nothing
 end
 
