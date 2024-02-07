@@ -358,7 +358,7 @@ end
     end
 end
 
-@testitem "Constraints macro pipeline" begin
+@testitem "@constraints macro pipeline" begin
     
     import GraphPPL: apply!, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
 

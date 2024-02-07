@@ -1,5 +1,5 @@
 @testitem "check_for_returns" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: check_for_returns_meta, apply_pipeline
 
     # Test 1: check_for_returns_meta with one statement
@@ -16,7 +16,7 @@
     @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(input, check_for_returns_meta)
 end
 @testitem "add_meta_constructor" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: add_meta_construction
 
     # Test 1: add_constraints_construction to regular constraint specification
@@ -52,7 +52,7 @@ end
 end
 
 @testitem "create_submodel_meta" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: create_submodel_meta, apply_pipeline
     # Test 1: create_submodel_meta with one nested layer
     input = quote
@@ -127,7 +127,7 @@ end
 end
 
 @testitem "convert_meta_variables" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_meta_variables, apply_pipeline
 
     # Test 1: convert_meta_variables with non-indexed variables in Factor meta call
@@ -168,7 +168,7 @@ end
 end
 
 @testitem "convert_meta_object" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_meta_object, apply_pipeline
 
     # Test 1: convert_meta_object with Factor meta call
@@ -192,7 +192,7 @@ end
 end
 
 @testitem "meta_macro_interior" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: meta_macro_interior
 
     # Test 1: meta_macro_interor with one statement

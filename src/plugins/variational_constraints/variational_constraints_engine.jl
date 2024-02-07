@@ -360,7 +360,7 @@ getconstraints(c::Constraints) = vcat(
 Base.push!(c_set::GeneralSubModelConstraints, c) = push!(getconstraint(c_set), c)
 Base.push!(c_set::SpecificSubModelConstraints, c) = push!(getconstraint(c_set), c)
 
-default_constraints(any) = Constraints()
+default_constraints(::Any) = Constraints()
 
 struct ResolvedIndexedVariable{T}
     variable::IndexedVariable{T}
@@ -769,7 +769,9 @@ function apply_constraints!(
     end
 end
 
-function apply_constraints!(model::Model, context::Context, posterior_constraint::PosteriorFormConstraint{T, F} where {T <: AbstractArray, F})
+function apply_constraints!(
+    model::Model, context::Context, posterior_constraint::PosteriorFormConstraint{T, F} where {T <: AbstractArray, F}
+)
     throw("Not implemented")
 end
 
