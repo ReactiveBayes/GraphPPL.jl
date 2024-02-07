@@ -199,14 +199,35 @@ struct Context
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
-    children::Dict{FactorID, Context}
-    individual_variables::Dict{Symbol, NodeLabel}
-    vector_variables::Dict{Symbol, ResizableArray{NodeLabel}}
-    tensor_variables::Dict{Symbol, ResizableArray{NodeLabel}}
-    factor_nodes::Dict{FactorID, NodeLabel}
-    proxies::Dict{Symbol, ProxyLabel}
     submodel_counts::Dict{Any, Int}
+    children::Dict{FactorID, Context}
+    factor_nodes::Dict{FactorID, NodeLabel}
+    individual_variables::ArrayDictionary{Symbol, NodeLabel}
+    vector_variables::ArrayDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
+    tensor_variables::ArrayDictionary{Symbol, ResizableArray{NodeLabel}}
+    proxies::ArrayDictionary{Symbol, ProxyLabel}
 end
+
+function Context(depth::Int, fform::Function, prefix::String, parent)
+    return Context(
+        depth,
+        fform,
+        prefix,
+        parent,
+        Dict{Any, Int}(),
+        Dict{FactorID, Context}(),
+        Dict{FactorID, NodeLabel}(),
+        ArrayDictionary{Symbol, NodeLabel}(),
+        ArrayDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
+        ArrayDictionary{Symbol, ResizableArray{NodeLabel}}(),
+        ArrayDictionary{Symbol, ProxyLabel}()
+    )
+end
+
+Context(parent::Context, model_fform::Function) =
+    Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
+Context(fform) = Context(0, fform, "", nothing)
+Context() = Context(identity)
 
 fform(context::Context) = context.fform
 parent(context::Context) = context.parent
@@ -268,14 +289,6 @@ end
 
 getname(f::Function) = String(Symbol(f))
 
-Context(depth::Int, fform::Function, prefix::String, parent) =
-    Context(depth, fform, prefix, parent, Dict(), Dict(), Dict(), Dict(), Dict(), Dict(), Dict())
-
-Context(parent::Context, model_fform::Function) =
-    Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
-Context(fform) = Context(0, fform, "", nothing)
-Context() = Context(identity)
-
 haskey(context::Context, key::Symbol) =
     haskey(context.individual_variables, key) ||
     haskey(context.vector_variables, key) ||
@@ -301,12 +314,25 @@ function Base.getindex(c::Context, key::Any)
     throw(KeyError(key))
 end
 
+function Base.getindex(c::Context, key::FactorID)
+    if haskey(c.factor_nodes, key)
+        return c.factor_nodes[key]
+    elseif haskey(c.children, key)
+        return c.children[key]
+    end
+    throw(KeyError(key))
+end
+
 function Base.getindex(c::Context, fform, index::Int)
     return c[FactorID(fform, index)]
 end
 
+function Base.setindex!(c::Context, val::NodeLabel, key::Symbol)
+    return setindex!(c, val, key, nothing)
+end
+
 function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
-    return c.individual_variables[key] = val
+    return set!(c.individual_variables, key, val)
 end
 
 function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
@@ -317,8 +343,20 @@ function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N
     return c.tensor_variables[key][index...] = val
 end
 
-Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = c.vector_variables[key] = val
-Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = c.tensor_variables[key] = val
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
+Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = set!(c.tensor_variables, key, val)
+
+function Base.setindex!(c::Context, val::ProxyLabel, key::Symbol)
+    return setindex!(c, val, key, nothing)
+end
+
+function Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing)
+    return set!(c.proxies, key, val)
+end
+
+function Base.setindex!(c::Context, val::Context, key::FactorID)
+    return setindex!(c.children, val, key)
+end
 
 """
     NodeCreationOptions(namedtuple)
@@ -711,16 +749,16 @@ function copy_markov_blanket_to_child_context(child_context::Context, interfaces
 end
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::NodeLabel) =
-    child_context.individual_variables[name_in_child] = object_in_parent
+    set!(child_context.individual_variables, name_in_child, object_in_parent)
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel, V, 1}) where {V} =
-    child_context.vector_variables[name_in_child] = object_in_parent
+    set!(child_context.vector_variables, name_in_child, object_in_parent)
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel, V, N}) where {V, N} =
-    child_context.tensor_variables[name_in_child] = object_in_parent
+    set!(child_context.tensor_variables, name_in_child, object_in_parent)
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
-    child_context.proxies[name_in_child] = object_in_parent
+    set!(child_context.proxies, name_in_child, object_in_parent)
 
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) = nothing
 
@@ -791,24 +829,26 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     throw_if_individual_variable(ctx, name)
     throw_if_tensor_variable(ctx, name)
     if !haskey(ctx.vector_variables, name)
-        ctx.vector_variables[name] = ResizableArray(NodeLabel, Val(1))
+        ctx[name] = ResizableArray(NodeLabel, Val(1))
     end
-    if !isassigned(ctx.vector_variables[name], index)
-        ctx.vector_variables[name][index] = add_variable_node!(model, ctx, options, name, index)
+    vectorvar = ctx.vector_variables[name]
+    if !isassigned(vectorvar, index)
+        vectorvar[index] = add_variable_node!(model, ctx, options, name, index)
     end
-    return ctx.vector_variables[name]
+    return vectorvar
 end
 
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index...)
     throw_if_individual_variable(ctx, name)
     throw_if_vector_variable(ctx, name)
     if !haskey(ctx.tensor_variables, name)
-        ctx.tensor_variables[name] = ResizableArray(NodeLabel, Val(length(index)))
+        ctx[name] = ResizableArray(NodeLabel, Val(length(index)))
     end
-    if !isassigned(ctx.tensor_variables[name], index...)
-        ctx.tensor_variables[name][index...] = add_variable_node!(model, ctx, options, name, index)
+    tensorvar = ctx.tensor_variables[name]
+    if !isassigned(tensorvar, index...)
+        tensorvar[index...] = add_variable_node!(model, ctx, options, name, index)
     end
-    return ctx.tensor_variables[name]
+    return tensorvar
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var

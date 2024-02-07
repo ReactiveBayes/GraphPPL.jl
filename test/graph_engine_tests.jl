@@ -707,29 +707,45 @@ end
 end
 
 @testitem "haskey(::Context)" begin
-    import GraphPPL: Context, NodeLabel, ResizableArray, ProxyLabel
+    import GraphPPL: Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children
 
     ctx = Context()
     xlab = NodeLabel(:x, 1)
     @test !haskey(ctx, :x)
-    ctx.individual_variables[:x] = xlab
+    ctx[:x] = xlab
     @test haskey(ctx, :x)
+    @test haskey(individual_variables(ctx), :x)
+    @test !haskey(vector_variables(ctx), :x)
+    @test !haskey(tensor_variables(ctx), :x)
+    @test !haskey(proxies(ctx), :x)
 
     @test !haskey(ctx, :y)
-    ctx.vector_variables[:y] = ResizableArray(NodeLabel, Val(1))
+    ctx[:y] = ResizableArray(NodeLabel, Val(1))
     @test haskey(ctx, :y)
+    @test !haskey(individual_variables(ctx), :y)
+    @test haskey(vector_variables(ctx), :y)
+    @test !haskey(tensor_variables(ctx), :y)
+    @test !haskey(proxies(ctx), :y)
 
     @test !haskey(ctx, :z)
-    ctx.tensor_variables[:z] = ResizableArray(NodeLabel, Val(2))
+    ctx[:z] = ResizableArray(NodeLabel, Val(2))
     @test haskey(ctx, :z)
+    @test !haskey(individual_variables(ctx), :z)
+    @test !haskey(vector_variables(ctx), :z)
+    @test haskey(tensor_variables(ctx), :z)
+    @test !haskey(proxies(ctx), :z)
 
     @test !haskey(ctx, :proxy)
-    ctx.proxies[:proxy] = ProxyLabel(:proxy, nothing, xlab)
-    @test haskey(ctx, :proxy)
+    ctx[:proxy] = ProxyLabel(:proxy, nothing, xlab)
+    @test !haskey(individual_variables(ctx), :proxy)
+    @test !haskey(vector_variables(ctx), :proxy)
+    @test !haskey(tensor_variables(ctx), :proxy)
+    @test haskey(proxies(ctx), :proxy)
 
     @test !haskey(ctx, GraphPPL.FactorID(sum, 1))
-    ctx.children[GraphPPL.FactorID(sum, 1)] = Context()
+    ctx[GraphPPL.FactorID(sum, 1)] = Context()
     @test haskey(ctx, GraphPPL.FactorID(sum, 1))
+    @test haskey(children(ctx), GraphPPL.FactorID(sum, 1))
 end
 
 @testitem "getindex(::Context, ::Symbol)" begin
@@ -738,7 +754,7 @@ end
     ctx = Context()
     xlab = NodeLabel(:x, 1)
     @test_throws KeyError ctx[:x]
-    ctx.individual_variables[:x] = xlab
+    ctx[:x] = xlab
     @test ctx[:x] == xlab
 end
 
@@ -1138,7 +1154,7 @@ end
     # Test 4: Add a vector variable to the model
     model = create_model()
     ctx = getcontext(model)
-    ctx.vector_variables[:x] = ResizableArray(NodeLabel, Val(1))
+    ctx[:x] = ResizableArray(NodeLabel, Val(1))
     node_id = add_variable_node!(model, ctx, NodeCreationOptions(), :x, 2)
     @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2] == node_id && length(ctx[:x]) == 2
 
@@ -1149,7 +1165,7 @@ end
     # Test 6: Add a tensor variable to the model
     model = create_model()
     ctx = getcontext(model)
-    ctx.tensor_variables[:x] = ResizableArray(NodeLabel, Val(2))
+    ctx[:x] = ResizableArray(NodeLabel, Val(2))
     node_id = add_variable_node!(model, ctx, NodeCreationOptions(), :x, (2, 3))
     @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x][2, 3] == node_id
 
@@ -1160,14 +1176,14 @@ end
     # Test 9: Add a variable with a non-integer index
     model = create_model()
     ctx = getcontext(model)
-    ctx.tensor_variables[:z] = ResizableArray(NodeLabel, Val(2))
+    ctx[:z] = ResizableArray(NodeLabel, Val(2))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, "a")
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, ("a", "a"))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, ("a", 1))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, (1, "a"))
 
     # Test 10: Add a variable with a negative index
-    ctx.vector_variables[:x] = ResizableArray(NodeLabel, Val(1))
+    ctx[:x] = ResizableArray(NodeLabel, Val(1))
     @test_throws BoundsError add_variable_node!(model, ctx, NodeCreationOptions(), :x, -1)
 
     # Test 11: Add a variable with options
