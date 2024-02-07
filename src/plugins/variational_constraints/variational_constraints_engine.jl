@@ -285,7 +285,16 @@ message_form_constraints(c::Constraints) = c.message_form_constraints
 general_submodel_constraints(c::Constraints) = c.general_submodel_constraints
 specific_submodel_constraints(c::Constraints) = c.specific_submodel_constraints
 
-Constraints() = Constraints([], [], [], Dict(), Dict())
+function Constraints()
+    return Constraints(
+        Vector{FactorizationConstraint}[],
+        Vector{PosteriorFormConstraint}[],
+        Vector{MessageFormConstraint}[],
+        Dict{Function, GeneralSubModelConstraints}(),
+        Dict{FactorID, SpecificSubModelConstraints}()
+    )
+end
+
 Constraints(constraints::Vector) = begin
     c = Constraints()
     for constraint in constraints
@@ -349,18 +358,26 @@ Base.:(==)(left::Constraints, right::Constraints) =
     left.general_submodel_constraints == right.general_submodel_constraints &&
     left.specific_submodel_constraints == right.specific_submodel_constraints
 
-getconstraints(c::Constraints) = vcat(
+getconstraints(c::Constraints) = Iterators.flatten((
     factorization_constraints(c),
     posterior_form_constraints(c),
     message_form_constraints(c),
-    values(general_submodel_constraints(c))...,
-    values(specific_submodel_constraints(c))...
-)
+    values(general_submodel_constraints(c)),
+    values(specific_submodel_constraints(c))
+))
 
 Base.push!(c_set::GeneralSubModelConstraints, c) = push!(getconstraint(c_set), c)
 Base.push!(c_set::SpecificSubModelConstraints, c) = push!(getconstraint(c_set), c)
 
-default_constraints(::Any) = Constraints()
+struct EmptyConstraints end
+
+factorization_constraints(::EmptyConstraints) = ()
+posterior_form_constraints(::EmptyConstraints) = ()
+message_form_constraints(::EmptyConstraints) = ()
+general_submodel_constraints(::EmptyConstraints) = (;)
+specific_submodel_constraints(::EmptyConstraints) = (;)
+
+default_constraints(::Any) = EmptyConstraints()
 
 struct ResolvedIndexedVariable{T}
     variable::IndexedVariable{T}
@@ -440,8 +457,8 @@ rhs(constraint::ResolvedFunctionalFormConstraint) = constraint.rhs
 
 const ResolvedConstraint = Union{ResolvedFactorizationConstraint, ResolvedFunctionalFormConstraint}
 
-struct ConstraintStack{T}
-    constraints::Stack{T}
+struct ConstraintStack
+    constraints::Stack{ResolvedConstraint}
     context_counts::Dict{Context, Int}
 end
 
@@ -788,7 +805,10 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
 end
 
 function apply_constraints!(
-    model::Model, context::Context, constraint_set::Constraints, resolved_factorization_constraints::ConstraintStack
+    model::Model,
+    context::Context,
+    constraint_set::Union{Constraints, EmptyConstraints},
+    resolved_factorization_constraints::ConstraintStack
 )
     for fc in factorization_constraints(constraint_set)
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)

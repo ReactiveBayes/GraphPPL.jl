@@ -989,11 +989,11 @@ end
 
 @testitem "default_constraints" begin
     import GraphPPL:
-        default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra
+        default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra, EmptyConstraints
 
     include("../../model_zoo.jl")
 
-    @test default_constraints(simple_model) == GraphPPL.Constraints()
+    @test default_constraints(simple_model) == EmptyConstraints()
     @test default_constraints(model_with_default_constraints) == @constraints(
         begin
             q(a, d) = q(a)q(d)
