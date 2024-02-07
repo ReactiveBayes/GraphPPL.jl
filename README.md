@@ -13,9 +13,48 @@
 [ci-img]: https://github.com/biaslab/GraphPPL.jl/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-url]: https://github.com/biaslab/GraphPPL.jl/actions
 
-GraphPPL.jl is a probabilistic programming language focused on probabilistic graphical models. This repository is aimed for advanced users, please refer to the [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl) repository for more comprehensive and self-contained documentation and usages examples.
+GraphPPL.jl is a probabilistic programming language focused on probabilistic graphical models. GraphPPL.jl materializes a probabilistic model as a factor graph and provides a set of tools for model specification. GraphPPL.jl is a part of the [RxInfer](https://rxinfer.ml) ecosystem, but it does not explicitly depend on any inference backend. GraphPPL exports a high-level DSL for model specification and allows users to append arbitrary information to nodes in the model. This information can be used by inference backends to perform inference on the model.
+
+## Installation
+
+To install GraphPPL.jl, you can use the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
+
+```julia
+pkg> add GraphPPL
+```
+
+# Model Specification in GraphPPL
+
+GraphPPL.jl provides a high-level DSL for model specification. The DSL is based on the [Julia's](https://julialang.org) macro system and allows users to specify probabilistic models in a concise and intuitive way. The DSL is based on the following principles:
+
+- **Model specification should read as a Julia program**. GraphPPL.jl introduces the `~` syntax for model specification. 
+- **Any GraphPPL model is a valid submodel**. GraphPPL.jl allows users to specify models as a composition of submodels. This allows users to reuse models and specify complex models in a modular way.
+- **Model specification should be extensible**. GraphPPL.jl allows users to extend the DSL with custom model specification procedures. This allows developers of inference backend to inject desired behavior to the model specification process.
+
+# Hello GraphPPL
+
+A model in GraphPPL.jl is specified with the `@model` macro. The macro accepts a model name and a model specification block. The model specification block is a sequence of statements that define the model. The following example shows how to define a simple model in GraphPPL.jl:
+
+```julia
+using GraphPPL
+
+@model function hello_graphppl(x)
+    θ ~ Beta(1, 1)
+    for i in eachindex(x)
+        x[i] ~ Bernoulli(θ)
+    end
+end
+```
+
+# Documentation
+
+For more information about GraphPPL.jl please refer to the [documentation](https://biaslab.github.io/GraphPPL.jl/stable).
 
 # Inference Backend
 
-GraphPPL.jl does not export any Bayesian inference backend. It provides a simple DSL parser, model generation, constraints specification and meta specification helpers. To run inference on 
-generated models user needs to have a Bayesian inference backend with GraphPPL.jl support (e.g. [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl)). 
+GraphPPL.jl does not export any Bayesian inference backend. It provides a complex DSL parser, model generation, constraints specification and meta specification helpers. To run inference on 
+generated models a user needs to have a Bayesian inference backend with GraphPPL.jl support (e.g. [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl)). 
+
+# License
+
+[MIT License](LICENSE) Copyright (c) 2021-2024 BIASlab, 2024-present ReactiveBayes

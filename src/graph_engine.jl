@@ -7,6 +7,8 @@ using Dictionaries
 import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 import MetaGraphsNext.Graphs: neighbors
 
+export as_node, as_variable, as_context
+
 aliases(f) = (f,)
 
 struct Broadcasted
@@ -1057,10 +1059,10 @@ end
 
 function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
     missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
-    return prepare_interfaces(missing_interface, lhs_interface, rhs_interfaces)
+    return prepare_interfaces(missing_interface, fform, lhs_interface, rhs_interfaces)
 end
 
-function prepare_interfaces(::StaticInterfaces{I}, lhs_interface, rhs_interfaces::NamedTuple) where {I}
+function prepare_interfaces(::StaticInterfaces{I}, fform, lhs_interface, rhs_interfaces::NamedTuple) where {I}
     @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
