@@ -477,6 +477,7 @@ Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), st
 function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BitSetTuple)
     constraint = getextra(nodedata, :factorization_constraint_bitset)
     intersect!(constraint, constraint_data)
+    return constraint
 end
 
 """

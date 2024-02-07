@@ -501,56 +501,70 @@ end
     include("../../model_zoo.jl")
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: save_constraint!, constant_constraint, factorization_constraint, getproperties
+    import GraphPPL: intersect_constraint_bitset!, constant_constraint, factorization_constraint, getproperties, VariationalConstraintsPlugin, PluginsCollection
 
-    model = create_terminated_model(simple_model)
+    model = create_terminated_model(simple_model; plugins = GraphPPL.PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
+
+    @test constant_constraint(3, 1) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test constant_constraint(3, 2) == BitSetTuple([[1,3], [2], [1, 3]])
+    @test constant_constraint(3, 3) == BitSetTuple([[1,2], [1,2], [3]])
+
     node = ctx[NormalMeanVariance, 2]
-    save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2, 3], [2, 3]])
-    save_constraint!(model[node], constant_constraint(3, 2))
-    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2], [3]])
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 1)) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 2)) == BitSetTuple([[1], [2], [3]])
 
     node = ctx[NormalMeanVariance, 1]
-    save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(getproperties(model[node])) == BitSetTuple([[1], [2, 3], [2, 3]])
+    # Here it is the mean field because the original model has `x ~ Normal(0, 1)` and `0` and `1` are constants 
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 1)) == BitSetTuple([[1], [2], [3]])
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
     include("../../model_zoo.jl")
+
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names, factorization_constraint, getproperties
+
+    import GraphPPL: materialize_constraints!, EdgeLabel, get_constraint_names, getproperties, getextra, setextra!
 
     # Test 1: Test materialize with a Full Factorization constraint
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
+
+    # Force overwrite the bitset and the constraints
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1,2,3], [1,2,3], [1,2,3]]))
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(getproperties(model[node]))) == ((:out, :μ, :σ),)
-    materialize_constraints!(model, ctx[NormalMeanVariance, 1])
-    @test get_constraint_names(factorization_constraint(getproperties(model[ctx[NormalMeanVariance, 1]]))) == ((:out,), (:μ,), (:σ,))
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out, :μ, :σ),)
+
+    node = ctx[NormalMeanVariance, 1]
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [2], [3]]))
+    materialize_constraints!(model, node)
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
 
     # Test 2: Test materialize with an applied constraint
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
-    materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(getproperties(model[node]))) == ((:out,), (:μ, :σ))
 
-    # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [2, 3], [2, 3]]))
+    materialize_constraints!(model, node)
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ, :σ))
+
+    # # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [3], [2, 3]]))
+
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [3], [2, 3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 
     # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [1], [3]]))
+
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [1], [3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 end
 
