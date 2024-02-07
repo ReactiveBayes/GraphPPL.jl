@@ -707,7 +707,8 @@ end
 end
 
 @testitem "haskey(::Context)" begin
-    import GraphPPL: Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children
+    import GraphPPL:
+        Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children
 
     ctx = Context()
     xlab = NodeLabel(:x, 1)
@@ -1602,7 +1603,7 @@ end
 @testitem "make_node!(::Composite)" begin
     include("model_zoo.jl")
     using Graphs
-    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, factorization_constraint, ProxyLabel, NodeCreationOptions
+    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, ProxyLabel, NodeCreationOptions
     #test make node for priors
     model = create_model()
     ctx = getcontext(model)

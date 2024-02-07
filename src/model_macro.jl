@@ -361,11 +361,13 @@ function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
         $s = if !@isdefined($s)
             GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
         else
-            (if GraphPPL.check_variate_compatability($s, nothing)
+            (
+                if GraphPPL.check_variate_compatability($s, nothing)
                     $s
                 else
                     GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
-                end)
+                end
+            )
         end
     end
 end
@@ -495,11 +497,12 @@ Combines a vector of arguments and a vector of keyword arguments into a single e
 # Returns
 An `Expr` with the combined arguments and keyword arguments.
 """
-combine_args(args::Vector, kwargs::Vector) = if length(args) == 0
-    keyword_expressions_to_named_tuple(kwargs)
-else
-    :(GraphPPL.MixedArguments($(Expr(:tuple, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
-end
+combine_args(args::Vector, kwargs::Vector) =
+    if length(args) == 0
+        keyword_expressions_to_named_tuple(kwargs)
+    else
+        :(GraphPPL.MixedArguments($(Expr(:tuple, args...)), $(keyword_expressions_to_named_tuple(kwargs))))
+    end
 
 """
     combine_args(args::Nothing, kwargs::Nothing)

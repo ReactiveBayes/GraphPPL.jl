@@ -402,8 +402,7 @@ function withoutopts(options::NodeCreationOptions, ::Val{K}) where {K}
     end
 end
 
-# TODO: (bvdmitri) move mutable fields to the plugins and make the struct immutable
-mutable struct VariableNodeProperties
+struct VariableNodeProperties
     name::Symbol
     index::Any
     link::Any
@@ -411,18 +410,14 @@ mutable struct VariableNodeProperties
     constant::Bool
     datavar::Bool
     factorized::Bool
-    meta::Any
-    others::Any
 end
 
-VariableNodeProperties(;
-    name, index, link = nothing, value = nothing, constant = false, datavar = false, factorized = false, meta = nothing, others = nothing
-) = VariableNodeProperties(name, index, link, value, constant, datavar, factorized, meta, others)
+VariableNodeProperties(; name, index, link = nothing, value = nothing, constant = false, datavar = false, factorized = false) =
+    VariableNodeProperties(name, index, link, value, constant, datavar, factorized)
 
 is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
 
-# TODO: (bvdmitri) maybe there is a better way (?)
 function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, options::NodeCreationOptions)
     return VariableNodeProperties(
         name = name,
@@ -431,9 +426,7 @@ function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, optio
         value = get(options, :value, nothing),
         constant = get(options, :constant, false),
         datavar = get(options, :datavar, false),
-        factorized = get(options, :factorized, false),
-        meta = get(options, :meta, nothing),
-        others = get(options, :others, nothing)
+        factorized = get(options, :factorized, false)
     )
 end
 
@@ -446,7 +439,6 @@ is_factorized(properties::VariableNodeProperties) =
     (!isnothing(getlink(properties)) && all(l -> is_factorized(getproperties(l)), getlink(properties)))
 is_datavar(properties::VariableNodeProperties) = properties.datavar
 is_constant(properties::VariableNodeProperties) = properties.constant
-meta(properties::VariableNodeProperties) = properties.meta
 
 function Base.show(io::IO, properties::VariableNodeProperties)
     print(io, "name = ", properties.name, ", index = ", properties.index)
@@ -460,7 +452,7 @@ end
 
 Data associated with a factor node in a probabilistic graphical model.
 """
-mutable struct FactorNodeProperties
+struct FactorNodeProperties
     fform::Any
     neighbors::Vector{Tuple{NodeLabel, EdgeLabel}}
 end
