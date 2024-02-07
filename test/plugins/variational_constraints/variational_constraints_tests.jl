@@ -357,3 +357,98 @@ end
         @test !hasextra(first(yvariables), :message_form_constraint)
     end
 end
+
+@testitem "Constraints macro pipeline" begin
+    
+    import GraphPPL: apply!, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
+
+    include("../../model_zoo.jl")
+
+    constraints = @constraints begin
+        q(x, y) = q(x)q(y)
+        q(y, z) = q(y)q(z)
+        q(x)::NormalMeanVariance()
+        μ(y)::NormalMeanVariance()
+    end
+    # Test constraints macro with single variables and no nesting
+    model = create_terminated_model(simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    ctx = GraphPPL.getcontext(model)
+    
+    for node in filter(GraphPPL.as_variable(:x), model)
+        @test getextra(model[node], :posterior_form_constraint) == NormalMeanVariance()
+        @test !hasextra(model[node], :message_form_constraint)
+    end
+    for node in filter(GraphPPL.as_variable(:y), model)
+        @test !hasextra(model[node], :posterior_form_constraint)
+        @test getextra(model[node], :message_form_constraint) == NormalMeanVariance()
+    end
+    for node in filter(GraphPPL.as_variable(:z), model)
+        @test !hasextra(model[node], :posterior_form_constraint)
+        @test !hasextra(model[node], :message_form_constraint)
+    end
+    @test getname(getextra(model[ctx[NormalMeanVariance, 1]], :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
+    @test getname(getextra(model[ctx[NormalMeanVariance, 2]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+
+    # Test constriants macro with nested model
+    constraints = @constraints begin
+        for q in inner
+            q(α, θ) = q(α)q(θ)
+            q(α)::NormalMeanVariance()
+            μ(θ)::NormalMeanVariance()
+        end
+    end
+    model = create_terminated_model(outer; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    ctx = GraphPPL.getcontext(model)
+    
+    @test hasextra(model[ctx[:w][1]], :posterior_form_constraint) === false
+    @test hasextra(model[ctx[:w][2]], :posterior_form_constraint) === false
+    @test hasextra(model[ctx[:w][3]], :posterior_form_constraint) === false
+    @test hasextra(model[ctx[:w][4]], :posterior_form_constraint) === false
+    @test hasextra(model[ctx[:w][5]], :posterior_form_constraint) === false
+
+    @test hasextra(model[ctx[:w][1]], :message_form_constraint) === false
+    @test getextra(model[ctx[:w][2]], :message_form_constraint) === NormalMeanVariance()
+    @test getextra(model[ctx[:w][3]], :message_form_constraint) === NormalMeanVariance()
+    @test hasextra(model[ctx[:w][4]], :message_form_constraint) === false
+    @test hasextra(model[ctx[:w][5]], :message_form_constraint) === false
+
+    @test getextra(model[ctx[:y]], :posterior_form_constraint) == NormalMeanVariance()
+    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
+        @test getname(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ, :σ))
+    end
+
+    # Test with specifying specific submodel
+    constraints = @constraints begin
+        for q in (child_model, 1)
+            q(in, out, σ) = q(in, out)q(σ)
+        end
+    end
+    model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    ctx = GraphPPL.getcontext(model)
+    
+
+    @test getname(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    for i in 2:99
+        @test getname(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ, :σ),)
+    end
+
+    # Test with specifying general submodel
+    constraints = @constraints begin
+        for q in child_model
+            q(in, out, σ) = q(in, out)q(σ)
+        end
+    end
+    model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    ctx = GraphPPL.getcontext(model)
+
+    @test getname(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
+        @test getname(getextra(model[node], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    end
+
+    # Test with ambiguous constraints
+    constraints = @constraints begin
+        q(x, y) = q(x)q(y)
+    end
+    @test_throws ErrorException create_terminated_model(simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+end
