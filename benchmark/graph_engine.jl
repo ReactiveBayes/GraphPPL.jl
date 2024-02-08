@@ -20,14 +20,14 @@ function factor_node_creation()
             x = GraphPPL.getorcreate!(model, ctx, :x, j)
         end
         y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-        SUITE["Create factor node with $i edges"] = @benchmarkable GraphPPL.make_node!(m, c, sum, $y, [$x]) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
+        SUITE["Create factor node with $i edges"] = @benchmarkable GraphPPL.make_node!(m, c, sum, $y, (in = $x,)) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
     end
     return SUITE
 end
 
 function add_n_nodes(n::Int, model, ctx)
     for i in 1:n
-        GraphPPL.add_variable_node!(model, ctx, :x; index=i)
+        GraphPPL.add_variable_node!(model, ctx, :x, i)
     end
 end
 
@@ -43,14 +43,13 @@ function variable_node_creation()
     SUITE = BenchmarkGroup(["node_creation"])
     model = GraphPPL.create_model()
     ctx = GraphPPL.getcontext(model)
-    SUITE["add_variable_node"] = @benchmarkable GraphPPL.add_variable_node!(m, c, :x) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
+    SUITE["add_variable_node"] = @benchmarkable GraphPPL.add_variable_node!(m, c, :x, nothing) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
 
     for j in 10 .^ range(1, stop=3)
         j = convert(Int, j)
         model = GraphPPL.create_model()
         ctx = GraphPPL.getcontext(model)
-        x = GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(1))
-        ctx.vector_variables[:x] = x
+        x = GraphPPL.getorcreate!(model, ctx, :x, 1)
         SUITE["add $j variable nodes"] = @benchmarkable add_n_nodes($j, m, c) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
         SUITE["getorcreate $j variable nodes ascending"] = @benchmarkable getorcreate_n_nodes($j, m, c) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
         SUITE["getorcreate $j variable nodes descending"] = @benchmarkable getorcreate_n_nodes($j, m, c; asc=false) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1

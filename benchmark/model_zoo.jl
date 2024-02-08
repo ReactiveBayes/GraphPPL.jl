@@ -57,7 +57,6 @@ function create_longarray(n::Int)
         ctx,
         long_array,
         (μ = μ, σ = σ, depth=n);
-        __debug__ = false,
     )
     return model
 end
