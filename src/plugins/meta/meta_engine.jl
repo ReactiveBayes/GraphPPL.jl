@@ -2,10 +2,12 @@ struct FactorMetaDescriptor{T}
     fform::Any
     fargs::T
 end
+
 fform(m::FactorMetaDescriptor) = m.fform
 fargs(m::FactorMetaDescriptor) = m.fargs
 
 Base.show(io::IO, m::FactorMetaDescriptor{Nothing}) = print(io, m.fform)
+
 function Base.show(io::IO, m::FactorMetaDescriptor{<:Tuple})
     print(io, m.fform)
     print(io, "(", join(m.fargs, ", "), ")")
@@ -75,41 +77,47 @@ getkey(m::GeneralSubModelMeta) = getsubmodel(m)
 const SubModelMeta = Union{GeneralSubModelMeta, SpecificSubModelMeta}
 
 MetaSpecification() = MetaSpecification(Vector{MetaObject}(), Vector{SubModelMeta}())
+
 Base.push!(m::MetaSpecification, o::MetaObject) = push!(m.meta_objects, o)
 Base.push!(m::MetaSpecification, o::SubModelMeta) = push!(m.submodel_meta, o)
 
-function apply!(model::Model, meta::MetaSpecification)
-    apply!(model, GraphPPL.get_principal_submodel(model), meta)
+function apply_meta!(model::Model, meta::MetaSpecification)
+    apply_meta!(model, GraphPPL.get_principal_submodel(model), meta)
 end
 
-function apply!(model::Model, context::Context, meta::MetaSpecification)
+function apply_meta!(model::Model, context::Context, meta::MetaSpecification)
     for meta_obj in getmetaobjects(meta)
-        apply!(model, context, meta_obj)
+        apply_meta!(model, context, meta_obj)
     end
     for (factor_id, child) in children(context)
         if (submodel = getspecificsubmodelmeta(meta, factor_id)) !== nothing
-            apply!(model, child, getmetaobjects(submodel))
+            apply_meta!(model, child, getmetaobjects(submodel))
         elseif (submodel = getgeneralsubmodelmeta(meta, fform(factor_id))) !== nothing
-            apply!(model, child, getmetaobjects(submodel))
+            apply_meta!(model, child, getmetaobjects(submodel))
         end
     end
 end
 
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T})
+function apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T})
     nodes = unroll(context[getnodedescriptor(meta).node_descriptor])
-    apply!(model, context, meta, nodes)
+    apply_meta!(model, context, meta, nodes)
 end
 
-apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel) = save_meta!(model, node, meta)
+apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel) =
+    save_meta!(model, node, meta)
 
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, nodes::AbstractArray{NodeLabel})
+function apply_meta!(
+    model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, nodes::AbstractArray{NodeLabel}
+)
     for node in nodes
         save_meta!(model, node, meta)
     end
 end
 
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{<:Tuple}, T})
-    applicable_nodes = Iterators.filter(node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model))
+function apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{<:Tuple}, T})
+    applicable_nodes = Iterators.filter(
+        node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model)
+    )
     for node in applicable_nodes
         neighborhood = neighbors(model, node)
         save = true
@@ -124,8 +132,10 @@ function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S 
     end
 end
 
-function apply!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{Nothing}, T})
-    applicable_nodes = Iterators.filter(node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model))
+function apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: FactorMetaDescriptor{Nothing}, T})
+    applicable_nodes = Iterators.filter(
+        node -> node ∈ values(factor_nodes(context)), filter(as_node(fform(getnodedescriptor(meta))), model)
+    )
     for node in applicable_nodes
         save_meta!(model, node, meta)
     end
@@ -135,14 +145,17 @@ function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where 
     data = getmetainfo(meta)
     if !haskey(data, :meta)
         @warn "Meta object $(meta) does not have a meta field"
-    else
-        options(model[node]).meta = data[:meta]
-        data = data[filter(key -> key != :meta, keys(data))]
-        data = isempty(data) ? nothing : data
     end
-    options(model[node]).others = data
+    for key in keys(data)
+        if !hasextra(model[node], key)
+            setextra!(model[node], key, data[key])
+        end
+    end
 end
 
 function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T})
-    options(model[node]).meta = getmetainfo(meta)
+    nodedata = model[node]
+    if !hasextra(nodedata, :meta)
+        setextra!(nodedata, :meta, getmetainfo(meta))
+    end
 end

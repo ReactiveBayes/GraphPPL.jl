@@ -57,12 +57,11 @@ x = GraphPPL.getorcreate!(model, context, :x, nothing; options = GraphPPL.Variab
 y = GraphPPL.getorcreate!(model, context, :y, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
 
 # Add the gcv model
-GraphPPL.add_terminated_submodel!(
+GraphPPL.add_toplevel_model!(
         model,
         context,
         gcv,
         (κ = κ, ω = ω, z = z, x = x, y = y);
-        __debug__ = false,
     )
 
 # Apply the constraints

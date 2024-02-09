@@ -22,12 +22,11 @@ function create_hgf(n::Int)
     ω = GraphPPL.getorcreate!(model, ctx, :ω, nothing)
     θ = GraphPPL.getorcreate!(model, ctx, :θ, nothing)
     x_begin = GraphPPL.getorcreate!(model, ctx, :x_begin, nothing)
-    GraphPPL.add_terminated_submodel!(
+    GraphPPL.add_toplevel_model!(
         model,
         ctx,
         hgf,
-        (κ = κ, ω = ω, θ = θ, x_begin = x_begin, depth = n);
-        __debug__ = false,
+        (κ = κ, ω = ω, θ = θ, x_begin = x_begin, depth = n)
     )
     return model
 end
@@ -58,7 +57,6 @@ function create_longarray(n::Int)
         ctx,
         long_array,
         (μ = μ, σ = σ, depth=n);
-        __debug__ = false,
     )
     return model
 end

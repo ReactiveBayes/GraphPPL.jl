@@ -17,7 +17,7 @@
 end
 
 @testitem "CombinedRange" begin
-    import GraphPPL: CombinedRange, is_splitted, FunctionalIndex
+    import GraphPPL: CombinedRange, is_splitted, FunctionalIndex, IndexedVariable
     for left in 1:3, right in 5:8
         cr = CombinedRange(left, right)
 
@@ -35,10 +35,20 @@ end
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
+
+    # Test IndexedVariable with CombinedRange equality
+    lhs = IndexedVariable(:x, CombinedRange(1, 2))
+    rhs = IndexedVariable(:x, CombinedRange(1, 2))
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != IndexedVariable(:x, CombinedRange(1, 3))
+    @test lhs !== IndexedVariable(:x, CombinedRange(1, 3))
+    @test lhs != IndexedVariable(:y, CombinedRange(1, 2))
+    @test lhs !== IndexedVariable(:y, CombinedRange(1, 2))
 end
 
 @testitem "SplittedRange" begin
-    import GraphPPL: SplittedRange, is_splitted, FunctionalIndex
+    import GraphPPL: SplittedRange, is_splitted, FunctionalIndex, IndexedVariable
     for left in 1:3, right in 5:8
         cr = SplittedRange(left, right)
 
@@ -56,6 +66,16 @@ end
     @test firstindex(range).f === firstindex
     @test lastindex(range).f === lastindex
     @test_throws MethodError length(range)
+
+    # Test IndexedVariable with SplittedRange equality
+    lhs = IndexedVariable(:x, SplittedRange(1, 2))
+    rhs = IndexedVariable(:x, SplittedRange(1, 2))
+    @test lhs == rhs
+    @test lhs === rhs
+    @test lhs != IndexedVariable(:x, SplittedRange(1, 3))
+    @test lhs !== IndexedVariable(:x, SplittedRange(1, 3))
+    @test lhs != IndexedVariable(:y, SplittedRange(1, 2))
+    @test lhs !== IndexedVariable(:y, SplittedRange(1, 2))
 end
 
 @testitem "__factorization_specification_resolve_index" begin
@@ -98,7 +118,10 @@ end
     @test_throws ErrorException __factorization_specification_resolve_index(index, collection[1])
 
     # Test 4: Test __factorization_specification_resolve_index with Array of indices
-    index = SplittedRange([FunctionalIndex{:begin}(firstindex), FunctionalIndex{:begin}(firstindex)], [FunctionalIndex{:end}(lastindex), FunctionalIndex{:end}(lastindex)])
+    index = SplittedRange(
+        [FunctionalIndex{:begin}(firstindex), FunctionalIndex{:begin}(firstindex)],
+        [FunctionalIndex{:end}(lastindex), FunctionalIndex{:end}(lastindex)]
+    )
     collection = GraphPPL.ResizableArray(GraphPPL.NodeLabel, Val(2))
     for i in 1:3
         for j in 1:5
@@ -114,20 +137,40 @@ end
     @test factorization_split(
         (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),)),),
         (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),)),)
-    ) == (FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),),),)
+    ) == (
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+        ),),
+    )
 
     @test factorization_split(
-        (FactorizationConstraintEntry((IndexedVariable(:y, nothing),)), FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),))),
-        (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),)), FactorizationConstraintEntry((IndexedVariable(:z, nothing),)))
+        (
+            FactorizationConstraintEntry((IndexedVariable(:y, nothing),)),
+            FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),))
+        ),
+        (
+            FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),)),
+            FactorizationConstraintEntry((IndexedVariable(:z, nothing),))
+        )
     ) == (
         FactorizationConstraintEntry((IndexedVariable(:y, nothing),)),
-        FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),)),
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+        )),
         FactorizationConstraintEntry((IndexedVariable(:z, nothing),))
     )
 
     @test factorization_split(
-        (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)), IndexedVariable(:y, FunctionalIndex{:begin}(firstindex)))),),
-        (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)), IndexedVariable(:y, FunctionalIndex{:end}(lastindex)))),)
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)), IndexedVariable(:y, FunctionalIndex{:begin}(firstindex))
+            )),
+        ),
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, FunctionalIndex{:end}(lastindex)), IndexedVariable(:y, FunctionalIndex{:end}(lastindex))
+            )),
+        )
     ) == (
         FactorizationConstraintEntry((
             IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
@@ -137,8 +180,12 @@ end
 
     # Test factorization_split with only FactorizationConstraintEntrys
     @test factorization_split(
-        FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)), IndexedVariable(:y, FunctionalIndex{:begin}(firstindex)))),
-        FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)), IndexedVariable(:y, FunctionalIndex{:end}(lastindex))))
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)), IndexedVariable(:y, FunctionalIndex{:begin}(firstindex))
+        )),
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, FunctionalIndex{:end}(lastindex)), IndexedVariable(:y, FunctionalIndex{:end}(lastindex))
+        ))
     ) == FactorizationConstraintEntry((
         IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
         IndexedVariable(:y, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex)))
@@ -146,18 +193,28 @@ end
 
     # Test mixed behaviour 
     @test factorization_split(
-        (FactorizationConstraintEntry((IndexedVariable(:y, nothing),)), FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),))),
+        (
+            FactorizationConstraintEntry((IndexedVariable(:y, nothing),)),
+            FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),))
+        ),
         FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),))
     ) == (
         FactorizationConstraintEntry((IndexedVariable(:y, nothing),)),
-        FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),))
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+        ))
     )
 
     @test factorization_split(
         FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:begin}(firstindex)),)),
-        (FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),)), FactorizationConstraintEntry((IndexedVariable(:z, nothing),),))
+        (
+            FactorizationConstraintEntry((IndexedVariable(:x, FunctionalIndex{:end}(lastindex)),)),
+            FactorizationConstraintEntry((IndexedVariable(:z, nothing),),)
+        )
     ) == (
-        FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),)),
+        FactorizationConstraintEntry((
+            IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+        )),
         FactorizationConstraintEntry((IndexedVariable(:z, nothing),))
     )
 end
@@ -167,7 +224,8 @@ end
 
     # Test 1: Test FactorizationConstraint with single variables
     @test FactorizationConstraint(
-        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
     ) isa Any
     @test FactorizationConstraint(
         (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
@@ -182,32 +240,56 @@ end
 
     # Test 2: Test FactorizationConstraint with indexed variables
     @test FactorizationConstraint(
-        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, 1), IndexedVariable(:y, 1))),)
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, 1), IndexedVariable(:y, 1))),)
     ) isa Any
     @test FactorizationConstraint(
-        (IndexedVariable(:x, 1), IndexedVariable(:y, 1)), (FactorizationConstraintEntry((IndexedVariable(:x, 1),)), FactorizationConstraintEntry((IndexedVariable(:y, 1),)))
+        (IndexedVariable(:x, 1), IndexedVariable(:y, 1)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, 1),)), FactorizationConstraintEntry((IndexedVariable(:y, 1),)))
     ) isa FactorizationConstraint
-    @test_throws ErrorException FactorizationConstraint((IndexedVariable(:x, 1), IndexedVariable(:y, 1)), (FactorizationConstraintEntry((IndexedVariable(:x, 1),)),))
-    @test_throws ErrorException FactorizationConstraint((IndexedVariable(:x, 1),), (FactorizationConstraintEntry((IndexedVariable(:x, 1), IndexedVariable(:y, 1))),))
+    @test_throws ErrorException FactorizationConstraint(
+        (IndexedVariable(:x, 1), IndexedVariable(:y, 1)), (FactorizationConstraintEntry((IndexedVariable(:x, 1),)),)
+    )
+    @test_throws ErrorException FactorizationConstraint(
+        (IndexedVariable(:x, 1),), (FactorizationConstraintEntry((IndexedVariable(:x, 1), IndexedVariable(:y, 1))),)
+    )
 
     # Test 3: Test FactorizationConstraint with SplittedRanges
     @test FactorizationConstraint(
         (IndexedVariable(:x, nothing),),
-        (FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),)),)
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+            )),
+        )
     ) isa FactorizationConstraint
     @test_throws ErrorException FactorizationConstraint(
         (IndexedVariable(:x, nothing),),
-        (FactorizationConstraintEntry((IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))), IndexedVariable(:y, nothing))),)
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, SplittedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+                IndexedVariable(:y, nothing)
+            )),
+        )
     )
 
     # Test 4: Test FactorizationConstraint with CombinedRanges
     @test FactorizationConstraint(
         (IndexedVariable(:x, nothing),),
-        (FactorizationConstraintEntry((IndexedVariable(:x, CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),)),)
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+            )),
+        )
     ) isa FactorizationConstraint
     @test_throws ErrorException FactorizationConstraint(
         (IndexedVariable(:x, nothing)),
-        (FactorizationConstraintEntry((IndexedVariable(:x, CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))), IndexedVariable(:y, nothing))),)
+        (
+            FactorizationConstraintEntry((
+                IndexedVariable(:x, CombinedRange(FunctionalIndex{:begin}(firstindex), FunctionalIndex{:end}(lastindex))),
+                IndexedVariable(:y, nothing)
+            )),
+        )
     )
 
     # Test 5: Test FactorizationConstraint  with duplicate entries
@@ -240,8 +322,8 @@ end
         Constraint,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        FunctionalFormConstraint,
-        MessageConstraint,
+        PosteriorFormConstraint,
+        MessageFormConstraint,
         SpecificSubModelConstraints,
         GeneralSubModelConstraints,
         IndexedVariable,
@@ -250,39 +332,42 @@ end
     # Test 1: Test push! with FactorizationConstraint
     constraints = Constraints()
     constraint = FactorizationConstraint(
-        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
     )
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
     constraint = FactorizationConstraint(
-        (IndexedVariable(:x, 1), IndexedVariable(:y, 1)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
+        (IndexedVariable(:x, 1), IndexedVariable(:y, 1)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
     )
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
     constraint = FactorizationConstraint(
-        (IndexedVariable(:y, nothing), IndexedVariable(:x, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
+        (IndexedVariable(:y, nothing), IndexedVariable(:x, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
     )
     @test_throws ErrorException push!(constraints, constraint)
 
-    # Test 2: Test push! with FunctionalFormConstraint
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    # Test 2: Test push! with PosteriorFormConstraint
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
+    constraint = PosteriorFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = FunctionalFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
+    constraint = PosteriorFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
-    # Test 3: Test push! with MessageConstraint
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    # Test 3: Test push! with MessageFormConstraint
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = MessageConstraint(IndexedVariable(:x, 2), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, 2), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
@@ -298,7 +383,7 @@ end
 end
 
 @testitem "push!(::SubModelConstraints, c::Constraint)" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         Constraint,
@@ -306,8 +391,8 @@ end
         SpecificSubModelConstraints,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        FunctionalFormConstraint,
-        MessageConstraint,
+        PosteriorFormConstraint,
+        MessageFormConstraint,
         getconstraint,
         Constraints,
         IndexedVariable
@@ -315,55 +400,59 @@ end
     # Test 1: Test push! with FactorizationConstraint
     constraints = GeneralSubModelConstraints(gcv)
     constraint = FactorizationConstraint(
-        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
     )
     push!(constraints, constraint)
     @test getconstraint(constraints) == Constraints([
         FactorizationConstraint(
-            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
+            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+            (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
         )
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 2: Test push! with FunctionalFormConstraint
+    # Test 2: Test push! with PosteriorFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 3: Test push! with MessageConstraint
+    # Test 3: Test push! with MessageFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([MessageConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MessageFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
     # Test 4: Test push! with SpecificSubModelConstraints
     constraints = SpecificSubModelConstraints(GraphPPL.FactorID(gcv, 3))
     constraint = FactorizationConstraint(
-        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing))),)
     )
     push!(constraints, constraint)
     @test getconstraint(constraints) == Constraints([
         FactorizationConstraint(
-            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
+            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+            (FactorizationConstraintEntry((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),),)
         )
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 5: Test push! with FunctionalFormConstraint
+    # Test 5: Test push! with PosteriorFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([FunctionalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 6: Test push! with MessageConstraint
+    # Test 6: Test push! with MessageFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([MessageConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MessageFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 end
 
@@ -392,146 +481,170 @@ end
     @test constant_constraint(5, 3) == BitSetTuple([[1, 2, 4, 5], [1, 2, 4, 5], [3], [1, 2, 4, 5], [1, 2, 4, 5]])
 end
 
-@testitem "apply FunctionalFormConstraint" begin
-    import GraphPPL: FunctionalFormConstraint, IndexedVariable, apply!, fform_constraint
+@testitem "Application of PosteriorFormConstraint" begin
+    import GraphPPL: PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
-    # Test saving of FunctionalFormConstraint in single variable
+    struct ArbitraryFunctionalFormConstraint end
+
+    # Test saving of PosteriorFormConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
+        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
     end
 
-    # Test saving of FunctionalFormConstraint in multiple variables
+    # Test saving of PosteriorFormConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
+        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test fform_constraint(model[node]) === nothing
+        @test !hasextra(model[node], :posterior_form_constraint)
     end
 
-    # Test saving of FunctionalFormConstraint in single variable in array
+    # Test saving of PosteriorFormConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = FunctionalFormConstraint(IndexedVariable(:x, 1), NormalMeanVariance())
-    apply!(model, context, constraint)
+    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
+    apply_constraints!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test fform_constraint(model[node]) == NormalMeanVariance()
+            @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
         else
-            @test fform_constraint(model[node]) === nothing
+            @test !hasextra(model[node], :posterior_form_constraint)
         end
     end
 end
 
-@testitem "apply MessageConstraint" begin
-    import GraphPPL: MessageConstraint, IndexedVariable, apply!, message_constraint
+@testitem "Application of MessageFormConstraint" begin
+    import GraphPPL: MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
-    # Test saving of MessageConstraint in single variable
+    struct ArbitraryMessageFormConstraint end
+
+    # Test saving of MessageFormConstraint in single variable
     model = create_terminated_model(simple_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     node = first(filter(GraphPPL.as_variable(:x), model))
-    apply!(model, context, constraint)
-    @test message_constraint(model[node]) == NormalMeanVariance()
+    apply_constraints!(model, context, constraint)
+    @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
 
-    # Test saving of MessageConstraint in multiple variables
+    # Test saving of MessageFormConstraint in multiple variables
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, nothing), NormalMeanVariance())
-    apply!(model, context, constraint)
+    constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
+    apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test message_constraint(model[node]) == NormalMeanVariance()
+        @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test message_constraint(model[node]) === nothing
+        @test !hasextra(model[node], :message_form_constraint)
     end
 
-    # Test saving of MessageConstraint in single variable in array
+    # Test saving of MessageFormConstraint in single variable in array
     model = create_terminated_model(vector_model)
     context = GraphPPL.getcontext(model)
-    constraint = MessageConstraint(IndexedVariable(:x, 1), NormalMeanVariance())
-    apply!(model, context, constraint)
+    constraint = MessageFormConstraint(IndexedVariable(:x, 1), ArbitraryMessageFormConstraint())
+    apply_constraints!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test message_constraint(model[node]) == NormalMeanVariance()
+            @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
         else
-            @test message_constraint(model[node]) === nothing
+            @test !hasextra(model[node], :message_form_constraint)
         end
     end
 end
 
 @testitem "save constraints with constants" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: save_constraint!, constant_constraint, factorization_constraint
+    import GraphPPL:
+        intersect_constraint_bitset!,
+        constant_constraint,
+        factorization_constraint,
+        getproperties,
+        VariationalConstraintsPlugin,
+        PluginsCollection
 
-    model = create_terminated_model(simple_model)
+    model = create_terminated_model(simple_model; plugins = GraphPPL.PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
+
+    @test constant_constraint(3, 1) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test constant_constraint(3, 2) == BitSetTuple([[1, 3], [2], [1, 3]])
+    @test constant_constraint(3, 3) == BitSetTuple([[1, 2], [1, 2], [3]])
+
     node = ctx[NormalMeanVariance, 2]
-    save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
-    save_constraint!(model[node], constant_constraint(3, 2))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2], [3]])
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 1)) == BitSetTuple([[1], [2, 3], [2, 3]])
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 2)) == BitSetTuple([[1], [2], [3]])
 
     node = ctx[NormalMeanVariance, 1]
-    save_constraint!(model[node], constant_constraint(3, 1))
-    @test factorization_constraint(model[node]) == BitSetTuple([[1], [2, 3], [2, 3]])
+    # Here it is the mean field because the original model has `x ~ Normal(0, 1)` and `0` and `1` are constants 
+    @test intersect_constraint_bitset!(model[node], constant_constraint(3, 1)) == BitSetTuple([[1], [2], [3]])
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
+
     using BitSetTuples
     using GraphPPL
-    import GraphPPL: materialize_constraints!, EdgeLabel, node_options, apply!, get_constraint_names, factorization_constraint
+
+    import GraphPPL: materialize_constraints!, EdgeLabel, get_constraint_names, getproperties, getextra, setextra!
 
     # Test 1: Test materialize with a Full Factorization constraint
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
+
+    # Force overwrite the bitset and the constraints
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]]))
     materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:out, :μ, :σ),)
-    materialize_constraints!(model, ctx[NormalMeanVariance, 1])
-    @test get_constraint_names(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out, :μ, :σ),)
+
+    node = ctx[NormalMeanVariance, 1]
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [2], [3]]))
+    materialize_constraints!(model, node)
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
 
     # Test 2: Test materialize with an applied constraint
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [2, 3], [2, 3]]))
-    materialize_constraints!(model, node)
-    @test get_constraint_names(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
 
-    # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [2, 3], [2, 3]]))
+    materialize_constraints!(model, node)
+    @test get_constraint_names(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ, :σ))
+
+    # # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [3], [2, 3]]))
+
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [3], [2, 3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 
     # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
-    GraphPPL.save_constraint!(model[node], BitSetTuple([[1], [1], [3]]))
+
+    setextra!(model[node], :factorization_constraint_bitset, BitSetTuple([[1], [1], [3]]))
     @test_throws ErrorException materialize_constraints!(model, node)
 end
 
 @testitem "Resolve Factorization Constraints" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     using GraphPPL
     import GraphPPL:
         FactorizationConstraint,
@@ -592,7 +705,8 @@ end
             )
         )
         result = ResolvedFactorizationConstraint(
-            ResolvedConstraintLHS((),), (ResolvedFactorizationConstraintEntry(()), ResolvedFactorizationConstraintEntry(()), ResolvedFactorizationConstraintEntry(()))
+            ResolvedConstraintLHS((),),
+            (ResolvedFactorizationConstraintEntry(()), ResolvedFactorizationConstraintEntry(()), ResolvedFactorizationConstraintEntry(()))
         )
         @test resolve(model, ctx, constraint) == result
     end
@@ -601,46 +715,61 @@ end
 @testitem "Resolved Constraints in" begin
     using GraphPPL
     import GraphPPL:
-        ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, getname, index, VariableNodeOptions
+        ResolvedFactorizationConstraint,
+        ResolvedConstraintLHS,
+        ResolvedFactorizationConstraintEntry,
+        ResolvedIndexedVariable,
+        SplittedRange,
+        getname,
+        index,
+        VariableNodeProperties
 
     context = GraphPPL.Context()
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, GraphPPL.Context())
+    node_data = GraphPPL.NodeData(GraphPPL.Context(), VariableNodeProperties(name = :w, index = 2))
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.VariableNodeData(:w, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), 2, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = 2))
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.VariableNodeData(:x, VariableNodeOptions(), nothing, nothing, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = nothing))
     @test node_data ∈ variable
 end
 
-@testitem "ResolvedFactorizationConstraint" begin
-    import GraphPPL: ResolvedFactorizationConstraint, ResolvedConstraintLHS, ResolvedFactorizationConstraintEntry, ResolvedIndexedVariable, SplittedRange, CombinedRange, apply!
+@testitem "convert_to_bitsets" begin
+    import GraphPPL:
+        ResolvedFactorizationConstraint,
+        ResolvedConstraintLHS,
+        ResolvedFactorizationConstraintEntry,
+        ResolvedIndexedVariable,
+        SplittedRange,
+        CombinedRange,
+        apply_constraints!,
+        getproperties
 
     using BitSetTuples
 
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
-    model = create_terminated_model(outer)
+    model = create_terminated_model(outer; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     inner_context = context[inner, 1]
     inner_inner_context = inner_context[inner_inner, 1]
@@ -650,7 +779,10 @@ end
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 2:3, context),)),
-            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 2, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context),)))
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 2, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context),))
+            )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2], [1, 3]])
@@ -658,7 +790,10 @@ end
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 4:5, context),)),
-            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 4, context),)), ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 5, context),)))
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 4, context),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 5, context),))
+            )
         )
         @test !GraphPPL.is_applicable(neighbors, constraint)
     end
@@ -686,13 +821,13 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:w, 2:3, context), ResolvedIndexedVariable(:y, nothing, context))),
             (
                 ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 2, context),)),
-                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:w, 3, context), ResolvedIndexedVariable(:y, nothing, context)))
+                ResolvedFactorizationConstraintEntry((
+                    ResolvedIndexedVariable(:w, 3, context), ResolvedIndexedVariable(:y, nothing, context)
+                ))
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2], [1, 3]])
-        apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2], [1, 3]])
     end
 
     let constraint = ResolvedFactorizationConstraint(
@@ -706,39 +841,43 @@ end
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1], [2, 3], [2, 3]])
     end
 
-    model = create_terminated_model(multidim_array)
+    model = create_terminated_model(multidim_array; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 5]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
-            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, SplittedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),)),)
+            (
+                ResolvedFactorizationConstraintEntry((
+                    ResolvedIndexedVariable(:x, SplittedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
+                )),
+            )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
-        apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 3], [2, 3], [1, 2, 3]])
     end
 
-    model = create_terminated_model(multidim_array)
+    model = create_terminated_model(multidim_array; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 5]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
-            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),)),)
+            (
+                ResolvedFactorizationConstraintEntry((
+                    ResolvedIndexedVariable(:x, CombinedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
+                )),
+            )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
-        apply!(model, normal_node, constraint)
-        @test GraphPPL.factorization_constraint(model[normal_node]) == BitSetTuple([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
     end
 
     # Test ResolvedFactorizationConstraints over anonymous variables
 
-    model = create_terminated_model(node_with_only_anonymous)
+    model = create_terminated_model(node_with_only_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 6]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -750,7 +889,7 @@ end
     end
 
     # Test ResolvedFactorizationConstraints over multiple anonymous variables
-    model = create_terminated_model(node_with_two_anonymous)
+    model = create_terminated_model(node_with_two_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 6]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -765,7 +904,9 @@ end
     end
 
     # Test ResolvedFactorizationConstraints over ambiguous anonymouys variables
-    model = create_terminated_model(node_with_ambiguous_anonymous)
+    model = create_terminated_model(
+        node_with_ambiguous_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())
+    )
     context = GraphPPL.getcontext(model)
     normal_node = last(filter(GraphPPL.as_node(NormalMeanVariance), model))
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -780,7 +921,7 @@ end
     end
 
     # Test ResolvedFactorizationConstraint with a Mixture node
-    model = create_terminated_model(mixture)
+    model = create_terminated_model(mixture; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     context = GraphPPL.getcontext(model)
     mixture_node = first(filter(GraphPPL.as_node(Mixture), model))
     neighbors = model[GraphPPL.neighbors(model, mixture_node)]
@@ -799,8 +940,17 @@ end
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint) ==
-            BitSetTuple([collect(1:9), [1, 2, 6, 7, 8, 9], [1, 3, 6, 7, 8, 9], [1, 4, 6, 7, 8, 9], [1, 5, 6, 7, 8, 9], collect(1:9), collect(1:9), collect(1:9), collect(1:9)])
+        @test GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint) == BitSetTuple([
+            collect(1:9),
+            [1, 2, 6, 7, 8, 9],
+            [1, 3, 6, 7, 8, 9],
+            [1, 4, 6, 7, 8, 9],
+            [1, 5, 6, 7, 8, 9],
+            collect(1:9),
+            collect(1:9),
+            collect(1:9),
+            collect(1:9)
+        ])
     end
 end
 
@@ -837,149 +987,73 @@ end
     end
 end
 
-@testitem "constraints macro pipeline" begin
-    using GraphPPL
-    import GraphPPL: apply!, fform_constraint, message_constraint, factorization_constraint, getname
-    include("model_zoo.jl")
-
-    # Test constraints macro with single variables and no nesting
-    model = create_terminated_model(simple_model)
-    ctx = GraphPPL.getcontext(model)
-    constraints = @constraints begin
-        q(x, y) = q(x)q(y)
-        q(y, z) = q(y)q(z)
-        q(x)::NormalMeanVariance()
-        μ(y)::NormalMeanVariance()
-    end
-    apply!(model, constraints)
-    for node in filter(GraphPPL.as_variable(:x), model)
-        @test fform_constraint(model[node]) == NormalMeanVariance()
-        @test message_constraint(model[node]) === nothing
-    end
-    for node in filter(GraphPPL.as_variable(:y), model)
-        @test fform_constraint(model[node]) === nothing
-        @test message_constraint(model[node]) == NormalMeanVariance()
-    end
-    for node in filter(GraphPPL.as_variable(:z), model)
-        @test fform_constraint(model[node]) === nothing
-        @test message_constraint(model[node]) === nothing
-    end
-    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
-    @test getname(factorization_constraint(model[ctx[NormalMeanVariance, 2]])) == ((:out, :μ), (:σ,))
-
-    # Test constriants macro with nested model
-    model = create_terminated_model(outer)
-    ctx = GraphPPL.getcontext(model)
-    constraints = @constraints begin
-        for q in inner
-            q(α, θ) = q(α)q(θ)
-            q(α)::NormalMeanVariance()
-            μ(θ)::NormalMeanVariance()
-        end
-    end
-    apply!(model, constraints)
-    @test fform_constraint(model[ctx[:w][1]]) === nothing
-    @test fform_constraint(model[ctx[:w][2]]) === nothing
-    @test fform_constraint(model[ctx[:w][3]]) === nothing
-    @test fform_constraint(model[ctx[:w][4]]) === nothing
-    @test fform_constraint(model[ctx[:w][5]]) === nothing
-
-    @test message_constraint(model[ctx[:w][1]]) === nothing
-    @test message_constraint(model[ctx[:w][2]]) === NormalMeanVariance()
-    @test message_constraint(model[ctx[:w][3]]) === NormalMeanVariance()
-    @test message_constraint(model[ctx[:w][4]]) === nothing
-    @test message_constraint(model[ctx[:w][5]]) === nothing
-
-    @test fform_constraint(model[ctx[:y]]) == NormalMeanVariance()
-    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
-        @test getname(factorization_constraint(model[node])) == ((:out,), (:μ, :σ))
-    end
-
-    # Test with specifying specific submodel
-    model = create_terminated_model(parent_model)
-    ctx = GraphPPL.getcontext(model)
-    constraints = @constraints begin
-        for q in (child_model, 1)
-            q(in, out, σ) = q(in, out)q(σ)
-        end
-    end
-
-    apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
-    for i in 2:99
-        @test getname(factorization_constraint(model[ctx[child_model, i][NormalMeanVariance, 1]])) == ((:out, :μ, :σ),)
-    end
-
-    # Test with specifying general submodel
-    model = create_terminated_model(parent_model)
-    ctx = GraphPPL.getcontext(model)
-    constraints = @constraints begin
-        for q in child_model
-            q(in, out, σ) = q(in, out)q(σ)
-        end
-    end
-
-    apply!(model, constraints)
-    @test getname(factorization_constraint(model[ctx[child_model, 1][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
-    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
-        @test getname(factorization_constraint(model[node])) == ((:out, :μ), (:σ,))
-    end
-
-    # Test with ambiguous constraints
-    model = create_terminated_model(simple_model)
-    ctx = GraphPPL.getcontext(model)
-    constraints = @constraints begin
-        q(x, y) = q(x)q(y)
-    end
-    @test_throws ErrorException apply!(model, constraints)
-end
-
 @testitem "default_constraints" begin
-    import GraphPPL: default_constraints, factorization_constraint
-    include("model_zoo.jl")
+    import GraphPPL:
+        default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra, EmptyConstraints
 
-    @test default_constraints(simple_model) == GraphPPL.Constraints()
+    include("../../model_zoo.jl")
+
+    @test default_constraints(simple_model) == EmptyConstraints()
     @test default_constraints(model_with_default_constraints) == @constraints(
         begin
             q(a, d) = q(a)q(d)
         end
     )
 
-    model = create_terminated_model(contains_default_constraints)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
     # Test that default constraints are applied
-    GraphPPL.apply!(model, GraphPPL.Constraints())
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
+        @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints in the context
-    model = create_terminated_model(contains_default_constraints)
-    ctx = GraphPPL.getcontext(model)
     c = @constraints begin
         for q in model_with_default_constraints
             q(a, d) = q(a, d)
         end
     end
-    GraphPPL.apply!(model, c)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    ctx = GraphPPL.getcontext(model)
     for i in 1:10
-        @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
+        @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out, :μ), (:σ,))
     end
 
     # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel
-    model = create_terminated_model(contains_default_constraints)
-    ctx = GraphPPL.getcontext(model)
     c = @constraints begin
         for q in (model_with_default_constraints, 1)
             q(a, d) = q(a, d)
         end
     end
-    GraphPPL.apply!(model, c)
+    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    ctx = GraphPPL.getcontext(model)
     for i in 1:10
+        node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
+        @test hasextra(node, :factorization_constraint)
         if i == 1
-            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out, :μ), (:σ,))
+            @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out, :μ), (:σ,))
         else
-            @test GraphPPL.getname(factorization_constraint(model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]])) == ((:out,), (:μ,), (:σ,))
+            @test GraphPPL.getname(getextra(node, :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
         end
     end
+end
+
+@testitem "mean_field_constraint" begin
+    using BitSetTuples
+    import GraphPPL: mean_field_constraint
+
+    @test mean_field_constraint(5) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test mean_field_constraint(10) == BitSetTuple([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
+
+    @test mean_field_constraint(1, (1,)) == BitSetTuple(1)
+    @test mean_field_constraint(2, (1,)) == BitSetTuple([[1], [2]])
+    @test mean_field_constraint(2, (2,)) == BitSetTuple([[1], [2]])
+    @test mean_field_constraint(5, (1, 3, 5)) == BitSetTuple([[1], [2, 4], [3], [2, 4], [5]])
+    @test mean_field_constraint(5, (1, 2, 3, 4, 5)) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == BitSetTuple([[1], [2], [3], [4], [5]])
+    @test mean_field_constraint(5, (1, 2)) == BitSetTuple([[1], [2], [3, 4, 5], [3, 4, 5], [3, 4, 5]])
 end

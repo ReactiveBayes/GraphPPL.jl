@@ -1,5 +1,5 @@
 @testitem "check_for_returns" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: check_for_returns_meta, apply_pipeline
 
     # Test 1: check_for_returns_meta with one statement
@@ -16,7 +16,7 @@
     @test_throws ErrorException("The meta macro does not support return statements.") apply_pipeline(input, check_for_returns_meta)
 end
 @testitem "add_meta_constructor" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: add_meta_construction
 
     # Test 1: add_constraints_construction to regular constraint specification
@@ -52,7 +52,7 @@ end
 end
 
 @testitem "create_submodel_meta" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: create_submodel_meta, apply_pipeline
     # Test 1: create_submodel_meta with one nested layer
     input = quote
@@ -127,7 +127,7 @@ end
 end
 
 @testitem "convert_meta_variables" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_meta_variables, apply_pipeline
 
     # Test 1: convert_meta_variables with non-indexed variables in Factor meta call
@@ -168,7 +168,7 @@ end
 end
 
 @testitem "convert_meta_object" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_meta_object, apply_pipeline
 
     # Test 1: convert_meta_object with Factor meta call
@@ -177,7 +177,15 @@ end
         some_function(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) -> some_meta()
     end
     output = quote
-        push!(__meta__, GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(some_function, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_meta()))
+        push!(
+            __meta__,
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(
+                    some_function, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))
+                ),
+                some_meta()
+            )
+        )
     end
     @test_expression_generating apply_pipeline(input, convert_meta_object) output
 
@@ -192,7 +200,7 @@ end
 end
 
 @testitem "meta_macro_interior" begin
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: meta_macro_interior
 
     # Test 1: meta_macro_interor with one statement
@@ -216,7 +224,10 @@ end
         push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))),
+                some_other_meta()
+            )
         )
         __meta__
     end
@@ -236,14 +247,22 @@ end
         push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
         push!(
             __meta__,
-            GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+            GraphPPL.MetaObject(
+                GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))),
+                some_other_meta()
+            )
         )
         let __outer_meta__ = __meta__
             let __meta__ = GraphPPL.GeneralSubModelMeta(submodel)
                 push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
                 push!(
                     __meta__,
-                    GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))), some_other_meta())
+                    GraphPPL.MetaObject(
+                        GraphPPL.FactorMetaDescriptor(
+                            Normal, (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))
+                        ),
+                        some_other_meta()
+                    )
                 )
                 push!(__outer_meta__, __meta__)
             end

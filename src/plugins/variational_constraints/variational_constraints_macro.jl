@@ -93,11 +93,11 @@ end
 function convert_functionalform_constraints(e::Expr)
     if @capture(e, (q(vars_)::T_))
         return quote
-            push!(__constraints__, GraphPPL.FunctionalFormConstraint($vars, $T))
+            push!(__constraints__, GraphPPL.PosteriorFormConstraint($vars, $T))
         end
     elseif @capture(e, (q(vars__)::T_))
         return quote
-            push!(__constraints__, GraphPPL.FunctionalFormConstraint($(Expr(:tuple, vars...)), $T))
+            push!(__constraints__, GraphPPL.PosteriorFormConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e
@@ -107,11 +107,11 @@ end
 function convert_message_constraints(e::Expr)
     if @capture(e, (μ(vars_)::T_))
         return quote
-            push!(__constraints__, GraphPPL.MessageConstraint($vars, $T))
+            push!(__constraints__, GraphPPL.MessageFormConstraint($vars, $T))
         end
     elseif @capture(e, (μ(vars__)::T_))
         return quote
-            push!(__constraints__, GraphPPL.MessageConstraint($(Expr(:tuple, vars...)), $T))
+            push!(__constraints__, GraphPPL.MessageFormConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e

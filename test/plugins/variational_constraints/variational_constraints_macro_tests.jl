@@ -25,7 +25,7 @@ end
 @testitem "check_for_returns" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
 
     import GraphPPL: check_for_returns_constraints, apply_pipeline
 
@@ -43,7 +43,9 @@ end
         q(x)::PointMass
         return q(x)
     end
-    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
+    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(
+        input, check_for_returns_constraints
+    )
 
     # Test 3: check_for_returns with two returns
     input = quote
@@ -52,13 +54,15 @@ end
         q(x, y) = q(x)q(y)
         q(x)::PointMass
     end
-    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(input, check_for_returns_constraints)
+    @test_throws ErrorException("The constraints macro does not support return statements.") apply_pipeline(
+        input, check_for_returns_constraints
+    )
 end
 
 @testitem "add_constraints_construction" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: add_constraints_construction
 
     # Test 1: add_constraints_construction to regular constraint specification
@@ -99,7 +103,7 @@ end
 @testitem "replace_begin_end" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: replace_begin_end, apply_pipeline
 
     # Test 1: replace_begin_end with one begin and end
@@ -137,7 +141,10 @@ end
     end
     output = quote
         q(x) =
-            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex) + 1]) * q(x[GraphPPL.FunctionalIndex{:end}(lastindex) - 1]) * q(x[1]) * q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
+            q(x[GraphPPL.FunctionalIndex{:begin}(firstindex) + 1]) *
+            q(x[GraphPPL.FunctionalIndex{:end}(lastindex) - 1]) *
+            q(x[1]) *
+            q(x[GraphPPL.FunctionalIndex{:end}(lastindex)])
     end
     @test_expression_generating apply_pipeline(input, replace_begin_end) output
 
@@ -165,7 +172,7 @@ end
 @testitem "create_submodel_constraints" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: create_submodel_constraints, apply_pipeline
 
     # Test 1: create_submodel_constraints with one nested layer
@@ -290,7 +297,7 @@ end
 @testitem "create_factorization_split" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: create_factorization_split, apply_pipeline
 
     # Test 1: create_factorization_split with one factorization split
@@ -326,7 +333,7 @@ end
 @testitem "create_factorization_combinedrange" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: create_factorization_combinedrange, apply_pipeline
 
     # Test 1: create_factorization_combinedrange with one combined range
@@ -342,7 +349,7 @@ end
 @testitem "convert_variable_statements" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_variable_statements, apply_pipeline
 
     # Test 1: convert_variable_statements with a single variable statement
@@ -351,7 +358,8 @@ end
     end
     output = quote
         q(GraphPPL.IndexedVariable(:x, nothing)) = factorization_split(
-            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:begin}(firstindex))), q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex)))
+            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:begin}(firstindex))),
+            q(GraphPPL.IndexedVariable(:x, GraphPPL.FunctionalIndex{:end}(lastindex)))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_variable_statements) output
@@ -406,7 +414,7 @@ end
 @testitem "convert_functionalform_constraints" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_functionalform_constraints, apply_pipeline, IndexedVariable
 
     # Test 1: convert_functionalform_constraints with a single functional form constraint
@@ -414,7 +422,7 @@ end
         q(GraphPPL.IndexedVariable(:x, nothing))::PointMass
     end
     output = quote
-        push!(__constraints__, GraphPPL.FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
+        push!(__constraints__, GraphPPL.PosteriorFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
 
@@ -423,7 +431,10 @@ end
         q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing))::PointMass
     end
     output = quote
-        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
+        push!(
+            __constraints__,
+            GraphPPL.PosteriorFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
+        )
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
 
@@ -444,13 +455,26 @@ end
         end
     end
     output = quote
-        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
+        push!(
+            __constraints__,
+            GraphPPL.PosteriorFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
+        )
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
-                push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
+                push!(
+                    __constraints__,
+                    GraphPPL.PosteriorFormConstraint(
+                        (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass
+                    )
+                )
                 let __outer_constraints__ = __constraints__
                     let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
-                        push!(__constraints__, GraphPPL.FunctionalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass))
+                        push!(
+                            __constraints__,
+                            GraphPPL.PosteriorFormConstraint(
+                                (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass
+                            )
+                        )
                         push!(__outer_constraints__, __constraints__)
                     end
                 end
@@ -464,7 +488,7 @@ end
 @testitem "convert_message_constraints" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_message_constraints, apply_pipeline, IndexedVariable
 
     # Test 1: convert_message_constraints with a single functional form constraint
@@ -472,7 +496,7 @@ end
         μ(GraphPPL.IndexedVariable(:x, nothing))::PointMass
     end
     output = quote
-        push!(__constraints__, GraphPPL.MessageConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
+        push!(__constraints__, GraphPPL.MessageFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_message_constraints) output
 end
@@ -480,19 +504,21 @@ end
 @testitem "convert_factorization_constraints" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: convert_factorization_constraints, apply_pipeline, IndexedVariable
 
     # Test 1: convert_factorization_constraints with a single factorization constraint
     input = quote
-        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) = q(GraphPPL.IndexedVariable(:x, nothing)) * q(GraphPPL.IndexedVariable(:y, nothing))
+        q(GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)) =
+            q(GraphPPL.IndexedVariable(:x, nothing)) * q(GraphPPL.IndexedVariable(:y, nothing))
     end
     output = quote
         push!(
             __constraints__,
             GraphPPL.FactorizationConstraint(
                 (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)),
-                GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:y, nothing),))
+                GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),)) *
+                GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:y, nothing),))
             )
         )
     end
@@ -505,7 +531,10 @@ end
     output = quote
         push!(
             __constraints__,
-            GraphPPL.FactorizationConstraint((GraphPPL.IndexedVariable(:x, nothing),), GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),),))
+            GraphPPL.FactorizationConstraint(
+                (GraphPPL.IndexedVariable(:x, nothing),),
+                GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),),)
+            )
         )
     end
     @test_expression_generating apply_pipeline(input, convert_factorization_constraints) output
@@ -514,7 +543,7 @@ end
 @testitem "constraints_macro_interior" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: constraints_macro_interior
 
     input = quote
@@ -525,15 +554,20 @@ end
     end
     output = quote
         __constraints__ = GraphPPL.Constraints()
-        push!(__constraints__, GraphPPL.FunctionalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
+        push!(__constraints__, GraphPPL.PosteriorFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
                 push!(
                     __constraints__,
                     GraphPPL.FactorizationConstraint(
-                        (GraphPPL.IndexedVariable(:w, nothing), GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)),
-                        GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing))) *
-                        GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:w, nothing),),)
+                        (
+                            GraphPPL.IndexedVariable(:w, nothing),
+                            GraphPPL.IndexedVariable(:a, nothing),
+                            GraphPPL.IndexedVariable(:b, nothing)
+                        ),
+                        GraphPPL.FactorizationConstraintEntry((
+                            GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)
+                        )) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:w, nothing),),)
                     )
                 )
                 push!(__outer_constraints__, __constraints__)
@@ -548,7 +582,7 @@ end
 @testitem "constraints_macro" begin
     using GraphPPL
     using MacroTools
-    include("model_zoo.jl")
+    include("../../model_zoo.jl")
     import GraphPPL: Constraints
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
@@ -559,4 +593,5 @@ end
         end
     end
     @test constraints isa Constraints
+    # TODO: (bvdmitri) this requires more tests, e.g. what constraints have been created
 end

@@ -15,6 +15,22 @@
     end
 
     let v = ResizableArray(Float64)
+        @test @inferred(setindex!(v, 1.0, 1)) === v
+        @test @inferred(setindex!(v, 2.0, 2)) === v
+
+        @test @inferred(getindex(v, 1)) === 1.0
+        @test @inferred(getindex(v, 2)) === 2.0
+    end
+
+    let v = ResizableArray(Float64, Val(2))
+        @test @inferred(setindex!(v, 1.0, 1, 1)) === v
+        @test @inferred(setindex!(v, 2.0, 2, 2)) === v
+
+        @test @inferred(getindex(v, 1, 1)) === 1.0
+        @test @inferred(getindex(v, 2, 2)) === 2.0
+    end
+
+    let v = ResizableArray(Float64)
         @test size(v) === (0,)
 
         v[3] = 1.0
@@ -191,7 +207,7 @@ end
 
         # In the beginning everything is not assigned
         for i in 1:100
-            @test !isassigned(s, i)
+            @test !@inferred(isassigned(s, i))
         end
 
         # Assign some random indices 
@@ -203,9 +219,9 @@ end
 
         for i in 1:100
             if i ∉ rindex
-                @test !isassigned(s, i)
+                @test !@inferred(isassigned(s, i))
             else
-                @test isassigned(s, i)
+                @test @inferred(isassigned(s, i))
             end
         end
     end
@@ -215,19 +231,19 @@ end
             s = ResizableArray(Ref, Val(N))
 
             for j in 1:N
-                @test !isassigned(s, ones(Int, j)...)
+                @test !@inferred(isassigned(s, ones(Int, j)...))
             end
 
             s[ones(Int, N)...] = Ref(1)
 
-            @test isassigned(s, ones(Int, N)...)
+            @test @inferred(isassigned(s, ones(Int, N)...))
 
             s[10ones(Int, N)...] = Ref(1)
 
-            @test isassigned(s, 10ones(Int, N)...)
+            @test @inferred(isassigned(s, 10ones(Int, N)...))
 
             for k in 2:9
-                @test !isassigned(s, k * ones(Int, N)...)
+                @test !@inferred(isassigned(s, k * ones(Int, N)...))
             end
         end
     end
@@ -238,9 +254,9 @@ end
             indices = CartesianIndex(ones(Int, N)...):CartesianIndex(M * ones(Int, N)...)
 
             for index in indices
-                @test !isassigned(s, index.I...)
+                @test !@inferred(isassigned(s, index.I...))
                 s[index.I...] = Ref(1)
-                @test isassigned(s, index.I...)
+                @test @inferred(isassigned(s, index.I...))
             end
         end
     end

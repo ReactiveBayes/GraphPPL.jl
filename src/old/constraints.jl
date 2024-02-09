@@ -225,10 +225,13 @@ function generate_constraints_expression(backend, constraints_options, constrain
                                 "RHS of the $(expression) expression used $(index) without indexing twice, which is not allowed. Try to decompose factorisation constraint expression into several subexpression."
                             )
                             push!(rhs_names, index)
-                            (index ∉ lhs_names) && error("LHS of the $(expression) expression does not have $(index) variable, but is used in RHS.")
+                            (index ∉ lhs_names) &&
+                                error("LHS of the $(expression) expression does not have $(index) variable, but is used in RHS.")
                         elseif isref(index)
                             push!(rhs_names, first(index.args))
-                            (first(index.args) ∉ lhs_names) && error("LHS of the $(expression) expression does not have $(first(index.args)) variable, but is used in RHS.")
+                            (first(index.args) ∉ lhs_names) && error(
+                                "LHS of the $(expression) expression does not have $(first(index.args)) variable, but is used in RHS."
+                            )
                         else
                             error(
                                 "Cannot parse expression $(index) in the RHS $(rhs) expression. Index expression should be either a single variable symbol or an indexing expression."
@@ -285,7 +288,8 @@ function generate_constraints_expression(backend, constraints_options, constrain
                     push!(rhs_prod_names, arg)
                     return :(nothing)
                 elseif isref(arg)
-                    (length(arg.args) === 2) || error("Indexing expression $(expression) is too difficult to parse and is not supported (yet?).")
+                    (length(arg.args) === 2) ||
+                        error("Indexing expression $(expression) is too difficult to parse and is not supported (yet?).")
                     push!(rhs_prod_names, first(arg.args))
 
                     index = last(arg.args)
@@ -307,11 +311,15 @@ function generate_constraints_expression(backend, constraints_options, constrain
                         return index
                     end
                 else
-                    error("Cannot parse expression $(index) in the RHS $(rhs) expression. Index expression should be either a single variable symbol or an indexing expression.")
+                    error(
+                        "Cannot parse expression $(index) in the RHS $(rhs) expression. Index expression should be either a single variable symbol or an indexing expression."
+                    )
                 end
             end
 
-            entry = write_factorisation_constraint_entry(backend, :(Val(($(map(QuoteNode, rhs_prod_names)...),))), :(Val(($(rhs_prod_entries_args...),))))
+            entry = write_factorisation_constraint_entry(
+                backend, :(Val(($(map(QuoteNode, rhs_prod_names)...),))), :(Val(($(rhs_prod_entries_args...),)))
+            )
 
             return :(($entry,))
         end

@@ -48,3 +48,4 @@ Coverage.ipynb
 
 examples/*Compiled
 statprof
+profile.pb.gz
