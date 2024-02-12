@@ -10,6 +10,7 @@ include("model_generator.jl")
 include("model_macro.jl")
 
 include("plugins/node_created_by.jl")
+include("plugins/node_id.jl")
 include("plugins/variational_constraints/variational_constraints.jl")
 include("plugins/meta/meta.jl")
 
