@@ -1669,3 +1669,15 @@ end
     make_node!(model, ctx, options, anonymous_in_loop, proxylabel(:y, nothing, y), (x = x_arr,))
     @test nv(model) == 67
 end
+
+@testitem "ModelGenerator based constructor is being created" begin 
+    import GraphPPL: ModelGenerator
+
+    @model function foo(x, y)
+        x ~ y + 1
+    end
+
+    @test foo(x = 1,) isa ModelGenerator
+    @test foo(y = 1,) isa ModelGenerator
+    @test foo(x = 1, y = 1,) isa ModelGenerator
+end

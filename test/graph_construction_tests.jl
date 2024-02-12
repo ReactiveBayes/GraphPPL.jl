@@ -138,3 +138,96 @@ end
         @test length(collect(filter(as_variable(:x_1), model))) == n + 1
     end
 end
+
+@testitem "Creation via `ModelGenerator`" begin
+    using Distributions
+
+    import GraphPPL:
+        create_model,
+        getcontext,
+        add_toplevel_model!,
+        factor_nodes,
+        variable_nodes,
+        is_constant,
+        getproperties,
+        as_node,
+        as_variable,
+        ModelGenerator,
+        NodeCreationOptions,
+        getorcreate!,
+        Model,
+        NodeLabel
+
+    @model function simple_model_for_model_generator(observation, a, b)
+        x ~ Beta(0, 1)
+        y ~ Gamma(a, b)
+        observation ~ Normal(x, y)
+    end
+
+    @testset begin
+        generator = simple_model_for_model_generator(a = 1, b = 2)
+
+        @test generator isa ModelGenerator
+
+        # Nonsensical return value
+        @test_throws "must be a `NamedTuple`" create_model(generator) do model, ctx
+            return ""
+        end
+
+        # Overlapping keys
+        @test_throws "should not intersect" create_model(generator) do model, ctx
+            return (a = 1,)
+        end
+        @test_throws "should not intersect" create_model(generator) do model, ctx
+            return (b = 1,)
+        end
+        @test_throws "should not intersect" create_model(generator) do model, ctx
+            return (a = 1, b = 2,)
+        end
+    end
+
+    @testset begin 
+        generator = simple_model_for_model_generator(c = 1)
+
+        @test generator isa ModelGenerator
+
+        @test_throws "Missing interface a" create_model(generator) do model, ctx
+            return (b = 2, observation = 3)
+        end
+        @test_throws "Missing interface b" create_model(generator) do model, ctx
+            return (a = 2, observation = 3)
+        end
+        # Too many keys, `c = 1` is extra
+        @test_throws MethodError create_model(generator) do model, ctx
+            return (a = 1, b = 2, observation = 3)
+        end
+    end
+
+    @testset begin 
+        generator = simple_model_for_model_generator(a = 1, b = 2)
+
+        globalobservationref = Ref{Any}(nothing) # for test
+
+        model = create_model(generator) do model, ctx
+            observation = getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :observation, nothing)
+            @test isnothing(globalobservationref[])
+            globalobservationref[] = observation
+            return (observation = observation, )
+        end
+
+        @test model isa Model
+        @test !isnothing(globalobservationref[])
+        @test globalobservationref[] isa NodeLabel
+        @test GraphPPL.is_datavar(GraphPPL.getproperties(model[globalobservationref[]]))
+        
+        nnodes = collect(filter(as_node(Normal), model))
+
+        @test length(nnodes) === 1
+
+        outedge = first(GraphPPL.neighbors(GraphPPL.getproperties(model[nnodes[1]])))
+
+        # Test that the observation ref is connected to the `out` edge of the `Gaussian` node
+        @test outedge[1] === globalobservationref[]
+        @test GraphPPL.getname(outedge[2]) === :out
+    end
+end

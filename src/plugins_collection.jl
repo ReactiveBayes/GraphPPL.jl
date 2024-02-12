@@ -35,6 +35,7 @@ Base.iterate(collection::PluginsCollection, state) = iterate(collection.collecti
 Base.length(collection::PluginsCollection) = length(collection.collection)
 
 Base.:(+)(left::PluginsCollection, right) = add_plugin(left, right)
+Base.:(+)(left::PluginsCollection, right::PluginsCollection) = PluginsCollection((left.collection..., right.collection...))
 
 """
    add_plugin(collection::PluginCollection, plugin)

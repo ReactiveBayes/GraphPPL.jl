@@ -6,6 +6,7 @@ include("resizable_array.jl")
 include("plugins_collection.jl")
 
 include("graph_engine.jl")
+include("model_generator.jl")
 include("model_macro.jl")
 
 include("plugins/node_created_by.jl")

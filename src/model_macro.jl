@@ -700,6 +700,10 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             $(init_input_arguments...)
             $ms_body
         end
+
+        function ($ms_name)(; kwargs...)
+            return GraphPPL.ModelGenerator($ms_name, kwargs)
+        end
     end
     return make_node_function
 end
