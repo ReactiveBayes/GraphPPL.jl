@@ -1,5 +1,5 @@
-@testitem "Basic creation" begin 
-    using Distributions 
+@testitem "Basic creation" begin
+    using Distributions
 
     import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!
 
@@ -11,16 +11,58 @@
 
     @test basic_model() isa ModelGenerator
     @test basic_model(a = 1, b = 2) isa ModelGenerator
-    
-    @test create_model(basic_model()) do model, ctx 
+
+    @test create_model(basic_model()) do model, ctx
         a = getorcreate!(model, ctx, NodeCreationOptions(constant = true, value = 1, factorized = true), :a, nothing)
         b = getorcreate!(model, ctx, NodeCreationOptions(datavar = true, factorized = true), :b, nothing)
         return (; a = a, b = b)
     end isa Model
 
-    @test create_model(basic_model(a = 1, b = 2)) do model, ctx 
-        return (; )
+    @test create_model(basic_model(a = 1, b = 2)) do model, ctx
+        return (;)
     end isa Model
+
+    @test create_model(basic_model(a = 1, b = 2)) isa Model
+end
+
+@testitem "Indexing in provided fixed kwargs" begin
+    using Distributions
+
+    import GraphPPL:
+        ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_datavar, is_constant, getproperties, value
+
+    @model function basic_model(inputs)
+        x ~ Beta(inputs[1], inputs[2])
+        z ~ Gamma(1, 1)
+        y ~ Normal(x, z)
+    end
+
+    @test basic_model() isa ModelGenerator
+
+    for a in rand(2), b in rand(2)
+        model = create_model(basic_model(inputs = [a, b]))
+
+        betanodes = collect(filter(as_node(Beta), model))
+
+        @test length(betanodes) === 1
+
+        betaneighbors = neighbors(model, first(betanodes))
+
+        @test betaneighbors[1] isa NodeLabel
+        @test getname(betaneighbors[1]) === :x
+        @test !is_constant(getproperties(model[betaneighbors[1]]))
+        @test !is_datavar(getproperties(model[betaneighbors[1]]))
+
+        @test betaneighbors[2] isa NodeLabel
+        @test is_constant(getproperties(model[betaneighbors[2]]))
+        @test !is_datavar(getproperties(model[betaneighbors[2]]))
+        @test value(getproperties(model[betaneighbors[2]])) === a
+
+        @test betaneighbors[3] isa NodeLabel
+        @test is_constant(getproperties(model[betaneighbors[3]]))
+        @test !is_datavar(getproperties(model[betaneighbors[3]]))
+        @test value(getproperties(model[betaneighbors[3]])) === b
+    end
 end
 
 @testitem "with_plugins" begin

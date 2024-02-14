@@ -21,6 +21,12 @@ function with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
     return ModelGenerator(generator.model, generator.kwargs, generator.plugins + plugins)
 end
 
+function create_model(generator::ModelGenerator)
+    return create_model(generator) do model, ctx 
+        return (; )
+    end
+end
+
 function create_model(callback, generator::ModelGenerator)
     model = create_model(; plugins = getplugins(generator))
     context = getcontext(model)
