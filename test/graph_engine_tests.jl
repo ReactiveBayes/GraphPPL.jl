@@ -1030,6 +1030,14 @@ end
         else
             (check_variate_compatability(a, 1, 2) ? a : getorcreate!(model, ctx, :a, [1, 1]))
         end
+
+        # Test 16. Test that the index is required to create a variable in the model
+        model = create_model()
+        ctx = getcontext(model)
+        @test_throws ErrorException getorcreate!(model, ctx, :a)
+        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(), :a)
+        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :a)
+        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(constant = true, value = 2), :a)
     end
 end
 

@@ -1,3 +1,28 @@
+@testitem "Basic creation" begin 
+    using Distributions 
+
+    import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!
+
+    @model function basic_model(a, b)
+        x ~ Normal(a, b)
+        z ~ Gamma(1, 1)
+        y ~ Normal(x, z)
+    end
+
+    @test basic_model() isa ModelGenerator
+    @test basic_model(a = 1, b = 2) isa ModelGenerator
+    
+    @test create_model(basic_model()) do model, ctx 
+        a = getorcreate!(model, ctx, NodeCreationOptions(constant = true, value = 1, factorized = true), :a, nothing)
+        b = getorcreate!(model, ctx, NodeCreationOptions(datavar = true, factorized = true), :b, nothing)
+        return (; a = a, b = b)
+    end isa Model
+
+    @test create_model(basic_model(a = 1, b = 2)) do model, ctx 
+        return (; )
+    end isa Model
+end
+
 @testitem "with_plugins" begin
     import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins
 

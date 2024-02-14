@@ -803,6 +803,9 @@ The variable (name) found or created in the factor graph model and context.
 """
 function getorcreate! end
 
+getorcreate!(::Model, ::Context, name::Symbol) = error("Index is required in the `getorcreate!` function for variable `$(name)`")
+getorcreate!(::Model, ::Context, options::NodeCreationOptions, name::Symbol) = error("Index is required in the `getorcreate!` function for variable `$(name)`")
+
 function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
     return getorcreate!(model, ctx, EmptyNodeCreationOptions, name, index...)
 end

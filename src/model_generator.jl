@@ -29,17 +29,21 @@ function create_model(callback, generator::ModelGenerator)
 
     if !(extrakwargs isa NamedTuple)
         error(
-            "The return argument from the `ModelGenerator` callback based `create_model` must be a `NamedTuple`. Got $(typeof(extrakwargs)) instead."
+            lazy"The return argument from the `ModelGenerator` callback based `create_model` must be a `NamedTuple`. Got $(typeof(extrakwargs)) instead."
         )
     end
 
-    fixedkwargskeys = keys(getkwargs(generator))
-    keysinteresct = any(k -> k ∈ fixedkwargskeys, keys(extrakwargs))
-    if keysinteresct
+    fixedkwargs = getkwargs(generator)
+    fixedkwargskeys = keys(fixedkwargs)
+
+    # if keys intersect
+    if any(k -> k ∈ fixedkwargskeys, keys(extrakwargs))
         error("Fixed keys in the `ModelGenerator` should not intersect with the extra keyword arguments in $(extrakwargs).")
     end
 
-    interfaces = (; getkwargs(generator)..., extrakwargs...)
+    # Construct the interfaces from the provided fixed keyword argument 
+    # and the extra keyword arguments obtained from the callback
+    interfaces = (; fixedkwargs..., extrakwargs...)
 
     add_toplevel_model!(model, context, getmodel(generator), interfaces)
 
