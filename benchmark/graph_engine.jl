@@ -29,10 +29,10 @@ function benchmark_factor_node_creation()
             model = GraphPPL.create_model()
             ctx = GraphPPL.getcontext(model)
             y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-            x = nothing
-            for i in 1:$n
-                x = GraphPPL.getorcreate!(model, ctx, :x, i)
+            foreach(1:$n) do i
+                GraphPPL.getorcreate!(model, ctx, :x, i)
             end
+            x = GraphPPL.getorcreate!(model, ctx, :x, 1)
         end
     end
 
