@@ -47,6 +47,7 @@ Coverage.ipynb
 **/.DS_Store
 
 benchmark/tune.json
+benchmark_*md
 
 examples/*Compiled
 statprof
