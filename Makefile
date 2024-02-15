@@ -10,10 +10,8 @@ lint: scripts_init ## Code formating check
 format: scripts_init ## Code formating run
 	julia --startup-file=no --project=scripts/ scripts/format.jl --overwrite
 
-
-BRANCH = "dev-4.0.0"
-bench: 
-	julia --startup-file=no --project=scripts scripts/bench.jl $(BRANCH)
+bench: ## Run benchmark, use `make bench branch=...` to test against a specific branch
+	julia --startup-file=no --project=scripts scripts/bench.jl $(branch)
 
 doc_init:
 	julia --project=docs -e 'ENV["PYTHON"]=""; using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate();'

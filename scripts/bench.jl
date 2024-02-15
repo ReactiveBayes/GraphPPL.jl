@@ -2,8 +2,10 @@ using GraphPPL
 using BenchmarkTools
 using PkgBenchmark
 
-args = ARGS == [] ? ["benchmark"] : ARGS
-arg = args[1]
+result, name = if ARGS == []
+    PkgBenchmark.benchmarkpkg(GraphPPL), "current"
+else
+    BenchmarkTools.judge(GraphPPL, ARGS[1]), ARGS[1]
+end
 
-result = BenchmarkTools.judge(GraphPPL, arg)
-export_markdown("benchmark_vs_$(arg)_result.md", result)
+export_markdown("benchmark_vs_$(name)_result.md", result)
