@@ -30,9 +30,9 @@
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
-        b = something(b, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :b, nothing))
-        c = something(c, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :c, nothing))
+        a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
+        b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
+        c = something(c, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :c, nothing))
 
         add_toplevel_model!(model, simple_model, (a = a, b = b, c = c))
 
@@ -84,7 +84,7 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
+                y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
             end
 
             add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
@@ -117,7 +117,7 @@ end
             y = nothing
 
             for i in 1:n
-                y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
+                y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
             end
 
             add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
@@ -183,12 +183,12 @@ end
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
 
-        a = something(a, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :a, nothing))
-        b = something(b, getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :b, nothing))
+        a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
+        b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
 
         y = nothing
         for i in 1:n
-            y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
+            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
         end
 
         add_toplevel_model!(model, context, simple_model, (a = a, b = b, y = y))
@@ -282,7 +282,7 @@ end
         y = nothing
 
         for i in 1:n
-            y = getorcreate!(model, context, NodeCreationOptions(datavar = true, factorized = true), :y, i)
+            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
         end
 
         add_toplevel_model!(model, context, random_walk, (y = y, a = 1, b = 2))

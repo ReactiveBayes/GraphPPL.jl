@@ -48,8 +48,8 @@ end
     model = create_model()
     context = getcontext(model)
 
-    a = getorcreate!(model, context, NodeCreationOptions(datavar = true), :a, nothing)
-    b = getorcreate!(model, context, NodeCreationOptions(datavar = true), :b, nothing)
+    a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, nothing)
+    b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, nothing)
     c = 1.0
 
     add_toplevel_model!(model, simple_model_2, (a = a, b = b, c = c))
@@ -209,7 +209,7 @@ end
         globalobservationref = Ref{Any}(nothing) # for test
 
         model = create_model(generator) do model, ctx
-            observation = getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :observation, nothing)
+            observation = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :observation, nothing)
             @test isnothing(globalobservationref[])
             globalobservationref[] = observation
             return (observation = observation, )
@@ -218,7 +218,7 @@ end
         @test model isa Model
         @test !isnothing(globalobservationref[])
         @test globalobservationref[] isa NodeLabel
-        @test GraphPPL.is_datavar(GraphPPL.getproperties(model[globalobservationref[]]))
+        @test GraphPPL.is_data(GraphPPL.getproperties(model[globalobservationref[]]))
         
         nnodes = collect(filter(as_node(Normal), model))
 

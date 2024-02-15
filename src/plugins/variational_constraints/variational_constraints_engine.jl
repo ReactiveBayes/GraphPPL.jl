@@ -575,7 +575,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
-        if is_factorized(getproperties(neighbor_data))
+        if is_factorized(neighbor_data)
             intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
         end
     end
@@ -665,6 +665,21 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
 end
 
+function is_factorized(nodedata::NodeData)
+    properties = getproperties(nodedata)::VariableNodeProperties
+    if is_constant(properties)
+        return true
+    end
+    _factorized = hasextra(nodedata, :factorized) ? getextra(nodedata, :factorized) : false
+    if _factorized
+        return true
+    end
+    if !isnothing(getlink(properties))
+        return all(link -> is_factorized(link), getlink(properties))
+    end
+    return false
+end
+
 function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
     lhsc = lhs(constraint)
     return any(neighbors) do neighbor
@@ -711,7 +726,7 @@ end
 function is_decoupled_one_linked(links, unlinked::NodeData, constraint::ResolvedFactorizationConstraint)::Bool
     # Check only links that are actually relevant to the factorization constraint,
     # We skip links that are already factorized explicitly since there is no need to check them again
-    flinks = Iterators.filter(link -> !is_factorized(getproperties(link)), links)
+    flinks = Iterators.filter(link -> !is_factorized(link), links)
     # Check if all linked variables have exactly the same "is_decoupled" output
     # Otherwise we are being a bit conservative here and throw an ambiguity error
     allequal, result = lazy_bool_allequal(link -> is_decoupled(link, unlinked, constraint), flinks)

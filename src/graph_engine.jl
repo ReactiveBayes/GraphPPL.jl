@@ -405,15 +405,14 @@ end
 struct VariableNodeProperties
     name::Symbol
     index::Any
+    kind::Symbol
     link::Any
     value::Any
-    constant::Bool
-    datavar::Bool
     factorized::Bool
 end
 
-VariableNodeProperties(; name, index, link = nothing, value = nothing, constant = false, datavar = false, factorized = false) =
-    VariableNodeProperties(name, index, link, value, constant, datavar, factorized)
+VariableNodeProperties(; name, index, kind = :random, link = nothing, value = nothing, factorized = false) =
+    VariableNodeProperties(name, index, kind, link, value, factorized)
 
 is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
@@ -422,10 +421,9 @@ function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, optio
     return VariableNodeProperties(
         name = name,
         index = index,
+        kind = get(options, :kind, :random),
         link = get(options, :link, nothing),
         value = get(options, :value, nothing),
-        constant = get(options, :constant, false),
-        datavar = get(options, :datavar, false),
         factorized = get(options, :factorized, false)
     )
 end
@@ -434,11 +432,12 @@ getname(properties::VariableNodeProperties) = properties.name
 getlink(properties::VariableNodeProperties) = properties.link
 index(properties::VariableNodeProperties) = properties.index
 value(properties::VariableNodeProperties) = properties.value
-is_factorized(properties::VariableNodeProperties) =
-    (properties.factorized || is_constant(properties)) ||
-    (!isnothing(getlink(properties)) && all(l -> is_factorized(getproperties(l)), getlink(properties)))
-is_datavar(properties::VariableNodeProperties) = properties.datavar
-is_constant(properties::VariableNodeProperties) = properties.constant
+
+is_kind(properties::VariableNodeProperties, kind) = properties.kind === kind
+is_kind(properties::VariableNodeProperties, ::Val{kind}) where {kind} = properties.kind === kind
+is_random(properties::VariableNodeProperties) = is_kind(properties, Val(:random))
+is_data(properties::VariableNodeProperties) = is_kind(properties, Val(:data))
+is_constant(properties::VariableNodeProperties) = is_kind(properties, Val(:constant))
 
 function Base.show(io::IO, properties::VariableNodeProperties)
     print(io, "name = ", properties.name, ", index = ", properties.index)
@@ -804,7 +803,8 @@ The variable (name) found or created in the factor graph model and context.
 function getorcreate! end
 
 getorcreate!(::Model, ::Context, name::Symbol) = error("Index is required in the `getorcreate!` function for variable `$(name)`")
-getorcreate!(::Model, ::Context, options::NodeCreationOptions, name::Symbol) = error("Index is required in the `getorcreate!` function for variable `$(name)`")
+getorcreate!(::Model, ::Context, options::NodeCreationOptions, name::Symbol) =
+    error("Index is required in the `getorcreate!` function for variable `$(name)`")
 
 function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
     return getorcreate!(model, ctx, EmptyNodeCreationOptions, name, index...)
@@ -852,7 +852,7 @@ getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{Nod
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, NodeCreationOptions(value = var, constant = true), gensym(model, :constvar), nothing)
+    add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
