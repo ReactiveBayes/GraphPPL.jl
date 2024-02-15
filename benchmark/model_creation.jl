@@ -1,5 +1,6 @@
 using BenchmarkTools
 using GraphPPL
+using Distributions
 
 function benchmark_model_creation()
     SUITE = BenchmarkGroup()
@@ -56,11 +57,11 @@ end
 function benchmark_hierarchical_model()
     SUITE = BenchmarkGroup()
 
-    for depth in 10 .^ range(1, stop = 2)
-        # This SUITE benchmarks how long it takes to create a state space model with depth `n` and default constraints
-        SUITE["default constraints", depth] = @benchmarkable create_hierarchical_model($depth)
-        # This SUITE benchmarks how long it takes to create a state space model with depth `n` and mean field constraints
-        SUITE["mean field constraints", depth] = @benchmarkable create_hierarchical_model($depth, constraints) setup = begin
+    for length in 10 .^ range(1, stop = 5)
+        # This SUITE benchmarks how long it takes to create a state space model with depth `2` and length `n` and default constraints
+        SUITE["default constraints", length] = @benchmarkable create_hierarchical_model($length)
+        # This SUITE benchmarks how long it takes to create a state space model with depth `2` and length `2` and mean field constraints
+        SUITE["mean field constraints", length] = @benchmarkable create_hierarchical_model($length, constraints) setup = begin
             constraints = hierarchical_mean_field_constraints()
         end
     end
@@ -74,9 +75,9 @@ end
     y ~ Normal(x, σ)
 end
 
-@model function hgf(κ, ω, θ, x_begin, depth)
+@model function hgf(κ, ω, θ, x_begin, length)
     means[1] ~ gcv(κ = κ, ω = ω, θ = θ, x = x_begin)
-    for i in 2:depth
+    for i in 2:length
         means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i - 1])
     end
 end
@@ -89,13 +90,13 @@ hierarchical_mean_field_constraints() = @constraints begin
     end
 end
 
-function create_hierarchical_model(depth::Int, constraints = nothing)
+function create_hierarchical_model(length::Int, constraints = nothing)
     plugins = if isnothing(constraints)
         GraphPPL.PluginsCollection()
     else
         GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))
     end
-    return GraphPPL.create_model(GraphPPL.with_plugins(hgf(depth = depth), plugins)) do model, ctx
+    return GraphPPL.create_model(GraphPPL.with_plugins(hgf(length = length), plugins)) do model, ctx
         κ = GraphPPL.getorcreate!(model, ctx, :κ, nothing)
         ω = GraphPPL.getorcreate!(model, ctx, :ω, nothing)
         θ = GraphPPL.getorcreate!(model, ctx, :θ, nothing)
