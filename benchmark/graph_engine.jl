@@ -3,25 +3,39 @@ using GraphPPL
 
 function benchmark_graph_engine()
     SUITE = BenchmarkGroup(["graph_creation"])
+
+    # Benchmark how long it takes to create a model structure
     SUITE["create_model"] = @benchmarkable GraphPPL.create_model()
-    SUITE["variable_node_creation"] = variable_node_creation()
-    SUITE["factor_node_creation"] = factor_node_creation()
+
+    # Benchmark how long it takes to get the context of a model
+    SUITE["getcontext"] = @benchmarkable_withmodel GraphPPL.getcontext(model)
+
+    # Benchmark how long it takes to create a factor node
+    SUITE["factor_node_creation"] = benchmark_factor_node_creation()
+
+    # Benchmark how long it takes to get or create a variable node
+    # SUITE["variable_node_creation"] = variable_node_creation()
+
+    
     return SUITE
 end
 
+# Benchmark how long it takes to create a factor node
+function benchmark_factor_node_creation()
+    SUITE = BenchmarkGroup()
 
-function factor_node_creation()
-    SUITE = BenchmarkGroup(["node_creation"])
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
-    local x
-    for i in 5:5:25
-        for j in 1:i
-            x = GraphPPL.getorcreate!(model, ctx, :x, j)
+    for f in (sum,), n in 5:5:25
+        SUITE["make_node!", f, n] = @benchmarkable GraphPPL.make_node!(model, ctx, $f, y, (in = x,)) setup=begin 
+            model = GraphPPL.create_model()
+            ctx = GraphPPL.getcontext(model)
+            y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
+            x = nothing
+            for i in 1:$n
+                x = GraphPPL.getorcreate!(model, ctx, :x, i)
+            end
         end
-        y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
-        SUITE["Create factor node with $i edges"] = @benchmarkable GraphPPL.make_node!(m, c, sum, $y, (in = $x,)) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
     end
+
     return SUITE
 end
 
@@ -41,9 +55,13 @@ end
 
 function variable_node_creation()
     SUITE = BenchmarkGroup(["node_creation"])
-    model = GraphPPL.create_model()
-    ctx = GraphPPL.getcontext(model)
-    SUITE["add_variable_node"] = @benchmarkable GraphPPL.add_variable_node!(m, c, :x, nothing) setup=(m=deepcopy($model);c=deepcopy($ctx)) evals=1
+    
+    setup = quote 
+        model = GraphPPL.create_model()
+        ctx = GraphPPL.getcontext(model)
+    end
+
+    SUITE["add_variable_node"] = eval(:(@benchmarkable GraphPPL.add_variable_node!(m, c, :x, nothing) setup=$setup))
 
     for j in 10 .^ range(1, stop=3)
         j = convert(Int, j)
