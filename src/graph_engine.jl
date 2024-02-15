@@ -408,11 +408,10 @@ struct VariableNodeProperties
     kind::Symbol
     link::Any
     value::Any
-    factorized::Bool
 end
 
-VariableNodeProperties(; name, index, kind = :random, link = nothing, value = nothing, factorized = false) =
-    VariableNodeProperties(name, index, kind, link, value, factorized)
+VariableNodeProperties(; name, index, kind = :random, link = nothing, value = nothing) =
+    VariableNodeProperties(name, index, kind, link, value)
 
 is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
@@ -423,8 +422,7 @@ function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, optio
         index = index,
         kind = get(options, :kind, :random),
         link = get(options, :link, nothing),
-        value = get(options, :value, nothing),
-        factorized = get(options, :factorized, false)
+        value = get(options, :value, nothing)
     )
 end
 
