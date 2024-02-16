@@ -13,8 +13,8 @@
     @test basic_model(a = 1, b = 2) isa ModelGenerator
 
     @test create_model(basic_model()) do model, ctx
-        a = getorcreate!(model, ctx, NodeCreationOptions(constant = true, value = 1, factorized = true), :a, nothing)
-        b = getorcreate!(model, ctx, NodeCreationOptions(datavar = true, factorized = true), :b, nothing)
+        a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1, factorized = true), :a, nothing)
+        b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
         return (; a = a, b = b)
     end isa Model
 
@@ -28,8 +28,7 @@ end
 @testitem "Indexing in provided fixed kwargs" begin
     using Distributions
 
-    import GraphPPL:
-        ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_datavar, is_constant, getproperties, value
+    import GraphPPL: ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_data, is_constant, getproperties, value
 
     @model function basic_model(inputs)
         x ~ Beta(inputs[1], inputs[2])
@@ -51,16 +50,16 @@ end
         @test betaneighbors[1] isa NodeLabel
         @test getname(betaneighbors[1]) === :x
         @test !is_constant(getproperties(model[betaneighbors[1]]))
-        @test !is_datavar(getproperties(model[betaneighbors[1]]))
+        @test !is_data(getproperties(model[betaneighbors[1]]))
 
         @test betaneighbors[2] isa NodeLabel
         @test is_constant(getproperties(model[betaneighbors[2]]))
-        @test !is_datavar(getproperties(model[betaneighbors[2]]))
+        @test !is_data(getproperties(model[betaneighbors[2]]))
         @test value(getproperties(model[betaneighbors[2]])) === a
 
         @test betaneighbors[3] isa NodeLabel
         @test is_constant(getproperties(model[betaneighbors[3]]))
-        @test !is_datavar(getproperties(model[betaneighbors[3]]))
+        @test !is_data(getproperties(model[betaneighbors[3]]))
         @test value(getproperties(model[betaneighbors[3]])) === b
     end
 end

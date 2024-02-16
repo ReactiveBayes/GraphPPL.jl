@@ -17,7 +17,7 @@ function preprocess_plugin(
     return label, nodedata
 end
 
-struct FilterById <: AbstractModelFilterPredicate 
+struct FilterById <: AbstractModelFilterPredicate
     id
 end
 

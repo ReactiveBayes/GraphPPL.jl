@@ -52,9 +52,11 @@ end
     end
 
     @test @inferred(
-        PluginsCollection(APluginOfArbitraryPluginType1(),APluginOfArbitraryPluginType2()) +
-        PluginsCollection(APluginOfArbitraryPluginType1(),APluginOfArbitraryPluginType2()) 
-    ) === PluginsCollection(APluginOfArbitraryPluginType1(),APluginOfArbitraryPluginType2(), APluginOfArbitraryPluginType1(),APluginOfArbitraryPluginType2())
+        PluginsCollection(APluginOfArbitraryPluginType1(), APluginOfArbitraryPluginType2()) +
+            PluginsCollection(APluginOfArbitraryPluginType1(), APluginOfArbitraryPluginType2())
+    ) === PluginsCollection(
+        APluginOfArbitraryPluginType1(), APluginOfArbitraryPluginType2(), APluginOfArbitraryPluginType1(), APluginOfArbitraryPluginType2()
+    )
 end
 
 @testitem "PluginsCollection filtering and getters" begin

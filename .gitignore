@@ -52,3 +52,4 @@ benchmark_*md
 examples/*Compiled
 statprof
 profile.pb.gz
+.swp

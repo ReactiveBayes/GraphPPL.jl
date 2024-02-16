@@ -31,18 +31,25 @@ GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlu
 function preprocess_plugin(
     plugin::VariationalConstraintsPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
 )
-    preprocess_vi_plugin!(plugin, nodedata, getproperties(nodedata))
+    preprocess_vi_plugin!(plugin, nodedata, getproperties(nodedata), options)
     return label, nodedata
 end
 
-function preprocess_vi_plugin!(::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::FactorNodeProperties)
+function preprocess_vi_plugin!(
+    ::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::FactorNodeProperties, options::NodeCreationOptions
+)
     # if hasextra(nodedata, :factorization_constraints) || hasextra(nodedata, :factorization_constraints_bitset)
     #     error("Factorizatiom constraints has been already defined for the node ", nodedata, ".")
     # end
     return nothing
 end
 
-function preprocess_vi_plugin!(::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::VariableNodeProperties)
+function preprocess_vi_plugin!(
+    ::VariationalConstraintsPlugin, nodedata::NodeData, nodeproperties::VariableNodeProperties, options::NodeCreationOptions
+)
+    if haskey(options, :factorized)
+        setextra!(nodedata, :factorized, options[:factorized])
+    end
     # if hasextra(nodedata, :posterior_form_constraint) || hasextra(nodedata, :messages_form_constraint)
     #     error("Functional form constraints have been already defined for the node ", nodedata, ".")
     # end

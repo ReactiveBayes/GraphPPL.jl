@@ -456,6 +456,54 @@ end
     @test_throws MethodError push!(constraints, "string")
 end
 
+@testitem "is_factorized" begin
+    import GraphPPL: is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
+
+    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    ctx = getcontext(m)
+
+    x_1 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_1, nothing)
+    @test is_factorized(m[x_1])
+
+    x_2 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_2, nothing)
+    @test is_factorized(m[x_2])
+
+    x_3 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_3, 1)
+    @test is_factorized(m[x_3[1]])
+
+    x_4 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_4, 1)
+    @test is_factorized(m[x_4[1]])
+
+    x_5 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_5, [1, 2, 3])
+    @test is_factorized(m[x_5[1, 2, 3]])
+
+    x_6 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_6, 1, 2, 3)
+    @test is_factorized(m[x_6[1, 2, 3]])
+end
+
+@testitem "is_factorized || is_constant" begin
+    import GraphPPL: is_constant, is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
+
+    include("../../model_zoo.jl")
+
+    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    ctx = getcontext(m)
+    x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, nothing)
+    @test is_factorized(m[x])
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+        for label in variable_nodes(model)
+            nodedata = model[label]
+            if is_constant(getproperties(nodedata))
+                @test is_factorized(nodedata)
+            else
+                @test !is_factorized(nodedata)
+            end
+        end
+    end
+end
+
 @testitem "is_valid_partition(::Set)" begin
     using GraphPPL
     import GraphPPL: is_valid_partition
@@ -989,7 +1037,14 @@ end
 
 @testitem "default_constraints" begin
     import GraphPPL:
-        default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra, EmptyConstraints
+        default_constraints,
+        factorization_constraint,
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        hasextra,
+        getextra,
+        EmptyConstraints
 
     include("../../model_zoo.jl")
 

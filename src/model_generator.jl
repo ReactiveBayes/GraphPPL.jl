@@ -22,8 +22,8 @@ function with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
 end
 
 function create_model(generator::ModelGenerator)
-    return create_model(generator) do model, ctx 
-        return (; )
+    return create_model(generator) do model, ctx
+        return (;)
     end
 end
 

@@ -154,68 +154,19 @@ end
     end
 end
 
-@testitem "is_datavar" begin
-    import GraphPPL: is_datavar, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
+@testitem "is_data" begin
+    import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
     include("model_zoo.jl")
 
     m = create_model()
     ctx = getcontext(m)
-    x = getorcreate!(m, ctx, NodeCreationOptions(datavar = true), :x, nothing)
-    @test is_datavar(getproperties(m[x]))
+    x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
+    @test is_data(getproperties(m[x]))
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
         model = create_terminated_model(model_name)
         for label in variable_nodes(model)
-            @test !is_datavar(getproperties(model[label]))
-        end
-    end
-end
-
-@testitem "is_factorized" begin
-    import GraphPPL: is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
-    include("model_zoo.jl")
-
-    m = create_model()
-    ctx = getcontext(m)
-
-    x_1 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_1, nothing)
-    @test is_factorized(getproperties(m[x_1]))
-
-    x_2 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_2, nothing)
-    @test is_factorized(getproperties(m[x_2]))
-
-    x_3 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_3, 1)
-    @test is_factorized(getproperties(m[x_3[1]]))
-
-    x_4 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_4, 1)
-    @test is_factorized(getproperties(m[x_4[1]]))
-
-    x_5 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_5, [1, 2, 3])
-    @test is_factorized(getproperties(m[x_5[1, 2, 3]]))
-
-    x_6 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_6, 1, 2, 3)
-    @test is_factorized(getproperties(m[x_6[1, 2, 3]]))
-end
-
-@testitem "is_factorized || is_constant" begin
-    import GraphPPL: is_constant, is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
-    include("model_zoo.jl")
-
-    m = create_model()
-    ctx = getcontext(m)
-    x = getorcreate!(m, ctx, NodeCreationOptions(datavar = true, factorized = true), :x, nothing)
-    @test is_factorized(getproperties(m[x]))
-
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
-        for label in variable_nodes(model)
-            nodedata = model[label]
-            properties = getproperties(nodedata)
-            if is_constant(properties)
-                @test is_factorized(properties)
-            else
-                @test !is_factorized(properties)
-            end
+            @test !is_data(getproperties(model[label]))
         end
     end
 end
@@ -310,7 +261,7 @@ end
 
     function GraphPPL.preprocess_plugin(::AnArbitraryPluginForChangingOptions, model, context, label, nodedata, options)
         # Here we replace the original options entirely
-        return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(constant = true, value = 1.0)))
+        return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(kind = :constant, value = 1.0)))
     end
 
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
@@ -1036,8 +987,8 @@ end
         ctx = getcontext(model)
         @test_throws ErrorException getorcreate!(model, ctx, :a)
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(), :a)
-        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :a)
-        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(constant = true, value = 2), :a)
+        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a)
+        @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2), :a)
     end
 end
 
@@ -1198,7 +1149,7 @@ end
     # Test 11: Add a variable with options
     model = create_model()
     ctx = getcontext(model)
-    var = add_variable_node!(model, ctx, NodeCreationOptions(constant = true, value = 1.0), :x, nothing)
+    var = add_variable_node!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :x, nothing)
     @test nv(model) == 1 &&
         haskey(ctx, :x) &&
         ctx[:x] == var &&
@@ -1339,7 +1290,7 @@ end
     model = create_model()
     ctx = getcontext(model)
     a = getorcreate!(model, ctx, :x, nothing)
-    b = getorcreate!(model, ctx, NodeCreationOptions(datavar = true), :x, nothing)
+    b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :x, nothing)
     c = 1.0
 
     # Test 1. Tuple based input
