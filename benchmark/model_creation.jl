@@ -18,9 +18,9 @@ function benchmark_state_space_model()
 
     for n in 10 .^ range(1, stop = 5)
         # This SUITE benchmarks how long it takes to create a state space model with length `n` and default constraints
-        SUITE["default constraints", n] = @benchmarkable create_state_space_model($n)
+        SUITE["default constraints", n] = @benchmarkable create_state_space_model($n) evals = 1
         # This SUITE benchmarks how long it takes to create a state space model with length `n` and mean field constraints
-        SUITE["mean field constraints", n] = @benchmarkable create_state_space_model($n, constraints) setup = begin
+        SUITE["mean field constraints", n] = @benchmarkable create_state_space_model($n, constraints) evals = 1 setup = begin
             constraints = state_space_mean_field_constraints()
         end
     end
@@ -59,9 +59,9 @@ function benchmark_hierarchical_model()
 
     for length in 10 .^ range(1, stop = 5)
         # This SUITE benchmarks how long it takes to create a state space model with depth `2` and length `n` and default constraints
-        SUITE["default constraints", length] = @benchmarkable create_hierarchical_model($length)
+        SUITE["default constraints", length] = @benchmarkable create_hierarchical_model($length) evals = 1
         # This SUITE benchmarks how long it takes to create a state space model with depth `2` and length `2` and mean field constraints
-        SUITE["mean field constraints", length] = @benchmarkable create_hierarchical_model($length, constraints) setup = begin
+        SUITE["mean field constraints", length] = @benchmarkable create_hierarchical_model($length, constraints) evals = 1 setup = begin
             constraints = hierarchical_mean_field_constraints()
         end
     end

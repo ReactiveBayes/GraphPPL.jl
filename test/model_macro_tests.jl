@@ -1670,14 +1670,14 @@ end
     @test nv(model) == 67
 end
 
-@testitem "ModelGenerator based constructor is being created" begin 
+@testitem "ModelGenerator based constructor is being created" begin
     import GraphPPL: ModelGenerator
 
     @model function foo(x, y)
         x ~ y + 1
     end
 
-    @test foo(x = 1,) isa ModelGenerator
-    @test foo(y = 1,) isa ModelGenerator
-    @test foo(x = 1, y = 1,) isa ModelGenerator
+    @test foo(x = 1) isa ModelGenerator
+    @test foo(y = 1) isa ModelGenerator
+    @test foo(x = 1, y = 1) isa ModelGenerator
 end

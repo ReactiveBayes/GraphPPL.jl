@@ -458,7 +458,6 @@ end
 
 @testitem "is_factorized" begin
     import GraphPPL: is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
-    
 
     m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
@@ -1038,7 +1037,14 @@ end
 
 @testitem "default_constraints" begin
     import GraphPPL:
-        default_constraints, factorization_constraint, getproperties, PluginsCollection, VariationalConstraintsPlugin, hasextra, getextra, EmptyConstraints
+        default_constraints,
+        factorization_constraint,
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        hasextra,
+        getextra,
+        EmptyConstraints
 
     include("../../model_zoo.jl")
 

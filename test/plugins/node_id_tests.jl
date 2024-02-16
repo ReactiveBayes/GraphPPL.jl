@@ -47,5 +47,4 @@
         @test model[collect(filter(by_nodeid(4), model))[1]] === nodedata5
         @test model[collect(filter(by_nodeid(4), model))[2]] === nodedata6
     end
-
 end

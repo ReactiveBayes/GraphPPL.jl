@@ -28,8 +28,7 @@ end
 @testitem "Indexing in provided fixed kwargs" begin
     using Distributions
 
-    import GraphPPL:
-        ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_data, is_constant, getproperties, value
+    import GraphPPL: ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_data, is_constant, getproperties, value
 
     @model function basic_model(inputs)
         x ~ Beta(inputs[1], inputs[2])

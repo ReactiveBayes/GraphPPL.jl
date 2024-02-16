@@ -182,11 +182,11 @@ end
             return (b = 1,)
         end
         @test_throws "should not intersect" create_model(generator) do model, ctx
-            return (a = 1, b = 2,)
+            return (a = 1, b = 2)
         end
     end
 
-    @testset begin 
+    @testset begin
         generator = simple_model_for_model_generator(c = 1)
 
         @test generator isa ModelGenerator
@@ -203,7 +203,7 @@ end
         end
     end
 
-    @testset begin 
+    @testset begin
         generator = simple_model_for_model_generator(a = 1, b = 2)
 
         globalobservationref = Ref{Any}(nothing) # for test
@@ -212,14 +212,14 @@ end
             observation = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :observation, nothing)
             @test isnothing(globalobservationref[])
             globalobservationref[] = observation
-            return (observation = observation, )
+            return (observation = observation,)
         end
 
         @test model isa Model
         @test !isnothing(globalobservationref[])
         @test globalobservationref[] isa NodeLabel
         @test GraphPPL.is_data(GraphPPL.getproperties(model[globalobservationref[]]))
-        
+
         nnodes = collect(filter(as_node(Normal), model))
 
         @test length(nnodes) === 1
