@@ -1,3 +1,10 @@
+@testitem "Empty meta" begin
+    import GraphPPL: MetaPlugin, EmptyMeta
+
+    @test MetaPlugin() == MetaPlugin(EmptyMeta)
+    @test MetaPlugin(nothing) == MetaPlugin(EmptyMeta)
+end
+
 @testitem "@meta macro pipeline" begin
     using GraphPPL
 

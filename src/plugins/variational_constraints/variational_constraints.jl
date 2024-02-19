@@ -24,7 +24,10 @@ struct VariationalConstraintsPlugin{C}
     constraints::C
 end
 
-VariationalConstraintsPlugin() = VariationalConstraintsPlugin(EmptyConstraints())
+const EmptyConstraints = UnspecifiedConstraints()
+
+VariationalConstraintsPlugin() = VariationalConstraintsPlugin(EmptyConstraints)
+VariationalConstraintsPlugin(::Nothing) = VariationalConstraintsPlugin(EmptyConstraints)
 
 GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin()
 

@@ -369,15 +369,15 @@ getconstraints(c::Constraints) = Iterators.flatten((
 Base.push!(c_set::GeneralSubModelConstraints, c) = push!(getconstraint(c_set), c)
 Base.push!(c_set::SpecificSubModelConstraints, c) = push!(getconstraint(c_set), c)
 
-struct EmptyConstraints end
+struct UnspecifiedConstraints end
 
-factorization_constraints(::EmptyConstraints) = ()
-posterior_form_constraints(::EmptyConstraints) = ()
-message_form_constraints(::EmptyConstraints) = ()
-general_submodel_constraints(::EmptyConstraints) = (;)
-specific_submodel_constraints(::EmptyConstraints) = (;)
+factorization_constraints(::UnspecifiedConstraints) = ()
+posterior_form_constraints(::UnspecifiedConstraints) = ()
+message_form_constraints(::UnspecifiedConstraints) = ()
+general_submodel_constraints(::UnspecifiedConstraints) = (;)
+specific_submodel_constraints(::UnspecifiedConstraints) = (;)
 
-default_constraints(::Any) = EmptyConstraints()
+default_constraints(::Any) = UnspecifiedConstraints()
 
 struct ResolvedIndexedVariable{T}
     variable::IndexedVariable{T}
@@ -822,7 +822,7 @@ end
 function apply_constraints!(
     model::Model,
     context::Context,
-    constraint_set::Union{Constraints, EmptyConstraints},
+    constraint_set::Union{Constraints, UnspecifiedConstraints},
     resolved_factorization_constraints::ConstraintStack
 )
     for fc in factorization_constraints(constraint_set)

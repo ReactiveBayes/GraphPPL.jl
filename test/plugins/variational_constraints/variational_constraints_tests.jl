@@ -1,3 +1,9 @@
+@testitem "Empty constraints" begin
+    import GraphPPL: VariationalConstraintsPlugin, EmptyConstraints
+
+    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(EmptyConstraints)
+    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(EmptyConstraints)
+end
 
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions

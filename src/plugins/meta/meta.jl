@@ -13,6 +13,7 @@ end
 const EmptyMeta = @meta begin end
 
 MetaPlugin() = MetaPlugin(EmptyMeta)
+MetaPlugin(::Nothing) = MetaPlugin(EmptyMeta)
 
 GraphPPL.plugin_type(::MetaPlugin) = FactorNodePlugin()
 
