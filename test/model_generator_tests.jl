@@ -23,6 +23,13 @@
     end isa Model
 
     @test create_model(basic_model(a = 1, b = 2)) isa Model
+
+    # The positional arguments are not yet allowed at this point, at least print a nice error message
+    @test_throws "The `basic_model` model macro does not support positional arguments" basic_model(1, 2)
+    @test_throws "a = ..." basic_model(1, 2)
+    @test_throws "a = ..." basic_model(1, b = 2)
+    @test_throws "b = ..." basic_model(1, 2)
+    @test_throws "b = ..." basic_model(a = 1, 2)
 end
 
 @testitem "Indexing in provided fixed kwargs" begin

@@ -660,9 +660,9 @@ end
 
 function get_make_node_function(ms_body, ms_args, ms_name)
     # TODO (bvdmitri): prettify
-    init_input_arguments = map(ms_args) do arg
-        arg_name = preprocess_interface_expression(arg; warn = false)
-        error_msg = "Missing interface $(arg)"
+    ms_arg_names = map((arg) -> preprocess_interface_expression(arg; warn = false), ms_args)
+    init_input_arguments = map(zip(ms_args, ms_arg_names)) do (arg, arg_name)
+        error_msg = "Missing interface $(arg_name)"
         return quote
             if !haskey(__interfaces__, $(QuoteNode(arg_name)))
                 error($error_msg)
@@ -670,6 +670,9 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             $arg = __interfaces__[$(QuoteNode(arg_name))]
         end
     end
+    unsupported_positional_arguments_errmsg = """
+    The `$(ms_name)` model macro does not support positional arguments. Use keyword arguments `$(ms_name)($(join(map(a -> string(a, " = ..."), ms_arg_names), ", ")))` instead.
+    """
     make_node_function = quote
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
@@ -703,6 +706,10 @@ function get_make_node_function(ms_body, ms_args, ms_name)
 
         function ($ms_name)(; kwargs...)
             return GraphPPL.ModelGenerator($ms_name, kwargs)
+        end
+
+        function ($ms_name)(args...; kwargs...)
+            error($unsupported_positional_arguments_errmsg)
         end
     end
     return make_node_function
