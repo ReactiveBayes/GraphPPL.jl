@@ -1048,7 +1048,7 @@ end
 
     include("../../model_zoo.jl")
 
-    @test default_constraints(simple_model) == EmptyConstraints()
+    @test default_constraints(simple_model) == EmptyConstraints
     @test default_constraints(model_with_default_constraints) == @constraints(
         begin
             q(a, d) = q(a)q(d)
