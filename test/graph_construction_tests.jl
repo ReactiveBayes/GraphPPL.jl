@@ -6,7 +6,16 @@
     using Distributions
 
     import GraphPPL:
-        create_model, getcontext, add_toplevel_model!, factor_nodes, variable_nodes, is_constant, getproperties, as_node, as_variable
+        create_model,
+        getcontext,
+        add_toplevel_model!,
+        factor_nodes,
+        variable_nodes,
+        is_constant,
+        getproperties,
+        as_node,
+        as_variable,
+        degree
 
     @model function simple_model_1()
         x ~ Normal(0, 1)
@@ -34,6 +43,10 @@
     @test length(collect(filter(as_variable(:x), model))) === 1
     @test length(collect(filter(as_variable(:y), model))) === 1
     @test length(collect(filter(as_variable(:z), model))) === 1
+
+    @test degree(model, first(collect(filter(as_variable(:x), model)))) === 2
+    @test degree(model, first(collect(filter(as_variable(:y), model)))) === 2
+    @test degree(model, first(collect(filter(as_variable(:z), model)))) === 1
 end
 
 @testitem "Simple model #2" begin
@@ -64,15 +77,16 @@ end
 @testitem "Simple state space model" begin
     using Distributions
 
-    import GraphPPL: create_model, add_toplevel_model!
+    import GraphPPL: create_model, add_toplevel_model!, degree
 
     # Test that graph construction creates the right amount of nodes and variables in a simple state space model
     @model function state_space_model(n)
+        γ ~ Gamma(1, 1)
         x[1] ~ Normal(0, 1)
-        y[1] ~ Normal(x[1], 1)
+        y[1] ~ Normal(x[1], γ)
         for i in 2:n
             x[i] ~ Normal(x[i - 1], 1)
-            y[i] ~ Normal(x[i], 1)
+            y[i] ~ Normal(x[i], γ)
         end
     end
     for n in [10, 30, 50, 100, 1000]
@@ -81,6 +95,15 @@ end
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_variable(:x), model))) == n
         @test length(collect(filter(as_variable(:y), model))) == n
+
+        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:end-1]) # Intermediate entries have degree `3`
+        @test all(v -> degree(model, v) === 2, collect(filter(as_variable(:x), model))[end:end]) # The last entry has degree `2`
+
+        @test all(v -> degree(model, v) === 1, filter(as_variable(:y), model)) # The data entries have degree `1`
+
+        @test length(collect(filter(as_node(Gamma), model))) == 1
+        @test length(collect(filter(as_variable(:γ), model))) == 1
+        @test all(v -> degree(model, v) === n + 1, filter(as_variable(:γ), model)) # The shared variable should have degree `n + 1` (1 for the prior and `n` for the likelihoods)
     end
 end
 

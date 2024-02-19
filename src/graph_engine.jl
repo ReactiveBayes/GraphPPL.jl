@@ -5,7 +5,7 @@ using NamedTupleTools
 using Dictionaries
 
 import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
-import MetaGraphsNext.Graphs: neighbors
+import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context
 
@@ -575,6 +575,8 @@ Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::Fact
 function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties)
     return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
 end
+
+Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, MetaGraphsNext.code_for(model.graph, label))
 
 abstract type AbstractModelFilterPredicate end
 

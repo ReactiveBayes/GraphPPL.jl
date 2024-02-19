@@ -137,6 +137,39 @@ end
     end
 end
 
+@testitem "degree" begin
+    import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
+
+    for n in 5:10
+        model = create_model()
+        ctx = getcontext(model)
+
+        unused = getorcreate!(model, ctx, :unusued, nothing)
+        x = getorcreate!(model, ctx, :x, nothing)
+        y = getorcreate!(model, ctx, :y, nothing)
+
+        foreach(1:n) do k
+            getorcreate!(model, ctx, :z, k)
+        end
+
+        z = getorcreate!(model, ctx, :z, 1)
+
+        @test degree(model, unused) === 0
+        @test degree(model, x) === 0
+        @test degree(model, y) === 0
+        @test all(zᵢ -> degree(model, zᵢ) === 0, z)
+
+        for i in 1:n
+            make_node!(model, ctx, NodeCreationOptions(), sum, y, (in = [x, z[i]],))
+        end
+
+        @test degree(model, unused) === 0
+        @test degree(model, x) === n
+        @test degree(model, y) === n
+        @test all(zᵢ -> degree(model, zᵢ) === 1, z)
+    end
+end
+
 @testitem "is_constant" begin
     import GraphPPL: is_constant, variable_nodes, getname, getproperties
     include("model_zoo.jl")
