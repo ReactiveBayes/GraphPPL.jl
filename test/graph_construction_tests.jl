@@ -234,6 +234,18 @@ end
         @test allunique(ysindices)
         @test Set(ysindices) == Set(1:n)
     end
+
+    # Test errors
+    @testset for n in 5:10, model in models
+
+
+        @test_throws "is not defined for a lazy node label without data attached" create_model(model()) do model, ctx
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex())
+            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex())
+
+            return (y = y, Σ = Σ)
+        end
+    end
 end
 
 @testitem "Simple state space model" begin

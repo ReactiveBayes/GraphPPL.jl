@@ -880,6 +880,19 @@ end
 
 struct MissingCollection end
 
+__err_missing_collection_missing_method(method::Symbol) =
+    error("The `$method` method is not defined for a lazy node label without data attached.")
+
+Base.IteratorSize(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:IteratorSize)
+Base.IteratorEltype(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:IteratorEltype)
+Base.eltype(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:eltype)
+Base.length(::MissingCollection) = __err_missing_collection_missing_method(:length)
+Base.size(::MissingCollection, dims...) = __err_missing_collection_missing_method(:size)
+Base.firstindex(::MissingCollection) = __err_missing_collection_missing_method(:firstindex)
+Base.lastindex(::MissingCollection) = __err_missing_collection_missing_method(:lastindex)
+Base.eachindex(::MissingCollection) = __err_missing_collection_missing_method(:eachindex)
+Base.axes(::MissingCollection) = __err_missing_collection_missing_method(:axes)
+
 LazyIndex() = LazyIndex(MissingCollection())
 
 getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::LazyIndex) =
@@ -900,9 +913,9 @@ check_variate_compatability(label::LazyNodeLabel, indices...) =
     __lazy_node_label_check_variate_compatability(label, label.collection, indices)
 
 # Redirect some of the standart collection methods to the underlying collection
-Base.IteratorSize(::LazyNodeLabel{O, C}) where {O, C} = Base.IteratorSize(C)
-Base.IteratorEltype(::LazyNodeLabel{O, C}) where {O, C} = Base.IteratorEltype(C)
-Base.eltype(::LazyNodeLabel{O, C}) where {O, C} = Base.eltype(C)
+Base.IteratorSize(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorSize(C)
+Base.IteratorEltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorEltype(C)
+Base.eltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.eltype(C)
 Base.length(label::LazyNodeLabel) = Base.length(label.collection)
 Base.size(label::LazyNodeLabel, dims...) = Base.size(label.collection, dims...)
 Base.firstindex(label::LazyNodeLabel) = Base.firstindex(label.collection)
