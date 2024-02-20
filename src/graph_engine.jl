@@ -789,7 +789,6 @@ function check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, inde
     if !(length(index) == N)
         error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
     end
-
     return isassigned(node, index...)
 end
 
@@ -883,9 +882,9 @@ struct MissingCollection end
 __err_missing_collection_missing_method(method::Symbol) =
     error("The `$method` method is not defined for a lazy node label without data attached.")
 
-Base.IteratorSize(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:IteratorSize)
-Base.IteratorEltype(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:IteratorEltype)
-Base.eltype(::Type{MissingCollection}) where {O, C} = __err_missing_collection_missing_method(:eltype)
+Base.IteratorSize(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorSize)
+Base.IteratorEltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorEltype)
+Base.eltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:eltype)
 Base.length(::MissingCollection) = __err_missing_collection_missing_method(:length)
 Base.size(::MissingCollection, dims...) = __err_missing_collection_missing_method(:size)
 Base.firstindex(::MissingCollection) = __err_missing_collection_missing_method(:firstindex)

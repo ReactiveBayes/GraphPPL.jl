@@ -237,8 +237,6 @@ end
 
     # Test errors
     @testset for n in 5:10, model in models
-
-
         @test_throws "is not defined for a lazy node label without data attached" create_model(model()) do model, ctx
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex())
             Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex())
@@ -278,6 +276,60 @@ end
         @test length(collect(filter(as_node(Gamma), model))) == 1
         @test length(collect(filter(as_variable(:γ), model))) == 1
         @test all(v -> degree(model, v) === n + 1, filter(as_variable(:γ), model)) # The shared variable should have degree `n + 1` (1 for the prior and `n` for the likelihoods)
+    end
+end
+
+@testitem "Simple state space model with lazy data creation with attached data" begin
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_random, is_data, degree
+
+    @model function state_space_model_with_lazy_data(y, Σ)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], Σ)
+        for i in 2:length(y)
+            x[i] ~ Normal(x[i - 1], 1)
+            y[i] ~ Normal(x[i], Σ)
+        end
+    end
+
+    for n in 5:10
+        ydata = ones(n)
+        Σdata = ones(n, n)
+
+        model = GraphPPL.create_model(state_space_model_with_lazy_data()) do model, ctx
+            y = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, GraphPPL.LazyIndex(ydata))
+            Σ = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :Σ, GraphPPL.LazyIndex(Σdata))
+            return (y = y, Σ = Σ)
+        end
+
+        @test length(collect(filter(as_node(Normal), model))) === 2n
+        @test length(collect(filter(as_variable(:Σ), model))) === 1
+        @test length(collect(filter(as_variable(:y), model))) === n
+        @test length(collect(filter(as_variable(:x), model))) === n
+
+        # # test that options are preserved
+        @test all(label -> is_random(getproperties(model[label])), collect(filter(as_variable(:x), model)))
+        @test all(label -> is_data(getproperties(model[label])), collect(filter(as_variable(:y), model)))
+        @test all(label -> is_data(getproperties(model[label])), collect(filter(as_variable(:Σ), model)))
+
+        # # test that indices are of expected shape
+        Σsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:Σ), model)))
+        xsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:x), model)))
+        ysindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:y), model)))
+
+        @test allunique(Σsindices)
+        @test Set(Σsindices) == Set([nothing])
+
+        @test allunique(xsindices)
+        @test Set(xsindices) == Set(1:n)
+
+        @test allunique(ysindices)
+        @test Set(ysindices) == Set(1:n)
+
+        # Test that the `x` variables are connected to 3 nodes (except for the last one)
+        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:(end - 1)]) # Intermediate entries have degree `3`
+        @test all(v -> degree(model, v) === 2, collect(filter(as_variable(:x), model))[end:end]) # The last entry has degree `2`
     end
 end
 
