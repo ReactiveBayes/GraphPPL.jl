@@ -137,6 +137,41 @@ end
     end
 end
 
+@testitem "variable_nodes with anonymous variables" begin 
+    # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
+
+    using Distributions
+    import GraphPPL: create_model, variable_nodes, getname
+
+    @model function simple_submodel_with_2_anonymous_for_variable_nodes(z, x, y)
+        # Creates two anonymous variables here
+        z ~ Normal(x + 1, y - 1)
+    end
+
+    @model function simple_submodel_with_3_anonymous_for_variable_nodes(z, x, y)
+        # Creates three anonymous variables here
+        z ~ Normal(x + 1, y - 1 + 1)
+    end
+    
+    @model function simple_model_for_variable_nodes(submodel)
+        x ~ Normal(0, 1)
+        y ~ Gamma(1, 1)
+        z ~ submodel(x = x, y = y)
+    end
+
+    @testset let submodel = simple_submodel_with_2_anonymous_for_variable_nodes
+        model = create_model(simple_model_for_variable_nodes(submodel = submodel))
+        @test length(collect(variable_nodes(model))) === 11
+        @test length(collect(filter(v -> getname(v) === :anonymous, collect(variable_nodes(model))))) === 2
+    end
+
+    @testset let submodel = simple_submodel_with_3_anonymous_for_variable_nodes
+        model = create_model(simple_model_for_variable_nodes(submodel = submodel))
+        @test length(collect(variable_nodes(model))) === 13 # +1 for new anonymous +1 for new constant
+        @test length(collect(filter(v -> getname(v) === :anonymous, collect(variable_nodes(model))))) === 3
+    end
+end
+
 @testitem "degree" begin
     import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
 
