@@ -174,10 +174,10 @@ index(label::ProxyLabel) = label.index
 unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
 
 __proxy_unroll(something) = something
-__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
-__proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
-__proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
-__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index]
+__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy, proxy.proxied)
+__proxy_unroll(::Nothing, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)
+__proxy_unroll(index, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)[index...]
+__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)[index]
 
 Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
 Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
@@ -257,7 +257,11 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
 
     if iscompact
         print(io, "Context(", shortname(context), " | ")
-        nvariables = length(context.individual_variables) + length(context.vector_variables) + length(context.tensor_variables) + length(context.proxies)
+        nvariables =
+            length(context.individual_variables) +
+            length(context.vector_variables) +
+            length(context.tensor_variables) +
+            length(context.proxies)
         nfactornodes = length(context.factor_nodes)
         print(io, nvariables, " variables, ", nfactornodes, " factor nodes")
         if !isempty(context.children)
@@ -267,7 +271,7 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
     else
         indentation = get(io, :indentation, 0)::Int
         indentationstr = " "^indentation
-        indentationstrp1 = " "^(indentation+1)
+        indentationstrp1 = " "^(indentation + 1)
         println(io, indentationstr, "Context(", shortname(context), ")")
         println(io, indentationstrp1, "Individual variables: ", keys(individual_variables(context)))
         println(io, indentationstrp1, "Vector variables: ", keys(vector_variables(context)))
@@ -281,7 +285,6 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
             end
         end
     end
-
 end
 
 getname(f::Function) = String(Symbol(f))
@@ -513,7 +516,7 @@ variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node])
 A version `variable_nodes(model)` that uses a callback function to process the variable nodes.
 The callback function accepts both the label and the node data.
 """
-function variable_nodes(callback::F, model::Model) where { F }
+function variable_nodes(callback::F, model::Model) where {F}
     for label in labels(model)
         nodedata = model[label]
         if is_variable(nodedata)
@@ -863,6 +866,65 @@ getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
+
+struct LazyIndex end
+
+struct LazyNodeLabel{O}
+    model::Model
+    context::Context
+    options::O
+    name::Symbol
+end
+
+struct IndexedLazyNodeLabel{L, T}
+    lazynodelabel::L
+    index::T
+end
+
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, ::LazyIndex)
+    return LazyNodeLabel(model, ctx, options, name)
+end
+
+check_variate_compatability(::LazyNodeLabel, ::Any) = true
+
+function getifcreated(model::Model, context::Context, label::LazyNodeLabel)
+    return getifcreated(model, context, IndexedLazyNodeLabel(label, nothing))
+end
+
+function getifcreated(model::Model, context::Context, label::IndexedLazyNodeLabel)
+    return getorcreate!(model, context, label.lazynodelabel.options, label.lazynodelabel.name, label.index)
+end
+
+# function proxylabel(name::Symbol, ::Nothing, proxied::LazyNodeLabel) where {T} 
+#     if name === proxied.name
+#         return getorcreate!(proxied.model, proxied.context, proxied.options, name, nothing)
+#     else
+#         error("heh?")
+#     end
+# end
+
+proxylabel(name::Symbol, index, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+
+function __proxy_unroll(index::Tuple, proxy::GraphPPL.ProxyLabel, proxied::LazyNodeLabel)
+    return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, index...)[index...]
+end
+
+function __proxy_unroll(index::Nothing, proxy::GraphPPL.ProxyLabel, proxied::LazyNodeLabel)
+    return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, nothing)
+end
+
+# function __proxy_unroll(index::Tuple, proxy::ProxyLabel, proxied::ResizableArray)
+#     return 
+# end
+
+# function proxylabel(name::Symbol, index::T, proxied::LazyNodeLabel) where {T} 
+#     if name === proxied.name
+#         lazilycreated = getorcreate!(proxied.model, proxied.context, proxied.options, name, index...)
+#         return lazilycreated[index...]
+#     else
+#         error("heh?")
+#     end
+# end
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)

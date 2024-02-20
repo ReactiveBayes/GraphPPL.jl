@@ -571,7 +571,7 @@ function convert_tilde_expression(e::Expr)
         options = GraphPPL.options_vector_to_named_tuple(options)
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
-            $lhs = GraphPPL.make_node!(
+            GraphPPL.make_node!(
                 __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
             )
         end
