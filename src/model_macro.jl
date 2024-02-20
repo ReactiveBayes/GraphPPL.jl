@@ -18,7 +18,7 @@ struct walk_until_occurrence{E}
     patterns::E
 end
 
-not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref))
+not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
 
 function (w::walk_until_occurrence{E})(f, x) where {E <: Tuple}
     return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
@@ -467,6 +467,19 @@ function proxy_args(lhs, rhs)
         return :($lhs = GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
     elseif @capture(rhs, rlabel_[index__])
         return :($lhs = GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+    elseif @capture(rhs, new(rlabel_[index__]))
+        newrhs = gensym(:force_create)
+        errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
+        return :(
+            $lhs =
+                let $newrhs = if isassigned($rlabel, $(index...))
+                        error($errmsg)
+                    else
+                        GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
+                    end
+                    GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
+                end
+        )
     end
     return :($lhs = $rhs)
 end

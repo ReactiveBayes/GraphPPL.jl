@@ -867,8 +867,18 @@ getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
 
+"""
+`LazyIndex` is used to track the usage of a variable in the model without explicitly specifying its dimensions.
+`getorcreate!` function will return a `LazyNodeLabel` which will materialize itself upon first usage with the correct dimensions.
+E.g. `y[1]` will materialize vector variable `y` and `y[1, 1]` will materialize tensor variable `y`.
+"""
 struct LazyIndex end
 
+getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, ::LazyIndex) = LazyNodeLabel(model, ctx, options, name)
+
+"""
+`LazyNodeLabel` is a label that lazily creates variables upon request in the `proxylabel` function.
+"""
 struct LazyNodeLabel{O}
     model::Model
     context::Context
@@ -876,55 +886,19 @@ struct LazyNodeLabel{O}
     name::Symbol
 end
 
-struct IndexedLazyNodeLabel{L, T}
-    lazynodelabel::L
-    index::T
-end
-
-function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, ::LazyIndex)
-    return LazyNodeLabel(model, ctx, options, name)
-end
-
 check_variate_compatability(::LazyNodeLabel, ::Any) = true
 
-function getifcreated(model::Model, context::Context, label::LazyNodeLabel)
-    return getifcreated(model, context, IndexedLazyNodeLabel(label, nothing))
-end
-
-function getifcreated(model::Model, context::Context, label::IndexedLazyNodeLabel)
-    return getorcreate!(model, context, label.lazynodelabel.options, label.lazynodelabel.name, label.index)
-end
-
-# function proxylabel(name::Symbol, ::Nothing, proxied::LazyNodeLabel) where {T} 
-#     if name === proxied.name
-#         return getorcreate!(proxied.model, proxied.context, proxied.options, name, nothing)
-#     else
-#         error("heh?")
-#     end
-# end
-
+# A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
+# This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.
 proxylabel(name::Symbol, index, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 
-function __proxy_unroll(index::Tuple, proxy::GraphPPL.ProxyLabel, proxied::LazyNodeLabel)
+function __proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel)
     return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, index...)[index...]
 end
 
-function __proxy_unroll(index::Nothing, proxy::GraphPPL.ProxyLabel, proxied::LazyNodeLabel)
+function __proxy_unroll(::Nothing, ::ProxyLabel, proxied::LazyNodeLabel)
     return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, nothing)
 end
-
-# function __proxy_unroll(index::Tuple, proxy::ProxyLabel, proxied::ResizableArray)
-#     return 
-# end
-
-# function proxylabel(name::Symbol, index::T, proxied::LazyNodeLabel) where {T} 
-#     if name === proxied.name
-#         lazilycreated = getorcreate!(proxied.model, proxied.context, proxied.options, name, index...)
-#         return lazilycreated[index...]
-#     else
-#         error("heh?")
-#     end
-# end
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
