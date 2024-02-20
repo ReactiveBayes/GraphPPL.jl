@@ -137,6 +137,29 @@ end
     end
 end
 
+@testitem "variable_nodes with lambda function" begin 
+    import GraphPPL: variable_nodes, is_variable, labels
+
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(variable_nodes(model))
+        variable_nodes(model) do label, nodedata 
+            @test is_variable(model[label])
+            @test is_variable(nodedata)
+            @test model[label] === nodedata
+            @test label ∈ labels(model)
+            @test label ∈ fnodes
+
+            clength = length(fnodes)
+            filter!(n -> n !== label, fnodes)
+            @test length(fnodes) === clength - 1 # Only one should be removed
+        end
+        @test length(fnodes) === 0 # all should be processed
+    end
+end
+
 @testitem "variable_nodes with anonymous variables" begin 
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
 

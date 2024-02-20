@@ -510,6 +510,19 @@ factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), 
 variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
 
 """
+A version `variable_nodes(model)` that uses a callback function to process the variable nodes.
+The callback function accepts both the label and the node data.
+"""
+function variable_nodes(callback::F, model::Model) where { F }
+    for label in labels(model)
+        nodedata = model[label]
+        if is_variable(nodedata)
+            callback((label::NodeLabel), (nodedata::NodeData))
+        end
+    end
+end
+
+"""
 A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
 """
 struct StaticInterfaces{I} end
