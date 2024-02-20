@@ -886,7 +886,7 @@ struct LazyNodeLabel{O}
     name::Symbol
 end
 
-check_variate_compatability(::LazyNodeLabel, ::Any) = true
+check_variate_compatability(::LazyNodeLabel, indices...) = true
 
 # A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
 # This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.

@@ -74,6 +74,57 @@ end
     @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
 end
 
+@testitem "Simple model #3 with lazy data creation" begin
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    @model function simple_submodel_3(T, x, y, Λ)
+        T ~ Normal(x + y, Λ)
+    end
+
+    @model function simple_model_3(y, Σ, n, T)
+        m ~ Beta(1, 1)
+        for i in 1:n, j in 1:n
+            T[i, j] ~ simple_submodel_3(x = m, Λ = Σ, y = y[i])
+        end
+    end
+
+    @testset for n in 5:10
+        model = create_model(simple_model_3(n = n)) do model, ctx
+            T = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_T), :T, LazyIndex())
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_y), :y, LazyIndex())
+            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_Σ), :Σ, LazyIndex())
+            return (T = T, y = y, Σ = Σ)
+        end
+
+        @test length(collect(filter(as_node(Beta), model))) === 1
+        @test length(collect(filter(as_node(Normal), model))) === n^2
+        @test length(collect(filter(as_variable(:T), model))) === n^2
+        @test length(collect(filter(as_variable(:Σ), model))) === 1
+        @test length(collect(filter(as_variable(:y), model))) === n
+
+        # test that options are preserved
+        @test all(label -> is_kind(getproperties(model[label]), :data_for_T), collect(filter(as_variable(:T), model)))
+        @test all(label -> is_kind(getproperties(model[label]), :data_for_y), collect(filter(as_variable(:y), model)))
+        @test all(label -> is_kind(getproperties(model[label]), :data_for_Σ), collect(filter(as_variable(:Σ), model)))
+
+        # test that indices are of expected shape
+        Tsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:T), model)))
+        Σsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:Σ), model)))
+        ysindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:y), model)))
+
+        @test allunique(Tsindices)
+        @test Set(Tsindices) == Set(((i, j) for i in 1:n, j in 1:n))
+
+        @test allunique(Σsindices)
+        @test Set(Σsindices) == Set([nothing])
+
+        @test allunique(ysindices)
+        @test Set(ysindices) == Set(1:n)
+    end
+end
+
 @testitem "Simple state space model" begin
     using Distributions
 
@@ -96,7 +147,7 @@ end
         @test length(collect(filter(as_variable(:x), model))) == n
         @test length(collect(filter(as_variable(:y), model))) == n
 
-        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:end-1]) # Intermediate entries have degree `3`
+        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:(end - 1)]) # Intermediate entries have degree `3`
         @test all(v -> degree(model, v) === 2, collect(filter(as_variable(:x), model))[end:end]) # The last entry has degree `2`
 
         @test all(v -> degree(model, v) === 1, filter(as_variable(:y), model)) # The data entries have degree `1`
