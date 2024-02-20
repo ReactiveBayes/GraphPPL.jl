@@ -125,6 +125,117 @@ end
     end
 end
 
+@testitem "Simple model #4 with lazy data creation with attached data" begin
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    @model function simple_model_4_withlength(y, Σ)
+        m ~ Beta(1, 1)
+
+        for i in 1:length(y)
+            y[i] ~ Normal(m, Σ)
+        end
+    end
+
+    @model function simple_model_4_withsize(y, Σ)
+        m ~ Beta(1, 1)
+
+        for i in 1:size(y, 1)
+            y[i] ~ Normal(m, Σ)
+        end
+    end
+
+    @model function simple_model_4_witheachindex(y, Σ)
+        m ~ Beta(1, 1)
+
+        for i in eachindex(y)
+            y[i] ~ Normal(m, Σ)
+        end
+    end
+
+    @model function simple_model_4_with_firstindex_lastindex(y, Σ)
+        m ~ Beta(1, 1)
+
+        for i in firstindex(y):lastindex(y)
+            y[i] ~ Normal(m, Σ)
+        end
+    end
+
+    @model function simple_model_4_with_forloop(y, Σ)
+        m ~ Beta(1, 1)
+
+        for yᵢ in y
+            yᵢ ~ Normal(m, Σ)
+        end
+    end
+
+    @model function simple_model_4_with_foreach(y, Σ)
+        m ~ Beta(1, 1)
+
+        foreach(y) do yᵢ
+            yᵢ ~ Normal(m, Σ)
+        end
+    end
+
+    models = [
+        simple_model_4_withlength,
+        simple_model_4_witheachindex,
+        simple_model_4_withsize,
+        simple_model_4_with_firstindex_lastindex,
+        simple_model_4_with_forloop,
+        simple_model_4_with_foreach
+    ]
+
+    @testset for n in 5:10, model in models
+        ydata = rand(n)
+        Σdata = Matrix(ones(n, n))
+
+        model = create_model(model()) do model, ctx
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex(Σdata))
+
+            # Check also that the methods are redirected properly
+            @test length(ydata) === length(y)
+            @test size(ydata) === size(y)
+            @test size(ydata, 1) === size(y, 1)
+            @test firstindex(ydata) === firstindex(y)
+            @test lastindex(ydata) === lastindex(y)
+            @test eachindex(ydata) === eachindex(y)
+            @test axes(ydata) === axes(y)
+
+            @test length(Σdata) === length(Σ)
+            @test size(Σdata) === size(Σ)
+            @test size(Σdata, 1) === size(Σ, 1)
+            @test size(Σdata, 2) === size(Σ, 2)
+            @test firstindex(Σdata) === firstindex(Σ)
+            @test lastindex(Σdata) === lastindex(Σ)
+            @test eachindex(Σdata) === eachindex(Σ)
+            @test axes(Σdata) === axes(Σ)
+
+            return (y = y, Σ = Σ)
+        end
+
+        @test length(collect(filter(as_node(Beta), model))) === 1
+        @test length(collect(filter(as_node(Normal), model))) === n
+        @test length(collect(filter(as_variable(:Σ), model))) === 1
+        @test length(collect(filter(as_variable(:y), model))) === n
+
+        # test that options are preserved
+        @test all(label -> is_kind(getproperties(model[label]), :data), collect(filter(as_variable(:Σ), model)))
+
+        # test that indices are of expected shape
+        Σsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:Σ), model)))
+        ysindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:y), model)))
+
+        @test allunique(Σsindices)
+        @test Set(Σsindices) == Set([nothing])
+
+        @test allunique(ysindices)
+        @test Set(ysindices) == Set(1:n)
+    end
+end
+
 @testitem "Simple state space model" begin
     using Distributions
 

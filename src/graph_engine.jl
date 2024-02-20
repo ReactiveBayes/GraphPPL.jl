@@ -871,34 +871,92 @@ getifcreated(model::Model, context::Context, var) =
 `LazyIndex` is used to track the usage of a variable in the model without explicitly specifying its dimensions.
 `getorcreate!` function will return a `LazyNodeLabel` which will materialize itself upon first usage with the correct dimensions.
 E.g. `y[1]` will materialize vector variable `y` and `y[1, 1]` will materialize tensor variable `y`.
+Optionally the `LazyIndex` can be associated with a `collection`, in which case it not only redirects most of the common 
+collection methods to the underlying collection, but also checks that the dimensions and usage match of such labels in the model specification is correct.
 """
-struct LazyIndex end
+struct LazyIndex{C}
+    collection::C
+end
 
-getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, ::LazyIndex) = LazyNodeLabel(model, ctx, options, name)
+struct MissingCollection end
+
+LazyIndex() = LazyIndex(MissingCollection())
+
+getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::LazyIndex) =
+    LazyNodeLabel(model, ctx, options, name, index.collection)
 
 """
 `LazyNodeLabel` is a label that lazily creates variables upon request in the `proxylabel` function.
 """
-struct LazyNodeLabel{O}
+struct LazyNodeLabel{O, C}
     model::Model
     context::Context
     options::O
     name::Symbol
+    collection::C
 end
 
-check_variate_compatability(::LazyNodeLabel, indices...) = true
+check_variate_compatability(label::LazyNodeLabel, indices...) =
+    __lazy_node_label_check_variate_compatability(label, label.collection, indices)
+
+# Redirect some of the standart collection methods to the underlying collection
+Base.IteratorSize(::LazyNodeLabel{O, C}) where {O, C} = Base.IteratorSize(C)
+Base.IteratorEltype(::LazyNodeLabel{O, C}) where {O, C} = Base.IteratorEltype(C)
+Base.eltype(::LazyNodeLabel{O, C}) where {O, C} = Base.eltype(C)
+Base.length(label::LazyNodeLabel) = Base.length(label.collection)
+Base.size(label::LazyNodeLabel, dims...) = Base.size(label.collection, dims...)
+Base.firstindex(label::LazyNodeLabel) = Base.firstindex(label.collection)
+Base.lastindex(label::LazyNodeLabel) = Base.lastindex(label.collection)
+Base.eachindex(label::LazyNodeLabel) = Base.eachindex(label.collection)
+Base.axes(label::LazyNodeLabel) = Base.axes(label.collection)
+
+function __lazy_iterator(label::LazyNodeLabel)
+    return Iterators.map(I -> __materialize_lazy_node_label(label, I.I), CartesianIndices(axes(label)))
+end
+
+function Base.iterate(label::LazyNodeLabel)
+    iterator = __lazy_iterator(label)
+    nextiteration = Base.iterate(iterator)
+    if isnothing(nextiteration)
+        return nothing
+    end
+    element, nextstate = nextiteration
+    return (element, (iterator, nextstate))
+end
+
+function Base.iterate(::LazyNodeLabel, state)
+    iterator, currentstate = state
+    nextiteration = Base.iterate(iterator, currentstate)
+    if isnothing(nextiteration)
+        return nothing
+    end
+    element, nextstate = nextiteration
+    return (element, (iterator, nextstate))
+end
+
+# We cannot really check any `indices` if the underlying collection is missing 
+__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::MissingCollection, indices) = true
+
+# Here we can check if the `indices` are compatible with the underlying collection
+__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices) = checkbounds(Bool, collection, indices...)::Bool
 
 # A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
 # This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.
 proxylabel(name::Symbol, index, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 
-function __proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel)
-    return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, index...)[index...]
+materialize_interface(label::LazyNodeLabel) = __materialize_lazy_node_label(label, nothing)
+
+function __materialize_lazy_node_label(label, index::Tuple)
+    return getorcreate!(label.model, label.context, label.options, label.name, index...)[index...]
 end
 
-function __proxy_unroll(::Nothing, ::ProxyLabel, proxied::LazyNodeLabel)
-    return getorcreate!(proxied.model, proxied.context, proxied.options, proxied.name, nothing)
+function __materialize_lazy_node_label(label, ::Nothing)
+    return getorcreate!(label.model, label.context, label.options, label.name, nothing)
 end
+
+# Need two methods here because of the method ambiguity
+__proxy_unroll(index::Nothing, ::ProxyLabel, proxied::LazyNodeLabel) = __materialize_lazy_node_label(proxied, index)
+__proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel) = __materialize_lazy_node_label(proxied, index)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -1133,6 +1191,12 @@ function prepare_interfaces(::StaticInterfaces{I}, fform, lhs_interface, rhs_int
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
+materialize_interface(interface) = interface
+
+function materialze_interfaces(interfaces::NamedTuple)
+    return map(materialize_interface, interfaces)
+end
+
 default_parametrization(::Atomic, fform, rhs::Tuple) = (in = rhs,)
 default_parametrization(::Composite, fform, rhs) = error("Composite nodes always have to be initialized with named arguments")
 
@@ -1350,7 +1414,7 @@ function make_node!(
     rhs_interfaces::NamedTuple
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
-    interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
+    interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
     materialize_factor_node!(model, context, options, fform, interfaces)
     return unroll(lhs_interface)
 end
