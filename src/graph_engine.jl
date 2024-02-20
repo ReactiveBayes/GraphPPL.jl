@@ -252,39 +252,36 @@ function generate_factor_nodelabel(context::Context, fform::Any)
     return FactorID(fform, count(context, fform))
 end
 
-function Base.show(io::IO, context::Context)
-    indentation = 2 * context.depth
-    println(io, "$("    " ^ indentation)Context: $(context.prefix)")
-    println(io, "$("    " ^ (indentation + 1))Individual variables:")
-    for (variable_name, variable_label) in context.individual_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name): $(variable_label)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Vector variables:")
-    for (variable_name, variable_labels) in context.vector_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Tensor variables: ")
-    for (variable_name, variable_labels) in context.tensor_variables
-        println(io, "$("    " ^ (indentation + 2))$(variable_name)")
-    end
-    println(io, "$("    " ^ (indentation + 1))Factor nodes: ")
-    for (factor_label, factor_context) in context.factor_nodes
-        if isa(factor_context, Context)
-            println(io, "$("    " ^ (indentation + 2))$(factor_label) : ")
-            show(io, factor_context)
-        else
-            println(io, "$("    " ^ (indentation + 2))$(factor_label) : $(factor_context)")
+function Base.show(io::IO, mime::MIME"text/plain", context::Context)
+    iscompact = get(io, :compact, false)::Bool
+
+    if iscompact
+        print(io, "Context(", shortname(context), " | ")
+        nvariables = length(context.individual_variables) + length(context.vector_variables) + length(context.tensor_variables) + length(context.proxies)
+        nfactornodes = length(context.factor_nodes)
+        print(io, nvariables, " variables, ", nfactornodes, " factor nodes")
+        if !isempty(context.children)
+            print(io, ", ", length(context.children), " children")
+        end
+        print(io, ")")
+    else
+        indentation = get(io, :indentation, 0)::Int
+        indentationstr = " "^indentation
+        indentationstrp1 = " "^(indentation+1)
+        println(io, indentationstr, "Context(", shortname(context), ")")
+        println(io, indentationstrp1, "Individual variables: ", keys(individual_variables(context)))
+        println(io, indentationstrp1, "Vector variables: ", keys(vector_variables(context)))
+        println(io, indentationstrp1, "Tensor variables: ", keys(tensor_variables(context)))
+        println(io, indentationstrp1, "Proxies: ", keys(proxies(context)))
+        println(io, indentationstrp1, "Factor nodes: ", collect(keys(factor_nodes(context))))
+        if !isempty(context.children)
+            println(io, indentationstrp1, "Children: ")
+            for child_context in values(context.children)
+                show(IOContext(io, :indentation => indentation + 2), mime, child_context)
+            end
         end
     end
-    println(io, "$("    " ^ (indentation + 1))Child Contexts: ")
-    for (child_name, child_context) in context.children
-        println(io, "$("    " ^ (indentation + 2))$(child_name) : ")
-        show(io, child_context)
-    end
-    println(io, "$("    " ^ (indentation + 1))Proxies from parent: ")
-    for (proxy_name, proxy_label) in context.proxies
-        println(io, "$("    " ^ (indentation + 2))$(proxy_name) : $(proxy_label)")
-    end
+
 end
 
 getname(f::Function) = String(Symbol(f))
