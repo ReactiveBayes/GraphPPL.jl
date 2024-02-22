@@ -2,7 +2,7 @@
 # We don't use models from the `model_zoo.jl` file because they are subject to change
 # These tests are meant to be stable and not change often
 
-@testitem "Simple model #1" begin
+@testitem "Simple model 1" begin
     using Distributions
 
     import GraphPPL:
@@ -46,7 +46,7 @@
     @test degree(model, first(collect(filter(as_variable(:z), model)))) === 1
 end
 
-@testitem "Simple model #2" begin
+@testitem "Simple model 2" begin
     using Distributions
     using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, prune!
 
@@ -67,7 +67,23 @@ end
     @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
 end
 
-@testitem "Simple model #3 with lazy data (number) creation" begin
+@testitem "Simple model but wrong indexing into a single random variable" begin
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions
+
+    @model function simple_model_with_wrong_indexing(y)
+        x ~ MvNormal([ 0.0, 0.0 ], [ 1.0 0.0; 0.0 1.0 ])
+        y ~ Beta(x[1], x[2])
+    end
+
+    # We may want to support it in the future, but for now we at least show a clear error message
+    @test_throws "Indexing a single node label `x` with an index `[1]` is not allowed." create_model(simple_model_with_wrong_indexing()) do model, context 
+        return (y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, nothing),)
+    end
+end
+
+@testitem "Simple model with lazy data (number) creation" begin
     using Distributions
 
     using GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
@@ -95,7 +111,7 @@ end
     @test length(filter(label -> is_constant(getproperties(model[label])), collect(filter(as_variable(), model)))) === 0
 end
 
-@testitem "Simple model #3 with lazy data (vector) creation" begin
+@testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
 
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
@@ -146,7 +162,7 @@ end
     end
 end
 
-@testitem "Simple model #4 with lazy data creation with attached data" begin
+@testitem "Simple model with lazy data creation with attached data" begin
     using Distributions
 
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind

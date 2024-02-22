@@ -407,7 +407,7 @@ end
 end
 
 @testitem "@constraints macro pipeline" begin
-    import GraphPPL: apply!, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
+    import GraphPPL: PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
 
     include("../../model_zoo.jl")
 

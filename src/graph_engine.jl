@@ -182,10 +182,16 @@ index(label::ProxyLabel) = label.index
 unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
 
 __proxy_unroll(something) = something
-__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy, proxy.proxied)
-__proxy_unroll(::Nothing, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)
-__proxy_unroll(index, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)[index...]
-__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel, proxied) = __proxy_unroll(proxied)[index]
+__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy, proxy.index, proxy.proxied)
+__proxy_unroll(proxy::ProxyLabel, index, proxied) = __safegetindex(__proxy_unroll(proxied), index)
+
+__safegetindex(something, index::FunctionalIndex) = Base.getindex(something, index)
+__safegetindex(something, index::Tuple) = Base.getindex(something, index...)
+__safegetindex(something, index::Nothing) = something
+
+__safegetindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
+__safegetindex(nodelabel::NodeLabel, index::Tuple) = error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
+__safegetindex(nodelabel::NodeLabel, index) = error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
 
 Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
 Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
@@ -1018,9 +1024,7 @@ __check_data_compatibility(label::LazyNodeLabel, collection::Number, indices::Tu
 # For all other we simply don't know so we assume we are compatible
 __check_data_compatibility(label::LazyNodeLabel, collection, indices::Tuple) = true
 
-# Need two methods here because of the method ambiguity
-__proxy_unroll(index::Nothing, ::ProxyLabel, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
-__proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
+__proxy_unroll(::ProxyLabel, index, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
