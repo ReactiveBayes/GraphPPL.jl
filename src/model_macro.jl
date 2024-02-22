@@ -450,7 +450,7 @@ function proxy_args end
 
 function proxy_args(arg)
     if @capture(arg, lhs_ = rhs_)
-        return proxy_args(lhs, rhs)
+        return proxy_args_lhs_eq_rhs(lhs, rhs)
     elseif @capture(arg, [args__])
         return Expr(:vect, map(proxy_args, args)...)
     elseif @capture(arg, (args__,))
@@ -458,30 +458,33 @@ function proxy_args(arg)
     elseif @capture(arg, GraphPPL.MixedArguments(first_, second_))
         return :(GraphPPL.MixedArguments($(proxy_args(first)), $(proxy_args(second))))
     end
-    return arg
+    return proxy_args_rhs(arg)
 end
 
-function proxy_args(lhs, rhs)
+function proxy_args_lhs_eq_rhs(lhs, rhs)
     @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    return :($lhs = $(proxy_args_rhs(rhs)))
+end
+
+function proxy_args_rhs(rhs)
     if isa(rhs, Symbol)
-        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
+        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
     elseif @capture(rhs, rlabel_[index__])
-        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
     elseif @capture(rhs, new(rlabel_[index__]))
         newrhs = gensym(:force_create)
         errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
         return :(
-            $lhs =
-                let $newrhs = if isassigned($rlabel, $(index...))
-                        error($errmsg)
-                    else
-                        GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
-                    end
-                    GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
+            let $newrhs = if isassigned($rlabel, $(index...))
+                    error($errmsg)
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
                 end
+                GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
+            end
         )
     end
-    return :($lhs = $rhs)
+    return rhs
 end
 
 """

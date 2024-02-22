@@ -23,10 +23,7 @@
         z ~ Normal(x, y)
     end
 
-    model = create_model()
-    context = getcontext(model)
-
-    add_toplevel_model!(model, simple_model_1, NamedTuple())
+    model = create_model(simple_model_1())
 
     flabels = collect(factor_nodes(model))
     vlabels = collect(variable_nodes(model))
@@ -58,23 +55,47 @@ end
         a ~ Normal(μ = x, σ = 1)
     end
 
-    model = create_model()
-    context = getcontext(model)
-
-    a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, nothing)
-    b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, nothing)
-    c = 1.0
-
-    add_toplevel_model!(model, simple_model_2, (a = a, b = b, c = c))
-
-    prune!(model)
+    model = create_model(simple_model_2()) do model, context
+        a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, nothing)
+        b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, nothing)
+        c = 1.0
+        return (a = a, b = b, c = c)
+    end
 
     @test length(collect(filter(as_node(Gamma), model))) === 1
     @test length(collect(filter(as_node(Normal), model))) === 1
     @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
 end
 
-@testitem "Simple model #3 with lazy data creation" begin
+@testitem "Simple model #3 with lazy data (number) creation" begin
+    using Distributions
+
+    using GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
+
+    @model function simple_model_3(a, b, c, d)
+        x ~ Beta(a, b)
+        y ~ Gamma(c, d)
+        z ~ Normal(x, y)
+    end
+
+    model = create_model(simple_model_3()) do model, context
+        a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+        b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, LazyIndex(2.0))
+        c = getorcreate!(model, context, NodeCreationOptions(kind = :data), :c, LazyIndex(π))
+        d = getorcreate!(model, context, NodeCreationOptions(kind = :data), :d, LazyIndex(missing))
+        return (a = a, b = b, c = c, d = d)
+    end
+
+    @test length(collect(filter(as_node(Beta), model))) === 1
+    @test length(collect(filter(as_node(Gamma), model))) === 1
+    @test length(collect(filter(as_node(Normal), model))) === 1
+
+    @test length(filter(label -> is_data(getproperties(model[label])), collect(filter(as_variable(), model)))) === 4
+    @test length(filter(label -> is_random(getproperties(model[label])), collect(filter(as_variable(), model)))) === 3
+    @test length(filter(label -> is_constant(getproperties(model[label])), collect(filter(as_variable(), model)))) === 0
+end
+
+@testitem "Simple model #3 with lazy data (vector) creation" begin
     using Distributions
 
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
@@ -243,6 +264,112 @@ end
 
             return (y = y, Σ = Σ)
         end
+    end
+end
+
+@testitem "Simple model with lazy data creation with attached data but out of bounds" begin
+
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    @model function simple_model_a_vector(a)
+        x ~ Beta(a[1], a[2]) # In the test the provided `a` will either a scalar or a vector of length 1
+        y ~ Gamma(a[3], a[4])
+        z ~ Normal(x, y)
+    end
+
+    @testset "simple_model_a_vector: `a` is a scalar" begin 
+
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            return (a = a,)
+        end
+
+    end
+
+    @testset "simple_model_a_vector: `a`` is a vector, but length is less than required in the model" begin 
+
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1]))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[3]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0]))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0]))
+            return (a = a,)
+        end
+
+    end
+
+    @model function simple_model_a_matrix(a)
+        x ~ Beta(a[1, 1], a[1, 2]) # In the test the provided `a` will either a scalar or a matrix of smaller size
+        y ~ Gamma(a[2, 1], a[2, 2])
+        z ~ Normal(x, y)
+    end
+
+    @testset "simple_model_a_matrix: `a` is a scalar" begin 
+
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            return (a = a,)
+        end
+
+    end
+
+    @testset "simple_model_a_matrix: `a` is a vector" begin 
+
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ ]))
+            return (a = a,)
+        end
+
+        # Here it is a bit tricky, because the `a` is a vector, however Julia allows doing `a[1, 1]` even if `a` is a vector
+        # So it starts erroring only on `[1, 2]`
+        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0, 1.0, 1.0, 1.0 ]))
+            return (a = a,)
+        end
+
+    end
+
+    @testset "simple_model_a_matrix: `a` is a matrix" begin 
+
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ ;; ]))
+            return (a = a,)
+        end
+
+        @test_throws "The index `[2, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0 1.0; ]))
+            return (a = a,)
+        end
+        
+        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0; 1.0 ]))
+            return (a = a,)
+        end
+
     end
 end
 

@@ -164,9 +164,17 @@ struct ProxyLabel{T}
     proxied::Any
 end
 
-proxylabel(name::Symbol, index::T, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) where {T} =
+# We need two methods to resolve the ambiguities
+proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) =
     ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::T, proxied) where {T} = proxied
+proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
+
+# By default we assume that the `proxied` is just a constant here, so
+# in case if 
+# - `index` is a `nothing` we simply return the constant as it is
+# - `index` is a `Tuple` we return the constant indexed by the tuple
+proxylabel(name::Symbol, index::Nothing, proxied) = proxied
+proxylabel(name::Symbol, index::Tuple, proxied) = proxied[index...]
 
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
@@ -923,7 +931,7 @@ Base.eachindex(label::LazyNodeLabel) = Base.eachindex(label.collection)
 Base.axes(label::LazyNodeLabel) = Base.axes(label.collection)
 
 function __lazy_iterator(label::LazyNodeLabel)
-    return Iterators.map(I -> __materialize_lazy_node_label(label, I.I), CartesianIndices(axes(label)))
+    return Iterators.map(I -> materialize_lazy_node_label(label, I.I), CartesianIndices(axes(label)))
 end
 
 function Base.iterate(label::LazyNodeLabel)
@@ -950,25 +958,69 @@ end
 __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::MissingCollection, indices) = true
 
 # Here we can check if the `indices` are compatible with the underlying collection
-__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices) = checkbounds(Bool, collection, indices...)::Bool
+function __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices)
+    if !(checkbounds(Bool, collection, indices...)::Bool)
+        error(BoundsError(label.name, indices))
+    end
+    return true
+end
 
 # A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
 # This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.
-proxylabel(name::Symbol, index, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+# Note: Need two methods here because of the method ambiguity
+proxylabel(name::Symbol, index::Nothing, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+proxylabel(name::Symbol, index::Tuple, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 
-materialize_interface(label::LazyNodeLabel) = __materialize_lazy_node_label(label, nothing)
+materialize_interface(label::LazyNodeLabel) = materialize_lazy_node_label(label, nothing)
+
+function materialize_lazy_node_label(label, index)
+    check_data_compatibility(label, index)
+    return __materialize_lazy_node_label(label, index)
+end
 
 function __materialize_lazy_node_label(label, index::Tuple)
     return getorcreate!(label.model, label.context, label.options, label.name, index...)[index...]
 end
 
-function __materialize_lazy_node_label(label, ::Nothing)
+function __materialize_lazy_node_label(label, index::Nothing)
     return getorcreate!(label.model, label.context, label.options, label.name, nothing)
 end
 
+function check_data_compatibility(label, index)
+    if !__check_data_compatibility(label, index)
+        error(
+            """
+      The index `[$(!isnothing(index) ? join(index, ", ") : nothing)]` is not compatible with the underlying collection provided for the label `$(label.name)`.
+      The underlying data provided for `$(label.name)` is `$(label.collection)`.
+      """
+        )
+    end
+    return nothing
+end
+
+function __check_data_compatibility(label::LazyNodeLabel, index::Nothing)
+    # We assume that no index is always compatible with the underlying collection
+    # Eg. a matrix `Σ` can be used both as it is `Σ`, but also as `Σ[1]` or `Σ[1, 1]`
+    return true
+end
+
+function __check_data_compatibility(label::LazyNodeLabel, index::Tuple)
+    return __check_data_compatibility(label, label.collection, index)
+end
+
+# We can't really check if the data compatible or not if we get the `MissingCollection`
+__check_data_compatibility(label::LazyNodeLabel, ::MissingCollection, index::Tuple) = true
+__check_data_compatibility(label::LazyNodeLabel, collection::AbstractArray, indices::Tuple) = checkbounds(Bool, collection, indices...)
+__check_data_compatibility(label::LazyNodeLabel, collection::Tuple, indices::Tuple) =
+    length(indices) === 1 && first(indices) ∈ 1:length(collection)
+# A number cannot really be queried with non-empty indices
+__check_data_compatibility(label::LazyNodeLabel, collection::Number, indices::Tuple) = false
+# For all other we simply don't know so we assume we are compatible
+__check_data_compatibility(label::LazyNodeLabel, collection, indices::Tuple) = true
+
 # Need two methods here because of the method ambiguity
-__proxy_unroll(index::Nothing, ::ProxyLabel, proxied::LazyNodeLabel) = __materialize_lazy_node_label(proxied, index)
-__proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel) = __materialize_lazy_node_label(proxied, index)
+__proxy_unroll(index::Nothing, ::ProxyLabel, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
+__proxy_unroll(index::Tuple, ::ProxyLabel, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
