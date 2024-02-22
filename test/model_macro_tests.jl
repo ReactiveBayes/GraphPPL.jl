@@ -1648,11 +1648,10 @@ end
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    local y
-    local x
     for i in 1:10
-        y = getorcreate!(model, ctx, :y, i)
+        getorcreate!(model, ctx, :y, i)
     end
+    y = getorcreate!(model, ctx, :y, 1)
     GraphPPL.add_terminated_submodel!(model, ctx, options, hgf, (y = y,), static(1))
     @test haskey(ctx, :ω_2) && haskey(ctx, :x_1) && haskey(ctx, :x_2) && haskey(ctx, :x_3)
 
@@ -1660,9 +1659,8 @@ end
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    local x_arr
     for i in 1:10
-        x_arr = getorcreate!(model, ctx, :x, i)
+        getorcreate!(model, ctx, :x, i)
     end
     x_arr = getorcreate!(model, ctx, :x, 1)
     y = getorcreate!(model, ctx, :y, nothing)
