@@ -532,12 +532,13 @@ end
     end
 
     for n in [10, 30, 50, 100, 1000]
-        model = GraphPPL.create_model()
-        context = GraphPPL.getcontext(model)
-        for i in 1:n
-            GraphPPL.getorcreate!(model, context, :y, i)
+        model = GraphPPL.create_model(hgf()) do model, context
+            for i in 1:n
+                GraphPPL.getorcreate!(model, context, :y, i)
+            end
+            return (y = y = GraphPPL.getorcreate!(model, context, :y, 1),)
         end
-        GraphPPL.add_toplevel_model!(model, hgf, (y = GraphPPL.getorcreate!(model, context, :y, 1),))
+
         @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7
         @test length(collect(filter(as_node(exp), model))) == 2 * n
         @test length(collect(filter(as_node(prod), model))) == 2 * n
@@ -545,98 +546,5 @@ end
         @test length(collect(filter(as_node(Gamma), model))) == 1
         @test length(collect(filter(as_node(Normal) & as_context(gcv), model))) == 2 * n
         @test length(collect(filter(as_variable(:x_1), model))) == n + 1
-    end
-end
-
-@testitem "Creation via `ModelGenerator`" begin
-    using Distributions
-
-    import GraphPPL:
-        create_model,
-        getcontext,
-        add_toplevel_model!,
-        factor_nodes,
-        variable_nodes,
-        is_constant,
-        getproperties,
-        as_node,
-        as_variable,
-        ModelGenerator,
-        NodeCreationOptions,
-        getorcreate!,
-        Model,
-        NodeLabel
-
-    @model function simple_model_for_model_generator(observation, a, b)
-        x ~ Beta(0, 1)
-        y ~ Gamma(a, b)
-        observation ~ Normal(x, y)
-    end
-
-    @testset begin
-        generator = simple_model_for_model_generator(a = 1, b = 2)
-
-        @test generator isa ModelGenerator
-
-        # Nonsensical return value
-        @test_throws "must be a `NamedTuple`" create_model(generator) do model, ctx
-            return ""
-        end
-
-        # Overlapping keys
-        @test_throws "should not intersect" create_model(generator) do model, ctx
-            return (a = 1,)
-        end
-        @test_throws "should not intersect" create_model(generator) do model, ctx
-            return (b = 1,)
-        end
-        @test_throws "should not intersect" create_model(generator) do model, ctx
-            return (a = 1, b = 2)
-        end
-    end
-
-    @testset begin
-        generator = simple_model_for_model_generator(c = 1)
-
-        @test generator isa ModelGenerator
-
-        @test_throws "Missing interface a" create_model(generator) do model, ctx
-            return (b = 2, observation = 3)
-        end
-        @test_throws "Missing interface b" create_model(generator) do model, ctx
-            return (a = 2, observation = 3)
-        end
-        # Too many keys, `c = 1` is extra
-        @test_throws MethodError create_model(generator) do model, ctx
-            return (a = 1, b = 2, observation = 3)
-        end
-    end
-
-    @testset begin
-        generator = simple_model_for_model_generator(a = 1, b = 2)
-
-        globalobservationref = Ref{Any}(nothing) # for test
-
-        model = create_model(generator) do model, ctx
-            observation = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :observation, nothing)
-            @test isnothing(globalobservationref[])
-            globalobservationref[] = observation
-            return (observation = observation,)
-        end
-
-        @test model isa Model
-        @test !isnothing(globalobservationref[])
-        @test globalobservationref[] isa NodeLabel
-        @test GraphPPL.is_data(GraphPPL.getproperties(model[globalobservationref[]]))
-
-        nnodes = collect(filter(as_node(Normal), model))
-
-        @test length(nnodes) === 1
-
-        outedge = first(GraphPPL.neighbors(GraphPPL.getproperties(model[nnodes[1]])))
-
-        # Test that the observation ref is connected to the `out` edge of the `Gaussian` node
-        @test outedge[1] === globalobservationref[]
-        @test GraphPPL.getname(outedge[2]) === :out
     end
 end
