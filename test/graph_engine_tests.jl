@@ -137,7 +137,7 @@ end
     end
 end
 
-@testitem "variable_nodes with lambda function" begin 
+@testitem "variable_nodes with lambda function" begin
     import GraphPPL: variable_nodes, is_variable, labels
 
     include("model_zoo.jl")
@@ -145,7 +145,7 @@ end
     for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
         model = create_terminated_model(model_name)
         fnodes = collect(variable_nodes(model))
-        variable_nodes(model) do label, nodedata 
+        variable_nodes(model) do label, nodedata
             @test is_variable(model[label])
             @test is_variable(nodedata)
             @test model[label] === nodedata
@@ -160,7 +160,7 @@ end
     end
 end
 
-@testitem "variable_nodes with anonymous variables" begin 
+@testitem "variable_nodes with anonymous variables" begin
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
 
     using Distributions
@@ -175,7 +175,7 @@ end
         # Creates three anonymous variables here
         z ~ Normal(x + 1, y - 1 + 1)
     end
-    
+
     @model function simple_model_for_variable_nodes(submodel)
         x ~ Normal(0, 1)
         y ~ Gamma(1, 1)
@@ -396,12 +396,12 @@ end
         end
 
         for i in 1:5
-            let p = ProxyLabel(:r, nothing, ProxyLabel(:x, i, s))
+            let p = ProxyLabel(:r, nothing, ProxyLabel(:x, (i, ), s))
                 @test unroll(p) === s[i]
             end
         end
 
-        let p = ProxyLabel(:r, 2, ProxyLabel(:x, (2:4,), s))
+        let p = ProxyLabel(:r, (2, ), ProxyLabel(:x, (2:4,), s))
             @test unroll(p) === s[3]
         end
         let p = ProxyLabel(:x, (2:4,), s)

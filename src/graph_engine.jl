@@ -190,8 +190,10 @@ __safegetindex(something, index::Tuple) = Base.getindex(something, index...)
 __safegetindex(something, index::Nothing) = something
 
 __safegetindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
-__safegetindex(nodelabel::NodeLabel, index::Tuple) = error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
-__safegetindex(nodelabel::NodeLabel, index) = error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
+__safegetindex(nodelabel::NodeLabel, index::Tuple) =
+    error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
+__safegetindex(nodelabel::NodeLabel, index) =
+    error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
 
 Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
 Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))

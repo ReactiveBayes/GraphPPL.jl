@@ -73,12 +73,14 @@ end
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions
 
     @model function simple_model_with_wrong_indexing(y)
-        x ~ MvNormal([ 0.0, 0.0 ], [ 1.0 0.0; 0.0 1.0 ])
+        x ~ MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])
         y ~ Beta(x[1], x[2])
     end
 
     # We may want to support it in the future, but for now we at least show a clear error message
-    @test_throws "Indexing a single node label `x` with an index `[1]` is not allowed." create_model(simple_model_with_wrong_indexing()) do model, context 
+    @test_throws "Indexing a single node label `x` with an index `[1]` is not allowed." create_model(
+        simple_model_with_wrong_indexing()
+    ) do model, context
         return (y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, nothing),)
     end
 end
@@ -284,7 +286,6 @@ end
 end
 
 @testitem "Simple model with lazy data creation with attached data but out of bounds" begin
-
     using Distributions
 
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
@@ -295,42 +296,50 @@ end
         z ~ Normal(x, y)
     end
 
-    @testset "simple_model_a_vector: `a` is a scalar" begin 
-
-        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+    @testset "simple_model_a_vector: `a` is a scalar" begin
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
             return (a = a,)
         end
 
-        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
             return (a = a,)
         end
-
     end
 
-    @testset "simple_model_a_vector: `a`` is a vector, but length is less than required in the model" begin 
-
-        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+    @testset "simple_model_a_vector: `a`` is a vector, but length is less than required in the model" begin
+        @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
             return (a = a,)
         end
 
-        @test_throws "The index `[2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+        @test_throws "The index `[2]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1]))
             return (a = a,)
         end
 
-        @test_throws "The index `[3]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+        @test_throws "The index `[3]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0]))
             return (a = a,)
         end
 
-        @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_vector()) do model, ctx
+        @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_vector()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0]))
             return (a = a,)
         end
-
     end
 
     @model function simple_model_a_matrix(a)
@@ -339,53 +348,61 @@ end
         z ~ Normal(x, y)
     end
 
-    @testset "simple_model_a_matrix: `a` is a scalar" begin 
-
-        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+    @testset "simple_model_a_matrix: `a` is a scalar" begin
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
             return (a = a,)
         end
 
-        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
             a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
             return (a = a,)
         end
-
     end
 
-    @testset "simple_model_a_matrix: `a` is a vector" begin 
-
-        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ ]))
+    @testset "simple_model_a_matrix: `a` is a vector" begin
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
             return (a = a,)
         end
 
         # Here it is a bit tricky, because the `a` is a vector, however Julia allows doing `a[1, 1]` even if `a` is a vector
         # So it starts erroring only on `[1, 2]`
-        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0, 1.0, 1.0, 1.0 ]))
+        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0, 1.0]))
             return (a = a,)
         end
-
     end
 
-    @testset "simple_model_a_matrix: `a` is a matrix" begin 
-
-        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ ;; ]))
+    @testset "simple_model_a_matrix: `a` is a matrix" begin
+        @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([;;]))
             return (a = a,)
         end
 
-        @test_throws "The index `[2, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0 1.0; ]))
-            return (a = a,)
-        end
-        
-        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(simple_model_a_matrix()) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([ 1.0; 1.0 ]))
+        @test_throws "The index `[2, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0 1.0;]))
             return (a = a,)
         end
 
+        @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
+            simple_model_a_matrix()
+        ) do model, ctx
+            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0; 1.0]))
+            return (a = a,)
+        end
     end
 end
 
