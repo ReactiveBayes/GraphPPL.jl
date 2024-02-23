@@ -536,7 +536,7 @@ end
             for i in 1:n
                 GraphPPL.getorcreate!(model, context, :y, i)
             end
-            return (y = y = GraphPPL.getorcreate!(model, context, :y, 1),)
+            return (y = GraphPPL.getorcreate!(model, context, :y, 1),)
         end
 
         @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7

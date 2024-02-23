@@ -844,10 +844,6 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     return get(() -> add_variable_node!(model, ctx, options, name, index), ctx.individual_variables, name)
 end
 
-function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::AbstractArray{Int})
-    return getorcreate!(model, ctx, options, name, index...)
-end
-
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::Integer)
     throw_if_individual_variable(ctx, name)
     throw_if_tensor_variable(ctx, name)
@@ -861,17 +857,33 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     return vectorvar
 end
 
-function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index...)
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, i1::Integer, is::Vararg{Integer})
     throw_if_individual_variable(ctx, name)
     throw_if_vector_variable(ctx, name)
     if !haskey(ctx.tensor_variables, name)
-        ctx[name] = ResizableArray(NodeLabel, Val(length(index)))
+        ctx[name] = ResizableArray(NodeLabel, Val(1 + length(is)))
     end
     tensorvar = ctx.tensor_variables[name]
-    if !isassigned(tensorvar, index...)
-        tensorvar[index...] = add_variable_node!(model, ctx, options, name, index)
+    if !isassigned(tensorvar, i1, is...)
+        tensorvar[i1, is...] = add_variable_node!(model, ctx, options, name, (i1, is...))
     end
     return tensorvar
+end
+
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, range::AbstractRange)
+    isempty(range) && error("Empty range is not allowed in the `getorcreate!` function for variable `$(name)`")
+    foreach(range) do i
+        getorcreate!(model, ctx, options, name, i)
+    end
+    return getorcreate!(model, ctx, options, name, first(range))
+end
+
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, r1::AbstractRange, rs::Vararg{AbstractRange})
+    (isempty(r1) || any(isempty, rs)) && error("Empty range is not allowed in the `getorcreate!` function for variable `$(name)`")
+    foreach(Iterators.product(r1, rs...)) do i
+        getorcreate!(model, ctx, options, name, i...)
+    end
+    return getorcreate!(model, ctx, options, name, first(r1), first.(rs)...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
@@ -978,6 +990,9 @@ end
 # Note: Need two methods here because of the method ambiguity
 proxylabel(name::Symbol, index::Nothing, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+
+# We disallow that because all accesses to the `LazyNodeLabel` should create a real label instead
+getifcreated(::Model, ::Context, ::LazyNodeLabel) = error("`getifcreated` cannot be called on a `LazyNodeLabel`")
 
 materialize_interface(label::LazyNodeLabel) = materialize_lazy_node_label(label, nothing)
 

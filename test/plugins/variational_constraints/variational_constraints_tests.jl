@@ -87,11 +87,7 @@ end
         @testset let constraints = empty_constraints
             model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
             context = getcontext(model)
-            y = nothing
-
-            for i in 1:n
-                y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
-            end
+            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
 
             add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
 
@@ -120,11 +116,7 @@ end
         @testset let constraints = mean_field_constraints
             model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
             context = getcontext(model)
-            y = nothing
-
-            for i in 1:n
-                y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
-            end
+            y = y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
 
             add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
 
@@ -191,11 +183,7 @@ end
 
         a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
         b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
-
-        y = nothing
-        for i in 1:n
-            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
-        end
+        y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
 
         add_toplevel_model!(model, context, simple_model, (a = a, b = b, y = y))
 
@@ -285,11 +273,7 @@ end
     @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5)
         model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
         context = getcontext(model)
-        y = nothing
-
-        for i in 1:n
-            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, i)
-        end
+        y = y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
 
         add_toplevel_model!(model, context, random_walk, (y = y, a = 1, b = 2))
 

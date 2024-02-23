@@ -396,12 +396,12 @@ end
         end
 
         for i in 1:5
-            let p = ProxyLabel(:r, nothing, ProxyLabel(:x, (i, ), s))
+            let p = ProxyLabel(:r, nothing, ProxyLabel(:x, (i,), s))
                 @test unroll(p) === s[i]
             end
         end
 
-        let p = ProxyLabel(:r, (2, ), ProxyLabel(:x, (2:4,), s))
+        let p = ProxyLabel(:r, (2,), ProxyLabel(:x, (2:4,), s))
             @test unroll(p) === s[3]
         end
         let p = ProxyLabel(:x, (2:4,), s)
@@ -950,7 +950,7 @@ end
 
 @testitem "getorcreate!" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, getorcreate!, check_variate_compatability, NodeLabel, ResizableArray, NodeCreationOptions
+    import GraphPPL: create_model, getcontext, getorcreate!, check_variate_compatability, NodeLabel, ResizableArray, NodeCreationOptions, getproperties, is_kind
 
     let # let block to suppress the scoping warnings
         # Test 1: Creation of regular one-dimensional variable
@@ -982,16 +982,15 @@ end
         # Test 4: Test that creating a vector variable creates an array of the correct size
         model = create_model()
         ctx = getcontext(model)
-        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, [1]))
+        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, 1))
         @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
 
         # Test 5: Test that recreating the same variable changes nothing
-        y2 =
-            !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, [1]))
+        y2 = !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, 1))
         @test y == y2 && nv(model) == 1 && ne(model) == 0
 
         # Test 6: Test that adding a variable to this vector variable increases the size of the array
-        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) : (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, [2]))
+        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) : (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, 2))
         @test nv(model) == 2 && y[2] isa NodeLabel && haskey(ctx.vector_variables, :y)
 
         # Test 7: Test that getting this variable without index does not work
@@ -1005,7 +1004,7 @@ end
         @test_throws ErrorException y = if !@isdefined(y)
             getorcreate!(model, ctx, :y, 1, 2)
         else
-            (check_variate_compatability(y, 1, 2) ? y : getorcreate!(model, ctx, :y, [1, 2]))
+            (check_variate_compatability(y, 1, 2) ? y : getorcreate!(model, ctx, :y, 1, 2))
         end
 
         #Test 9: Test that creating a tensor variable creates a tensor of the correct size
@@ -1014,7 +1013,7 @@ end
         z = if !@isdefined(z)
             getorcreate!(model, ctx, :z, 1, 1)
         else
-            (check_variate_compatability(z, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
+            (check_variate_compatability(z, 1, 1) ? z : getorcreate!(model, ctx, :z, 1, 1))
         end
         @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
 
@@ -1022,7 +1021,7 @@ end
         z2 = if !@isdefined(z2)
             getorcreate!(model, ctx, :z, 1, 1)
         else
-            (check_variate_compatability(z2, 1, 1) ? z : getorcreate!(model, ctx, :z, [1, 1]))
+            (check_variate_compatability(z2, 1, 1) ? z : getorcreate!(model, ctx, :z, 1, 1))
         end
         @test z == z2 && nv(model) == 1 && ne(model) == 0
 
@@ -1030,7 +1029,7 @@ end
         z = if !@isdefined(z)
             getorcreate!(model, ctx, :z, 2, 2)
         else
-            (check_variate_compatability(z, 2, 2) ? z : getorcreate!(model, ctx, :z, [2, 2]))
+            (check_variate_compatability(z, 2, 2) ? z : getorcreate!(model, ctx, :z, 2, 2))
         end
         @test nv(model) == 2 && z[2, 2] isa NodeLabel && haskey(ctx.tensor_variables, :z)
 
@@ -1043,34 +1042,34 @@ end
 
         #Test 13: Test that getting this variable with an index that is too small does not work
         @test_throws ErrorException z =
-            !@isdefined(z) ? getorcreate!(model, ctx, :z, [1]) : (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, [1]))
+            !@isdefined(z) ? getorcreate!(model, ctx, :z, 1) : (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, 1))
 
         #Test 14: Test that getting this variable with an index that is too large does not work
         @test_throws Union{AssertionError, ErrorException} z = if !@isdefined(z)
-            getorcreate!(model, ctx, :z, [1, 2, 3])
+            getorcreate!(model, ctx, :z, 1, 2, 3)
         else
-            (check_variate_compatability(z, 1, 2, 3) ? z : getorcreate!(model, ctx, :z, [1, 2, 3]))
+            (check_variate_compatability(z, 1, 2, 3) ? z : getorcreate!(model, ctx, :z, 1, 2, 3))
         end
 
         # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
-        model = create_model()
-        ctx = getcontext(model)
-        for i in 1:1
-            a = if !@isdefined(a)
+        let # force local scope
+            model = create_model()
+            ctx = getcontext(model)
+            if !@isdefined(a)
                 getorcreate!(model, ctx, :a, nothing)
             else
                 (check_variate_compatability(a, nothing) ? a : getorcreate!(model, ctx, :a, nothing))
             end
-        end
-        @test_throws ErrorException a = if !@isdefined(a)
-            getorcreate!(model, ctx, :a, [1])
-        else
-            (check_variate_compatability(a, :a) ? a : getorcreate!(model, ctx, :a, [1]))
-        end
-        @test_throws ErrorException a = if !@isdefined(a)
-            getorcreate!(model, ctx, :a, [1, 1])
-        else
-            (check_variate_compatability(a, 1, 2) ? a : getorcreate!(model, ctx, :a, [1, 1]))
+            @test_throws ErrorException a = if !@isdefined(a)
+                getorcreate!(model, ctx, :a, 1)
+            else
+                (check_variate_compatability(a, 1) ? a : getorcreate!(model, ctx, :a, 1))
+            end
+            @test_throws ErrorException a = if !@isdefined(a)
+                getorcreate!(model, ctx, :a, 1, 1)
+            else
+                (check_variate_compatability(a, 1, 1) ? a : getorcreate!(model, ctx, :a, 1, 1))
+            end
         end
 
         # Test 16. Test that the index is required to create a variable in the model
@@ -1080,6 +1079,39 @@ end
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(), :a)
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a)
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2), :a)
+
+        # Test 17. Range based getorcreate!
+        model = create_model()
+        ctx = getcontext(model)
+        var = getorcreate!(model, ctx, :a, 1:2)
+        @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
+
+        # Test 17.1 Range based getorcreate! should use the same options
+        model = create_model()
+        ctx = getcontext(model)
+        var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2)
+        @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
+        @test is_kind(getproperties(model[var[1]]), :data)
+        @test is_kind(getproperties(model[var[1]]), :data)
+
+        # Test 18. Range x2 based getorcreate!
+        model = create_model()
+        ctx = getcontext(model)
+        var = getorcreate!(model, ctx, :a, 1:2, 1:3)
+        @test nv(model) == 6
+        for i in 1:2, j in 1:3
+            @test var[i, j] isa NodeLabel
+        end
+
+        # Test 18. Range x2 based getorcreate! should use the same options
+        model = create_model()
+        ctx = getcontext(model)
+        var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2, 1:3)
+        @test nv(model) == 6
+        for i in 1:2, j in 1:3
+            @test var[i, j] isa NodeLabel
+            @test is_kind(getproperties(model[var[i, j]]), :data)
+        end
     end
 end
 
@@ -1105,7 +1137,7 @@ end
     @test getifcreated(model, ctx, x) == x
 
     # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
-    y = getorcreate!(model, ctx, NodeCreationOptions(), :y, [1])
+    y = getorcreate!(model, ctx, NodeCreationOptions(), :y, 1)
     @test getifcreated(model, ctx, y[1]) == y[1]
 
     # Test case 3: check that getifcreated returns a new variable node when called with integer input
