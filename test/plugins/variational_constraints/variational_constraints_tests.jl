@@ -5,6 +5,272 @@
     @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(EmptyConstraints)
 end
 
+@testitem "simple @model + various constraints" begin
+    using Distributions
+    import GraphPPL:
+        create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
+
+    @model function simple_model()
+        x ~ Beta(1, 1)
+        t ~ Gamma(1, 1)
+        y ~ Normal(x, t)
+    end
+
+    @testset "No factorization" begin
+        no_factorization_constraint_1 = @constraints begin
+            q(x, y, t) = q(x, y, t)
+        end
+
+        no_factorization_constraint_2 = @constraints begin
+            q(x, y, t) = q(x, t, y)
+        end
+
+        no_factorization_constraint_3 = @constraints begin
+            q(x, y, t) = q(t, x, y)
+        end
+
+        no_factorization_constraint_4 = @constraints begin
+            q(x, y, t) = q(t, y, x)
+        end
+
+        no_factorization_constraint_5 = @constraints begin
+            q(x, y, t) = q(y, x, t)
+        end
+
+        no_factorization_constraint_6 = @constraints begin
+            q(x, y, t) = q(y, t, x)
+        end
+
+        no_factorization_constraint_7 = @constraints begin
+            q(y, x, t) = q(x, y, t)
+        end
+
+        no_factorization_constraint_8 = @constraints begin
+            q(t, y, x) = q(x, y, t)
+        end
+
+        no_factorization_constraints = [
+            no_factorization_constraint_1,
+            no_factorization_constraint_2,
+            no_factorization_constraint_3,
+            no_factorization_constraint_4,
+            no_factorization_constraint_5,
+            no_factorization_constraint_6,
+            no_factorization_constraint_7,
+            no_factorization_constraint_8
+        ]
+
+        for constraint in no_factorization_constraints
+            model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraint))))
+
+            @test all(filter(as_node(Normal), model)) do node
+                interfaces = GraphPPL.edges(model, node)
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces...,),)
+            end
+        end
+    end
+
+    @testset "q(x, y, t) = q(x, y)q(t)" begin
+        structured_factorization_1_1 = @constraints begin
+            q(x, y, t) = q(x, y)q(t)
+        end
+
+        structured_factorization_1_2 = @constraints begin
+            q(x, y, t) = q(y, x)q(t)
+        end
+
+        structured_factorization_1_3 = @constraints begin
+            q(x, y, t) = q(t)q(y, x)
+        end
+
+        structured_factorization_1_4 = @constraints begin
+            q(x, y, t) = q(t)q(x, y)
+        end
+
+        structured_factorization_1_5 = @constraints begin
+            q(y, x, t) = q(x, y)q(t)
+        end
+
+        structured_factorization_1_6 = @constraints begin
+            q(t, y, x) = q(x, y)q(t)
+        end
+
+        # These should be equivalent
+        constraints = [
+            structured_factorization_1_1,
+            structured_factorization_1_2,
+            structured_factorization_1_3,
+            structured_factorization_1_4,
+            structured_factorization_1_5,
+            structured_factorization_1_6
+        ]
+
+        for constraint in constraints
+            model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraint))))
+
+            @test all(filter(as_node(Normal), model)) do node
+                interfaces = GraphPPL.edges(model, node)
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1:2]...,), (interfaces[3],))
+            end
+        end
+    end
+
+    @testset "q(x, y, t) = q(x)q(y, t)" begin
+        structured_factorization_1_1 = @constraints begin
+            q(x, y, t) = q(x)q(y, t)
+        end
+
+        structured_factorization_1_2 = @constraints begin
+            q(x, y, t) = q(x)q(t, y)
+        end
+
+        structured_factorization_1_3 = @constraints begin
+            q(x, y, t) = q(y, t)q(x)
+        end
+
+        structured_factorization_1_4 = @constraints begin
+            q(x, y, t) = q(t, y)q(x)
+        end
+
+        structured_factorization_1_5 = @constraints begin
+            q(y, x, t) = q(x)q(y, t)
+        end
+
+        structured_factorization_1_6 = @constraints begin
+            q(t, y, x) = q(x)q(y, t)
+        end
+
+        # These should be equivalent
+        constraints = [
+            structured_factorization_1_1,
+            structured_factorization_1_2,
+            structured_factorization_1_3,
+            structured_factorization_1_4,
+            structured_factorization_1_5,
+            structured_factorization_1_6
+        ]
+
+        for constraint in constraints
+            model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraint))))
+
+            @test all(filter(as_node(Normal), model)) do node
+                interfaces = GraphPPL.edges(model, node)
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1], interfaces[3]), (interfaces[2],))
+            end
+        end
+    end
+
+    @testset "q(x, y, t) = q(y)q(x, t)" begin
+        structured_factorization_1_1 = @constraints begin
+            q(x, y, t) = q(y)q(x, t)
+        end
+
+        structured_factorization_1_2 = @constraints begin
+            q(x, y, t) = q(y)q(t, x)
+        end
+
+        structured_factorization_1_3 = @constraints begin
+            q(x, y, t) = q(x, t)q(y)
+        end
+
+        structured_factorization_1_4 = @constraints begin
+            q(x, y, t) = q(t, x)q(y)
+        end
+
+        structured_factorization_1_5 = @constraints begin
+            q(y, x, t) = q(y)q(x, t)
+        end
+
+        structured_factorization_1_6 = @constraints begin
+            q(t, y, x) = q(y)q(x, t)
+        end
+
+        # These should be equivalent
+        constraints = [
+            structured_factorization_1_1,
+            structured_factorization_1_2,
+            structured_factorization_1_3,
+            structured_factorization_1_4,
+            structured_factorization_1_5,
+            structured_factorization_1_6
+        ]
+
+        for constraint in constraints
+            model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraint))))
+
+            @test all(filter(as_node(Normal), model)) do node
+                interfaces = GraphPPL.edges(model, node)
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2], interfaces[3]))
+            end
+        end
+    end
+
+    @testset "q(x, y, t) = q(x)q(y)q(t)" begin
+        structured_factorization_1_1 = @constraints begin
+            q(x, y, t) = q(x)q(y)q(t)
+        end
+
+        structured_factorization_1_2 = @constraints begin
+            q(x, y, t) = q(x)q(t)q(y)
+        end
+
+        structured_factorization_1_3 = @constraints begin
+            q(x, y, t) = q(y)q(x)q(t)
+        end
+
+        structured_factorization_1_4 = @constraints begin
+            q(x, y, t) = q(y)q(t)q(x)
+        end
+
+        structured_factorization_1_5 = @constraints begin
+            q(x, y, t) = q(t)q(x)q(y)
+        end
+
+        structured_factorization_1_6 = @constraints begin
+            q(x, y, t) = q(t)q(y)q(x)
+        end
+
+        structured_factorization_1_7 = @constraints begin
+            q(y, x, t) = q(y)q(t)q(x)
+        end
+
+        structured_factorization_1_8 = @constraints begin
+            q(x, t, y) = q(t)q(x)q(y)
+        end
+
+        structured_factorization_1_9 = @constraints begin
+            q(t, x, y) = q(t)q(y)q(x)
+        end
+
+        # These should be equivalent
+        constraints = [
+            structured_factorization_1_1,
+            structured_factorization_1_2,
+            structured_factorization_1_3,
+            structured_factorization_1_4,
+            structured_factorization_1_5,
+            structured_factorization_1_6,
+            structured_factorization_1_7,
+            structured_factorization_1_8,
+            structured_factorization_1_9
+        ]
+
+        for constraint in constraints
+            model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraint))))
+
+            @test all(filter(as_node(Normal), model)) do node
+                interfaces = GraphPPL.edges(model, node)
+                @test hasextra(model[node], :factorization_constraint)
+                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+            end
+        end
+    end
+end
+
 @testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
     using Distributions
     using GraphPPL:
@@ -17,9 +283,8 @@ end
         hasextra,
         getextra,
         PluginsCollection,
-        VariationalConstraintsPlugin
-
-    include("../../model_zoo.jl")
+        VariationalConstraintsPlugin,
+        with_plugins
 
     @model function simple_model(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
@@ -33,14 +298,12 @@ end
 
     # `nothing` here will create a `datavar`
     for a in (nothing,), b in (nothing, 1, 1.0), c in (nothing, 1, 1.0)
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
-        context = getcontext(model)
-
-        a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
-        b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
-        c = something(c, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :c, nothing))
-
-        add_toplevel_model!(model, simple_model, (a = a, b = b, c = c))
+        model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))) do model, context
+            a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
+            b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
+            c = something(c, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :c, nothing))
+            return (; a, b, c)
+        end
 
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
@@ -63,7 +326,8 @@ end
         NodeCreationOptions,
         getproperties,
         PluginsCollection,
-        VariationalConstraintsPlugin
+        VariationalConstraintsPlugin,
+        with_plugins
 
     include("../../model_zoo.jl")
 
@@ -85,11 +349,11 @@ end
 
     @testset for n in 1:5
         @testset let constraints = empty_constraints
-            model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
-            context = getcontext(model)
-            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
-
-            add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
+            model = create_model(
+                with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
+            ) do model, context
+                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+            end
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -114,11 +378,11 @@ end
         end
 
         @testset let constraints = mean_field_constraints
-            model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
-            context = getcontext(model)
-            y = y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
-
-            add_toplevel_model!(model, random_walk, (y = y, a = 1, b = 2))
+            model = create_model(
+                with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
+            ) do model, context
+                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+            end
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
             @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
@@ -152,9 +416,8 @@ end
         NodeCreationOptions,
         getproperties,
         PluginsCollection,
-        VariationalConstraintsPlugin
-
-    include("../../model_zoo.jl")
+        VariationalConstraintsPlugin,
+        with_plugins
 
     @model function simple_model(y, a, b)
         τ ~ Gamma(10, 10) # wrong for MvNormal, but test is for a different purpose
@@ -178,20 +441,18 @@ end
 
     # `nothing` here will create a `datavar`
     for a in (nothing,), b in (nothing, 1, 1.0), n in (5, 10)
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
-        context = getcontext(model)
-
-        a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
-        b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
-        y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
-
-        add_toplevel_model!(model, context, simple_model, (a = a, b = b, y = y))
+        model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))) do model, context
+            a = something(a, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :a, nothing))
+            b = something(b, getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :b, nothing))
+            y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
+            return (; a, b, y)
+        end
 
         @test length(collect(filter(as_node(MvNormal), model))) === n - 1
 
         @test all(filter(as_node(MvNormal), model)) do node
             @test hasextra(model[node], :factorization_constraint)
-            interfaces = GraphPPL.interfaces(MvNormal, static(3))
+            interfaces = GraphPPL.interfaces(MvNormal, GraphPPL.static(3))
             # desired constraints 
             desired = Set([(interfaces[1], interfaces[2]), (interfaces[3],)])
             # actual constraints 
@@ -214,7 +475,8 @@ end
         NodeCreationOptions,
         getproperties,
         PluginsCollection,
-        VariationalConstraintsPlugin
+        VariationalConstraintsPlugin,
+        with_plugins
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -271,11 +533,11 @@ end
     end
 
     @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5)
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
-        context = getcontext(model)
-        y = y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n)
-
-        add_toplevel_model!(model, context, random_walk, (y = y, a = 1, b = 2))
+        model = create_model(
+            with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
+        ) do model, context
+            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+        end
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_node(prod), model))) === n - 1
@@ -298,7 +560,15 @@ end
     using Distributions
 
     import GraphPPL:
-        create_model, add_toplevel_model!, variable_nodes, getextra, hasextra, as_variable, PluginsCollection, VariationalConstraintsPlugin
+        create_model,
+        add_toplevel_model!,
+        variable_nodes,
+        getextra,
+        hasextra,
+        as_variable,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        with_plugins
 
     @model function simple_model_for_fform_constraints()
         x ~ Normal(0, 1)
@@ -314,9 +584,9 @@ end
             q(z)::SomeArbitraryFormConstraint1()
         end
 
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_posterior)))
-
-        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+        model = create_model(
+            with_plugins(simple_model_for_fform_constraints(), PluginsCollection(VariationalConstraintsPlugin(constraints_posterior)))
+        )
 
         zvariables = map(label -> model[label], filter(as_variable(:z), model))
         xvariables = map(label -> model[label], filter(as_variable(:x), model))
@@ -340,9 +610,9 @@ end
             μ(z)::SomeArbitraryFormConstraint2()
         end
 
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_messages)))
-
-        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+        model = create_model(
+            with_plugins(simple_model_for_fform_constraints(), PluginsCollection(VariationalConstraintsPlugin(constraints_messages)))
+        )
 
         zvariables = map(label -> model[label], filter(as_variable(:z), model))
         xvariables = map(label -> model[label], filter(as_variable(:x), model))
@@ -367,9 +637,9 @@ end
             μ(z)::SomeArbitraryFormConstraint2()
         end
 
-        model = create_model(plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_both)))
-
-        add_toplevel_model!(model, simple_model_for_fform_constraints, NamedTuple())
+        model = create_model(
+            with_plugins(simple_model_for_fform_constraints(), PluginsCollection(VariationalConstraintsPlugin(constraints_both)))
+        )
 
         zvariables = map(label -> model[label], filter(as_variable(:z), model))
         xvariables = map(label -> model[label], filter(as_variable(:x), model))
@@ -391,7 +661,7 @@ end
 end
 
 @testitem "@constraints macro pipeline" begin
-    import GraphPPL: PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra
+    import GraphPPL: PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra, with_plugins
 
     include("../../model_zoo.jl")
 
