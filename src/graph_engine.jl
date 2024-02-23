@@ -295,10 +295,7 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
         println(io, indentationstrp1, "Proxies: ", keys(proxies(context)))
         println(io, indentationstrp1, "Factor nodes: ", collect(keys(factor_nodes(context))))
         if !isempty(context.children)
-            println(io, indentationstrp1, "Children: ")
-            for child_context in values(context.children)
-                show(IOContext(io, :indentation => indentation + 2), mime, child_context)
-            end
+            println(io, indentationstrp1, "Children: ", map(shortname, values(context.children)))
         end
     end
 end

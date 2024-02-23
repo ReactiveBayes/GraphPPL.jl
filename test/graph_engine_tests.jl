@@ -376,6 +376,14 @@ end
         @test getname(last(p)) === :y
     end
 
+    let p = ProxyLabel(:x, (1, ), y)
+        @test_throws "Indexing a single node label `y` with an index `[1]` is not allowed" unroll(p)
+    end
+
+    let p = ProxyLabel(:x, (1, 2), y)
+        @test_throws "Indexing a single node label `y` with an index `[1, 2]` is not allowed" unroll(p)
+    end
+
     let p = ProxyLabel(:r, nothing, ProxyLabel(:x, nothing, y))
         @test last(p) === y
         @test getname(p) === :r
@@ -730,6 +738,7 @@ end
     function test end
 
     ctx2 = Context(0, test, "test", nothing)
+    @test contains(repr(ctx2), "test")
     @test typeof(ctx2) == Context && ctx2.prefix == "test" && length(ctx2.individual_variables) == 0 && ctx2.depth == 0
 
     function layer end
@@ -746,6 +755,7 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
+
 end
 
 @testitem "haskey(::Context)" begin
