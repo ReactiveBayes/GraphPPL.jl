@@ -548,3 +548,49 @@ end
         @test length(collect(filter(as_variable(:x_1), model))) == n + 1
     end
 end
+
+@testitem "Force create a new variable with the `new` syntax" begin
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions
+
+    @model function submodel(y, x_prev, x_next)
+        x_next ~ Normal(x_prev, 1)
+        y ~ Normal(x_next, 1)
+    end
+
+    @model function state_space_model(y)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], 1)
+        for i in 2:length(y)
+            # `x[i]` is not defined here, so this should fail
+            y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
+        end
+    end
+
+    ydata = ones(10)
+
+    @test_throws BoundsError create_model(state_space_model()) do model, ctx
+        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        return (y = y,)
+    end
+
+    @model function state_space_model_with_new(y)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], 1)
+        for i in 2:length(y)
+            # `x[i]` is not defined here, so this should fail
+            y[i] ~ submodel(x_next = new(x[i]), x_prev = x[i - 1])
+        end
+    end
+
+    model = create_model(state_space_model_with_new()) do model, ctx
+        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) === 20
+    @test length(collect(filter(as_variable(:x), model))) === 10
+    @test length(collect(filter(as_variable(:y), model))) === 10
+
+end
