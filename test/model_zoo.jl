@@ -4,9 +4,16 @@ using Static
 using Distributions
 
 macro test_expression_generating(lhs, rhs)
+    test_expr_gen = gensym(:text_expr_gen)
     return esc(
         quote
-            @test prettify($lhs) == prettify($rhs)
+            $test_expr_gen = (prettify($lhs) == prettify($rhs))
+            if !$test_expr_gen
+                println("Expressions do not match: ")
+                println("lhs: ", prettify($lhs))
+                println("rhs: ", prettify($rhs))
+            end
+            @test (prettify($lhs) == prettify($rhs))
         end
     )
 end

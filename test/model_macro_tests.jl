@@ -1254,7 +1254,7 @@ end
         x ~ sum(0, 1) where {created_by = :(x ~ Normal(0, 1))}
     end
     output = quote
-        x = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ Normal(0, 1)))),
@@ -1270,7 +1270,7 @@ end
         x ~ sum(; μ = 0, σ = 1) where {created_by = :(x ~ sum(μ = 0, σ = 1))}
     end
     output = quote
-        x = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(μ = 0, σ = 1)),)),
@@ -1286,13 +1286,13 @@ end
         x[i] ~ sum(μ[i], σ[i]) where {created_by = :(x[i] ~ sum(μ[i], σ[i]))}
     end
     output = quote
-        x[i] = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x[i] ~ sum(μ[i], σ[i])))),
             sum,
             GraphPPL.proxylabel(:x, (i,), x),
-            (μ[i], σ[i])
+            (GraphPPL.proxylabel(:μ, (i,), μ), GraphPPL.proxylabel(:σ, (i,), σ))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1310,7 +1310,7 @@ end
         )
     end
     output = quote
-        z = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(z ~ Normal(x + 1, y)))),
@@ -1320,17 +1320,17 @@ end
                 (
                     begin
                         anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        anon_1 = GraphPPL.make_node!(
+                        GraphPPL.make_node!(
                             __model__,
                             __context__,
                             GraphPPL.NodeCreationOptions((; anonymous = true, created_by = :(z ~ Normal(x + 1, y)))),
                             +,
                             GraphPPL.proxylabel(:anon_1, nothing, anon_1),
-                            (x, 1)
+                            (GraphPPL.proxylabel(:x, nothing, x), 1)
                         )
                     end
                 ),
-                y
+                GraphPPL.proxylabel(:y, nothing, y)
             )
         )
     end
@@ -1342,7 +1342,7 @@ end
         x ~ y where {created_by = :(x := y), is_deterministic = true}
     end
     output = quote
-        x = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x := y), is_deterministic = true)),
@@ -1359,7 +1359,7 @@ end
         x[i] ~ y where {created_by = :(x[i] := y), is_deterministic = true}
     end
     output = quote
-        x[i] = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x[i] := y), is_deterministic = true)),
@@ -1376,7 +1376,7 @@ end
         x[i, j] ~ y where {created_by = :(x[i, j] := y), is_deterministic = true}
     end
     output = quote
-        x[i, j] = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x[i, j] := y), is_deterministic = true)),
@@ -1392,7 +1392,7 @@ end
         x ~ sum(1, 2; σ = 1, μ = 2) where {created_by = :(x ~ sum(1, 2; σ = 1, μ = 2))}
     end
     output = quote
-        x = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)))),
@@ -1408,13 +1408,13 @@ end
         x ~ sum(μ, σ) where {created_by = :(x ~ sum(μ, σ) where {q = q(μ)q(σ)}), q = q(μ)q(σ)}
     end
     output = quote
-        x = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(μ, σ) where {q = q(μ)q(σ)}), q = q(μ)q(σ))),
             sum,
             GraphPPL.proxylabel(:x, nothing, x),
-            (μ, σ)
+            (GraphPPL.proxylabel(:μ, nothing, μ), GraphPPL.proxylabel(:σ, nothing, σ))
         )
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1424,7 +1424,7 @@ end
         y ~ (Normal(; μ = x, σ = σ) where {created_by = :(y ~ Normal(μ = x, σ = σ))})
     end
     output = quote
-        y = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(y ~ Normal(μ = x, σ = σ)),)),
@@ -1439,7 +1439,7 @@ end
         y ~ prior() where {created_by = :(y ~ prior())}
     end
     output = quote
-        y = GraphPPL.make_node!(
+        GraphPPL.make_node!(
             __model__,
             __context__,
             GraphPPL.NodeCreationOptions((; created_by = :(y ~ prior()),)),
