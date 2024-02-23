@@ -754,3 +754,112 @@ end
         simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints))
     )
 end
+
+@testitem "A complex hierarchical constraints with lots of renaming and interleaving with constants" begin
+    using Distributions
+
+    import GraphPPL:
+        create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
+
+    @model function submodel_3_1(b, n, m)
+        b ~ Normal(n, m)
+    end
+
+    @model function submodel_3_2(b, n, m)
+        b ~ Normal(n + 1, m + 1)
+    end
+
+    @model function submodel_2_1(a, b, c, submodel_3)
+        c ~ submodel_3(b = a, m = b)
+    end
+
+    @model function submodel_2_2(a, b, c, submodel_3)
+        c ~ submodel_3(b = a + 1, m = b + 1)
+    end
+
+    @model function submodel_1_1(x, y, z, submodel_2, submodel_3)
+        z ~ submodel_2(a = x, b = y, submodel_3 = submodel_3)
+    end
+
+    @model function submodel_1_2(x, y, z, submodel_2, submodel_3)
+        z ~ submodel_2(a = x + 1, b = y + 1, submodel_3 = submodel_3)
+    end
+
+    @model function main_model(case, submodel_1, submodel_2, submodel_3)
+        r ~ Gamma(1, 1)
+        u ~ Beta(1, 1)
+        # In the test we impose the mean-field factorization
+        # So the exact model structure is not really important 
+        # and the result should be the same for all cases
+        if case === 1
+            o ~ submodel_1(y = r, z = u, submodel_2 = submodel_2, submodel_3 = submodel_3)
+        elseif case === 2
+            o ~ submodel_1(y = r, x = u, submodel_2 = submodel_2, submodel_3 = submodel_3)
+        elseif case === 3
+            o ~ submodel_1(x = r, z = u, submodel_2 = submodel_2, submodel_3 = submodel_3)
+        end
+    end
+
+    constraints_1 = @constraints begin
+        q(o, u, r) = q(o)q(u)q(r)
+    end
+
+    constraints_2 = @constraints begin
+        q(o, u, r) = q(u)q(o)q(r)
+    end
+
+    constraints_3 = @constraints begin
+        q(r, o, u) = q(u)q(o)q(r)
+    end
+
+    constraints = [constraints_1, constraints_2, constraints_3]
+
+    for constraint in constraints,
+        case in [1, 2, 3],
+        submodel_1 in [submodel_1_1, submodel_1_2],
+        submodel_2 in [submodel_2_1, submodel_2_2],
+        submodel_3 in [submodel_3_1, submodel_3_2]
+
+        model = create_model(
+            with_plugins(
+                main_model(case = case, submodel_1 = submodel_1, submodel_2 = submodel_2, submodel_3 = submodel_3),
+                PluginsCollection(VariationalConstraintsPlugin(constraint))
+            )
+        )
+
+        # Gamma and Beta are factorized as well because they use the constants
+        @test all(filter(as_node(Normal) | as_node(Gamma) | as_node(Beta), model)) do node
+            interfaces = GraphPPL.edges(model, node)
+            @test hasextra(model[node], :factorization_constraint)
+            return getextra(model[node], :factorization_constraint) === (map(i -> (i,), interfaces)...,)
+        end
+    end
+
+    # Double check for the full factorization to make sure that the mean-field was not the default one
+    for case in [1, 2, 3],
+        submodel_1 in [submodel_1_1, submodel_1_2],
+        submodel_2 in [submodel_2_1, submodel_2_2],
+        submodel_3 in [submodel_3_1, submodel_3_2]
+
+        model = create_model(
+            with_plugins(
+                main_model(case = case, submodel_1 = submodel_1, submodel_2 = submodel_2, submodel_3 = submodel_3),
+                PluginsCollection(VariationalConstraintsPlugin())
+            )
+        )
+
+        # Gamma and Beta are factorized as well because they use the constants
+        @test all(filter(as_node(Gamma) | as_node(Beta), model)) do node
+            interfaces = GraphPPL.edges(model, node)
+            @test hasextra(model[node], :factorization_constraint)
+            return getextra(model[node], :factorization_constraint) === (map(i -> (i,), interfaces)...,)
+        end
+
+        # Normal here should use full joint here as no constraints were passed in the constructor
+        @test all(filter(as_node(Normal), model)) do node
+            interfaces = GraphPPL.edges(model, node)
+            @test hasextra(model[node], :factorization_constraint)
+            return getextra(model[node], :factorization_constraint) === ((interfaces...,),)
+        end
+    end
+end
