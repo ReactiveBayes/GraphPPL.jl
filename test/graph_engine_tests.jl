@@ -119,6 +119,29 @@ end
     end
 end
 
+@testitem "factor_nodes with lambda function" begin
+    import GraphPPL: factor_nodes, is_factor, labels
+
+    include("model_zoo.jl")
+
+    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
+        model = create_terminated_model(model_name)
+        fnodes = collect(factor_nodes(model))
+        factor_nodes(model) do label, nodedata
+            @test is_factor(model[label])
+            @test is_factor(nodedata)
+            @test model[label] === nodedata
+            @test label ∈ labels(model)
+            @test label ∈ fnodes
+
+            clength = length(fnodes)
+            filter!(n -> n !== label, fnodes)
+            @test length(fnodes) === clength - 1 # Only one should be removed
+        end
+        @test length(fnodes) === 0 # all should be processed
+    end
+end
+
 @testitem "variable_nodes" begin
     import GraphPPL: variable_nodes, is_variable, labels
     include("model_zoo.jl")
