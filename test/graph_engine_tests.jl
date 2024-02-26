@@ -1723,7 +1723,8 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_broken make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), ()) # The broadcasting is broken currently
+    @test_broken broadcaster_ctx, _ = make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), ()) # The broadcasting is broken currently
+    @test_broken contains(repr(broadcaster_ctx), "broadcaster")
     @test_broken nv(model) == 103
 end
 
