@@ -266,6 +266,7 @@ end
     import GraphPPL: NodeCreationOptions, withopts, withoutopts
 
     @test NodeCreationOptions() == NodeCreationOptions()
+    @test keys(NodeCreationOptions()) === ()
     @test NodeCreationOptions(arbitrary_option = 1) == NodeCreationOptions((; arbitrary_option = 1))
 
     @test haskey(NodeCreationOptions(arbitrary_option = 1), :arbitrary_option)
@@ -278,6 +279,7 @@ end
     @test @inferred(NodeCreationOptions(a = 1, b = 2)[:a]) === 1
     @test @inferred(NodeCreationOptions(a = 1, b = 2)[:b]) === 2
 
+    @test_throws ErrorException NodeCreationOptions()[:a]
     @test_throws ErrorException NodeCreationOptions(a = 1, b = 2)[:c]
 
     @test @inferred(get(NodeCreationOptions(), :a, 2)) === 2
@@ -734,6 +736,12 @@ end
 
     ctx1 = Context()
     @test typeof(ctx1) == Context && ctx1.prefix == "" && length(ctx1.individual_variables) == 0 && ctx1.depth == 0
+
+    io = IOBuffer()
+    show(io, ctx1)
+    output = String(take!(io))
+    @test !isempty(output)
+    @test contains(output, "identity") # fform
 
     function test end
 
@@ -1719,6 +1727,14 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), ())
     @test nv(model) == 103
+
+    display(ctx)
+
+    io = IOBuffer()
+    show(io, "text/plain", ctx)
+    output = String(take!(io))
+    @test !isempty(output)
+    @test contains(output, "broadcaster") # fform
 end
 
 @testitem "prune!(m::Model)" begin
