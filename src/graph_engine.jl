@@ -527,6 +527,19 @@ factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), 
 variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
 
 """
+A version `factor_nodes(model)` that uses a callback function to process the factor  nodes.
+The callback function accepts both the label and the node data.
+"""
+function factor_nodes(callback::F, model::Model) where {F}
+    for label in labels(model)
+        nodedata = model[label]
+        if is_factor(nodedata)
+            callback((label::NodeLabel), (nodedata::NodeData))
+        end
+    end
+end
+
+"""
 A version `variable_nodes(model)` that uses a callback function to process the variable nodes.
 The callback function accepts both the label and the node data.
 """
