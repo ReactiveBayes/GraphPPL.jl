@@ -585,11 +585,16 @@ function convert_tilde_expression(e::Expr)
     )
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
+        nodesym = gensym(:node)
+        varsym = gensym(:var)
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
-            GraphPPL.make_node!(
-                __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
-            )
+            begin
+                $nodesym, $varsym = GraphPPL.make_node!(
+                    __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
+                )
+                $varsym
+            end
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
         (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
@@ -597,6 +602,7 @@ function convert_tilde_expression(e::Expr)
         broadcastable_variables = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
+            error("Revise broadcasting in the macro generation (a note from bvdmitri)") # Remove this when fixed
             $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
@@ -705,7 +711,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
             GraphPPL.add_terminated_submodel!(__model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__)
-            return GraphPPL.unroll(__lhs_interface__)
+            return __context__, GraphPPL.unroll(__lhs_interface__)
         end
 
         function GraphPPL.add_terminated_submodel!(

@@ -139,7 +139,7 @@ getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
-unroll(label) = label
+
 to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.global_counter))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
@@ -180,6 +180,7 @@ getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
 unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
+unroll(something) = something
 
 __proxy_unroll(something) = something
 __proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy, proxy.index, proxy.proxied)
@@ -1128,10 +1129,6 @@ Returns:
 """
 function add_atomic_factor_node! end
 
-function add_atomic_factor_node!(model::Model, context::Context, fform)
-    return add_atomic_factor_node!(model, context, EmptyNodeCreationOptions, fform)
-end
-
 function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
 
@@ -1351,7 +1348,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::Tuple
-) = fform(rhs_interfaces...)
+) = (nothing, fform(rhs_interfaces...))
 
 make_node!(
     ::False,
@@ -1363,7 +1360,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple
-) = fform(; rhs_interfaces...)
+) = (nothing, fform(; rhs_interfaces...))
 
 make_node!(
     ::False,
@@ -1375,7 +1372,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::MixedArguments
-) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
+) = (nothing, fform(rhs_interfaces.args...; rhs_interfaces.kwargs...))
 
 # If a node is Stochastic, we always materialize.
 make_node!(::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
@@ -1497,8 +1494,8 @@ function make_node!(
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
-    materialize_factor_node!(model, context, options, fform, interfaces)
-    return unroll(lhs_interface)
+    nodeid, _, _ = materialize_factor_node!(model, context, options, fform, interfaces)
+    return nodeid, unroll(lhs_interface)
 end
 
 sort_interfaces(fform, defined_interfaces::NamedTuple) =
@@ -1510,10 +1507,14 @@ end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
     interfaces = sort_interfaces(fform, interfaces)
-    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
-    for (interface_name, neighbor_nodelabel) in iterator(interfaces)
-        add_edge!(model, factor_node_id, factor_node_properties, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
+    interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
+    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(
+        model, context, withopts(options, (interfaces = interfaces,)), fform
+    )
+    for (interface_name, interface) in iterator(interfaces)
+        add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
+    return factor_node_id, factor_node_data, factor_node_properties
 end
 
 add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple) =

@@ -18,6 +18,10 @@ macro test_expression_generating(lhs, rhs)
     )
 end
 
+macro test_expression_generating_broken(lhs, rhs)
+    return esc(:(@test_broken (prettify($lhs) == prettify($rhs))))
+end
+
 struct PointMass end
 
 struct ArbitraryNode end
