@@ -936,7 +936,7 @@ end
 check_variate_compatability(label::LazyNodeLabel, indices...) =
     __lazy_node_label_check_variate_compatability(label, label.collection, indices)
 
-# Redirect some of the standart collection methods to the underlying collection
+# Redirect some of the standard collection methods to the underlying collection
 Base.IteratorSize(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorSize(C)
 Base.IteratorEltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorEltype(C)
 Base.eltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.eltype(C)
