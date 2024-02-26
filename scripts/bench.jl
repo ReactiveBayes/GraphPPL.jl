@@ -8,4 +8,4 @@ else
     BenchmarkTools.judge(GraphPPL, ARGS[1]; judgekwargs = Dict(:time_tolerance => 0.1, :memory_tolerance => 0.05)), ARGS[1]
 end
 
-export_markdown("benchmark_vs_$(name)_result.md", result; export_invariants = true)
+export_markdown("benchmark_vs_$(name)_result.md", result)

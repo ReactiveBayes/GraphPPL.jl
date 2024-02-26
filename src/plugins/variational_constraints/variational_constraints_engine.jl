@@ -491,7 +491,7 @@ end
 
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
-function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BitSetTuple)
+function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BoundedBitSetTuple)
     constraint = getextra(nodedata, :factorization_constraint_bitset)
     intersect!(constraint, constraint_data)
     return constraint
@@ -517,22 +517,23 @@ function is_valid_partition(partition::Set)
 end
 
 @memoize function constant_constraint(num_neighbors::Int, index_constant::Int)
-    constraint = BitSetTuple(num_neighbors)
-    intersect!(constraint[index_constant], BitSet([index_constant]))
-    for i in 1:num_neighbors
-        if i != index_constant
-            delete!(constraint[i], index_constant)
-        end
-    end
+    constraint = BoundedBitSetTuple(num_neighbors)
+    constraint[index_constant, :] = false
+    constraint[:, index_constant] = false
+    contraint[index_constant, index_constant] = true
     return constraint
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int)
-    return BitSetTuple([[i] for i in 1:num_neighbors])
+    constraint = BoundedBitsetTuple(BitMatrix(zeros(Bool, (num_neighbors, num_neighbors))))
+    for i in 1:num_neighbors
+        constraint[i, i] = true
+    end
+    return constraint
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
-    constraint = BitSetTuple(num_neighbors)
+    constraint = BoundedBitSetTuple(num_neighbors)
     for i in referenced_indices
         intersect!(constraint, constant_constraint(num_neighbors, i))
     end
@@ -777,12 +778,12 @@ function lazy_bool_allequal(f, itr)::Tuple{Bool, Bool}
 end
 
 function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint::ResolvedFactorizationConstraint)
-    result = BitSetTuple(length(neighbors))
+    result = BoundedBitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
         for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
-                delete!(@inbounds(result[i]), j + i)
-                delete!(@inbounds(result[j + i]), i)
+                delete!(result, i, j + i)
+                delete!(result, j + 1, i)
             end
         end
     end

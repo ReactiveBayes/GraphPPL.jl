@@ -66,8 +66,8 @@ function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
         nodedata = model[flabel]
         nodeproperties = getproperties(nodedata)
         number_of_neighbours = length(neighbors(nodeproperties))
-        setextra!(nodedata, :factorization_constraint_bitset, BitSetTuple(number_of_neighbours))
+        setextra!(nodedata, :factorization_constraint_bitset, BoundedBitSetTuple(number_of_neighbours))
     end
     apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints, ConstraintStack())
-    materialize_constraints!(model)
+    # materialize_constraints!(model)
 end
