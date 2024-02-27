@@ -590,7 +590,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     rows = unique(eachcol(BitSetTuples.contents(constraint_bitset)))
     rows = map(row -> Tuple(filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row)))), rows)
 
-    new_constraint = Tuple(sort!(rows, by = first))
+    new_constraint = Tuple(rows)
     setextra!(node_data, :factorization_constraint_indices, new_constraint)
 end
 
