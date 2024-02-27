@@ -520,12 +520,12 @@ end
     constraint = BoundedBitSetTuple(num_neighbors)
     constraint[index_constant, :] = false
     constraint[:, index_constant] = false
-    contraint[index_constant, index_constant] = true
+    constraint[index_constant, index_constant] = true
     return constraint
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int)
-    constraint = BoundedBitsetTuple(BitMatrix(zeros(Bool, (num_neighbors, num_neighbors))))
+    constraint = BoundedBitSetTuple(zeros, num_neighbors)
     for i in 1:num_neighbors
         constraint[i, i] = true
     end
@@ -580,10 +580,9 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
             intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
         end
     end
-
-    constraint_set = Set(BitSetTuples.contents(constraint_bitset)) #TODO test `unique`
-
-    if !is_valid_partition(constraint_set)
+    constraint_set = Set(BitSetTuples.tupled_contents(constraint_bitset)) #TODO test `unique`
+   
+    if !BitSetTuples.is_valid_partition(constraint_bitset)
         error(
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_set)"
         )
@@ -783,7 +782,7 @@ function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint
         for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
                 delete!(result, i, j + i)
-                delete!(result, j + 1, i)
+                delete!(result, j + i, i)
             end
         end
     end
