@@ -580,15 +580,17 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
             intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
         end
     end
-    constraint_set = unique(BitSetTuples.tupled_contents(constraint_bitset)) #TODO test `unique`
    
     if !BitSetTuples.is_valid_partition(constraint_bitset)
         error(
-            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_set)"
+            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
         )
     end
 
-    new_constraint = Tuple(sort!(collect(constraint_set), by = first))
+    rows = unique(eachcol(BitSetTuples.contents(constraint_bitset)))
+    rows = map(row -> Tuple(filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row)))), rows)
+
+    new_constraint = Tuple(sort!(rows, by = first))
     setextra!(node_data, :factorization_constraint_indices, new_constraint)
 end
 
