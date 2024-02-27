@@ -580,7 +580,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
             intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
         end
     end
-    constraint_set = Set(BitSetTuples.tupled_contents(constraint_bitset)) #TODO test `unique`
+    constraint_set = unique(BitSetTuples.tupled_contents(constraint_bitset)) #TODO test `unique`
    
     if !BitSetTuples.is_valid_partition(constraint_bitset)
         error(
@@ -588,12 +588,8 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         )
     end
 
-    # TODO: (bvdmitri) use node properties for faster access
-    edges = GraphPPL.edges(model, node_label)
     new_constraint = Tuple(sort!(collect(constraint_set), by = first))
-    new_constraint_ = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), new_constraint)
-
-    setextra!(node_data, :factorization_constraint, new_constraint_)
+    setextra!(node_data, :factorization_constraint_indices, new_constraint)
 end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::VariableNodeProperties)
