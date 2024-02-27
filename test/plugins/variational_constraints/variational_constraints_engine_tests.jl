@@ -474,8 +474,8 @@ end
     x_4 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_4, 1)
     @test is_factorized(m[x_4[1]])
 
-    x_5 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_5, [1, 2, 3])
-    @test is_factorized(m[x_5[1, 2, 3]])
+    x_5 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_5, 1, 2)
+    @test is_factorized(m[x_5[1, 2]])
 
     x_6 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_6, 1, 2, 3)
     @test is_factorized(m[x_6[1, 2, 3]])

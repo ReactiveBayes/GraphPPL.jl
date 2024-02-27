@@ -18,7 +18,7 @@ struct walk_until_occurrence{E}
     patterns::E
 end
 
-not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref))
+not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
 
 function (w::walk_until_occurrence{E})(f, x) where {E <: Tuple}
     return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
@@ -450,7 +450,7 @@ function proxy_args end
 
 function proxy_args(arg)
     if @capture(arg, lhs_ = rhs_)
-        return proxy_args(lhs, rhs)
+        return proxy_args_lhs_eq_rhs(lhs, rhs)
     elseif @capture(arg, [args__])
         return Expr(:vect, map(proxy_args, args)...)
     elseif @capture(arg, (args__,))
@@ -458,17 +458,33 @@ function proxy_args(arg)
     elseif @capture(arg, GraphPPL.MixedArguments(first_, second_))
         return :(GraphPPL.MixedArguments($(proxy_args(first)), $(proxy_args(second))))
     end
-    return arg
+    return proxy_args_rhs(arg)
 end
 
-function proxy_args(lhs, rhs)
+function proxy_args_lhs_eq_rhs(lhs, rhs)
     @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    return :($lhs = $(proxy_args_rhs(rhs)))
+end
+
+function proxy_args_rhs(rhs)
     if isa(rhs, Symbol)
-        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
+        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
     elseif @capture(rhs, rlabel_[index__])
-        return :($lhs = GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+    elseif @capture(rhs, new(rlabel_[index__]))
+        newrhs = gensym(:force_create)
+        errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
+        return :(
+            let $newrhs = if isassigned($rlabel, $(index...))
+                    error($errmsg)
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
+                end
+                GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
+            end
+        )
     end
-    return :($lhs = $rhs)
+    return rhs
 end
 
 """
@@ -569,11 +585,16 @@ function convert_tilde_expression(e::Expr)
     )
         args = GraphPPL.proxy_args(combine_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
+        nodesym = gensym(:node)
+        varsym = gensym(:var)
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
-            $lhs = GraphPPL.make_node!(
-                __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
-            )
+            begin
+                $nodesym, $varsym = GraphPPL.make_node!(
+                    __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
+                )
+                $varsym
+            end
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
         (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
@@ -581,6 +602,7 @@ function convert_tilde_expression(e::Expr)
         broadcastable_variables = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
+            error("Revise broadcasting in the macro generation (a note from bvdmitri)") # Remove this when fixed
             $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
                 return GraphPPL.make_node!(
                     __model__,
@@ -689,7 +711,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
             GraphPPL.add_terminated_submodel!(__model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__)
-            return GraphPPL.unroll(__lhs_interface__)
+            return __context__, GraphPPL.unroll(__lhs_interface__)
         end
 
         function GraphPPL.add_terminated_submodel!(

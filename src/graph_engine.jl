@@ -139,7 +139,7 @@ getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
-unroll(label) = label
+
 to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.global_counter))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
@@ -164,20 +164,37 @@ struct ProxyLabel{T}
     proxied::Any
 end
 
-proxylabel(name::Symbol, index::T, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) where {T} =
+# We need two methods to resolve the ambiguities
+proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) =
     ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::T, proxied) where {T} = proxied
+proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
+
+# By default we assume that the `proxied` is just a constant here, so
+# in case if 
+# - `index` is a `nothing` we simply return the constant as it is
+# - `index` is a `Tuple` we return the constant indexed by the tuple
+proxylabel(name::Symbol, index::Nothing, proxied) = proxied
+proxylabel(name::Symbol, index::Tuple, proxied) = proxied[index...]
 
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
 unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
+unroll(something) = something
 
 __proxy_unroll(something) = something
-__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy.index, proxy)
-__proxy_unroll(::Nothing, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)
-__proxy_unroll(index, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index...]
-__proxy_unroll(index::FunctionalIndex, proxy::ProxyLabel) = __proxy_unroll(proxy.proxied)[index]
+__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy, proxy.index, proxy.proxied)
+__proxy_unroll(proxy::ProxyLabel, index, proxied) = __safegetindex(__proxy_unroll(proxied), index)
+
+__safegetindex(something, index::FunctionalIndex) = Base.getindex(something, index)
+__safegetindex(something, index::Tuple) = Base.getindex(something, index...)
+__safegetindex(something, index::Nothing) = something
+
+__safegetindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
+__safegetindex(nodelabel::NodeLabel, index::Tuple) =
+    error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
+__safegetindex(nodelabel::NodeLabel, index) =
+    error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
 
 Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
 Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
@@ -238,7 +255,7 @@ factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
 count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
-shortname(context::Context) = string(context.prefix, "_", context.fform)
+shortname(context::Context) = string(context.prefix)
 
 path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
@@ -257,7 +274,11 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
 
     if iscompact
         print(io, "Context(", shortname(context), " | ")
-        nvariables = length(context.individual_variables) + length(context.vector_variables) + length(context.tensor_variables) + length(context.proxies)
+        nvariables =
+            length(context.individual_variables) +
+            length(context.vector_variables) +
+            length(context.tensor_variables) +
+            length(context.proxies)
         nfactornodes = length(context.factor_nodes)
         print(io, nvariables, " variables, ", nfactornodes, " factor nodes")
         if !isempty(context.children)
@@ -267,7 +288,7 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
     else
         indentation = get(io, :indentation, 0)::Int
         indentationstr = " "^indentation
-        indentationstrp1 = " "^(indentation+1)
+        indentationstrp1 = " "^(indentation + 1)
         println(io, indentationstr, "Context(", shortname(context), ")")
         println(io, indentationstrp1, "Individual variables: ", keys(individual_variables(context)))
         println(io, indentationstrp1, "Vector variables: ", keys(vector_variables(context)))
@@ -275,13 +296,9 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
         println(io, indentationstrp1, "Proxies: ", keys(proxies(context)))
         println(io, indentationstrp1, "Factor nodes: ", collect(keys(factor_nodes(context))))
         if !isempty(context.children)
-            println(io, indentationstrp1, "Children: ")
-            for child_context in values(context.children)
-                show(IOContext(io, :indentation => indentation + 2), mime, child_context)
-            end
+            println(io, indentationstrp1, "Children: ", map(shortname, values(context.children)))
         end
     end
-
 end
 
 getname(f::Function) = String(Symbol(f))
@@ -510,10 +527,23 @@ factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), 
 variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
 
 """
+A version `factor_nodes(model)` that uses a callback function to process the factor  nodes.
+The callback function accepts both the label and the node data.
+"""
+function factor_nodes(callback::F, model::Model) where {F}
+    for label in labels(model)
+        nodedata = model[label]
+        if is_factor(nodedata)
+            callback((label::NodeLabel), (nodedata::NodeData))
+        end
+    end
+end
+
+"""
 A version `variable_nodes(model)` that uses a callback function to process the variable nodes.
 The callback function accepts both the label and the node data.
 """
-function variable_nodes(callback::F, model::Model) where { F }
+function variable_nodes(callback::F, model::Model) where {F}
     for label in labels(model)
         nodedata = model[label]
         if is_variable(nodedata)
@@ -786,7 +816,6 @@ function check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, inde
     if !(length(index) == N)
         error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
     end
-
     return isassigned(node, index...)
 end
 
@@ -826,10 +855,6 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     return get(() -> add_variable_node!(model, ctx, options, name, index), ctx.individual_variables, name)
 end
 
-function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::AbstractArray{Int})
-    return getorcreate!(model, ctx, options, name, index...)
-end
-
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::Integer)
     throw_if_individual_variable(ctx, name)
     throw_if_tensor_variable(ctx, name)
@@ -843,17 +868,33 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     return vectorvar
 end
 
-function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index...)
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, i1::Integer, is::Vararg{Integer})
     throw_if_individual_variable(ctx, name)
     throw_if_vector_variable(ctx, name)
     if !haskey(ctx.tensor_variables, name)
-        ctx[name] = ResizableArray(NodeLabel, Val(length(index)))
+        ctx[name] = ResizableArray(NodeLabel, Val(1 + length(is)))
     end
     tensorvar = ctx.tensor_variables[name]
-    if !isassigned(tensorvar, index...)
-        tensorvar[index...] = add_variable_node!(model, ctx, options, name, index)
+    if !isassigned(tensorvar, i1, is...)
+        tensorvar[i1, is...] = add_variable_node!(model, ctx, options, name, (i1, is...))
     end
     return tensorvar
+end
+
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, range::AbstractRange)
+    isempty(range) && error("Empty range is not allowed in the `getorcreate!` function for variable `$(name)`")
+    foreach(range) do i
+        getorcreate!(model, ctx, options, name, i)
+    end
+    return getorcreate!(model, ctx, options, name, first(range))
+end
+
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, r1::AbstractRange, rs::Vararg{AbstractRange})
+    (isempty(r1) || any(isempty, rs)) && error("Empty range is not allowed in the `getorcreate!` function for variable `$(name)`")
+    foreach(Iterators.product(r1, rs...)) do i
+        getorcreate!(model, ctx, options, name, i...)
+    end
+    return getorcreate!(model, ctx, options, name, first(r1), first.(rs)...)
 end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
@@ -863,6 +904,155 @@ getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
+
+"""
+`LazyIndex` is used to track the usage of a variable in the model without explicitly specifying its dimensions.
+`getorcreate!` function will return a `LazyNodeLabel` which will materialize itself upon first usage with the correct dimensions.
+E.g. `y[1]` will materialize vector variable `y` and `y[1, 1]` will materialize tensor variable `y`.
+Optionally the `LazyIndex` can be associated with a `collection`, in which case it not only redirects most of the common 
+collection methods to the underlying collection, but also checks that the dimensions and usage match of such labels in the model specification is correct.
+"""
+struct LazyIndex{C}
+    collection::C
+end
+
+struct MissingCollection end
+
+__err_missing_collection_missing_method(method::Symbol) =
+    error("The `$method` method is not defined for a lazy node label without data attached.")
+
+Base.IteratorSize(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorSize)
+Base.IteratorEltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorEltype)
+Base.eltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:eltype)
+Base.length(::MissingCollection) = __err_missing_collection_missing_method(:length)
+Base.size(::MissingCollection, dims...) = __err_missing_collection_missing_method(:size)
+Base.firstindex(::MissingCollection) = __err_missing_collection_missing_method(:firstindex)
+Base.lastindex(::MissingCollection) = __err_missing_collection_missing_method(:lastindex)
+Base.eachindex(::MissingCollection) = __err_missing_collection_missing_method(:eachindex)
+Base.axes(::MissingCollection) = __err_missing_collection_missing_method(:axes)
+
+LazyIndex() = LazyIndex(MissingCollection())
+
+getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::LazyIndex) =
+    LazyNodeLabel(model, ctx, options, name, index.collection)
+
+"""
+`LazyNodeLabel` is a label that lazily creates variables upon request in the `proxylabel` function.
+"""
+struct LazyNodeLabel{O, C}
+    model::Model
+    context::Context
+    options::O
+    name::Symbol
+    collection::C
+end
+
+check_variate_compatability(label::LazyNodeLabel, indices...) =
+    __lazy_node_label_check_variate_compatability(label, label.collection, indices)
+
+# Redirect some of the standard collection methods to the underlying collection
+Base.IteratorSize(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorSize(C)
+Base.IteratorEltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorEltype(C)
+Base.eltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.eltype(C)
+Base.length(label::LazyNodeLabel) = Base.length(label.collection)
+Base.size(label::LazyNodeLabel, dims...) = Base.size(label.collection, dims...)
+Base.firstindex(label::LazyNodeLabel) = Base.firstindex(label.collection)
+Base.lastindex(label::LazyNodeLabel) = Base.lastindex(label.collection)
+Base.eachindex(label::LazyNodeLabel) = Base.eachindex(label.collection)
+Base.axes(label::LazyNodeLabel) = Base.axes(label.collection)
+
+function __lazy_iterator(label::LazyNodeLabel)
+    return Iterators.map(I -> materialize_lazy_node_label(label, I.I), CartesianIndices(axes(label)))
+end
+
+function Base.iterate(label::LazyNodeLabel)
+    iterator = __lazy_iterator(label)
+    nextiteration = Base.iterate(iterator)
+    if isnothing(nextiteration)
+        return nothing
+    end
+    element, nextstate = nextiteration
+    return (element, (iterator, nextstate))
+end
+
+function Base.iterate(::LazyNodeLabel, state)
+    iterator, currentstate = state
+    nextiteration = Base.iterate(iterator, currentstate)
+    if isnothing(nextiteration)
+        return nothing
+    end
+    element, nextstate = nextiteration
+    return (element, (iterator, nextstate))
+end
+
+# We cannot really check any `indices` if the underlying collection is missing 
+__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::MissingCollection, indices) = true
+
+# Here we can check if the `indices` are compatible with the underlying collection
+function __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices)
+    if !(checkbounds(Bool, collection, indices...)::Bool)
+        error(BoundsError(label.name, indices))
+    end
+    return true
+end
+
+# A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
+# This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.
+# Note: Need two methods here because of the method ambiguity
+proxylabel(name::Symbol, index::Nothing, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+proxylabel(name::Symbol, index::Tuple, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
+
+# We disallow that because all accesses to the `LazyNodeLabel` should create a real label instead
+getifcreated(::Model, ::Context, ::LazyNodeLabel) = error("`getifcreated` cannot be called on a `LazyNodeLabel`")
+
+materialize_interface(label::LazyNodeLabel) = materialize_lazy_node_label(label, nothing)
+
+function materialize_lazy_node_label(label, index)
+    check_data_compatibility(label, index)
+    return __materialize_lazy_node_label(label, index)
+end
+
+function __materialize_lazy_node_label(label, index::Tuple)
+    return getorcreate!(label.model, label.context, label.options, label.name, index...)[index...]
+end
+
+function __materialize_lazy_node_label(label, index::Nothing)
+    return getorcreate!(label.model, label.context, label.options, label.name, nothing)
+end
+
+function check_data_compatibility(label, index)
+    if !__check_data_compatibility(label, index)
+        error(
+            """
+      The index `[$(!isnothing(index) ? join(index, ", ") : nothing)]` is not compatible with the underlying collection provided for the label `$(label.name)`.
+      The underlying data provided for `$(label.name)` is `$(label.collection)`.
+      """
+        )
+    end
+    return nothing
+end
+
+function __check_data_compatibility(label::LazyNodeLabel, index::Nothing)
+    # We assume that no index is always compatible with the underlying collection
+    # Eg. a matrix `Σ` can be used both as it is `Σ`, but also as `Σ[1]` or `Σ[1, 1]`
+    return true
+end
+
+function __check_data_compatibility(label::LazyNodeLabel, index::Tuple)
+    return __check_data_compatibility(label, label.collection, index)
+end
+
+# We can't really check if the data compatible or not if we get the `MissingCollection`
+__check_data_compatibility(label::LazyNodeLabel, ::MissingCollection, index::Tuple) = true
+__check_data_compatibility(label::LazyNodeLabel, collection::AbstractArray, indices::Tuple) = checkbounds(Bool, collection, indices...)
+__check_data_compatibility(label::LazyNodeLabel, collection::Tuple, indices::Tuple) =
+    length(indices) === 1 && first(indices) ∈ 1:length(collection)
+# A number cannot really be queried with non-empty indices
+__check_data_compatibility(label::LazyNodeLabel, collection::Number, indices::Tuple) = false
+# For all other we simply don't know so we assume we are compatible
+__check_data_compatibility(label::LazyNodeLabel, collection, indices::Tuple) = true
+
+__proxy_unroll(::ProxyLabel, index, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -951,10 +1141,6 @@ Returns:
     - The generated label for the node.
 """
 function add_atomic_factor_node! end
-
-function add_atomic_factor_node!(model::Model, context::Context, fform)
-    return add_atomic_factor_node!(model, context, EmptyNodeCreationOptions, fform)
-end
 
 function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
     factornode_id = generate_factor_nodelabel(context, fform)
@@ -1097,6 +1283,12 @@ function prepare_interfaces(::StaticInterfaces{I}, fform, lhs_interface, rhs_int
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
+materialize_interface(interface) = interface
+
+function materialze_interfaces(interfaces::NamedTuple)
+    return map(materialize_interface, interfaces)
+end
+
 default_parametrization(::Atomic, fform, rhs::Tuple) = (in = rhs,)
 default_parametrization(::Composite, fform, rhs) = error("Composite nodes always have to be initialized with named arguments")
 
@@ -1169,7 +1361,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::Tuple
-) = fform(rhs_interfaces...)
+) = (nothing, fform(rhs_interfaces...))
 
 make_node!(
     ::False,
@@ -1181,7 +1373,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::NamedTuple
-) = fform(; rhs_interfaces...)
+) = (nothing, fform(; rhs_interfaces...))
 
 make_node!(
     ::False,
@@ -1193,7 +1385,7 @@ make_node!(
     fform,
     lhs_interface,
     rhs_interfaces::MixedArguments
-) = fform(rhs_interfaces.args...; rhs_interfaces.kwargs...)
+) = (nothing, fform(rhs_interfaces.args...; rhs_interfaces.kwargs...))
 
 # If a node is Stochastic, we always materialize.
 make_node!(::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform, lhs_interface, rhs_interfaces) =
@@ -1314,9 +1506,9 @@ function make_node!(
     rhs_interfaces::NamedTuple
 )
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
-    interfaces = prepare_interfaces(fform, lhs_interface, rhs_interfaces)
-    materialize_factor_node!(model, context, options, fform, interfaces)
-    return unroll(lhs_interface)
+    interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
+    nodeid, _, _ = materialize_factor_node!(model, context, options, fform, interfaces)
+    return nodeid, unroll(lhs_interface)
 end
 
 sort_interfaces(fform, defined_interfaces::NamedTuple) =
@@ -1328,10 +1520,14 @@ end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
     interfaces = sort_interfaces(fform, interfaces)
-    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
-    for (interface_name, neighbor_nodelabel) in iterator(interfaces)
-        add_edge!(model, factor_node_id, factor_node_properties, GraphPPL.getifcreated(model, context, neighbor_nodelabel), interface_name)
+    interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
+    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(
+        model, context, withopts(options, (interfaces = interfaces,)), fform
+    )
+    for (interface_name, interface) in iterator(interfaces)
+        add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
+    return factor_node_id, factor_node_data, factor_node_properties
 end
 
 add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple) =
