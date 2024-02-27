@@ -219,10 +219,10 @@ struct Context
     submodel_counts::Dict{Any, Int}
     children::Dict{FactorID, Context}
     factor_nodes::Dict{FactorID, NodeLabel}
-    individual_variables::ArrayDictionary{Symbol, NodeLabel}
-    vector_variables::ArrayDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
-    tensor_variables::ArrayDictionary{Symbol, ResizableArray{NodeLabel}}
-    proxies::ArrayDictionary{Symbol, ProxyLabel}
+    individual_variables::UnorderedDictionary{Symbol, NodeLabel}
+    vector_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
+    tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
+    proxies::UnorderedDictionary{Symbol, ProxyLabel}
 end
 
 function Context(depth::Int, fform::Function, prefix::String, parent)
@@ -234,10 +234,10 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         Dict{Any, Int}(),
         Dict{FactorID, Context}(),
         Dict{FactorID, NodeLabel}(),
-        ArrayDictionary{Symbol, NodeLabel}(),
-        ArrayDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
-        ArrayDictionary{Symbol, ResizableArray{NodeLabel}}(),
-        ArrayDictionary{Symbol, ProxyLabel}()
+        UnorderedDictionary{Symbol, NodeLabel}(),
+        UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
+        UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
+        UnorderedDictionary{Symbol, ProxyLabel}()
     )
 end
 
@@ -496,10 +496,10 @@ The `plugins` field stores additional properties of the node depending on which 
 struct NodeData
     context    :: Context
     properties :: Union{VariableNodeProperties, FactorNodeProperties}
-    extra      :: ArrayDictionary{Symbol, Any}
+    extra      :: UnorderedDictionary{Symbol, Any}
 end
 
-NodeData(context, properties) = NodeData(context, properties, ArrayDictionary{Symbol, Any}())
+NodeData(context, properties) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}())
 
 function Base.show(io::IO, nodedata::NodeData)
     context = getcontext(nodedata)
@@ -753,9 +753,7 @@ function create_model(; fform = identity, plugins = PluginsCollection())
     label_type = NodeLabel
     edge_data_type = EdgeLabel
     vertex_data_type = NodeData
-    graph = MetaGraph(
-        Graph(), label_type = label_type, vertex_data_type = vertex_data_type, edge_data_type = edge_data_type, graph_data = Context(fform)
-    )
+    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
     model = Model(graph, plugins)
     return model
 end
