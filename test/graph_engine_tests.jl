@@ -401,7 +401,7 @@ end
         @test getname(last(p)) === :y
     end
 
-    let p = ProxyLabel(:x, (1, ), y)
+    let p = ProxyLabel(:x, (1,), y)
         @test_throws "Indexing a single node label `y` with an index `[1]` is not allowed" unroll(p)
     end
 
@@ -786,7 +786,6 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
-
 end
 
 @testitem "haskey(::Context)" begin
@@ -876,6 +875,68 @@ end
     inner_context = ctx[inner, 1]
     inner_inner_context = inner_context[inner_inner, 1]
     @test path_to_root(inner_inner_context) == [inner_inner_context, inner_context, ctx]
+end
+
+@testitem "VarDict" begin
+    using GraphPPL
+    import GraphPPL: Context, VarDict
+
+    ctx = Context()
+    vardict = VarDict(ctx)
+    @test typeof(vardict) == VarDict
+
+    using Distributions
+
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext
+
+    @model function submodel(y, x_prev, x_next)
+        x_next ~ Normal(x_prev, 1)
+        y ~ Normal(x_next, 1)
+    end
+
+    @model function state_space_model(y)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], 1)
+        for i in 2:length(y)
+            # `x[i]` is not defined here, so this should fail
+            y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
+        end
+    end
+
+    ydata = ones(10)
+
+    @test_throws BoundsError create_model(state_space_model()) do model, ctx
+        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        return (y = y,)
+    end
+
+    @model function state_space_model_with_new(y)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], 1)
+        for i in 2:length(y)
+            # `x[i]` is not defined here, so this should fail
+            y[i] ~ submodel(x_next = new(x[i]), x_prev = x[i - 1])
+        end
+    end
+
+    model = create_model(state_space_model_with_new()) do model, ctx
+        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        return (y = y,)
+    end
+
+    context = getcontext(model)
+    vardict = VarDict(context)
+    @test haskey(vardict, :y)
+    @test haskey(vardict, :x)
+    @test haskey(vardict, (submodel, 1))
+    @test haskey(vardict, (submodel, 2))
+
+    @test vardict[:y] === context[:y]
+    @test vardict[:x] === context[:x]
+    @test vardict[submodel, 1] == VarDict(context[submodel, 1])
+
+    result = map(identity, vardict)
+    @test length(result) == 23
 end
 
 @testitem "NodeType" begin
@@ -991,7 +1052,16 @@ end
 
 @testitem "getorcreate!" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, getorcreate!, check_variate_compatability, NodeLabel, ResizableArray, NodeCreationOptions, getproperties, is_kind
+    import GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        check_variate_compatability,
+        NodeLabel,
+        ResizableArray,
+        NodeCreationOptions,
+        getproperties,
+        is_kind
 
     let # let block to suppress the scoping warnings
         # Test 1: Creation of regular one-dimensional variable
