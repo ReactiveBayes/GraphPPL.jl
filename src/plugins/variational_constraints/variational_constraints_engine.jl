@@ -535,7 +535,9 @@ end
 @memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
     constraint = BoundedBitSetTuple(num_neighbors)
     for i in referenced_indices
-        intersect!(constraint, constant_constraint(num_neighbors, i))
+        constraint[i, :] = false
+        constraint[:, i] = false
+        constraint[i, i] = true
     end
     return constraint
 end
@@ -573,11 +575,11 @@ end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
     constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
-
+    num_neighbors = length(constraint_bitset)
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
         if is_factorized(neighbor_data)
-            intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
+            intersect_constraint_bitset!(node_data, constant_constraint(num_neighbors, i))
         end
     end
    
