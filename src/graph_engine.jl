@@ -337,40 +337,52 @@ function Base.getindex(c::Context, key::FactorID)
     throw(KeyError(key))
 end
 
-function Base.getindex(c::Context, fform, index::Int)
-    return c[FactorID(fform, index)]
-end
+Base.getindex(c::Context, fform, index::Int) = c[FactorID(fform, index)]
 
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol)
-    return setindex!(c, val, key, nothing)
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing)
-    return set!(c.individual_variables, key, val)
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int)
-    return c.vector_variables[key][index] = val
-end
-
-function Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N, Int64}) where {N}
-    return c.tensor_variables[key][index...] = val
-end
-
+Base.setindex!(c::Context, val::NodeLabel, key::Symbol) = setindex!(c, val, key, nothing)
+Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
+Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
+Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = set!(c.tensor_variables, key, val)
+Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = setindex!(c, val, key, nothing)
+Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
+Base.setindex!(c::Context, val::Context, key::FactorID) = setindex!(c.children, val, key)
 
-function Base.setindex!(c::Context, val::ProxyLabel, key::Symbol)
-    return setindex!(c, val, key, nothing)
+struct VarDict
+    variables::UnorderedDictionary{Symbol, Union{NodeLabel, ResizableArray}}
+    children::UnorderedDictionary{FactorID, VarDict}
 end
 
-function Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing)
-    return set!(c.proxies, key, val)
+function VarDict(context::Context)
+    variables = merge(individual_variables(context), vector_variables(context), tensor_variables(context))
+    result = map(pair -> ((first(pair)), VarDict(last(pair))), collect(children(context)))
+    return VarDict(variables, UnorderedDictionary(first.(result), last.(result)))
 end
 
-function Base.setindex!(c::Context, val::Context, key::FactorID)
-    return setindex!(c.children, val, key)
+variables(vardict::VarDict) = vardict.variables
+children(vardict::VarDict) = vardict.children
+
+haskey(vardict::VarDict, key::Symbol) = haskey(vardict.variables, key)
+haskey(vardict::VarDict, key::Tuple{T, Int} where {T}) = haskey(vardict.children, FactorID(first(key), last(key)))
+haskey(vardict::VarDict, key::FactorID) = haskey(vardict.children, key)
+
+Base.getindex(vardict::VarDict, key::Symbol) = vardict.variables[key]
+Base.getindex(vardict::VarDict, f, index::Int) = vardict.children[FactorID(f, index)]
+Base.getindex(vardict::VarDict, key::FactorID) = vardict.children[key]
+
+function Base.map(f, vardict::VarDict)
+    out = []
+    for pair in pairs(variables(vardict))
+        push!(out, f(pair))
+    end
+    for child in children(vardict)
+        out = vcat(out, map(f, child))
+    end
+    return out
 end
+
+Base.:(==)(left::VarDict, right::VarDict) = left.variables == right.variables && left.children == right.children
 
 """
     NodeCreationOptions(namedtuple)
