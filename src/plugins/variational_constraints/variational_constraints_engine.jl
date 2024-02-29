@@ -1,3 +1,5 @@
+using BitSetTuples
+
 """
     CombinedRange{L, R}
 
@@ -589,15 +591,19 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         )
     end
 
-    rows = unique(eachcol(BitSetTuples.contents(constraint_bitset)))
-    rows = map(row -> Tuple(filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row)))), rows)
-
-    new_constraint = Tuple(rows)
-    setextra!(node_data, :factorization_constraint_indices, new_constraint)
+    setextra!(node_data, :factorization_constraint_indices, convert_to_indices_tuple(constraint_bitset))
 end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::VariableNodeProperties)
     return nothing
+end
+
+@memoize function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
+    rows = unique(eachcol(contents(constraint)))
+    rows = map(row -> Tuple(filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row)))), rows)
+
+    new_constraint = Tuple(rows)
+    return new_constraint
 end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
