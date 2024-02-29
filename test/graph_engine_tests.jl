@@ -401,7 +401,7 @@ end
         @test getname(last(p)) === :y
     end
 
-    let p = ProxyLabel(:x, (1, ), y)
+    let p = ProxyLabel(:x, (1,), y)
         @test_throws "Indexing a single node label `y` with an index `[1]` is not allowed" unroll(p)
     end
 
@@ -786,7 +786,6 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
-
 end
 
 @testitem "haskey(::Context)" begin
@@ -991,7 +990,16 @@ end
 
 @testitem "getorcreate!" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, getorcreate!, check_variate_compatability, NodeLabel, ResizableArray, NodeCreationOptions, getproperties, is_kind
+    import GraphPPL:
+        create_model,
+        getcontext,
+        getorcreate!,
+        check_variate_compatability,
+        NodeLabel,
+        ResizableArray,
+        NodeCreationOptions,
+        getproperties,
+        is_kind
 
     let # let block to suppress the scoping warnings
         # Test 1: Creation of regular one-dimensional variable

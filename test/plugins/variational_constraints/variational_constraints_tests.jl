@@ -66,7 +66,7 @@ end
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
                 @test hasextra(model[node], :factorization_constraint_indices)
-                return getextra(model[node], :factorization_constraint_indices) === ((1,2,3),)
+                return getextra(model[node], :factorization_constraint_indices) === ((1, 2, 3),)
             end
         end
     end
@@ -112,7 +112,7 @@ end
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
                 @test hasextra(model[node], :factorization_constraint_indices)
-                return getextra(model[node], :factorization_constraint_indices) === ((1, 2,), (3,))
+                return getextra(model[node], :factorization_constraint_indices) === ((1, 2), (3,))
             end
         end
     end
@@ -860,7 +860,7 @@ end
         @test all(filter(as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
             @test hasextra(model[node], :factorization_constraint_indices)
-            return getextra(model[node], :factorization_constraint_indices) === ((1, 2, 3,),)
+            return getextra(model[node], :factorization_constraint_indices) === ((1, 2, 3),)
         end
     end
 end

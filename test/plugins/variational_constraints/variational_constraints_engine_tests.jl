@@ -670,7 +670,7 @@ end
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
-    setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (2, 3), (2, 3,))))
+    setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (2, 3), (2, 3))))
     materialize_constraints!(model, node)
     @test getextra(model[node], :factorization_constraint_indices) == ((1,), (2, 3))
 
@@ -679,7 +679,7 @@ end
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
-    setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (3,), (1,3))))
+    setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (3,), (1, 3))))
     @test_throws ErrorException materialize_constraints!(model, node)
 
     # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
@@ -920,7 +920,7 @@ end
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1,2,3), (1,2,3), (1,2,3))
+        @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1, 2, 3), (1, 2, 3), (1, 2, 3))
     end
 
     # Test ResolvedFactorizationConstraints over anonymous variables
@@ -988,17 +988,19 @@ end
             )
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
-        @test tupled_contents(GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint)) == tupled_contents(BitSetTuple([
-            collect(1:9),
-            [1, 2, 6, 7, 8, 9],
-            [1, 3, 6, 7, 8, 9],
-            [1, 4, 6, 7, 8, 9],
-            [1, 5, 6, 7, 8, 9],
-            collect(1:9),
-            collect(1:9),
-            collect(1:9),
-            collect(1:9)
-        ]))
+        @test tupled_contents(GraphPPL.convert_to_bitsets(model, mixture_node, neighbors, constraint)) == tupled_contents(
+            BitSetTuple([
+                collect(1:9),
+                [1, 2, 6, 7, 8, 9],
+                [1, 3, 6, 7, 8, 9],
+                [1, 4, 6, 7, 8, 9],
+                [1, 5, 6, 7, 8, 9],
+                collect(1:9),
+                collect(1:9),
+                collect(1:9),
+                collect(1:9)
+            ])
+        )
     end
 end
 
@@ -1075,7 +1077,7 @@ end
     for i in 1:10
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
         @test hasextra(node, :factorization_constraint_indices)
-        @test getextra(node, :factorization_constraint_indices) == ((1, 2,), (3,))
+        @test getextra(node, :factorization_constraint_indices) == ((1, 2), (3,))
     end
 
     # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel

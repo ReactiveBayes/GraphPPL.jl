@@ -582,7 +582,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
             intersect_constraint_bitset!(node_data, constant_constraint(num_neighbors, i))
         end
     end
-   
+
     if !BitSetTuples.is_valid_partition(constraint_bitset)
         error(
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
