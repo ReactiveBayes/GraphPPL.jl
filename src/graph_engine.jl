@@ -349,8 +349,8 @@ Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = setindex!(c, val, key
 Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
 Base.setindex!(c::Context, val::Context, key::FactorID) = setindex!(c.children, val, key)
 
-struct VarDict
-    variables::UnorderedDictionary{Symbol, Union{NodeLabel, ResizableArray}}
+struct VarDict{T}
+    variables::UnorderedDictionary{Symbol, T}
     children::UnorderedDictionary{FactorID, VarDict}
 end
 
