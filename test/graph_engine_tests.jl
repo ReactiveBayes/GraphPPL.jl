@@ -883,7 +883,7 @@ end
 
     ctx = Context()
     vardict = VarDict(ctx)
-    @test typeof(vardict) == VarDict
+    @test isa(vardict, VarDict)
 
     using Distributions
 

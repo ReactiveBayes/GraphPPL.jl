@@ -354,10 +354,15 @@ struct VarDict{T}
     children::UnorderedDictionary{FactorID, VarDict}
 end
 
+VarDict(variables::UnorderedDictionary{Symbol, T}) where {T} = VarDict(variables, UnorderedDictionary{FactorID, VarDict}())
+
 function VarDict(context::Context)
     variables = merge(individual_variables(context), vector_variables(context), tensor_variables(context))
     result = map(pair -> ((first(pair)), VarDict(last(pair))), collect(children(context)))
-    return VarDict(variables, UnorderedDictionary(first.(result), last.(result)))
+    if isempty(result)
+        return VarDict(variables)
+    end
+    return VarDict(variables, UnorderedDictionary{FactorID, VarDict}(first.(result), last.(result)))
 end
 
 variables(vardict::VarDict) = vardict.variables
@@ -375,6 +380,9 @@ function Base.map(f, vardict::VarDict)
     newvariables = map(f, variables(vardict))
     newchildren = map(children(vardict)) do child
         return map(f, child)
+    end
+    if isempty(newchildren)
+        return VarDict(newvariables)
     end
     return VarDict(newvariables, newchildren)
 end
