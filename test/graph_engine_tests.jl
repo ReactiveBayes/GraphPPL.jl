@@ -936,7 +936,10 @@ end
     @test vardict[submodel, 1] == VarDict(context[submodel, 1])
 
     result = map(identity, vardict)
-    @test length(result) == 23
+    @test haskey(result, :y)
+    @test haskey(result, :x)
+    @test haskey(result, (submodel, 1))
+    @test haskey(result, (submodel, 2))
 end
 
 @testitem "NodeType" begin

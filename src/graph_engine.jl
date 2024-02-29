@@ -372,14 +372,11 @@ Base.getindex(vardict::VarDict, f, index::Int) = vardict.children[FactorID(f, in
 Base.getindex(vardict::VarDict, key::FactorID) = vardict.children[key]
 
 function Base.map(f, vardict::VarDict)
-    out = []
-    for pair in pairs(variables(vardict))
-        push!(out, f(pair))
+    newvariables = map(f, variables(vardict))
+    newchildren = map(children(vardict)) do child
+        return map(f, child)
     end
-    for child in children(vardict)
-        out = vcat(out, map(f, child))
-    end
-    return out
+    return VarDict(newvariables, newchildren)
 end
 
 Base.:(==)(left::VarDict, right::VarDict) = left.variables == right.variables && left.children == right.children
