@@ -592,5 +592,4 @@ end
     @test length(collect(filter(as_node(Normal), model))) === 20
     @test length(collect(filter(as_variable(:x), model))) === 10
     @test length(collect(filter(as_variable(:y), model))) === 10
-
 end
