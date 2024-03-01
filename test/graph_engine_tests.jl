@@ -912,10 +912,13 @@ end
 
     context = getcontext(model)
     vardict = VarDict(context)
+
     @test haskey(vardict, :y)
     @test haskey(vardict, :x)
-    @test haskey(vardict, (submodel, 1))
-    @test haskey(vardict, (submodel, 2))
+    for i in 1:(length(ydata) - 1)
+        @test haskey(vardict, (submodel, i))
+        @test haskey(vardict[submodel, i], :γ)
+    end
 
     @test vardict[:y] === context[:y]
     @test vardict[:x] === context[:x]
@@ -924,10 +927,10 @@ end
     result = map(identity, vardict)
     @test haskey(result, :y)
     @test haskey(result, :x)
-    @test haskey(result, (submodel, 1))
-    @test haskey(result, (submodel, 2))
-    @test haskey(result[submodel, 1], :γ)
-    @test haskey(result[submodel, 2], :γ)
+    for i in 1:(length(ydata) - 1)
+        @test haskey(result, (submodel, i))
+        @test haskey(result[submodel, i], :γ)
+    end
 
     result = map(vardict) do variable
         return length(variable)
@@ -936,9 +939,11 @@ end
     @test haskey(result, :x)
     @test result[:y] === length(ydata)
     @test result[:x] === length(ydata)
-    @test result[(submodel, 1)][:γ] === 1
-    @test result[GraphPPL.FactorID(submodel, 1)][:γ] === 1
-    @test result[submodel, 1][:γ] === 1
+    for i in 1:(length(ydata) - 1)
+        @test result[(submodel, i)][:γ] === 1
+        @test result[GraphPPL.FactorID(submodel, i)][:γ] === 1
+        @test result[submodel, i][:γ] === 1
+    end
 
     # Filter only random variables
     result = filter(vardict) do label
@@ -950,13 +955,13 @@ end
     end
     @test !haskey(result, :y)
     @test haskey(result, :x)
-    @test haskey(result, (submodel, 1))
-    @test haskey(result, (submodel, 2))
-    @test haskey(result[submodel, 1], :γ)
-    @test haskey(result[submodel, 2], :γ)
+    for i in 1:(length(ydata) - 1)
+        @test haskey(result, (submodel, i))
+        @test haskey(result[submodel, i], :γ)
+    end
 
-     # Filter only data variables
-     result = filter(vardict) do label
+    # Filter only data variables
+    result = filter(vardict) do label
         if label isa GraphPPL.ResizableArray
             all(is_data.(getproperties.(model[label])))
         else
@@ -965,11 +970,10 @@ end
     end
     @test haskey(result, :y)
     @test !haskey(result, :x)
-    @test haskey(result, (submodel, 1))
-    @test haskey(result, (submodel, 2))
-    @test !haskey(result[submodel, 1], :γ)
-    @test !haskey(result[submodel, 2], :γ)
-
+    for i in 1:(length(ydata) - 1)
+        @test haskey(result, (submodel, i))
+        @test !haskey(result[submodel, i], :γ)
+    end
 end
 
 @testitem "NodeType" begin
