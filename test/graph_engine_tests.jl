@@ -846,11 +846,11 @@ end
 
     ctx = Context()
     @test_throws KeyError ctx[FactorID(sum, 1)]
-    ctx.children[FactorID(sum, 1)] = Context()
+    ctx[FactorID(sum, 1)] = Context()
     @test ctx[FactorID(sum, 1)] == ctx.children[FactorID(sum, 1)]
 
     @test_throws KeyError ctx[FactorID(sum, 2)]
-    ctx.factor_nodes[FactorID(sum, 2)] = NodeLabel(:sum, 1)
+    ctx[FactorID(sum, 2)] = NodeLabel(:sum, 1)
     @test ctx[FactorID(sum, 2)] == ctx.factor_nodes[FactorID(sum, 2)]
 end
 
@@ -887,27 +887,12 @@ end
 
     using Distributions
 
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
 
     @model function submodel(y, x_prev, x_next)
-        x_next ~ Normal(x_prev, 1)
+        γ ~ Gamma(1, 1)
+        x_next ~ Normal(x_prev, γ)
         y ~ Normal(x_next, 1)
-    end
-
-    @model function state_space_model(y)
-        x[1] ~ Normal(0, 1)
-        y[1] ~ Normal(x[1], 1)
-        for i in 2:length(y)
-            # `x[i]` is not defined here, so this should fail
-            y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
-        end
-    end
-
-    ydata = ones(10)
-
-    @test_throws BoundsError create_model(state_space_model()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
-        return (y = y,)
     end
 
     @model function state_space_model_with_new(y)
@@ -919,6 +904,7 @@ end
         end
     end
 
+    ydata = ones(10)
     model = create_model(state_space_model_with_new()) do model, ctx
         y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
         return (y = y,)
@@ -940,6 +926,50 @@ end
     @test haskey(result, :x)
     @test haskey(result, (submodel, 1))
     @test haskey(result, (submodel, 2))
+    @test haskey(result[submodel, 1], :γ)
+    @test haskey(result[submodel, 2], :γ)
+
+    result = map(vardict) do variable
+        return length(variable)
+    end
+    @test haskey(result, :y)
+    @test haskey(result, :x)
+    @test result[:y] === length(ydata)
+    @test result[:x] === length(ydata)
+    @test result[(submodel, 1)][:γ] === 1
+    @test result[GraphPPL.FactorID(submodel, 1)][:γ] === 1
+    @test result[submodel, 1][:γ] === 1
+
+    # Filter only random variables
+    result = filter(vardict) do label
+        if label isa GraphPPL.ResizableArray
+            all(is_random.(getproperties.(model[label])))
+        else
+            return is_random(getproperties(model[label]))
+        end
+    end
+    @test !haskey(result, :y)
+    @test haskey(result, :x)
+    @test haskey(result, (submodel, 1))
+    @test haskey(result, (submodel, 2))
+    @test haskey(result[submodel, 1], :γ)
+    @test haskey(result[submodel, 2], :γ)
+
+     # Filter only data variables
+     result = filter(vardict) do label
+        if label isa GraphPPL.ResizableArray
+            all(is_data.(getproperties.(model[label])))
+        else
+            return is_data(getproperties(model[label]))
+        end
+    end
+    @test haskey(result, :y)
+    @test !haskey(result, :x)
+    @test haskey(result, (submodel, 1))
+    @test haskey(result, (submodel, 2))
+    @test !haskey(result[submodel, 1], :γ)
+    @test !haskey(result[submodel, 2], :γ)
+
 end
 
 @testitem "NodeType" begin
