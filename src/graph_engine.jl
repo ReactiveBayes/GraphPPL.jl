@@ -216,9 +216,9 @@ struct Context
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
-    submodel_counts::Dict{Any, Int}
-    children::Dict{FactorID, Context}
-    factor_nodes::Dict{FactorID, NodeLabel}
+    submodel_counts::UnorderedDictionary{Any, Int}
+    children::UnorderedDictionary{FactorID, Context}
+    factor_nodes::UnorderedDictionary{FactorID, NodeLabel}
     individual_variables::UnorderedDictionary{Symbol, NodeLabel}
     vector_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
@@ -231,9 +231,9 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         fform,
         prefix,
         parent,
-        Dict{Any, Int}(),
-        Dict{FactorID, Context}(),
-        Dict{FactorID, NodeLabel}(),
+        UnorderedDictionary{Any, Int}(),
+        UnorderedDictionary{FactorID, Context}(),
+        UnorderedDictionary{FactorID, NodeLabel}(),
         UnorderedDictionary{Symbol, NodeLabel}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
@@ -262,7 +262,7 @@ path_to_root(context::Context) = [context, path_to_root(parent(context))...]
 
 function generate_factor_nodelabel(context::Context, fform::Any)
     if count(context, fform) == 0
-        context.submodel_counts[fform] = 1
+        set!(context.submodel_counts, fform, 1)
     else
         context.submodel_counts[fform] += 1
     end
@@ -311,17 +311,13 @@ haskey(context::Context, key::Symbol) =
 
 haskey(context::Context, key::FactorID) = haskey(context.factor_nodes, key) || haskey(context.children, key)
 
-function Base.getindex(c::Context, key::Any)
+function Base.getindex(c::Context, key::Symbol)
     if haskey(c.individual_variables, key)
         return c.individual_variables[key]
     elseif haskey(c.vector_variables, key)
         return c.vector_variables[key]
     elseif haskey(c.tensor_variables, key)
         return c.tensor_variables[key]
-    elseif haskey(c.factor_nodes, key)
-        return c.factor_nodes[key]
-    elseif haskey(c.children, key)
-        return c.children[key]
     elseif haskey(c.proxies, key)
         return c.proxies[key]
     end
@@ -339,30 +335,32 @@ end
 
 Base.getindex(c::Context, fform, index::Int) = c[FactorID(fform, index)]
 
-Base.setindex!(c::Context, val::NodeLabel, key::Symbol) = setindex!(c, val, key, nothing)
+Base.setindex!(c::Context, val::NodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
 Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
 Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
 Base.setindex!(c::Context, val::NodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
 Base.setindex!(c::Context, val::ResizableArray{NodeLabel, T, N} where {T, N}, key::Symbol) = set!(c.tensor_variables, key, val)
-Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = setindex!(c, val, key, nothing)
+Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
 Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
-Base.setindex!(c::Context, val::Context, key::FactorID) = setindex!(c.children, val, key)
+Base.setindex!(c::Context, val::Context, key::FactorID) = set!(c.children, key, val)
+Base.setindex!(c::Context, val::NodeLabel, key::FactorID) = set!(c.factor_nodes, key, val)
 
+"""
+    VarDict
+
+A recursive dictionary structure that contains all variables in a probabilistic graphical model.
+Iterates over all variables in the model and their children in a linear fashion, but preserves the recursive nature of the actual model.
+"""
 struct VarDict{T}
     variables::UnorderedDictionary{Symbol, T}
     children::UnorderedDictionary{FactorID, VarDict}
 end
 
-VarDict(variables::UnorderedDictionary{Symbol, T}) where {T} = VarDict(variables, UnorderedDictionary{FactorID, VarDict}())
-
 function VarDict(context::Context)
-    variables = merge(individual_variables(context), vector_variables(context), tensor_variables(context))
-    result = map(pair -> ((first(pair)), VarDict(last(pair))), collect(children(context)))
-    if isempty(result)
-        return VarDict(variables)
-    end
-    return VarDict(variables, UnorderedDictionary{FactorID, VarDict}(first.(result), last.(result)))
+    dictvariables = merge(individual_variables(context), vector_variables(context), tensor_variables(context))
+    dictchildren = convert(UnorderedDictionary{FactorID, VarDict}, map(child -> VarDict(child), children(context)))
+    return VarDict(dictvariables, dictchildren)
 end
 
 variables(vardict::VarDict) = vardict.variables
@@ -374,18 +372,21 @@ haskey(vardict::VarDict, key::FactorID) = haskey(vardict.children, key)
 
 Base.getindex(vardict::VarDict, key::Symbol) = vardict.variables[key]
 Base.getindex(vardict::VarDict, f, index::Int) = vardict.children[FactorID(f, index)]
+Base.getindex(vardict::VarDict, key::Tuple{T, Int} where {T}) = vardict.children[FactorID(first(key), last(key))]
 Base.getindex(vardict::VarDict, key::FactorID) = vardict.children[key]
 
 function Base.map(f, vardict::VarDict)
-    newvariables = map(f, variables(vardict))
-    newchildren = map(children(vardict)) do child
-        return map(f, child)
-    end
-    if isempty(newchildren)
-        return VarDict(newvariables)
-    end
-    return VarDict(newvariables, newchildren)
+    mapped_variables = map(f, variables(vardict))
+    mapped_children = convert(UnorderedDictionary{FactorID, VarDict}, map(child -> map(f, child), children(vardict)))
+    return VarDict(mapped_variables, mapped_children)
 end
+
+function Base.filter(f, vardict::VarDict)
+    filtered_variables = filter(f, variables(vardict))
+    filtered_children = convert(UnorderedDictionary{FactorID, VarDict}, map(child -> filter(f, child), children(vardict)))
+    return VarDict(filtered_variables, filtered_children)
+end
+
 
 Base.:(==)(left::VarDict, right::VarDict) = left.variables == right.variables && left.children == right.children
 
@@ -1168,7 +1169,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     )
 
     model[potential_label] = nodedata
-    context.factor_nodes[factornode_id] = label
+    context[factornode_id] = label
 
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
 end
@@ -1195,7 +1196,7 @@ Returns:
 """
 function add_composite_factor_node!(model::Model, parent_context::Context, context::Context, node_name)
     node_id = generate_factor_nodelabel(parent_context, node_name)
-    parent_context.children[node_id] = context
+    parent_context[node_id] = context
     return node_id
 end
 

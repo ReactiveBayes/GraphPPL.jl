@@ -89,7 +89,7 @@ function apply_meta!(model::Model, context::Context, meta::MetaSpecification)
     for meta_obj in getmetaobjects(meta)
         apply_meta!(model, context, meta_obj)
     end
-    for (factor_id, child) in children(context)
+    for (factor_id, child) in pairs(children(context))
         if (submodel = getspecificsubmodelmeta(meta, factor_id)) !== nothing
             apply_meta!(model, child, getmetaobjects(submodel))
         elseif (submodel = getgeneralsubmodelmeta(meta, fform(factor_id))) !== nothing

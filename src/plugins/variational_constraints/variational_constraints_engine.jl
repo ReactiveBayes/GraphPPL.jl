@@ -841,7 +841,7 @@ function apply_constraints!(
     for rfc in constraints(resolved_factorization_constraints)
         apply_constraints!(model, context, rfc)
     end
-    for (factor_id, child) in children(context)
+    for (factor_id, child) in pairs(children(context))
         if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
             apply_constraints!(
                 model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), resolved_factorization_constraints
