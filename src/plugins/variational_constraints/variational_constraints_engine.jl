@@ -598,7 +598,7 @@ end
 
 @memoize function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
     rows = unique(eachcol(contents(constraint)))
-    rows = map(row -> Tuple(filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row)))), rows)
+    rows = map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), rows)
 
     new_constraint = Tuple(rows)
     return new_constraint
