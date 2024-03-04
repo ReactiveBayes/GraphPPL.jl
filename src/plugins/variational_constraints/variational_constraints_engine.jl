@@ -492,7 +492,7 @@ end
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
 function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BoundedBitSetTuple)
-    constraint = getextra(nodedata, :factorization_constraint_bitset)
+    constraint = convert(BoundedBitSetTuple, getextra(nodedata, :factorization_constraint_bitset))
     intersect!(constraint, constraint_data)
     return constraint
 end
@@ -695,7 +695,7 @@ function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
 end
 
 function is_decoupled(var_1::NodeData, var_2::NodeData, constraint::ResolvedFactorizationConstraint)
-    return is_decoupled(var_1, getproperties(var_1), var_2, getproperties(var_2), constraint)
+    return is_decoupled(var_1, getproperties(var_1)::VariableNodeProperties, var_2, getproperties(var_2)::VariableNodeProperties, constraint)
 end
 
 function is_decoupled(

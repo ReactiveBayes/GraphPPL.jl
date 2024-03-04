@@ -158,10 +158,10 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
-struct ProxyLabel{T}
+struct ProxyLabel{T, V}
     name::Symbol
     index::T
-    proxied::Any
+    proxied::V
 end
 
 # We need two methods to resolve the ambiguities
@@ -1153,7 +1153,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     model[potential_label] = nodedata
     context.factor_nodes[factornode_id] = label
 
-    return label, nodedata, getproperties(nodedata)
+    return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
 end
 
 factor_alias(any, interfaces) = any
@@ -1516,12 +1516,13 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
     return defined_interfaces[I]
 end
 
-function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
+function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where F
     interfaces = sort_interfaces(fform, interfaces)
     interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(
         model, context, withopts(options, (interfaces = interfaces,)), fform
     )
+    factor_node_properties::FactorNodeProperties
     for (interface_name, interface) in iterator(interfaces)
         add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
