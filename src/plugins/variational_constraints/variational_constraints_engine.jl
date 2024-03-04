@@ -588,7 +588,6 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
         )
     end
-
     setextra!(node_data, :factorization_constraint_indices, convert_to_indices_tuple(constraint_bitset))
 end
 
