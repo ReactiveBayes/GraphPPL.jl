@@ -491,8 +491,8 @@ end
 
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
-function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BitSetTuple)
-    constraint = getextra(nodedata, :factorization_constraint_bitset)
+function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BoundedBitSetTuple)
+    constraint = getextra(nodedata, :factorization_constraint_bitset)::BoundedBitSetTuple
     intersect!(constraint, constraint_data)
     return constraint
 end
@@ -517,24 +517,27 @@ function is_valid_partition(partition::Set)
 end
 
 @memoize function constant_constraint(num_neighbors::Int, index_constant::Int)
-    constraint = BitSetTuple(num_neighbors)
-    intersect!(constraint[index_constant], BitSet([index_constant]))
-    for i in 1:num_neighbors
-        if i != index_constant
-            delete!(constraint[i], index_constant)
-        end
-    end
+    constraint = BoundedBitSetTuple(num_neighbors)
+    constraint[index_constant, :] = false
+    constraint[:, index_constant] = false
+    constraint[index_constant, index_constant] = true
     return constraint
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int)
-    return BitSetTuple([[i] for i in 1:num_neighbors])
+    constraint = BoundedBitSetTuple(zeros, num_neighbors)
+    for i in 1:num_neighbors
+        constraint[i, i] = true
+    end
+    return constraint
 end
 
 @memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
-    constraint = BitSetTuple(num_neighbors)
+    constraint = BoundedBitSetTuple(num_neighbors)
     for i in referenced_indices
-        intersect!(constraint, constant_constraint(num_neighbors, i))
+        constraint[i, :] = false
+        constraint[:, i] = false
+        constraint[i, i] = true
     end
     return constraint
 end
@@ -572,33 +575,32 @@ end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
     constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
-
+    num_neighbors = length(constraint_bitset)
     for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
         neighbor_data = model[neighbor]
         if is_factorized(neighbor_data)
-            intersect_constraint_bitset!(node_data, constant_constraint(length(constraint_bitset), i))
+            intersect_constraint_bitset!(node_data, constant_constraint(num_neighbors, i))
         end
     end
 
-    constraint_set = Set(BitSetTuples.contents(constraint_bitset)) #TODO test `unique`
-
-    if !is_valid_partition(constraint_set)
+    if !BitSetTuples.is_valid_partition(constraint_bitset)
         error(
-            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_set)"
+            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
         )
     end
-
-    # TODO: (bvdmitri) use node properties for faster access (we dont even need this, right?)
-    edges = GraphPPL.edges(model, node_label)
-    new_constraint = Tuple(sort!(collect(constraint_set), by = first))
-    new_constraint_ = map(clusters -> Tuple(getindex.(Ref(edges), clusters)), new_constraint)
-
-    setextra!(node_data, :factorization_constraint, new_constraint_)
-    setextra!(node_data, :factorization_constraint_indices, new_constraint)
+    setextra!(node_data, :factorization_constraint_indices, convert_to_indices_tuple(constraint_bitset))
 end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::VariableNodeProperties)
     return nothing
+end
+
+@memoize function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
+    rows = unique(eachcol(contents(constraint)))
+    rows = map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), rows)
+
+    new_constraint = Tuple(rows)
+    return new_constraint
 end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
@@ -692,7 +694,7 @@ function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
 end
 
 function is_decoupled(var_1::NodeData, var_2::NodeData, constraint::ResolvedFactorizationConstraint)
-    return is_decoupled(var_1, getproperties(var_1), var_2, getproperties(var_2), constraint)
+    return is_decoupled(var_1, getproperties(var_1)::VariableNodeProperties, var_2, getproperties(var_2)::VariableNodeProperties, constraint)
 end
 
 function is_decoupled(
@@ -778,12 +780,12 @@ function lazy_bool_allequal(f, itr)::Tuple{Bool, Bool}
 end
 
 function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint::ResolvedFactorizationConstraint)
-    result = BitSetTuple(length(neighbors))
+    result = BoundedBitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
         for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
             if is_decoupled(v1, v2, constraint)
-                delete!(@inbounds(result[i]), j + i)
-                delete!(@inbounds(result[j + i]), i)
+                delete!(result, i, j + i)
+                delete!(result, j + i, i)
             end
         end
     end

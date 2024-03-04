@@ -65,8 +65,8 @@ end
 
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces...,),)
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2, 3),)
             end
         end
     end
@@ -111,8 +111,8 @@ end
 
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1:2]...,), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2), (3,))
             end
         end
     end
@@ -157,8 +157,8 @@ end
 
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1], interfaces[3]), (interfaces[2],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 3), (2,))
             end
         end
     end
@@ -203,8 +203,8 @@ end
 
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2], interfaces[3]))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1,), (2, 3))
             end
         end
     end
@@ -264,8 +264,8 @@ end
 
             @test all(filter(as_node(Normal), model)) do node
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1,), (2,), (3,))
             end
         end
     end
@@ -307,8 +307,8 @@ end
 
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            @test hasextra(model[node], :factorization_constraint)
-            return getextra(model[node], :factorization_constraint) === (map(interface -> (interface,), interfaces)...,)
+            @test hasextra(model[node], :factorization_constraint_indices)
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === (map(interface -> (interface,), 1:length(interfaces))...,)
         end
     end
 end
@@ -364,16 +364,16 @@ end
             @test all(filter(as_node(NormalMeanVariance), model)) do node
                 # This must be factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1,), (2,), (3,))
             end
 
             @test all(filter(as_node(NormalMeanPrecision), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to structured, since empty constraints do not factorize out this case
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1], interfaces[2]), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2), (3,))
             end
         end
 
@@ -396,8 +396,8 @@ end
                 # the interfaces must be factorized out
                 # The reset are factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
-                @test hasextra(model[node], :factorization_constraint)
-                return getextra(model[node], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+                @test hasextra(model[node], :factorization_constraint_indices)
+                return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1,), (2,), (3,))
             end
         end
     end
@@ -451,12 +451,12 @@ end
         @test length(collect(filter(as_node(MvNormal), model))) === n - 1
 
         @test all(filter(as_node(MvNormal), model)) do node
-            @test hasextra(model[node], :factorization_constraint)
+            @test hasextra(model[node], :factorization_constraint_indices)
             interfaces = GraphPPL.interfaces(MvNormal, GraphPPL.static(3))
             # desired constraints 
-            desired = Set([(interfaces[1], interfaces[2]), (interfaces[3],)])
+            desired = Set([(1, 2), (3,)])
             # actual constraints 
-            actual = Set(map(cluster -> GraphPPL.getname.(cluster), getextra(model[node], :factorization_constraint)))
+            actual = Set(Tuple.(getextra(model[node], :factorization_constraint_indices)))
             return isequal(desired, actual)
         end
     end
@@ -544,14 +544,14 @@ end
         @test length(collect(filter(as_node(sum), model))) === n - 1
 
         @test all(filter(as_node(Normal), model)) do gnode
-            @test hasextra(model[gnode], :factorization_constraint)
+            @test hasextra(model[gnode], :factorization_constraint_indices)
             # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
             # is correctly resolved to mean-field, because `a * x[i - 1] + b` is deterministically linked to `x[i - 1]`, thus 
             # the interfaces must be factorized out
             # Note that in this particular test we simply test all Gaussian nodes because 
             # other Gaussians are also mean-field due to other (implicit) constraints
             interfaces = GraphPPL.edges(model, gnode)
-            return getextra(model[gnode], :factorization_constraint) === ((interfaces[1],), (interfaces[2],), (interfaces[3],))
+            return Tuple.(getextra(model[gnode], :factorization_constraint_indices)) === ((1,), (2,), (3,))
         end
     end
 end
@@ -687,8 +687,8 @@ end
         @test !hasextra(model[node], :posterior_form_constraint)
         @test !hasextra(model[node], :message_form_constraint)
     end
-    @test getname(getextra(model[ctx[NormalMeanVariance, 1]], :factorization_constraint)) == ((:out,), (:μ,), (:σ,))
-    @test getname(getextra(model[ctx[NormalMeanVariance, 2]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1,), (2,), (3,))
+    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 2]], :factorization_constraint_indices)) == ((1, 2), (3,))
 
     # Test constriants macro with nested model
     constraints = @constraints begin
@@ -715,7 +715,7 @@ end
 
     @test getextra(model[ctx[:y]], :posterior_form_constraint) == NormalMeanVariance()
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
-        @test getname(getextra(model[node], :factorization_constraint)) == ((:out,), (:μ, :σ))
+        @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2, 3))
     end
 
     # Test with specifying specific submodel
@@ -727,9 +727,9 @@ end
     model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
     ctx = GraphPPL.getcontext(model)
 
-    @test getname(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
     for i in 2:99
-        @test getname(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ, :σ),)
+        @test Tuple.(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2, 3),)
     end
 
     # Test with specifying general submodel
@@ -741,9 +741,9 @@ end
     model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
     ctx = GraphPPL.getcontext(model)
 
-    @test getname(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint)) == ((:out, :μ), (:σ,))
+    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
-        @test getname(getextra(model[node], :factorization_constraint)) == ((:out, :μ), (:σ,))
+        @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1, 2), (3,))
     end
 
     # Test with ambiguous constraints
@@ -757,6 +757,7 @@ end
 
 @testitem "A complex hierarchical constraints with lots of renaming and interleaving with constants" begin
     using Distributions
+    using BitSetTuples
 
     import GraphPPL:
         create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
@@ -830,8 +831,8 @@ end
         # Gamma and Beta are factorized as well because they use the constants
         @test all(filter(as_node(Normal) | as_node(Gamma) | as_node(Beta), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            @test hasextra(model[node], :factorization_constraint)
-            return getextra(model[node], :factorization_constraint) === (map(i -> (i,), interfaces)...,)
+            @test hasextra(model[node], :factorization_constraint_indices)
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === (map(i -> (i,), 1:length(interfaces))...,)
         end
     end
 
@@ -851,15 +852,15 @@ end
         # Gamma and Beta are factorized as well because they use the constants
         @test all(filter(as_node(Gamma) | as_node(Beta), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            @test hasextra(model[node], :factorization_constraint)
-            return getextra(model[node], :factorization_constraint) === (map(i -> (i,), interfaces)...,)
+            @test hasextra(model[node], :factorization_constraint_indices)
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === (map(i -> (i,), 1:length(interfaces))...,)
         end
 
         # Normal here should use full joint here as no constraints were passed in the constructor
         @test all(filter(as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
-            @test hasextra(model[node], :factorization_constraint)
-            return getextra(model[node], :factorization_constraint) === ((interfaces...,),)
+            @test hasextra(model[node], :factorization_constraint_indices)
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2, 3),)
         end
     end
 end

@@ -27,7 +27,7 @@ GraphPPLDistributionsExt = "Distributions"
 GraphPPLPlottingExt = ["Cairo", "Compose", "GraphPlot"]
 
 [compat]
-BitSetTuples = "1"
+BitSetTuples = "1.1"
 Cairo = "1.0"
 Compose = "0.9"
 DataStructures = "0.18"
