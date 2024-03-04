@@ -492,7 +492,7 @@ end
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
 function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BoundedBitSetTuple)
-    constraint = convert(BoundedBitSetTuple, getextra(nodedata, :factorization_constraint_bitset))
+    constraint = getextra(nodedata, :factorization_constraint_bitset)::BoundedBitSetTuple
     intersect!(constraint, constraint_data)
     return constraint
 end

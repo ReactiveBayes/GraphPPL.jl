@@ -658,12 +658,12 @@ end
     # Force overwrite the bitset and the constraints
     setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(3))
     materialize_constraints!(model, node)
-    @test getextra(model[node], :factorization_constraint_indices) == ((1, 2, 3),)
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1, 2, 3),)
 
     node = ctx[NormalMeanVariance, 1]
     setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (2,), (3,))))
     materialize_constraints!(model, node)
-    @test getextra(model[node], :factorization_constraint_indices) == ((1,), (2,), (3,))
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
 
     # Test 2: Test materialize with an applied constraint
     model = create_terminated_model(simple_model)
@@ -672,7 +672,7 @@ end
 
     setextra!(model[node], :factorization_constraint_bitset, BoundedBitSetTuple(((1,), (2, 3), (2, 3))))
     materialize_constraints!(model, node)
-    @test getextra(model[node], :factorization_constraint_indices) == ((1,), (2, 3))
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2, 3))
 
     # # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
     model = create_terminated_model(simple_model)
@@ -1063,7 +1063,7 @@ end
     for i in 1:10
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
         @test hasextra(node, :factorization_constraint_indices)
-        @test getextra(node, :factorization_constraint_indices) == ((1,), (2,), (3,))
+        @test Tuple.(getextra(node, :factorization_constraint_indices)) == ((1,), (2,), (3,))
     end
 
     # Test that default constraints are not applied if we specify constraints in the context
@@ -1077,7 +1077,7 @@ end
     for i in 1:10
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
         @test hasextra(node, :factorization_constraint_indices)
-        @test getextra(node, :factorization_constraint_indices) == ((1, 2), (3,))
+        @test Tuple.(getextra(node, :factorization_constraint_indices)) == ((1, 2), (3,))
     end
 
     # Test that default constraints are not applied if we specify constraints for a specific instance of the submodel
@@ -1092,9 +1092,9 @@ end
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
         @test hasextra(node, :factorization_constraint_indices)
         if i == 1
-            @test getextra(node, :factorization_constraint_indices) == ((1, 2), (3,))
+            @test Tuple.(getextra(node, :factorization_constraint_indices)) == ((1, 2), (3,))
         else
-            @test getextra(node, :factorization_constraint_indices) == ((1,), (2,), (3,))
+            @test Tuple.(getextra(node, :factorization_constraint_indices)) == ((1,), (2,), (3,))
         end
     end
 end
