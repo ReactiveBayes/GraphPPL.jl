@@ -516,7 +516,7 @@ function is_valid_partition(partition::Set)
     return true
 end
 
-@memoize function constant_constraint(num_neighbors::Int, index_constant::Int)
+function constant_constraint(num_neighbors::Int, index_constant::Int)
     constraint = BoundedBitSetTuple(num_neighbors)
     constraint[index_constant, :] = false
     constraint[:, index_constant] = false
@@ -524,7 +524,7 @@ end
     return constraint
 end
 
-@memoize function mean_field_constraint(num_neighbors::Int)
+function mean_field_constraint(num_neighbors::Int)
     constraint = BoundedBitSetTuple(zeros, num_neighbors)
     for i in 1:num_neighbors
         constraint[i, i] = true
@@ -532,7 +532,7 @@ end
     return constraint
 end
 
-@memoize function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
+function mean_field_constraint(num_neighbors::Int, referenced_indices::NTuple{N, Int} where {N})
     constraint = BoundedBitSetTuple(num_neighbors)
     for i in referenced_indices
         constraint[i, :] = false
@@ -595,7 +595,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     return nothing
 end
 
-@memoize function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
+function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
     rows = unique(eachcol(contents(constraint)))
     rows = map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), rows)
 
