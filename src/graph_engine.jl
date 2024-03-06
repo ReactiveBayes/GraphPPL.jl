@@ -387,7 +387,6 @@ function Base.filter(f, vardict::VarDict)
     return VarDict(filtered_variables, filtered_children)
 end
 
-
 Base.:(==)(left::VarDict, right::VarDict) = left.variables == right.variables && left.children == right.children
 
 """
@@ -1534,13 +1533,10 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
     return defined_interfaces[I]
 end
 
-function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where F
+function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where {F}
     interfaces = sort_interfaces(fform, interfaces)
     interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
-    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(
-        model, context, withopts(options, (interfaces = interfaces,)), fform
-    )
-    factor_node_properties::FactorNodeProperties
+    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
     for (interface_name, interface) in iterator(interfaces)
         add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
