@@ -254,13 +254,13 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
-count(context::Context, fform::Any) = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
 shortname(context::Context) = string(context.prefix)
 
 path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
 
-function generate_factor_nodelabel(context::Context, fform::Any)
+function generate_factor_nodelabel(context::Context, fform::F) where {F}
     if count(context, fform) == 0
         set!(context.submodel_counts, fform, 1)
     else
@@ -1167,7 +1167,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
         UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
 
-    model[potential_label] = nodedata
+    model[label] = nodedata
     context[factornode_id] = label
 
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))

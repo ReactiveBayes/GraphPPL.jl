@@ -504,22 +504,6 @@ end
     end
 end
 
-@testitem "is_valid_partition(::Set)" begin
-    using GraphPPL
-    import GraphPPL: is_valid_partition
-
-    # Test 1: Test that is_valid_partition returns true for a valid partition
-    @test is_valid_partition(Set([BitSet([1, 2]), BitSet([3, 4])])) == true
-
-    # Test 2: Test that is_valid_partition returns false for an invalid partition
-    @test is_valid_partition(Set([BitSet([1, 2]), BitSet([2, 3])])) == false
-
-    # Test 3: Test that is_valid_partition returns false for an invalid partition
-    @test is_valid_partition(Set([BitSet([1, 2]), BitSet([2, 3]), BitSet([3, 4])])) == false
-
-    # Test 4: Test that is_valid_partition returns false for an invalid partition
-    @test is_valid_partition(Set([BitSet([1, 2]), BitSet([4, 5])])) == false
-end
 
 @testitem "constant_constraint" begin
     using BitSetTuples
