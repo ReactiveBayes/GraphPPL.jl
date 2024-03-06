@@ -444,7 +444,7 @@ function in_lhs(constraint::ResolvedFactorizationConstraint, node::NodeData)
 end
 
 function in_lhs(constraint::ResolvedFactorizationConstraint, node::NodeData, properties::VariableNodeProperties)
-    return in(node, lhs(constraint)) || (!isnothing(getlink(properties)) && any(l -> in_lhs(constraint, l), getlink(properties)))
+    return (in(node, lhs(constraint)) || !isnothing(getlink(properties)) && any(l -> in_lhs(constraint, l), getlink(properties)))::Bool
 end
 
 struct ResolvedFunctionalFormConstraint{V <: ResolvedConstraintLHS, F}
