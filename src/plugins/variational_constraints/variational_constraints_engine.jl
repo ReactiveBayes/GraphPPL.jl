@@ -444,7 +444,7 @@ function in_lhs(constraint::ResolvedFactorizationConstraint, node::NodeData)
 end
 
 function in_lhs(constraint::ResolvedFactorizationConstraint, node::NodeData, properties::VariableNodeProperties)
-    return in(node, lhs(constraint)) || (!isnothing(getlink(properties)) && any(l -> in_lhs(constraint, l), getlink(properties)))
+    return (in(node, lhs(constraint)) || !isnothing(getlink(properties)) && any(l -> in_lhs(constraint, l), getlink(properties)))::Bool
 end
 
 struct ResolvedFunctionalFormConstraint{V <: ResolvedConstraintLHS, F}
@@ -495,25 +495,6 @@ function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::Bound
     constraint = getextra(nodedata, :factorization_constraint_bitset)::BoundedBitSetTuple
     intersect!(constraint, constraint_data)
     return constraint
-end
-
-"""
-    is_valid_partition(set::Set)
-
-Returns `true` if `set` is a valid partition of the set `{1, 2, ..., maximum(Iterators.flatten(set))}`, false otherwise.
-"""
-function is_valid_partition(partition::Set)
-    max_element = maximum(Iterators.flatten(partition))
-    # bvdmitri note: perhaps we can still improve this
-    if !issetequal(reduce(union, partition), BitSet(1:max_element))
-        return false
-    end
-    for element in 1:max_element
-        if sum(cluster -> element ∈ cluster, partition) != 1
-            return false
-        end
-    end
-    return true
 end
 
 function constant_constraint(num_neighbors::Int, index_constant::Int)
@@ -583,24 +564,32 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         end
     end
 
-    if !BitSetTuples.is_valid_partition(constraint_bitset)
+    constraint_set = unique(eachcol(contents(constraint_bitset)))
+
+    if !is_valid_partition(constraint_set)
         error(
             lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
         )
     end
-    setextra!(node_data, :factorization_constraint_indices, convert_to_indices_tuple(constraint_bitset))
+    rows = Tuple(map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), constraint_set))
+    setextra!(node_data, :factorization_constraint_indices, rows)
+end
+
+function is_valid_partition(contents)
+    max_element = length(first(contents))   
+    for element in 1:max_element
+        element_partition_count = sum(partition -> partition[element], contents)
+        # If element is not present in at least one partition
+        # or if it is present in more than one partition
+        if element_partition_count !== 1
+            return false
+        end
+    end
+    return true
 end
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::VariableNodeProperties)
     return nothing
-end
-
-function convert_to_indices_tuple(constraint::BoundedBitSetTuple)
-    rows = unique(eachcol(contents(constraint)))
-    rows = map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), rows)
-
-    new_constraint = Tuple(rows)
-    return new_constraint
 end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
