@@ -807,16 +807,16 @@ function apply_constraints!(
     constraint_set::Union{Constraints, UnspecifiedConstraints},
     resolved_factorization_constraints::ConstraintStack
 )
-    for fc in factorization_constraints(constraint_set)
+    foreach(factorization_constraints(constraint_set)) do fc 
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
     end
-    for ffc in posterior_form_constraints(constraint_set)
+    foreach(posterior_form_constraints(constraint_set)) do ffc 
         apply_constraints!(model, context, ffc)
     end
-    for mc in message_form_constraints(constraint_set)
+    foreach(message_form_constraints(constraint_set)) do
         apply_constraints!(model, context, mc)
     end
-    for rfc in constraints(resolved_factorization_constraints)
+    foreach(constraints(resolved_factorization_constraints)) do rfc
         apply_constraints!(model, context, rfc)
     end
     for (factor_id, child) in pairs(children(context))
