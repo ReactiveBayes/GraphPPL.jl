@@ -25,9 +25,9 @@ Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(
 
 See also: [`GraphPPL.CombinedRange`](@ref)
 """
-struct SplittedRange
-    from::Any
-    to::Any
+struct SplittedRange{L, R}
+    from::L
+    to::R
 end
 
 is_splitted(any) = false
@@ -616,7 +616,7 @@ function __resolve(data::AbstractArray{T} where {T <: NodeData})
     )
 end
 
-function resolve(model::Model, context::Context, variable::IndexedVariable{SplittedRange})
+function resolve(model::Model, context::Context, variable::IndexedVariable{<:SplittedRange})
     global_label = unroll(context[getname(variable)])
     resolved_indices = __factorization_specification_resolve_index(index(variable), global_label)
     global_node_data = model[global_label[firstindex(resolved_indices):lastindex(resolved_indices)]]
@@ -706,7 +706,7 @@ function is_decoupled(
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
-    for entry in rhs(constraint)
+    foreach(rhs(constraint)) do entry
         if var_1 ∈ entry
             return is_decoupled(var_2, entry)
         end
@@ -736,7 +736,7 @@ end
 
 function is_decoupled(var::NodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
-    for entryvar in entry.variables
+    foreach(entry.variables) do entryvar 
         if var ∈ entryvar
             if entryvar isa ResolvedIndexedVariable{SplittedRange}
                 return true # It can technically still be a prt of the `entry`, but `SplittedRange` is a special case
