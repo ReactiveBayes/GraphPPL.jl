@@ -700,10 +700,8 @@ function is_decoupled(
     linkvar_2 = getlink(var_2_properties)
 
     if !isnothing(linkvar_1)
-        linkvar_1::NodeLabel
         return is_decoupled_one_linked(linkvar_1, var_2, constraint)
     elseif !isnothing(linkvar_2)
-        linkvar_2::NodeLabel
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
