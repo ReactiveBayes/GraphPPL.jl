@@ -734,15 +734,14 @@ function is_decoupled_one_linked(links, unlinked::NodeData, constraint::Resolved
     end
 end
 
+__is_splittedrange(::ResolvedIndexedVariable{<:SplittedRange}) = true
+__is_splittedrange(::ResolvedIndexedVariable) = false
+
 function is_decoupled(var::NodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
-    foreach(entry.variables) do entryvar 
+    foreach(entry.variables) do entryvar
         if var ∈ entryvar
-            if entryvar isa ResolvedIndexedVariable{SplittedRange}
-                return true # It can technically still be a prt of the `entry`, but `SplittedRange` is a special case
-            else
-                return false
-            end
+            return __is_splittedrange(entryvar)
         end
     end
     return true
