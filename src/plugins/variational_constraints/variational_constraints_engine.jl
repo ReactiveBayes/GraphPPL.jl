@@ -602,7 +602,6 @@ function __resolve(data::NodeData, properties::VariableNodeProperties)
     return ResolvedIndexedVariable(getname(properties), index(properties), getcontext(data))
 end
 
-# TODO: (bvdmitri) I've changed `{T <: VariableNodeData}` to `{T <: NodeData}`
 function __resolve(data::AbstractArray{T} where {T <: NodeData})
     firstdata = first(data)
     lastdata = last(data)
@@ -667,7 +666,7 @@ function is_factorized(nodedata::NodeData)
         return true
     end
     if !isnothing(getlink(properties))
-        return all(link -> is_factorized(link), getlink(properties))
+        return all(link -> is_factorized(link), getlink(properties))::Bool
     end
     return false
 end
@@ -701,12 +700,14 @@ function is_decoupled(
     linkvar_2 = getlink(var_2_properties)
 
     if !isnothing(linkvar_1)
+        linkvar_1::NodeLabel
         return is_decoupled_one_linked(linkvar_1, var_2, constraint)
     elseif !isnothing(linkvar_2)
+        linkvar_2::NodeLabel
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
-    foreach(rhs(constraint)) do entry
+    for entry in rhs(constraint)
         if var_1 ∈ entry
             return is_decoupled(var_2, entry)
         end
@@ -739,7 +740,7 @@ __is_splittedrange(::ResolvedIndexedVariable) = false
 
 function is_decoupled(var::NodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
-    foreach(entry.variables) do entryvar
+    for entryvar in entry.variables
         if var ∈ entryvar
             return __is_splittedrange(entryvar)
         end
