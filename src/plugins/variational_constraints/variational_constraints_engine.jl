@@ -705,13 +705,9 @@ function is_decoupled(
         return is_decoupled_one_linked(linkvar_2, var_1, constraint)
     end
 
-    for entry in rhs(constraint)
-        if var_1 ∈ entry
-            return is_decoupled(var_2, entry)
-        end
+    return any(rhs(constraint)) do entry
+        return var_1 ∈ entry && is_decoupled(var_2, entry)::Bool
     end
-
-    return false
 end
 
 function is_decoupled_one_linked(links, unlinked::NodeData, constraint::ResolvedFactorizationConstraint)::Bool
@@ -738,12 +734,9 @@ __is_splittedrange(::ResolvedIndexedVariable) = false
 
 function is_decoupled(var::NodeData, entry::ResolvedFactorizationConstraintEntry)::Bool
     # This function checks if the `variable` is not a part of the `entry`
-    for entryvar in entry.variables
-        if var ∈ entryvar
-            return __is_splittedrange(entryvar)
-        end
+    return all(entry.variables) do entryvar
+        return var ∉ entryvar || __is_splittedrange(entryvar)
     end
-    return true
 end
 
 # In comparison to the standard `allequal` also supports `f -> Bool` 
