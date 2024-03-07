@@ -1157,7 +1157,7 @@ Returns:
 """
 function add_atomic_factor_node! end
 
-function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
+function add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F) where {F}
     factornode_id = generate_factor_nodelabel(context, fform)
 
     potential_label = generate_nodelabel(model, fform)
