@@ -141,6 +141,8 @@ function apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} wher
     end
 end
 
+const MetaExtraKey = NodeDataExtraKey{:meta, Any}()
+
 function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T <: NamedTuple})
     data = getmetainfo(meta)
     if !haskey(data, :meta)
@@ -155,7 +157,7 @@ end
 
 function save_meta!(model::Model, node::NodeLabel, meta::MetaObject{S, T} where {S, T})
     nodedata = model[node]
-    if !hasextra(nodedata, :meta)
-        setextra!(nodedata, :meta, getmetainfo(meta))
+    if !hasextra(nodedata, MetaExtraKey)
+        setextra!(nodedata, MetaExtraKey, getmetainfo(meta))
     end
 end

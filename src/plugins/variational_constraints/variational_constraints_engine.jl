@@ -554,7 +554,9 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
     return materialize_constraints!(model, node_label, node_data, getproperties(node_data))
 end
 
-function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, properties::FactorNodeProperties)
+const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
+
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
     constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
     num_neighbors = length(constraint_bitset)
     for (i, neighbor) in enumerate(neighbor_data(properties))
@@ -571,7 +573,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
         )
     end
     rows = Tuple(map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), constraint_set))
-    setextra!(node_data, :factorization_constraint_indices, rows)
+    setextra!(node_data, VariationalConstraintsFactorizationIndicesKey, rows)
 end
 
 function is_valid_partition(contents)
