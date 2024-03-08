@@ -593,3 +593,48 @@ end
     @test length(collect(filter(as_variable(:x), model))) === 10
     @test length(collect(filter(as_variable(:y), model))) === 10
 end
+
+@testitem "Anonymous variables should not be created from arithmetical operations on pure constants" begin
+    using Distributions, LinearAlgebra
+
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+
+    @model function mv_iid_inverse_wishart_known_mean(y, d)
+        m ~ MvNormal(zeros(d + 1 - 1 + 1 - 1), Matrix(Diagonal(ones(d + 1 - 1 + 1 - 1))))
+        C ~ InverseWishart(d + 1, Matrix(Diagonal(ones(d))))
+
+        for i in eachindex(y)
+            y[i] ~ MvNormal(m, C)
+        end
+    end
+
+    ydata = rand(10)
+
+    for d in 1:3
+        model = create_model(mv_iid_inverse_wishart_known_mean(d = d)) do model, ctx
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+            return (y = y,)
+        end
+
+        variable_nodes(model) do label, nodedata 
+            properties = getproperties(nodedata)
+            if is_random(properties)
+                # Shouldn't be any anonymous variables here
+                @test getname(properties) ∈ (:C, :m)
+            end
+        end
+
+        @test length(collect(filter(as_node(MvNormal), model))) === 11
+        @test length(collect(filter(as_node(InverseWishart), model))) === 1
+        @test length(collect(filter(as_node(Matrix), model))) === 0
+        @test length(collect(filter(as_node(Diagonal), model))) === 0
+        @test length(collect(filter(as_node(ones), model))) === 0
+        @test length(collect(filter(as_node(+), model))) === 0
+        @test length(collect(filter(as_node(-), model))) === 0
+        @test length(collect(filter(as_node(sum), model))) === 0
+        @test length(collect(filter(as_variable(:C), model))) === 1
+        @test length(collect(filter(as_variable(:m), model))) === 1
+
+
+    end
+end
