@@ -471,7 +471,7 @@ is_constant(properties::VariableNodeProperties) = is_kind(properties, Val(:const
 function Base.show(io::IO, properties::VariableNodeProperties)
     print(io, "name = ", properties.name, ", index = ", properties.index)
     if !isnothing(properties.link)
-        print(io, "(linked to ", node.link, ")")
+        print(io, "(linked to ", properties.link, ")")
     end
 end
 
