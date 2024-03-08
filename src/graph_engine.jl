@@ -496,7 +496,8 @@ end
 
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
-addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) = push!(properties.neighbors, (variable, edge, data))
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) =
+    push!(properties.neighbors, (variable, edge, data))
 neighbor_data(properties::FactorNodeProperties) = Iterators.map(neighbor -> neighbor[3], neighbors(properties))
 
 function Base.show(io::IO, properties::FactorNodeProperties)
@@ -543,13 +544,13 @@ A compile time key to access the `extra` properties of the `NodeData` structure.
 """
 struct NodeDataExtraKey{K, T} end
 
-function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where K 
+function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where {K}
     return haskey(node.extra, K)
 end
-function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T} 
+function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T}
     return getindex(node.extra, K)::T
 end
-function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T} 
+function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
     return insert!(node.extra, K, value)
 end
 
@@ -765,7 +766,7 @@ struct Composite <: NodeType end
 struct Atomic <: NodeType end
 
 NodeType(::Type) = Atomic()
-NodeType(::F) where {F<:Function} = Atomic()
+NodeType(::F) where {F <: Function} = Atomic()
 
 abstract type NodeBehaviour end
 
@@ -1348,25 +1349,20 @@ function make_node!(model::Model, ctx::Context, fform::F, lhs_interfaces, rhs_in
     return make_node!(model, ctx, EmptyNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
 end
 
-# Special case which should materialize anonymous variable
-function make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::AnonymousVariable, rhs_interfaces) where {F}
-    lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)::NodeLabel
-    return make_node!(model, ctx, options, fform, lhs_materialized, rhs_interfaces)
-end
-
-make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces)  where {F} =
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
     make_node!(NodeType(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #if it is composite, we assume it should be materialized and it is stochastic
-make_node!(nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces)  where {F} =
-    make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(
+    nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+) where {F} = make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
-make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing)  where {F} =
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing) where {F} =
     make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
 # If node is Atomic, check stochasticity
-make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces)  where {F} =
+make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
     make_node!(Atomic(), NodeBehaviour(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
@@ -1379,7 +1375,8 @@ make_node!(
     fform::F,
     lhs_interface,
     rhs_interfaces
-) where {F} = make_node!(contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces)
+) where {F} =
+    make_node!(contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
 make_node!(
@@ -1404,7 +1401,7 @@ make_node!(
     fform::F,
     lhs_interface,
     rhs_interfaces::NamedTuple
-)  where {F} = (nothing, fform(; rhs_interfaces...))
+) where {F} = (nothing, fform(; rhs_interfaces...))
 
 make_node!(
     ::False,
@@ -1419,8 +1416,9 @@ make_node!(
 ) where {F} = (nothing, fform(rhs_interfaces.args...; rhs_interfaces.kwargs...))
 
 # If a node is Stochastic, we always materialize.
-make_node!(::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces)  where {F} =
-    make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(
+    ::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If we have to materialize but lhs_interface is nothing, we create a variable for it
 function make_node!(
@@ -1438,6 +1436,21 @@ function make_node!(
         getname(lhs_interface), nothing, add_variable_node!(model, ctx, EmptyNodeCreationOptions, gensym(getname(lhs_interface)), nothing)
     )
     return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
+end
+
+function make_node!(
+    materialize::True,
+    node_type::NodeType,
+    behaviour::NodeBehaviour,
+    model::Model,
+    ctx::Context,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface::AnonymousVariable,
+    rhs_interfaces
+) where {F}
+    lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)::NodeLabel
+    return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_materialized, rhs_interfaces)
 end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
@@ -1473,7 +1486,7 @@ make_node!(
     fform::F,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::MixedArguments
-)  where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
+) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
 make_node!(
     materialize::True,
@@ -1485,7 +1498,7 @@ make_node!(
     fform::F,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::Tuple{}
-)  where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
+) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
 make_node!(
     materialize::True,
@@ -1497,7 +1510,7 @@ make_node!(
     fform::F,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::Tuple
-)  where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
+) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
 make_node!(
     materialize::True,
@@ -1509,7 +1522,7 @@ make_node!(
     fform::F,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple
-)  where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
+) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
 """
     make_node!
@@ -1535,7 +1548,7 @@ function make_node!(
     fform::F,
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple
-)  where {F}
+) where {F}
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
     interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, fform, interfaces)
