@@ -556,7 +556,7 @@ end
 
 const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
 
-function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, properties::FactorNodeProperties)
     constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
     num_neighbors = length(constraint_bitset)
     for (i, neighbor) in enumerate(neighbor_data(properties))
@@ -815,7 +815,7 @@ function apply_constraints!(
     foreach(posterior_form_constraints(constraint_set)) do ffc 
         apply_constraints!(model, context, ffc)
     end
-    foreach(message_form_constraints(constraint_set)) do
+    foreach(message_form_constraints(constraint_set)) do mc
         apply_constraints!(model, context, mc)
     end
     foreach(constraints(resolved_factorization_constraints)) do rfc
