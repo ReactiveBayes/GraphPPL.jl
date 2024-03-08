@@ -101,6 +101,44 @@ end
     end
 end
 
+@testitem "NodeData extra properties" begin
+    import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties, setextra!, getextra, hasextra, NodeDataExtraKey
+
+    model = create_model()
+    context = getcontext(model)
+
+    @testset for properties in (FactorNodeProperties(fform = String), VariableNodeProperties(name = :x, index = 1))
+        nodedata = NodeData(context, properties)
+
+        @test !hasextra(nodedata, :a)
+        setextra!(nodedata, :a, 1)
+        @test hasextra(nodedata, :a)
+        @test getextra(nodedata, :a) === 1
+
+        # In the current implementation it is not possible to update extra properties
+        @test_throws Exception setextra!(nodedata, :a, 2)
+
+        @test !hasextra(nodedata, :b)
+        setextra!(nodedata, :b, 2)
+        @test hasextra(nodedata, :b)
+        @test getextra(nodedata, :b) === 2
+
+        constkey_c_float = NodeDataExtraKey{:c, Float64}()
+
+        @test !@inferred(hasextra(nodedata, constkey_c_float))
+        @inferred(setextra!(nodedata, constkey_c_float, 3.0))
+        @test @inferred(hasextra(nodedata, constkey_c_float))
+        @test @inferred(getextra(nodedata, constkey_c_float)) === 3.0
+
+        constkey_d_int = NodeDataExtraKey{:d, Int64}()
+
+        @test !@inferred(hasextra(nodedata, constkey_d_int))
+        @inferred(setextra!(nodedata, constkey_d_int, 4))
+        @test @inferred(hasextra(nodedata, constkey_d_int))
+        @test @inferred(getextra(nodedata, constkey_d_int)) === 4
+    end
+end
+
 @testitem "factor_nodes" begin
     import GraphPPL: factor_nodes, is_factor, labels
     include("model_zoo.jl")

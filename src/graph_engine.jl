@@ -537,6 +537,21 @@ hasextra(node::NodeData, key::Symbol) = haskey(node.extra, key)
 getextra(node::NodeData, key::Symbol) = getindex(node.extra, key)
 setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
+"""
+A compile time key to access the `extra` properties of the `NodeData` structure.
+"""
+struct NodeDataExtraKey{K, T} end
+
+function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where K 
+    return haskey(node.extra, K)
+end
+function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T} 
+    return getindex(node.extra, K)::T
+end
+function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T} 
+    return insert!(node.extra, K, value)
+end
+
 is_factor(node::NodeData)   = is_factor(getproperties(node))
 is_variable(node::NodeData) = is_variable(getproperties(node))
 
