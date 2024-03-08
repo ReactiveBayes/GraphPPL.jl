@@ -482,7 +482,7 @@ Data associated with a factor node in a probabilistic graphical model.
 """
 struct FactorNodeProperties
     fform::Any
-    neighbors::Vector{Tuple{NodeLabel, EdgeLabel}}
+    neighbors::Vector{Tuple{NodeLabel, EdgeLabel, Any}}
 end
 
 FactorNodeProperties(; fform, neighbors = Tuple{NodeLabel, EdgeLabel}[]) = FactorNodeProperties(fform, neighbors)
@@ -496,7 +496,8 @@ end
 
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
-addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel) = push!(properties.neighbors, (variable, edge))
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data::F) where {F} = push!(properties.neighbors, (variable, edge, data))
+neighbor_data(properties::FactorNodeProperties) = Iterators.map(neighbor -> neighbor[3], neighbors(properties))
 
 function Base.show(io::IO, properties::FactorNodeProperties)
     print(io, "fform = ", properties.fform, ", neighbors = ", properties.neighbors)
@@ -1245,9 +1246,9 @@ function add_edge!(
     index
 )
     label = EdgeLabel(interface_name, index)
+    neighbor_node_label = unroll(variable_node_id)
     # TODO: (bvdmitri) perhaps we should use a different data structure for neighbors, tuples extension might be slow
-    addneighbor!(factor_node_propeties, unroll(variable_node_id), label)
-    # factor_node_propeties.neighbors = (factor_node_propeties.neighbors..., (unroll(variable_node_id), label))
+    addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
     model.graph[unroll(variable_node_id), factor_node_id] = label
 end
 

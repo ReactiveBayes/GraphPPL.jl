@@ -556,12 +556,11 @@ end
 
 const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
 
-function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, ::FactorNodeProperties)
+function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, properties::FactorNodeProperties)
     constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
     num_neighbors = length(constraint_bitset)
-    for (i, neighbor) in enumerate(GraphPPL.neighbors(model, node_label))
-        neighbor_data = model[neighbor]
-        if is_factorized(neighbor_data)
+    for (i, neighbor) in enumerate(neighbor_data(properties))
+        if is_factorized(neighbor)
             intersect_constraint_bitset!(node_data, constant_constraint(num_neighbors, i))
         end
     end
@@ -764,10 +763,10 @@ end
 function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint::ResolvedFactorizationConstraint)
     result = BoundedBitSetTuple(length(neighbors))
     for (i, v1) in enumerate(neighbors)
-        for (j, v2) in enumerate(view(neighbors, (i + 1):lastindex(neighbors)))
-            if is_decoupled(v1, v2, constraint)
-                delete!(result, i, j + i)
-                delete!(result, j + i, i)
+        for (j, v2) in enumerate(neighbors)
+            if j > i && is_decoupled(v1, v2, constraint)
+                delete!(result, i, j)
+                delete!(result, j, i)
             end
         end
     end
@@ -810,16 +809,16 @@ function apply_constraints!(
     constraint_set::Union{Constraints, UnspecifiedConstraints},
     resolved_factorization_constraints::ConstraintStack
 )
-    for fc in factorization_constraints(constraint_set)
+    foreach(factorization_constraints(constraint_set)) do fc 
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
     end
-    for ffc in posterior_form_constraints(constraint_set)
+    foreach(posterior_form_constraints(constraint_set)) do ffc 
         apply_constraints!(model, context, ffc)
     end
-    for mc in message_form_constraints(constraint_set)
+    foreach(message_form_constraints(constraint_set)) do mc
         apply_constraints!(model, context, mc)
     end
-    for rfc in constraints(resolved_factorization_constraints)
+    foreach(constraints(resolved_factorization_constraints)) do rfc
         apply_constraints!(model, context, rfc)
     end
     for (factor_id, child) in pairs(children(context))
@@ -866,7 +865,7 @@ function apply_constraints!(
     constraint::ResolvedFactorizationConstraint
 )
     # Get data for the neighbors of the node and check if the constraint is applicable
-    neighbors = model[GraphPPL.neighbors(model, node)]
+    neighbors = neighbor_data(node_properties)
     if is_applicable(neighbors, constraint)
         constraint = convert_to_bitsets(model, node, neighbors, constraint)
         intersect_constraint_bitset!(node_data, constraint)
