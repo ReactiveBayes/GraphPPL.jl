@@ -480,23 +480,23 @@ end
 
 Data associated with a factor node in a probabilistic graphical model.
 """
-struct FactorNodeProperties
+struct FactorNodeProperties{D}
     fform::Any
-    neighbors::Vector{Tuple{NodeLabel, EdgeLabel, Any}}
+    neighbors::Vector{Tuple{NodeLabel, EdgeLabel, D}}
 end
 
-FactorNodeProperties(; fform, neighbors = Tuple{NodeLabel, EdgeLabel}[]) = FactorNodeProperties(fform, neighbors)
+FactorNodeProperties(; fform, neighbors = Tuple{NodeLabel, EdgeLabel, NodeData}[]) = FactorNodeProperties(fform, neighbors)
 
 is_factor(::FactorNodeProperties)   = true
 is_variable(::FactorNodeProperties) = false
 
 function Base.convert(::Type{FactorNodeProperties}, fform, options::NodeCreationOptions)
-    return FactorNodeProperties(fform = fform, neighbors = get(options, :neighbors, Tuple{NodeLabel, EdgeLabel}[]))
+    return FactorNodeProperties(fform = fform, neighbors = get(options, :neighbors, Tuple{NodeLabel, EdgeLabel, NodeData}[]))
 end
 
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
-addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data::F) where {F} = push!(properties.neighbors, (variable, edge, data))
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) = push!(properties.neighbors, (variable, edge, data))
 neighbor_data(properties::FactorNodeProperties) = Iterators.map(neighbor -> neighbor[3], neighbors(properties))
 
 function Base.show(io::IO, properties::FactorNodeProperties)
@@ -513,7 +513,7 @@ The `plugins` field stores additional properties of the node depending on which 
 """
 struct NodeData
     context    :: Context
-    properties :: Union{VariableNodeProperties, FactorNodeProperties}
+    properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
     extra      :: UnorderedDictionary{Symbol, Any}
 end
 
@@ -1293,7 +1293,7 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(fform, val, known_interfaces::NamedTuple)
+function missing_interfaces(fform::F, val, known_interfaces::NamedTuple) where {F}
     return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
@@ -1303,12 +1303,12 @@ function missing_interfaces(
     return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
 end
 
-function prepare_interfaces(fform, lhs_interface, rhs_interfaces::NamedTuple)
+function prepare_interfaces(fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
     missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
     return prepare_interfaces(missing_interface, fform, lhs_interface, rhs_interfaces)
 end
 
-function prepare_interfaces(::StaticInterfaces{I}, fform, lhs_interface, rhs_interfaces::NamedTuple) where {I}
+function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {I, F}
     @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
     missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
@@ -1320,8 +1320,8 @@ function materialze_interfaces(interfaces::NamedTuple)
     return map(materialize_interface, interfaces)
 end
 
-default_parametrization(::Atomic, fform, rhs::Tuple) = (in = rhs,)
-default_parametrization(::Composite, fform, rhs) = error("Composite nodes always have to be initialized with named arguments")
+default_parametrization(::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
+default_parametrization(::Composite, fform::F, rhs) where {F} = error("Composite nodes always have to be initialized with named arguments")
 
 # maybe change name
 

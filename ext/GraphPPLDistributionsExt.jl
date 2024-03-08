@@ -31,4 +31,8 @@ end
     end
 end
 
+# Special cases
+GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.InverseWishart}) = GraphPPL.StaticInterfaces((:df, :scale))
+GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.InverseWishart}) = GraphPPL.StaticInterfaces((:out, :df, :scale))
+
 end
