@@ -616,7 +616,7 @@ end
             return (y = y,)
         end
 
-        variable_nodes(model) do label, nodedata 
+        variable_nodes(model) do label, nodedata
             properties = getproperties(nodedata)
             if is_random(properties)
                 # Shouldn't be any anonymous variables here
@@ -634,7 +634,5 @@ end
         @test length(collect(filter(as_node(sum), model))) === 0
         @test length(collect(filter(as_variable(:C), model))) === 1
         @test length(collect(filter(as_variable(:m), model))) === 1
-
-
     end
 end

@@ -308,7 +308,8 @@ end
         @test all(filter(as_node(Gamma) | as_node(Normal), model)) do node
             interfaces = GraphPPL.edges(model, node)
             @test hasextra(model[node], :factorization_constraint_indices)
-            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === (map(interface -> (interface,), 1:length(interfaces))...,)
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) ===
+                   (map(interface -> (interface,), 1:length(interfaces))...,)
         end
     end
 end
