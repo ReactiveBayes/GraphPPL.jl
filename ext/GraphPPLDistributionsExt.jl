@@ -35,6 +35,9 @@ end
 GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.InverseWishart}) = GraphPPL.StaticInterfaces((:df, :Ψ))
 GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.InverseWishart}) = GraphPPL.StaticInterfaces((:out, :df, :Ψ))
 
+GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.Dirichlet}) = GraphPPL.StaticInterfaces((:α,))
+GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.Dirichlet}) = GraphPPL.StaticInterfaces((:out, :α))
+
 GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.Wishart}) = GraphPPL.StaticInterfaces((:df, :S))
 GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.Wishart}) = GraphPPL.StaticInterfaces((:out, :df, :S))
 
