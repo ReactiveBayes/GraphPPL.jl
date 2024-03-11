@@ -102,7 +102,17 @@ end
 end
 
 @testitem "NodeData extra properties" begin
-    import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties, setextra!, getextra, hasextra, NodeDataExtraKey
+    import GraphPPL:
+        create_model,
+        getcontext,
+        NodeData,
+        FactorNodeProperties,
+        VariableNodeProperties,
+        getproperties,
+        setextra!,
+        getextra,
+        hasextra,
+        NodeDataExtraKey
 
     model = create_model()
     context = getcontext(model)
@@ -1472,6 +1482,16 @@ end
     @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var
 end
 
+@testitem "interface_alias" begin
+    using GraphPPL
+    import GraphPPL: interface_aliases, StaticInterfaces
+
+    include("model_zoo.jl")
+
+    @test interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :τ))) === StaticInterfaces((:out, :μ, :τ))
+    @test interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :precision))) === StaticInterfaces((:out, :μ, :τ))
+end
+
 @testitem "add_atomic_factor_node!" begin
     using Distributions
     using Graphs
@@ -1805,6 +1825,16 @@ end
     node_id = make_node!(model, ctx, options, +, z, (x, y))
     prune!(model)
     @test nv(model) == 4
+
+    # Test 15: Make stochastic node with aliased interfaces
+    model = create_model()
+    ctx = getcontext(model)
+    options = NodeCreationOptions()
+    μ = getorcreate!(model, ctx, :μ, nothing)
+    σ = getorcreate!(model, ctx, :σ, nothing)
+    out = getorcreate!(model, ctx, :out, nothing)
+    node_id = first(make_node!(model, ctx, options, NormalMeanVariance, out, (mean = μ, variance = σ)))
+    @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
 end
 
 @testitem "materialize_factor_node!" begin

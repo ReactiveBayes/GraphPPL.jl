@@ -1281,6 +1281,8 @@ Placeholder function that is defined for all Composite nodes and is invoked when
 interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
 interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
 
+interface_aliases(type::F, any) where {F} = any
+
 """
     missing_interfaces(node_type, val, known_interfaces)
 
@@ -1310,7 +1312,7 @@ function prepare_interfaces(fform::F, lhs_interface, rhs_interfaces::NamedTuple)
 end
 
 function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {I, F}
-    @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))))"
+    @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))"
     missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
@@ -1550,10 +1552,13 @@ function make_node!(
     rhs_interfaces::NamedTuple
 ) where {F}
     fform = factor_alias(fform, Val(keys(rhs_interfaces)))
+    rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
     interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
+
+Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
 
 sort_interfaces(fform, defined_interfaces::NamedTuple) =
     sort_interfaces(interfaces(fform, static(length(defined_interfaces))), defined_interfaces)
