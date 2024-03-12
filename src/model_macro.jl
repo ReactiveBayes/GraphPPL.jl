@@ -1,13 +1,13 @@
 export @model
-import MacroTools: postwalk, @capture, walk
+import MacroTools: postwalk, prewalk, @capture, walk
 using NamedTupleTools
 using Static
 
 __guard_f(f, e::Expr) = f(e)
 __guard_f(f, x) = x
 
-struct guarded_walk
-    guard::Function
+struct guarded_walk{f}
+    guard::f
 end
 
 function (w::guarded_walk)(f, x)
@@ -113,6 +113,36 @@ function warn_datavar_constvar_randomvar(e::Expr)
         return nothing
     end
     return e
+end
+
+"""
+    compose_simple_operators_with_brackets(expr::Expr)
+
+This pipeline converts simple multi-argument operators to their corresponding bracketed expression. 
+E.g. the expression `x ~ x1 + x2 + x3 + x4` becomes `x ~ ((x1 + x2) + x3) + x4)`.
+"""
+function compose_simple_operators_with_brackets(e::Expr)
+    operators_to_compose = [:+, :sum, :-, :*, :prod]
+    if @capture(e, lhs_ ~ rhs_)
+        newrhs = postwalk(rhs) do subexpr
+            for operator in operators_to_compose
+                if @capture(subexpr, $(operator)(args__))
+                    return recursive_brackets_expression(operator, args)
+                end
+            end
+            return subexpr
+        end
+        return :($lhs ~ $newrhs)
+    end
+    return e
+end
+
+function recursive_brackets_expression(operator, args)
+    if length(args) > 2
+        return recursive_brackets_expression(operator, vcat([ Expr(:call, operator, args[1], args[2])], args[3:end]))
+    else
+        return Expr(:call, operator, args...)
+    end
 end
 
 """
@@ -752,6 +782,9 @@ function model_macro_interior(model_specification)
 
     ms_body = apply_pipeline(ms_body, check_reserved_variable_names_model)
     ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
+    # The `compose_simple_operators_with_brackets` pipeline is a workaround for 
+    # `RxInfer` inference backend, which cannot handle the multi-argument operators
+    ms_body = apply_pipeline(ms_body, compose_simple_operators_with_brackets)
     ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
     ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
     ms_body = apply_pipeline(ms_body, convert_local_statement)

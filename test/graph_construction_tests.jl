@@ -658,7 +658,7 @@ end
     end
 
     model = create_model(aliases()) do model, ctx
-        return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, nothing))
+        return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :s4, nothing))
     end
 
     # `as_node(Normal)` does take into account the aliasing, so it reports both `NormalMeanPrecision` and `NormalMeanVariance`
@@ -713,4 +713,42 @@ end
     @test length(collect(filter(as_variable(:a), model))) === 0
     @test length(collect(filter(as_variable(:b), model))) === 0
     @test length(collect(filter(as_variable(:x), model))) === 10
+end
+
+@testitem "Simple operators like `+` should add brackets automatically" begin
+    # This is essentially a fix for `ReactiveMP` that cannot handle the `+` node 
+    # with more than 2 inputs, but in general GraphPPL should not really do this 
+    # Instead we should expose the API for pipelines in the `@model` macro
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("model_zoo.jl")
+
+    @model function summation_with_plus(d)
+        s1 ~ Normal(1.0, 1.0)
+        s2 ~ Normal(1.0, 1.0)
+        s3 ~ Normal(1.0, 1.0)
+        s4 ~ Normal(1.0, 1.0)
+        s5 ~ Normal(1.0, 1.0)
+        s ~ s1 + s2 + s3 + s4 + s5
+        d ~ Normal(s, 1.0)
+    end
+
+    @model function summation_with_sum(d)
+        s1 ~ Normal(1.0, 1.0)
+        s2 ~ Normal(1.0, 1.0)
+        s3 ~ Normal(1.0, 1.0)
+        s4 ~ Normal(1.0, 1.0)
+        s5 ~ Normal(1.0, 1.0)
+        s ~ sum(s1, s2, s3, s4, s5)
+        d ~ Normal(s, 1.0)
+    end
+
+    for modelspec in [summation_with_plus, summation_with_sum]
+        model = create_model(modelspec()) do model, ctx
+            return (; d = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :d, LazyIndex(1.0)))
+        end
+
+        @test length(collect(filter(as_node(Normal), model))) === 6
+        @test length(collect(filter(as_node(sum), model))) === 4
+    end
 end

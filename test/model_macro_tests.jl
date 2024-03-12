@@ -1550,6 +1550,45 @@ end
     @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
 end
 
+@testitem "compose_simple_operators_with_brackets pipeline" begin
+    include("model_zoo.jl")
+
+    import GraphPPL: compose_simple_operators_with_brackets, apply_pipeline
+
+    input = :(s ~ s1 + s2 + s3 + s4 + s5)
+    output = :(s ~ (((s1 + s2) + s3) + s4) + s5)
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ (s1 + s2) + s3 + (s4 + s5))
+    output = :(s ~ (((s1 + s2) + s3) + (s4 + s5)))
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ (s1 + s2) + (s3 + (s4 + s5)))
+    output = :(s ~ (s1 + s2) + (s3 + (s4 + s5)))
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ Normal(μ = s1 + s2 + s3 + s4 + s5, 1.0))
+    output = :(s ~ Normal(μ = (((s1 + s2) + s3) + s4) + s5, 1.0))
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ Normal(μ = s1 + s2 + s3 + s4 + s5, 1.0) where { a = 1 })
+    output = :(s ~ Normal(μ = (((s1 + s2) + s3) + s4) + s5, 1.0) where { a = 1 })
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    # If not `~` should not change
+    input = :(s = s1 + s2 + s3 + s4 + s5)
+    output = :(s = s1 + s2 + s3 + s4 + s5)
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ s1 * s2 * s3 * s4 * s5)
+    output = :(s ~ (((s1 * s2) * s3) * s4) * s5)
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+
+    input = :(s ~ sum(s1, s2, s3, s4, s5))
+    output = :(s ~ sum(sum(sum(sum(s1, s2), s3), s4), s5))
+    @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
+end
+
 @testitem "options_vector_to_factoroptions" begin
     import GraphPPL: options_vector_to_named_tuple
 
