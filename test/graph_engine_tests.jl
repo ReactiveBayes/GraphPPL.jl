@@ -1693,7 +1693,6 @@ end
         make_node!,
         create_model,
         getorcreate!,
-        factorization_constraint,
         ProxyLabel,
         getname,
         label_for,
@@ -1859,15 +1858,31 @@ end
     prune!(model)
     @test nv(model) == 4
 
-    # Test 15: Make stochastic node with aliased interfaces
+    # Test 15.1: Make stochastic node with aliased interfaces
     model = create_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
     σ = getorcreate!(model, ctx, :σ, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    node_id = first(make_node!(model, ctx, options, NormalMeanVariance, out, (mean = μ, variance = σ)))
-    @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
+    for keys in [ (:mean, :variance), (:m, :variance), (:mean, :v)]
+        local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, σ)))
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanVariance
+        @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
+    end
+
+    # Test 15.2: Make stochastic node with aliased interfaces
+    model = create_model()
+    ctx = getcontext(model)
+    options = NodeCreationOptions()
+    μ = getorcreate!(model, ctx, :μ, nothing)
+    p = getorcreate!(model, ctx, :σ, nothing)
+    out = getorcreate!(model, ctx, :out, nothing)
+    for keys in [ (:mean, :precision), (:m, :precision), (:mean, :p)]
+        local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, p)))
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanPrecision
+        @test GraphPPL.neighbors(model, node_id) == [out, μ, p]
+    end
 end
 
 @testitem "materialize_factor_node!" begin
@@ -1878,7 +1893,6 @@ end
         materialize_factor_node!,
         create_model,
         getorcreate!,
-        factorization_constraint,
         ProxyLabel,
         prune!,
         getname,
