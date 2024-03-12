@@ -593,6 +593,7 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
+Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
 
 Model(graph::MetaGraph) = Model(graph, PluginsCollection())
 
@@ -1281,14 +1282,20 @@ Placeholder function that is defined for all Composite nodes and is invoked when
 interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
 interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
 
-interface_aliases(fform) = Val(())
-interface_aliases(fform::F, interfaces) where {F} = interface_aliases(interface_aliases(fform), interfaces)
+struct StaticInterfaceAliases{A} end
 
-function interface_aliases(::Val{aliases}, ::StaticInterfaces{I}) where {aliases, I}
-    return StaticInterfaces(reduce(aliases; init = I) do acc, alias
-        from, to = alias
-        return replace(acc, from => to)
-    end)
+StaticInterfaceAliases(A::Tuple) = StaticInterfaceAliases{A}()
+
+interface_aliases(fform) = StaticInterfaceAliases(())
+interface_aliases(fform::F, interfaces::StaticInterfaces) where {F} = interface_aliases(interface_aliases(fform), interfaces)
+
+function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
+    return StaticInterfaces(
+        reduce(aliases; init = interfaces) do acc, alias
+            from, to = alias
+            return replace(acc, from => to)
+        end
+    )
 end
 
 """
@@ -1559,14 +1566,12 @@ function make_node!(
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple
 ) where {F}
-    fform = factor_alias(fform, Val(keys(rhs_interfaces)))
-    rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
-    interfaces = materialze_interfaces(prepare_interfaces(fform, lhs_interface, rhs_interfaces))
-    nodeid, _, _ = materialize_factor_node!(model, context, options, fform, interfaces)
+    aliased_rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
+    aliased_fform = factor_alias(fform, Val(keys(aliased_rhs_interfaces)))
+    interfaces = materialze_interfaces(prepare_interfaces(aliased_fform, lhs_interface, aliased_rhs_interfaces))
+    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
-
-Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
 
 sort_interfaces(fform, defined_interfaces::NamedTuple) =
     sort_interfaces(interfaces(fform, static(length(defined_interfaces))), defined_interfaces)
