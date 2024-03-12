@@ -59,7 +59,7 @@ end
         end
     end
     output = quote 
-        function somemeta()
+        function somemeta(;)
             __meta__ = GraphPPL.MetaSpecification()
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
@@ -78,7 +78,7 @@ end
         end
     end
     output = quote 
-        function somemeta(x, y)
+        function somemeta(x, y;)
             __meta__ = GraphPPL.MetaSpecification()
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)

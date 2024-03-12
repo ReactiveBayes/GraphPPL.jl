@@ -107,7 +107,7 @@ end
         end
     end
     output = quote 
-        function some_constraints()
+        function some_constraints(;)
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
@@ -124,7 +124,7 @@ end
         end
     end
     output = quote 
-        function some_constraints(x, y)
+        function some_constraints(x, y;)
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
