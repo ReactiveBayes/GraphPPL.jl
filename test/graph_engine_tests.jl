@@ -1482,6 +1482,49 @@ end
     @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var
 end
 
+@testitem "interface_alias" begin
+    using GraphPPL
+    import GraphPPL: interface_aliases, StaticInterfaces
+
+    include("model_zoo.jl")
+
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :τ)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :precision)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :τ)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :precision)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :precision)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :τ)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :p)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :p)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :p)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :prec)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :prec)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :prec)))) === 0
+
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :σ)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :variance)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :σ)))) === 0
+    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :variance)))) === 0
+end
+
 @testitem "add_atomic_factor_node!" begin
     using Distributions
     using Graphs
@@ -1650,7 +1693,6 @@ end
         make_node!,
         create_model,
         getorcreate!,
-        factorization_constraint,
         ProxyLabel,
         getname,
         label_for,
@@ -1815,6 +1857,32 @@ end
     node_id = make_node!(model, ctx, options, +, z, (x, y))
     prune!(model)
     @test nv(model) == 4
+
+    # Test 15.1: Make stochastic node with aliased interfaces
+    model = create_model()
+    ctx = getcontext(model)
+    options = NodeCreationOptions()
+    μ = getorcreate!(model, ctx, :μ, nothing)
+    σ = getorcreate!(model, ctx, :σ, nothing)
+    out = getorcreate!(model, ctx, :out, nothing)
+    for keys in [ (:mean, :variance), (:m, :variance), (:mean, :v)]
+        local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, σ)))
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanVariance
+        @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
+    end
+
+    # Test 15.2: Make stochastic node with aliased interfaces
+    model = create_model()
+    ctx = getcontext(model)
+    options = NodeCreationOptions()
+    μ = getorcreate!(model, ctx, :μ, nothing)
+    p = getorcreate!(model, ctx, :σ, nothing)
+    out = getorcreate!(model, ctx, :out, nothing)
+    for keys in [ (:mean, :precision), (:m, :precision), (:mean, :p)]
+        local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, p)))
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanPrecision
+        @test GraphPPL.neighbors(model, node_id) == [out, μ, p]
+    end
 end
 
 @testitem "materialize_factor_node!" begin
@@ -1825,7 +1893,6 @@ end
         materialize_factor_node!,
         create_model,
         getorcreate!,
-        factorization_constraint,
         ProxyLabel,
         prune!,
         getname,

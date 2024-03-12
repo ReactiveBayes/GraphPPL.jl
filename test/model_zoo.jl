@@ -44,6 +44,21 @@ GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.Stat
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
 
+GraphPPL.interface_aliases(::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
+    (:mean, :μ),
+    (:m, :μ),
+    (:variance, :σ),
+    (:var, :σ),
+    (:v, :σ),
+    (:τ⁻¹, :σ),
+    (:precision, :τ),
+    (:prec, :τ),
+    (:p, :τ),
+    (:w, :τ),
+    (:σ⁻², :τ),
+    (:γ, :τ)
+))
+
 struct GammaShapeRate end
 struct GammaShapeScale end
 

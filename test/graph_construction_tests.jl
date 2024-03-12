@@ -637,6 +637,39 @@ end
     end
 end
 
+@testitem "Aliases in the model should be resolved automatically" begin
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, fform, factor_nodes, getproperties
+
+    include("model_zoo.jl")
+
+    @model function aliases(s4)
+        r1 ~ Normal(μ = 1.0, τ = 1.0)
+        r2 ~ Normal(m = r1, γ = 1.0)
+        r3 ~ Normal(mean = r2, σ⁻² = 1.0)
+        r4 ~ Normal(mean = r3, w = 1.0)
+        r5 ~ Normal(mean = r4, p = 1.0)
+        r6 ~ Normal(mean = r5, prec = 1.0)
+        r7 ~ Normal(mean = r6, precision = 1.0)
+
+        s1 ~ Normal(m = r7, τ⁻¹ = 1.0)
+        s2 ~ Normal(mean = s1, v = 1.0)
+        s3 ~ Normal(mean = s2, var = 1.0)
+        s4 ~ Normal(mean = s3, variance = 1.0)
+    end
+
+    model = create_model(aliases()) do model, ctx
+        return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, nothing))
+    end
+
+    # `as_node(Normal)` does take into account the aliasing, so it reports both `NormalMeanPrecision` and `NormalMeanVariance`
+    @test length(collect(filter(as_node(Normal), model))) === 11
+    # The manual search however does indicate that the aliases are resolved and `Normal` node has NOT been created (as intended)
+    @test length(collect(filter(label -> fform(getproperties(model[label])) === Normal, collect(factor_nodes(model))))) === 0
+    # Double check the number of `NormalMeanPrecision` and `NormalMeanVariance` nodes
+    @test length(collect(filter(as_node(NormalMeanPrecision), model))) === 7
+    @test length(collect(filter(as_node(NormalMeanVariance), model))) === 4
+end
+
 @testitem "Submodels can be used in the keyword arguments" begin
     using Distributions, LinearAlgebra
 
