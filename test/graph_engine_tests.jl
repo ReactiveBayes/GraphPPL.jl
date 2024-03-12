@@ -102,7 +102,17 @@ end
 end
 
 @testitem "NodeData extra properties" begin
-    import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties, setextra!, getextra, hasextra, NodeDataExtraKey
+    import GraphPPL:
+        create_model,
+        getcontext,
+        NodeData,
+        FactorNodeProperties,
+        VariableNodeProperties,
+        getproperties,
+        setextra!,
+        getextra,
+        hasextra,
+        NodeDataExtraKey
 
     model = create_model()
     context = getcontext(model)

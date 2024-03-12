@@ -504,7 +504,6 @@ end
     end
 end
 
-
 @testitem "constant_constraint" begin
     using BitSetTuples
     import GraphPPL: constant_constraint

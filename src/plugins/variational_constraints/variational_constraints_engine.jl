@@ -577,7 +577,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 end
 
 function is_valid_partition(contents)
-    max_element = length(first(contents))   
+    max_element = length(first(contents))
     for element in 1:max_element
         element_partition_count = sum(partition -> partition[element], contents)
         # If element is not present in at least one partition
@@ -683,7 +683,9 @@ function is_applicable(neighbors, constraint::ResolvedFactorizationConstraint)
 end
 
 function is_decoupled(var_1::NodeData, var_2::NodeData, constraint::ResolvedFactorizationConstraint)
-    return is_decoupled(var_1, getproperties(var_1)::VariableNodeProperties, var_2, getproperties(var_2)::VariableNodeProperties, constraint)
+    return is_decoupled(
+        var_1, getproperties(var_1)::VariableNodeProperties, var_2, getproperties(var_2)::VariableNodeProperties, constraint
+    )
 end
 
 function is_decoupled(
@@ -809,10 +811,10 @@ function apply_constraints!(
     constraint_set::Union{Constraints, UnspecifiedConstraints},
     resolved_factorization_constraints::ConstraintStack
 )
-    foreach(factorization_constraints(constraint_set)) do fc 
+    foreach(factorization_constraints(constraint_set)) do fc
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)
     end
-    foreach(posterior_form_constraints(constraint_set)) do ffc 
+    foreach(posterior_form_constraints(constraint_set)) do ffc
         apply_constraints!(model, context, ffc)
     end
     foreach(message_form_constraints(constraint_set)) do mc
