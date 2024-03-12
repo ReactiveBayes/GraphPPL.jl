@@ -20,7 +20,9 @@ check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 function add_constraints_construction(e::Expr)
     if @capture(e, (function c_name_(c_args__; c_kwargs__)
         c_body_
-    end) | (function c_name_(c_args__) c_body_ end)) 
+    end) | (function c_name_(c_args__)
+        c_body_
+    end))
         c_kwargs = c_kwargs === nothing ? [] : c_kwargs
         return quote
             function $c_name($(c_args...); $(c_kwargs...))

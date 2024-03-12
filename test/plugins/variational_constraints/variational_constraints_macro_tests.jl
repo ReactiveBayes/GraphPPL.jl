@@ -100,13 +100,13 @@ end
     @test_expression_generating add_constraints_construction(input) output
 
     # Test 3: add_constraints_construction to constraint specification with function specification
-    input = quote 
+    input = quote
         function some_constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
     end
-    output = quote 
+    output = quote
         function some_constraints(;)
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
@@ -117,13 +117,13 @@ end
     @test_expression_generating add_constraints_construction(input) output
 
     # Test 4: add_constraints_construction to constraint specification with function specification with arguments
-    input = quote 
+    input = quote
         function some_constraints(x, y)
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
     end
-    output = quote 
+    output = quote
         function some_constraints(x, y;)
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
@@ -134,14 +134,14 @@ end
     @test_expression_generating add_constraints_construction(input) output
 
     # Test 5: add_constraints_construction to constraint specification with function specification with arguments and kwargs
-    input = quote 
-        function some_constraints(x, y; z=1)
+    input = quote
+        function some_constraints(x, y; z = 1)
             q(x, y) = q(x)q(y)
             q(x)::PointMass
         end
     end
-    output = quote 
-        function some_constraints(x, y; z=1)
+    output = quote
+        function some_constraints(x, y; z = 1)
             __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass

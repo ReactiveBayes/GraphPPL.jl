@@ -657,7 +657,7 @@ end
         s4 ~ Normal(mean = s3, variance = 1.0)
     end
 
-    model = create_model(aliases()) do model, ctx 
+    model = create_model(aliases()) do model, ctx
         return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, nothing))
     end
 
@@ -668,5 +668,49 @@ end
     # Double check the number of `NormalMeanPrecision` and `NormalMeanVariance` nodes
     @test length(collect(filter(as_node(NormalMeanPrecision), model))) === 7
     @test length(collect(filter(as_node(NormalMeanVariance), model))) === 4
+end
 
+@testitem "Submodels can be used in the keyword arguments" begin
+    using Distributions, LinearAlgebra
+
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+
+    @model function prod_distributions(a, b, c)
+        a ~ b * c
+    end
+
+    # The test tests if we can write `μ = prod_distributions(b = A, c = x_prev)`
+    @model function state_transition_with_submodel(y_next, x_next, x_prev, A, B, P, Q)
+        x_next ~ MvNormal(μ = prod_distributions(b = A, c = x_prev), Σ = Q)
+        y_next ~ MvNormal(μ = prod_distributions(b = B, c = x_next), Σ = P)
+    end
+
+    @model function multivariate_lgssm_model_with_several_submodels(y, mean0, cov0, A, B, Q, P)
+        x_prev ~ MvNormal(μ = mean0, Σ = cov0)
+        for i in eachindex(y)
+            x[i] ~ state_transition_with_submodel(y_next = y[i], x_prev = x_prev, A = A, B = B, P = P, Q = Q)
+            x_prev = x[i]
+        end
+    end
+
+    ydata = rand(10)
+    A = rand(3, 3)
+    B = rand(3, 3)
+    Q = rand(3, 3)
+    P = rand(3, 3)
+    mean0 = rand(3)
+    cov0 = rand(3, 3)
+
+    model =
+        create_model(multivariate_lgssm_model_with_several_submodels(mean0 = mean0, cov0 = cov0, A = A, B = B, Q = Q, P = P)) do model, ctx
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+            return (y = y,)
+        end
+
+    @test length(collect(filter(as_node(MvNormal), model))) === 21
+    @test length(collect(filter(as_node(prod), model))) === 20
+
+    @test length(collect(filter(as_variable(:a), model))) === 0
+    @test length(collect(filter(as_variable(:b), model))) === 0
+    @test length(collect(filter(as_variable(:x), model))) === 10
 end

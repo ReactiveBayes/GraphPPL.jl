@@ -20,9 +20,9 @@ function add_meta_construction(e::Expr)
     if @capture(e, (function m_name_(m_args__; m_kwargs__)
         c_body_
     end) | (function m_name_(m_args__)
-    c_body_
-end))
-    m_kwargs = m_kwargs === nothing ? [] : m_kwargs
+        c_body_
+    end))
+        m_kwargs = m_kwargs === nothing ? [] : m_kwargs
         return quote
             function $m_name($(m_args...); $(m_kwargs...))
                 __meta__ = GraphPPL.MetaSpecification()
