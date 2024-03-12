@@ -1281,7 +1281,15 @@ Placeholder function that is defined for all Composite nodes and is invoked when
 interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
 interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
 
-interface_aliases(type::F, any) where {F} = any
+interface_aliases(fform) = Val(())
+interface_aliases(fform::F, interfaces) where {F} = interface_aliases(interface_aliases(fform), interfaces)
+
+function interface_aliases(::Val{aliases}, ::StaticInterfaces{I}) where {aliases, I}
+    return StaticInterfaces(reduce(aliases; init = I) do acc, alias
+        from, to = alias
+        return replace(acc, from => to)
+    end)
+end
 
 """
     missing_interfaces(node_type, val, known_interfaces)

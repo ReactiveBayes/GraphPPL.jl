@@ -1488,8 +1488,25 @@ end
 
     include("model_zoo.jl")
 
-    @test interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :τ))) === StaticInterfaces((:out, :μ, :τ))
-    @test interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :precision))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+
+    @test @allocated(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :τ)))) === 0
+    @test @allocated(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :precision)))) === 0
+    @test @allocated(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :mean, :τ)))) === 0
+    @test @allocated(interface_aliases(NormalMeanPrecision, StaticInterfaces((:out, :μ, :precision)))) === 0
+
+    @test @inferred(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :μ, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :mean, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :μ, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :mean, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+
+    @test @allocated(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :μ, :σ)))) === 0
+    @test @allocated(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :mean, :variance)))) === 0
+    @test @allocated(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :mean, :σ)))) === 0
+    @test @allocated(interface_aliases(NormalMeanVariance, StaticInterfaces((:out, :μ, :variance)))) === 0
 end
 
 @testitem "add_atomic_factor_node!" begin

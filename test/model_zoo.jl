@@ -40,11 +40,9 @@ GraphPPL.NodeBehaviour(::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 
 GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :σ))
-GraphPPL.interface_aliases(::Type{NormalMeanVariance}, ::GraphPPL.StaticInterfaces{(:mean, :variance)}) =
-    GraphPPL.StaticInterfaces((:μ, :σ))
+GraphPPL.interface_aliases(::Type{NormalMeanVariance}) = Val(((:mean, :μ), (:variance, :σ)))
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :τ))
-GraphPPL.interface_aliases(::Type{NormalMeanPrecision}, ::GraphPPL.StaticInterfaces{(:out, :mean, :precision)}) =
-    GraphPPL.StaticInterfaces((:out, :μ, :τ))
+GraphPPL.interface_aliases(::Type{NormalMeanPrecision}) = Val(((:mean, :μ), (:precision, :τ)))
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
 GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
 
