@@ -49,6 +49,82 @@ end
         __meta__
     end
     @test_expression_generating add_meta_construction(input) output
+
+    # Test 3: add_constraints_construction to constraint specification with function specification
+    input = quote 
+        function somemeta()
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+        end
+    end
+    output = quote 
+        function somemeta(;)
+            __meta__ = GraphPPL.MetaSpecification()
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+            return __meta__
+        end
+    end
+    @test_expression_generating add_meta_construction(input) output
+
+    # Test 4: add_constraints_construction to constraint specification with function specification and arguments
+    input = quote 
+        function somemeta(x, y)
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+        end
+    end
+    output = quote 
+        function somemeta(x, y;)
+            __meta__ = GraphPPL.MetaSpecification()
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+            return __meta__
+        end
+    end
+    @test_expression_generating add_meta_construction(input) output
+
+    # Test 5: add_constraints_construction to constraint specification with function specification and arguments and keyword arguments
+    input = quote 
+        function somemeta(x, y; z)
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+        end
+    end
+    output = quote 
+        function somemeta(x, y; z)
+            __meta__ = GraphPPL.MetaSpecification()
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+            return __meta__
+        end
+    end
+    @test_expression_generating add_meta_construction(input) output
+
+    # Test 6: add_constraints_construction to constraint specification with function specification and only keyword arguments
+    input = quote 
+        function somemeta(; z)
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+        end
+    end
+    output = quote 
+        function somemeta(; z)
+            __meta__ = GraphPPL.MetaSpecification()
+            GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+            NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
+            x -> MySecondCustomMetaObject(arg3)
+            return __meta__
+        end
+    end
+    @test_expression_generating add_meta_construction(input) output
 end
 
 @testitem "create_submodel_meta" begin
