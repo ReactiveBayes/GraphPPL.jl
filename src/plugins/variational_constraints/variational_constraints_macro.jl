@@ -18,10 +18,40 @@ end
 check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 
 function add_constraints_construction(e::Expr)
-    return quote
-        __constraints__ = GraphPPL.Constraints()
-        $e
-        __constraints__
+    if @capture(e, (function c_name_() c_body_ end))
+        return quote
+            function $c_name()
+                __constraints__ = GraphPPL.Constraints()
+                $c_body
+                return __constraints__
+            end
+        end
+    elseif @capture(e, (function c_name_(c_args__)
+        c_body_
+    end))
+        return quote
+            function $c_name($(c_args...))
+                __constraints__ = GraphPPL.Constraints()
+                $c_body
+                return __constraints__
+            end
+        end
+    elseif @capture(e, (function c_name_(c_args__; c_kwargs__)
+        c_body_
+    end))
+        return quote
+            function $c_name($(c_args...); $(c_kwargs...))
+                __constraints__ = GraphPPL.Constraints()
+                $c_body
+                return __constraints__
+            end
+        end
+    else
+        return quote
+            __constraints__ = GraphPPL.Constraints()
+            $e
+            __constraints__
+        end
     end
 end
 
