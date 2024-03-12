@@ -98,6 +98,57 @@ end
         __constraints__
     end
     @test_expression_generating add_constraints_construction(input) output
+
+    # Test 3: add_constraints_construction to constraint specification with function specification
+    input = quote 
+        function some_constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+        end
+    end
+    output = quote 
+        function some_constraints(;)
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            return __constraints__
+        end
+    end
+    @test_expression_generating add_constraints_construction(input) output
+
+    # Test 4: add_constraints_construction to constraint specification with function specification with arguments
+    input = quote 
+        function some_constraints(x, y)
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+        end
+    end
+    output = quote 
+        function some_constraints(x, y;)
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            return __constraints__
+        end
+    end
+    @test_expression_generating add_constraints_construction(input) output
+
+    # Test 5: add_constraints_construction to constraint specification with function specification with arguments and kwargs
+    input = quote 
+        function some_constraints(x, y; z=1)
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+        end
+    end
+    output = quote 
+        function some_constraints(x, y; z=1)
+            __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            return __constraints__
+        end
+    end
+    @test_expression_generating add_constraints_construction(input) output
 end
 
 @testitem "replace_begin_end" begin
