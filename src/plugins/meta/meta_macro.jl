@@ -17,10 +17,40 @@ and assigns it to the `__meta__` variable. It then evaluates the given expressio
 - `e::Expr`: The expression that will generate the `GraphPPL.MetaSpecification` object.
 """
 function add_meta_construction(e::Expr)
-    return quote
-        __meta__ = GraphPPL.MetaSpecification()
-        $e
-        __meta__
+    if @capture(e, (function m_name_() c_body_ end))
+        return quote
+            function $m_name()
+                __meta__ = GraphPPL.MetaSpecification()
+                $c_body
+                return __meta__
+            end
+        end
+    elseif @capture(e, (function m_name_(m_args__)
+        c_body_
+    end))
+        return quote
+            function $m_name($(m_args...))
+                __meta__ = GraphPPL.MetaSpecification()
+                $c_body
+                return __meta__
+            end
+        end
+    elseif @capture(e, (function m_name_(m_args__; m_kwargs__)
+        c_body_
+    end))
+        return quote
+            function $m_name($(m_args...); $(m_kwargs...))
+                __meta__ = GraphPPL.MetaSpecification()
+                $c_body
+                return __meta__
+            end
+        end
+    else
+        return quote
+            __meta__ = GraphPPL.MetaSpecification()
+            $e
+            __meta__
+        end
     end
 end
 
