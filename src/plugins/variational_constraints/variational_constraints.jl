@@ -1,4 +1,4 @@
-export MeanField, FullFactorization
+export MeanField, BetheFactorization
 
 using TupleTools
 using StaticArrays
@@ -9,7 +9,7 @@ using DataStructures
 
 struct MeanField end
 
-struct FullFactorization end
+struct BetheFactorization end
 
 include("variational_constraints_macro.jl")
 include("variational_constraints_engine.jl")
@@ -65,8 +65,8 @@ function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
         nodedata = model[flabel]
         nodeproperties = getproperties(nodedata)
         number_of_neighbours = length(neighbors(nodeproperties))
-        setextra!(nodedata, :factorization_constraint_bitset, BoundedBitSetTuple(number_of_neighbours))
+        setextra!(nodedata, VariationalConstraintsFactorizationBitSetKey, BoundedBitSetTuple(number_of_neighbours))
     end
-    apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints, ConstraintStack())
+    apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints)
     materialize_constraints!(model)
 end

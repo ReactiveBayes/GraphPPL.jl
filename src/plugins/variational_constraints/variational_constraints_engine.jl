@@ -492,7 +492,7 @@ end
 Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
 
 function intersect_constraint_bitset!(nodedata::NodeData, constraint_data::BoundedBitSetTuple)
-    constraint = getextra(nodedata, :factorization_constraint_bitset)::BoundedBitSetTuple
+    constraint = getextra(nodedata, VariationalConstraintsFactorizationBitSetKey)::BoundedBitSetTuple
     intersect!(constraint, constraint_data)
     return constraint
 end
@@ -533,8 +533,8 @@ Materializes all constraints in `Model`. This function should be called before r
 
 """
 function materialize_constraints!(model::Model)
-    for node in Graphs.vertices(model.graph)
-        materialize_constraints!(model, MetaGraphsNext.label_for(model.graph, node))
+    for node in MetaGraphsNext.labels(model.graph)
+        materialize_constraints!(model, node)
     end
 end
 
@@ -555,9 +555,10 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 end
 
 const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
+const VariationalConstraintsFactorizationBitSetKey = NodeDataExtraKey{:factorization_constraint_bitset, BoundedBitSetTuple}()
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, properties::FactorNodeProperties)
-    constraint_bitset = getextra(node_data, :factorization_constraint_bitset)
+    constraint_bitset = getextra(node_data, VariationalConstraintsFactorizationBitSetKey)
     num_neighbors = length(constraint_bitset)
     for (i, neighbor) in enumerate(neighbor_data(properties))
         if is_factorized(neighbor)
@@ -775,6 +776,8 @@ function convert_to_bitsets(model::Model, node::NodeLabel, neighbors, constraint
     return result
 end
 
+apply_constraints!(model::Model, context::Context, constraints) = apply_constraints!(model, context, constraints, ConstraintStack())
+
 function apply_constraints!(
     model::Model, context::Context, posterior_constraint::PosteriorFormConstraint{T, F} where {T <: IndexedVariable, F}
 )
@@ -803,6 +806,24 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
             setextra!(model[node], :message_form_constraint, getconstraint(message_constraint))
         end
     end
+end
+
+function apply_constraints!(
+    model::Model,
+    context::Context,
+    constraint::MeanField)
+    foreach(filter(as_node(), model)) do node
+        data = model[node]
+        intersect_constraint_bitset!(data, mean_field_constraint(length(neighbor_data(getproperties(data)))))
+    end
+end
+
+function apply_constraints!(
+    model::Model,
+    context::Context,
+    constraint::BetheFactorization
+)
+    nothing # Change if the Bethe Factorization is no longer the default factorization
 end
 
 function apply_constraints!(
