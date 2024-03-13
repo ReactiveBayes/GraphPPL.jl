@@ -7,8 +7,22 @@ using BitSetTuples
 using MetaGraphsNext
 using DataStructures
 
+"""
+    MeanField
+
+Generic factorisation constraint used to specify a mean-field factorisation for recognition distribution `q`.
+
+See also: [`BetheFactorisation`](@ref)
+"""
 struct MeanField end
 
+"""
+    BetheFactorisation
+
+Generic factorisation constraint used to specify the Bethe factorisation for recognition distribution `q`.
+
+See also: [`MeanField`](@ref)
+"""
 struct BetheFactorization end
 
 include("variational_constraints_macro.jl")
