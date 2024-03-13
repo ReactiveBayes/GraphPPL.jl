@@ -139,7 +139,7 @@ end
 
 function recursive_brackets_expression(operator, args)
     if length(args) > 2
-        return recursive_brackets_expression(operator, vcat([ Expr(:call, operator, args[1], args[2])], args[3:end]))
+        return recursive_brackets_expression(operator, vcat([Expr(:call, operator, args[1], args[2])], args[3:end]))
     else
         return Expr(:call, operator, args...)
     end

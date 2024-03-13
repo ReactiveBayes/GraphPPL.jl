@@ -1024,7 +1024,6 @@ end
 # We cannot really check any `indices` if the underlying collection is missing 
 __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::MissingCollection, indices) = true
 
-
 # We know in advance that numbers cannot be queried with non-empty indices, so the error is thrown 
 # unless the indices are `(nothing, )`
 __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::Number, indices::Tuple) =

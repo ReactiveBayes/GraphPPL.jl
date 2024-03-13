@@ -1571,8 +1571,8 @@ end
     output = :(s ~ Normal(μ = (((s1 + s2) + s3) + s4) + s5, 1.0))
     @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
 
-    input = :(s ~ Normal(μ = s1 + s2 + s3 + s4 + s5, 1.0) where { a = 1 })
-    output = :(s ~ Normal(μ = (((s1 + s2) + s3) + s4) + s5, 1.0) where { a = 1 })
+    input = :(s ~ Normal(μ = s1 + s2 + s3 + s4 + s5, 1.0) where {a = 1})
+    output = :(s ~ Normal(μ = (((s1 + s2) + s3) + s4) + s5, 1.0) where {a = 1})
     @test_expression_generating apply_pipeline(input, compose_simple_operators_with_brackets) output
 
     # If not `~` should not change

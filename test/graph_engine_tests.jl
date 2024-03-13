@@ -1865,7 +1865,7 @@ end
     μ = getorcreate!(model, ctx, :μ, nothing)
     σ = getorcreate!(model, ctx, :σ, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    for keys in [ (:mean, :variance), (:m, :variance), (:mean, :v)]
+    for keys in [(:mean, :variance), (:m, :variance), (:mean, :v)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, σ)))
         @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanVariance
         @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
@@ -1878,7 +1878,7 @@ end
     μ = getorcreate!(model, ctx, :μ, nothing)
     p = getorcreate!(model, ctx, :σ, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    for keys in [ (:mean, :precision), (:m, :precision), (:mean, :p)]
+    for keys in [(:mean, :precision), (:m, :precision), (:mean, :p)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, p)))
         @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanPrecision
         @test GraphPPL.neighbors(model, node_id) == [out, μ, p]
@@ -1889,16 +1889,7 @@ end
     using Distributions
     using Graphs
     import GraphPPL:
-        getcontext,
-        materialize_factor_node!,
-        create_model,
-        getorcreate!,
-        ProxyLabel,
-        prune!,
-        getname,
-        label_for,
-        edges,
-        NodeCreationOptions
+        getcontext, materialize_factor_node!, create_model, getorcreate!, ProxyLabel, prune!, getname, label_for, edges, NodeCreationOptions
 
     model = create_model()
     ctx = getcontext(model)
@@ -2099,9 +2090,8 @@ end
         model2 = loadgraph(file, GraphPPL.Model)
         for (node, node2) in zip(filter(as_node(), model), filter(as_node(), model2))
             @test node == node2
-            @test GraphPPL.getextra(model[node], :factorization_constraint_bitset) == GraphPPL.getextra(model2[node2], :factorization_constraint_bitset)
+            @test GraphPPL.getextra(model[node], :factorization_constraint_bitset) ==
+                GraphPPL.getextra(model2[node2], :factorization_constraint_bitset)
         end
     end
-
-
 end
