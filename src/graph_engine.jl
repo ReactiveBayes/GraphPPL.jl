@@ -772,9 +772,31 @@ struct Atomic <: NodeType end
 NodeType(::Type) = Atomic()
 NodeType(::F) where {F <: Function} = Atomic()
 
+"""
+    NodeBehaviour
+
+Abstract type representing either `Deterministic` or `Stochastic` for a given object. By default is `Deterministic` unless specified otherwise.
+
+See also: [`Deterministic`](@ref), [`Stochastic`](@ref), 
+"""
 abstract type NodeBehaviour end
 
+"""
+    Stochastic
+
+`Stochastic` object used to parametrize factor node object with stochastic type of relationship between variables.
+
+See also: [`Deterministic`](@ref),  [`NodeBehaviour`](@ref)
+"""
 struct Stochastic <: NodeBehaviour end
+
+"""
+    Deterministic
+
+`Deterministic` object used to parametrize factor node object with determinstic type of relationship between variables.
+
+See also: [`Stochastic`](@ref), [`NodeBehaviour`](@ref)
+"""
 struct Deterministic <: NodeBehaviour end
 
 NodeBehaviour(::Any) = Deterministic()
