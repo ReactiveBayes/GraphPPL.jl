@@ -865,3 +865,63 @@ end
         end
     end
 end
+
+@testitem "A joint constraint over 'initial variable' and 'state variables' aka `q(x0, x)q(γ)`" begin
+    using Distributions
+
+    import GraphPPL:
+        create_model,
+        with_plugins,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        getorcreate!,
+        NodeCreationOptions,
+        LazyIndex,
+        getextra,
+        hasextra
+
+    @model function some_state_space_model(y)
+        γ ~ Gamma(1, 1)
+        θ ~ Gamma(1, 1)
+        μ0 ~ Beta(1, 1)
+        x0 ~ Normal(μ0, γ)
+        x_prev = x0
+        for i in eachindex(y)
+            x[i] ~ Normal(x_prev, γ)
+            y[i] ~ Normal(x[i], θ)
+        end
+    end
+
+    constraints1 = @constraints begin
+        q(x0, μ0, x, γ, θ, y) = q(x0, μ0, x, y)q(γ)q(θ)
+    end
+
+    constraints2 = @constraints begin
+        q(x0, μ0, x, γ, θ, y) = q(γ)q(x0, μ0, x, y)q(θ)
+    end
+
+    constraints3 = @constraints begin
+        q(x0, μ0, x, γ, θ, y) = q(γ)q(θ)q(x0, μ0, x, y)
+    end
+
+    ydata = rand(10)
+
+    for constraints in [constraints1, constraints2, constraints3]
+        model = create_model(
+            with_plugins(some_state_space_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))
+        ) do model, context
+            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = false), :y, LazyIndex(ydata)))
+        end
+
+        @test length(collect(filter(as_node(Normal), model))) == 21
+        @test length(collect(filter(as_node(Gamma), model))) == 2
+
+        # Normal here should use structured factorization here
+        @test all(filter(as_node(Normal), model)) do node
+            neighbors = map(label -> GraphPPL.getname(label), GraphPPL.neighbors(model, node))
+            @test hasextra(model[node], :factorization_constraint_indices)
+            # Even though `y` is a data variable, it is not factorized at the construction with `factorized = false`
+            return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2), (3,))
+        end
+    end
+end
