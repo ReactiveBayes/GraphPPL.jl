@@ -271,12 +271,12 @@ getconstraint(c::SpecificSubModelConstraints) = c.constraints
 
 An instance of `Constraints` represents a set of constraints to be applied to a variational posterior in a factor graph model.
 """
-struct Constraints
-    factorization_constraints::Vector{FactorizationConstraint}
-    posterior_form_constraints::Vector{PosteriorFormConstraint}
-    message_form_constraints::Vector{MessageFormConstraint}
-    general_submodel_constraints::Dict{Function, GeneralSubModelConstraints}
-    specific_submodel_constraints::Dict{FactorID, SpecificSubModelConstraints}
+struct Constraints{F, P, M, G, S}
+    factorization_constraints::F 
+    posterior_form_constraints::P
+    message_form_constraints::M
+    general_submodel_constraints::G
+    specific_submodel_constraints::S
 end
 
 factorization_constraints(c::Constraints) = c.factorization_constraints
@@ -287,9 +287,9 @@ specific_submodel_constraints(c::Constraints) = c.specific_submodel_constraints
 
 function Constraints()
     return Constraints(
-        Vector{FactorizationConstraint}[],
-        Vector{PosteriorFormConstraint}[],
-        Vector{MessageFormConstraint}[],
+        Vector{FactorizationConstraint}(),
+        Vector{PosteriorFormConstraint}(),
+        Vector{MessageFormConstraint}(),
         Dict{Function, GeneralSubModelConstraints}(),
         Dict{FactorID, SpecificSubModelConstraints}()
     )
@@ -489,6 +489,10 @@ function mean_field_constraint!(constraint::BoundedBitSetTuple)
     return constraint
 end
 
+function mean_field_constraint!(constraint::BoundedBitSetTuple, index::Int)
+    return mean_field_constraint!(constraint, (index,))
+end
+
 function mean_field_constraint!(constraint::BoundedBitSetTuple, referenced_indices::NTuple{N, Int} where {N})
     for i in referenced_indices
         constraint[i, :] = false
@@ -534,11 +538,9 @@ const VariationalConstraintsFactorizationBitSetKey = NodeDataExtraKey{:factoriza
 
 function materialize_constraints!(model::Model, node_label::NodeLabel, node_data::NodeData, properties::FactorNodeProperties)
     constraint_bitset = getextra(node_data, VariationalConstraintsFactorizationBitSetKey)
-    for (i, neighbor) in enumerate(neighbor_data(properties))
-        if is_factorized(neighbor)
-            mean_field_constraint!(constraint_bitset, (i,))
-        end
-    end
+
+    # Factorize out `neighbors` for which `is_factorized` is `true`
+    materialize_is_factorized_neighbors!(constraint_bitset, neighbor_data(properties))
 
     constraint_set = unique(eachcol(contents(constraint_bitset)))
 
@@ -550,6 +552,15 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 
     rows = Tuple(map(row -> filter(!iszero, map(elem -> elem[2] == 1 ? elem[1] : 0, enumerate(row))), constraint_set))
     setextra!(node_data, VariationalConstraintsFactorizationIndicesKey, rows)
+end
+
+function materialize_is_factorized_neighbors!(constraint_bitset::BoundedBitSetTuple, neighbors)
+    for (i, neighbor) in enumerate(neighbors)
+        if is_factorized(neighbor)
+            mean_field_constraint!(constraint_bitset, i)
+        end
+    end
+    return constraint_bitset
 end
 
 function is_valid_partition(contents)
@@ -781,26 +792,31 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
     end
 end
 
-function apply_constraints!(model::Model, context::Context, constraints::Constraints)
-    return apply_constraints!(model, context, constraints, ConstraintStack())
-end
-
-function apply_constraints!(model::Model, context::Context, constraint::MeanField)
-    variable_nodes(model) do label, data
+# Mean-field constraint simply applies the entire mean-field factorization to all the nodes in the model
+# Ignores the `default_constraints` in the submodels
+function apply_constraints!(model::Model, context::Context, ::MeanField)
+    factor_nodes(model) do _, data
         constraint_bitset = getextra(data, VariationalConstraintsFactorizationBitSetKey)
         mean_field_constraint!(constraint_bitset)
     end
 end
 
-function apply_constraints!(model::Model, context::Context, constraint::BetheFactorization)
-    nothing # Change if the Bethe Factorization is no longer the default factorization
+# BetheFactorization constraint only applies the partial mean-field factorization to `is_factorized` neighbors
+# Ignores the `default_constraints` in the submodels
+function apply_constraints!(model::Model, context::Context, ::BetheFactorization)
+    factor_nodes(model) do _, data
+        properties = getproperties(data)::FactorNodeProperties
+        constraint_bitset = getextra(data, VariationalConstraintsFactorizationBitSetKey)
+        materialize_is_factorized_neighbors!(constraint_bitset, neighbor_data(properties))
+    end
+end
+
+function apply_constraints!(model::Model, context::Context, constraints::Constraints)
+    return apply_constraints!(model, context, constraints, ConstraintStack())
 end
 
 function apply_constraints!(
-    model::Model,
-    context::Context,
-    constraint_set::Constraints,
-    resolved_factorization_constraints::ConstraintStack
+    model::Model, context::Context, constraint_set::Constraints, resolved_factorization_constraints::ConstraintStack
 )
     foreach(factorization_constraints(constraint_set)) do fc
         push!(resolved_factorization_constraints, resolve(model, context, fc), context)

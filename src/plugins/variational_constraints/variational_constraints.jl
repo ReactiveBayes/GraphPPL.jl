@@ -37,7 +37,7 @@ struct VariationalConstraintsPlugin{C}
     constraints::C
 end
 
-const EmptyConstraints = BetheFactorization()
+const EmptyConstraints = Constraints((), (), (), (;), (;))
 
 default_constraints(::Any) = EmptyConstraints
 
