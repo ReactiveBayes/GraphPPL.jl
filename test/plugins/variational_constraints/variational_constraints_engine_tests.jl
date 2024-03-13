@@ -602,12 +602,12 @@ end
     using BitSetTuples
     using GraphPPL
     import GraphPPL:
-        intersect_constraint_bitset!,
+        getextra,
         constant_constraint,
-        factorization_constraint,
         getproperties,
         VariationalConstraintsPlugin,
-        PluginsCollection
+        PluginsCollection,
+        VariationalConstraintsFactorizationBitSetKey
 
     model = create_terminated_model(simple_model; plugins = GraphPPL.PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
@@ -617,12 +617,14 @@ end
     @test tupled_contents(constant_constraint(3, 3)) == ((1, 2), (1, 2), (3,))
 
     node = ctx[NormalMeanVariance, 2]
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 1))) == ((1,), (2, 3), (2, 3))
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 2))) == ((1,), (2,), (3,))
+    constraint_bitset = getextra(model[node], VariationalConstraintsFactorizationBitSetKey)
+    @test tupled_contents(intersect!(constraint_bitset, constant_constraint(3, 1))) == ((1,), (2, 3), (2, 3))
+    @test tupled_contents(intersect!(constraint_bitset, constant_constraint(3, 2))) == ((1,), (2,), (3,))
 
     node = ctx[NormalMeanVariance, 1]
+    constraint_bitset = getextra(model[node], VariationalConstraintsFactorizationBitSetKey)
     # Here it is the mean field because the original model has `x ~ Normal(0, 1)` and `0` and `1` are constants 
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 1))) == ((1,), (2,), (3,))
+    @test tupled_contents(intersect!(constraint_bitset, constant_constraint(3, 1))) == ((1,), (2,), (3,))
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
@@ -1082,20 +1084,20 @@ end
     end
 end
 
-@testitem "mean_field_constraint" begin
+@testitem "mean_field_constraint!" begin
     using BitSetTuples
-    import GraphPPL: mean_field_constraint
+    import GraphPPL: mean_field_constraint!
 
-    @test tupled_contents(mean_field_constraint(5)) == ((1,), (2,), (3,), (4,), (5,))
-    @test tupled_contents(mean_field_constraint(10)) == ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5))) == ((1,), (2,), (3,), (4,), (5,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(10))) == ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,))
 
-    @test tupled_contents(mean_field_constraint(1, (1,))) == ((1,),)
-    @test tupled_contents(mean_field_constraint(2, (1,))) == ((1,), (2,))
-    @test tupled_contents(mean_field_constraint(2, (2,))) == ((1,), (2,))
-    @test tupled_contents(mean_field_constraint(5, (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
-    @test tupled_contents(mean_field_constraint(5, (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
-    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
-    @test tupled_contents(mean_field_constraint(5, (1, 2))) == ((1,), (2,), (3, 4, 5), (3, 4, 5), (3, 4, 5))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(1), (1,))) == ((1,),)
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (1,))) == ((1,), (2,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (2,))) == ((1,), (2,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2))) == ((1,), (2,), (3, 4, 5), (3, 4, 5), (3, 4, 5))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
+    @test_throws BoundsError mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
 end
 
 @testitem "Apply MeanField constraints" begin
@@ -1104,12 +1106,25 @@ end
 
     include("../../model_zoo.jl")
 
-    for model_fform in [simple_model, vector_model, tensor_model, outer, multidim_array, node_with_only_anonymous, node_with_two_anonymous, node_with_ambiguous_anonymous, multidim_array]
-        model = create_terminated_model(model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField())))
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))
+        )
 
         for node in filter(as_node(), model)
             node_data = model[node]
-            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) == Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
+            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
+                Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
         end
     end
 end
@@ -1120,8 +1135,20 @@ end
 
     include("../../model_zoo.jl")
 
-    for model_fform in [simple_model, vector_model, tensor_model, outer, multidim_array, node_with_only_anonymous, node_with_two_anonymous, node_with_ambiguous_anonymous, multidim_array]
-        model = create_terminated_model(model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization()))
+        )
 
         for node in filter(as_node(), model)
             node_data = model[node]
