@@ -41,4 +41,7 @@ GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.Dir
 GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.Wishart}) = GraphPPL.StaticInterfaces((:df, :S))
 GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.Wishart}) = GraphPPL.StaticInterfaces((:out, :df, :S))
 
+GraphPPLDistributionsExt.distributions_ext_input_interfaces(::Type{<:Distributions.Categorical}) = GraphPPL.StaticInterfaces((:p, ))
+GraphPPLDistributionsExt.distributions_ext_interfaces(::Type{<:Distributions.Categorical}) = GraphPPL.StaticInterfaces((:out, :p))
+
 end
