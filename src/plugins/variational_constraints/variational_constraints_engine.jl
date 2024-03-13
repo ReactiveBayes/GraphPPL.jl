@@ -272,7 +272,7 @@ getconstraint(c::SpecificSubModelConstraints) = c.constraints
 An instance of `Constraints` represents a set of constraints to be applied to a variational posterior in a factor graph model.
 """
 struct Constraints{F, P, M, G, S}
-    factorization_constraints::F 
+    factorization_constraints::F
     posterior_form_constraints::P
     message_form_constraints::M
     general_submodel_constraints::G
@@ -792,34 +792,22 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
     end
 end
 
+function apply_constraints!(model::Model, context::Context, constraints)
+    return apply_constraints!(model, context, constraints, ConstraintStack())
+end
+
 # Mean-field constraint simply applies the entire mean-field factorization to all the nodes in the model
-# Ignores the `default_constraints` in the submodels
-function apply_constraints!(model::Model, context::Context, ::MeanField)
+# Ignores `default_constraints` from the submodels and forces everything to be `MeanField`
+function apply_constraints!(model::Model, ::Context, ::MeanField, ::ConstraintStack)
     factor_nodes(model) do _, data
         constraint_bitset = getextra(data, VariationalConstraintsFactorizationBitSetKey)
         mean_field_constraint!(constraint_bitset)
     end
 end
 
-# BetheFactorization constraint only applies the partial mean-field factorization to `is_factorized` neighbors
-# Ignores the `default_constraints` in the submodels
-function apply_constraints!(model::Model, context::Context, ::BetheFactorization)
-    factor_nodes(model) do _, data
-        properties = getproperties(data)::FactorNodeProperties
-        constraint_bitset = getextra(data, VariationalConstraintsFactorizationBitSetKey)
-        materialize_is_factorized_neighbors!(constraint_bitset, neighbor_data(properties))
-    end
-end
-
-function apply_constraints!(model::Model, context::Context, constraints::Constraints)
-    return apply_constraints!(model, context, constraints, ConstraintStack())
-end
-
-function apply_constraints!(
-    model::Model, context::Context, constraint_set::Constraints, resolved_factorization_constraints::ConstraintStack
-)
+function apply_constraints!(model::Model, context::Context, constraint_set::Constraints, stack::ConstraintStack)
     foreach(factorization_constraints(constraint_set)) do fc
-        push!(resolved_factorization_constraints, resolve(model, context, fc), context)
+        push!(stack, resolve(model, context, fc), context)
     end
     foreach(posterior_form_constraints(constraint_set)) do ffc
         apply_constraints!(model, context, ffc)
@@ -827,23 +815,19 @@ function apply_constraints!(
     foreach(message_form_constraints(constraint_set)) do mc
         apply_constraints!(model, context, mc)
     end
-    foreach(constraints(resolved_factorization_constraints)) do rfc
+    foreach(constraints(stack)) do rfc
         apply_constraints!(model, context, rfc)
     end
     for (factor_id, child) in pairs(children(context))
         if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
-            apply_constraints!(
-                model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), resolved_factorization_constraints
-            )
+            apply_constraints!(model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), stack)
         elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
-            apply_constraints!(
-                model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), resolved_factorization_constraints
-            )
+            apply_constraints!(model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), stack)
         else
-            apply_constraints!(model, child, default_constraints(fform(factor_id)), resolved_factorization_constraints)
+            apply_constraints!(model, child, default_constraints(fform(factor_id)), stack)
         end
     end
-    while pop!(resolved_factorization_constraints, context)
+    while pop!(stack, context)
         continue
     end
 end

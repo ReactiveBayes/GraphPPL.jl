@@ -11,19 +11,11 @@ using DataStructures
     MeanField
 
 Generic factorisation constraint used to specify a mean-field factorisation for recognition distribution `q`.
+This constraint ignores `default_constraints` from submodels and forces everything to be factorized.
 
 See also: [`BetheFactorisation`](@ref)
 """
 struct MeanField end
-
-"""
-    BetheFactorisation
-
-Generic factorisation constraint used to specify the Bethe factorisation for recognition distribution `q`.
-
-See also: [`MeanField`](@ref)
-"""
-struct BetheFactorization end
 
 include("variational_constraints_macro.jl")
 include("variational_constraints_engine.jl")
@@ -37,12 +29,22 @@ struct VariationalConstraintsPlugin{C}
     constraints::C
 end
 
-const EmptyConstraints = Constraints((), (), (), (;), (;))
+const UnspecifiedConstraints = Constraints((), (), (), (;), (;))
 
-default_constraints(::Any) = EmptyConstraints
+default_constraints(::Any) = UnspecifiedConstraints
 
-VariationalConstraintsPlugin() = VariationalConstraintsPlugin(EmptyConstraints)
-VariationalConstraintsPlugin(::Nothing) = VariationalConstraintsPlugin(EmptyConstraints)
+"""
+    BetheFactorization
+
+Generic factorisation constraint used to specify the Bethe factorisation for recognition distribution `q`.
+An alias to `UnspecifiedConstraints`.
+
+See also: [`MeanField`](@ref)
+"""
+BetheFactorization() = UnspecifiedConstraints
+
+VariationalConstraintsPlugin() = VariationalConstraintsPlugin(UnspecifiedConstraints)
+VariationalConstraintsPlugin(::Nothing) = VariationalConstraintsPlugin(UnspecifiedConstraints)
 
 GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin()
 

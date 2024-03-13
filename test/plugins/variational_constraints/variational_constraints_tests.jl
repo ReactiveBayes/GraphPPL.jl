@@ -1,8 +1,8 @@
 @testitem "Empty constraints" begin
-    import GraphPPL: VariationalConstraintsPlugin, EmptyConstraints
+    import GraphPPL: VariationalConstraintsPlugin, UnspecifiedConstraints
 
-    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(EmptyConstraints)
-    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(EmptyConstraints)
+    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(UnspecifiedConstraints)
+    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(UnspecifiedConstraints)
 end
 
 @testitem "simple @model + various constraints" begin
