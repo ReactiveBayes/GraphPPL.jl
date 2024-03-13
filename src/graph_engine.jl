@@ -1,4 +1,4 @@
-using MetaGraphsNext, MetaGraphsNext.Graphs
+using MetaGraphsNext, MetaGraphsNext.Graphs, MetaGraphsNext.JLD2
 using BitSetTuples
 using Static
 using NamedTupleTools
@@ -7,7 +7,7 @@ using Dictionaries
 import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
 import MetaGraphsNext.Graphs: neighbors, degree
 
-export as_node, as_variable, as_context
+export as_node, as_variable, as_context, savegraph, loadgraph
 
 aliases(f) = (f,)
 
@@ -115,6 +115,9 @@ labels(model::Model) = MetaGraphsNext.labels(model.graph)
 Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
+
+Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
+Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
 
 """
     NodeLabel(name::Symbol, global_counter::Int64)

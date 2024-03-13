@@ -2009,3 +2009,22 @@ end
     @test prepare_interfaces(type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
     @test prepare_interfaces(type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
 end
+
+@testitem "save and load graph" begin
+    using GraphPPL
+
+    include("model_zoo.jl")
+    model = create_terminated_model(vector_model; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    mktemp() do file, io
+        file = file * ".jld2"
+        @show file
+        savegraph(file, model)
+        model2 = loadgraph(file, GraphPPL.Model)
+        for (node, node2) in zip(filter(as_node(), model), filter(as_node(), model2))
+            @test node == node2
+            @test GraphPPL.getextra(model[node], :factorization_constraint_bitset) == GraphPPL.getextra(model2[node2], :factorization_constraint_bitset)
+        end
+    end
+
+
+end
