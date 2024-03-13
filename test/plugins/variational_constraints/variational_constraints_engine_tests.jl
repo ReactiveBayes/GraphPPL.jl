@@ -1104,12 +1104,25 @@ end
 
     include("../../model_zoo.jl")
 
-    for model_fform in [simple_model, vector_model, tensor_model, outer, multidim_array, node_with_only_anonymous, node_with_two_anonymous, node_with_ambiguous_anonymous, multidim_array]
-        model = create_terminated_model(model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField())))
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))
+        )
 
         for node in filter(as_node(), model)
             node_data = model[node]
-            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) == Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
+            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
+                Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
         end
     end
 end
@@ -1120,8 +1133,20 @@ end
 
     include("../../model_zoo.jl")
 
-    for model_fform in [simple_model, vector_model, tensor_model, outer, multidim_array, node_with_only_anonymous, node_with_two_anonymous, node_with_ambiguous_anonymous, multidim_array]
-        model = create_terminated_model(model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization()))
+        )
 
         for node in filter(as_node(), model)
             node_data = model[node]

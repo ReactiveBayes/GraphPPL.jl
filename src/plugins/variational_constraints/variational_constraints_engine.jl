@@ -808,21 +808,14 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
     end
 end
 
-function apply_constraints!(
-    model::Model,
-    context::Context,
-    constraint::MeanField)
+function apply_constraints!(model::Model, context::Context, constraint::MeanField)
     foreach(filter(as_node(), model)) do node
         data = model[node]
         intersect_constraint_bitset!(data, mean_field_constraint(length(neighbor_data(getproperties(data)))))
     end
 end
 
-function apply_constraints!(
-    model::Model,
-    context::Context,
-    constraint::BetheFactorization
-)
+function apply_constraints!(model::Model, context::Context, constraint::BetheFactorization)
     nothing # Change if the Bethe Factorization is no longer the default factorization
 end
 
