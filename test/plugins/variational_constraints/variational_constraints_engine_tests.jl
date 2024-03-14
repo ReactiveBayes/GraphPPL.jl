@@ -319,7 +319,6 @@ end
     using Distributions
     import GraphPPL:
         Constraints,
-        Constraint,
         FactorizationConstraint,
         FactorizationConstraintEntry,
         PosteriorFormConstraint,
