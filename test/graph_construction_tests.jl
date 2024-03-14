@@ -655,7 +655,7 @@ end
 
     include("testutils.jl")
 
-    @model function aliases(s4)
+    @model function aliases_for_normal(s4)
         r1 ~ Normal(μ = 1.0, τ = 1.0)
         r2 ~ Normal(m = r1, γ = 1.0)
         r3 ~ Normal(mean = r2, σ⁻² = 1.0)
@@ -670,7 +670,7 @@ end
         s4 ~ Normal(mean = s3, variance = 1.0)
     end
 
-    model = create_model(aliases()) do model, ctx
+    model = create_model(aliases_for_normal()) do model, ctx
         return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :s4, nothing))
     end
 

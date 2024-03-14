@@ -32,11 +32,12 @@ struct TestGraphPPLBackend end
 
 GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
 
-# The `TestGraphPPLBackend` redirects the `NodeBehaviour` and `NodeType` to the `DefaultBackend`
+# The `TestGraphPPLBackend` redirects some of the methods to the `DefaultBackend`
+# (not all though, `TestGraphPPLBackend` implements some of them for the custom structures defined also below)
 # The `DefaultBackend` has extension rules for `Distributions.jl` types for example
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultBackend(), fform)
 GraphPPL.NodeType(::TestGraphPPLBackend, fform) = GraphPPL.NodeType(GraphPPL.DefaultBackend(), fform)
-
+GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.DefaultBackend(), fform)
 
 export @model
 
@@ -73,7 +74,7 @@ struct NormalMeanPrecision end
 
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
-GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
+GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 
 GraphPPL.interfaces(::Type{NormalMeanVariance}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :σ))
 GraphPPL.interfaces(::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :τ))
@@ -98,7 +99,7 @@ GraphPPL.interface_aliases(::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
 struct GammaShapeRate end
 struct GammaShapeScale end
 
-GraphPPL.aliases(::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
+GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
 
 GraphPPL.interfaces(::Type{GammaShapeRate}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :β))
 GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :θ))

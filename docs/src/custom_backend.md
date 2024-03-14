@@ -34,4 +34,5 @@ in order for backend to be fully specified.
 GraphPPL.model_macro_interior_pipelines
 GraphPPL.NodeBehaviour
 GraphPPL.NodeType
+GraphPPL.aliases
 ```
