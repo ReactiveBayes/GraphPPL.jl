@@ -1763,16 +1763,18 @@ end
 
     using .TestUtils.ModelZoo
 
+    model = create_test_model()
+
     # Test 1: Add default arguments to Normal call
-    @test default_parametrization(Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
+    @test default_parametrization(model, Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
 
     # Test 2: Add :in to function call that has default behaviour 
-    @test default_parametrization(Atomic(), +, (1, 2)) == (in = (1, 2),)
+    @test default_parametrization(model, Atomic(), +, (1, 2)) == (in = (1, 2),)
 
     # Test 3: Add :in to function call that has default behaviour with nested interfaces
-    @test default_parametrization(Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
+    @test default_parametrization(model, Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
 
-    @test_throws ErrorException default_parametrization(Composite(), gcv, (1, 2))
+    @test_throws ErrorException default_parametrization(model, Composite(), gcv, (1, 2))
 end
 
 @testitem "contains_nodelabel" begin

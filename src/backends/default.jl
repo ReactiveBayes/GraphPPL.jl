@@ -41,3 +41,9 @@ GraphPPL.factor_alias(::DefaultBackend, f::F, interfaces) where {F} = f
 
 # By default we assume that all factors have no aliases for their interfaces
 GraphPPL.interface_aliases(::DefaultBackend, _) = GraphPPL.StaticInterfaceAliases(())
+
+# By default only one default parametrization is provided for all nodes, which maps the provided arguments to the `in` interface
+# And throws an error for `Composite` nodes since those has to be called with named arguments anyway
+default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
+default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
+    error("Composite nodes always have to be initialized with named arguments")

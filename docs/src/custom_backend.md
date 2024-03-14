@@ -14,7 +14,8 @@ It is not possible to resolve these issues on a _syntax level_, thus `GraphPPL` 
 
 ## Default backend
 
-For interactive purposes (plotting or testing) `GraphPPL` implements a `DefaultBackend`, but the `@model` macro by itself is not exported by default. To use it explicitly simply call:
+For interactive purposes (plotting or testing) `GraphPPL` implements a `DefaultBackend`, which properly handles objects from `Distributions.jl`.
+The `@model` macro by itself is not exported by default. To use it explicitly simply call:
 
 ```@example import-model-macro
 import GraphPPL: @model
@@ -38,4 +39,5 @@ GraphPPL.aliases
 GraphPPL.interfaces
 GraphPPL.factor_alias
 GraphPPL.interface_aliases
+GraphPPL.default_parametrization
 ```
