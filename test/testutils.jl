@@ -40,6 +40,7 @@ GraphPPL.NodeType(::TestGraphPPLBackend, fform) = GraphPPL.NodeType(GraphPPL.Def
 GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.DefaultBackend(), fform)
 GraphPPL.interfaces(::TestGraphPPLBackend, fform, n) = GraphPPL.interfaces(GraphPPL.DefaultBackend(), fform, n)
 GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_alias(GraphPPL.DefaultBackend(), f, interfaces)
+GraphPPL.interface_aliases(::TestGraphPPLBackend, f) = GraphPPL.interface_aliases(GraphPPL.DefaultBackend(), f)
 
 # Check that we can alias the `+` into `sum` and `*` into `prod`
 GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(+), interfaces) = sum
@@ -88,7 +89,7 @@ GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}, ::Static
 GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :σ)}) = NormalMeanVariance
 GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :τ)}) = NormalMeanPrecision
 
-GraphPPL.interface_aliases(::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
+GraphPPL.interface_aliases(::TestGraphPPLBackend, ::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
     (:mean, :μ),
     (:m, :μ),
     (:variance, :σ),

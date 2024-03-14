@@ -37,4 +37,5 @@ GraphPPL.NodeType
 GraphPPL.aliases
 GraphPPL.interfaces
 GraphPPL.factor_alias
+GraphPPL.interface_aliases
 ```
