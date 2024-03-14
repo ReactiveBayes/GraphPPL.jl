@@ -2195,27 +2195,29 @@ end
 
     include("testutils.jl")
 
+    model = create_test_model()
+
     function abc end
 
-    GraphPPL.interfaces(::typeof(abc), ::StaticInt{3}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInt{3}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
 
-    @test missing_interfaces(abc, static(3), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces((:out,))
-    @test missing_interfaces(abc, static(3), (out = :y,)) == GraphPPL.StaticInterfaces((:in1, :in2))
-    @test missing_interfaces(abc, static(3), NamedTuple()) == GraphPPL.StaticInterfaces((:in1, :in2, :out))
+    @test missing_interfaces(model, abc, static(3), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces((:out,))
+    @test missing_interfaces(model, abc, static(3), (out = :y,)) == GraphPPL.StaticInterfaces((:in1, :in2))
+    @test missing_interfaces(model, abc, static(3), NamedTuple()) == GraphPPL.StaticInterfaces((:in1, :in2, :out))
 
     function xyz end
 
-    GraphPPL.interfaces(::typeof(xyz), ::StaticInt{0}) = GraphPPL.StaticInterfaces(())
-    @test missing_interfaces(xyz, static(0), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces(())
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInt{0}) = GraphPPL.StaticInterfaces(())
+    @test missing_interfaces(model, xyz, static(0), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces(())
 
     function foo end
 
-    GraphPPL.interfaces(::typeof(foo), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:a, :b))
-    @test missing_interfaces(foo, static(2), (a = 1, b = 2)) == GraphPPL.StaticInterfaces(())
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(foo), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:a, :b))
+    @test missing_interfaces(model, foo, static(2), (a = 1, b = 2)) == GraphPPL.StaticInterfaces(())
 
     function bar end
-    GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
-    @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(bar), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
+    @test missing_interfaces(model, bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
 end
 
 @testitem "sort_interfaces" begin
@@ -2223,17 +2225,19 @@ end
 
     include("testutils.jl")
 
-    # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
-    @test sort_interfaces(NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    model = create_test_model()
 
-    @test_throws ErrorException sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
+    # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
+    @test sort_interfaces(model, NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+
+    @test_throws ErrorException sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
 end
 
 @testitem "prepare_interfaces" begin
@@ -2243,11 +2247,13 @@ end
 
     using .TestUtils.ModelZoo
 
-    @test prepare_interfaces(anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
-    @test prepare_interfaces(anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
+    model = create_test_model()
 
-    @test prepare_interfaces(type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
-    @test prepare_interfaces(type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
+    @test prepare_interfaces(model, anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
+    @test prepare_interfaces(model, anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
+
+    @test prepare_interfaces(model, type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
+    @test prepare_interfaces(model, type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
 end
 
 @testitem "save and load graph" begin

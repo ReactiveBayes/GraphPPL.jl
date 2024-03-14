@@ -30,4 +30,8 @@ GraphPPL.NodeBehaviour(::DefaultBackend, _) = GraphPPL.Deterministic()
 # By default we assume that types and functions are `Atomic` nodes, `Composite` nodes should be specified explicitly in the `@model` macro
 GraphPPL.NodeType(::DefaultBackend, ::Type) = GraphPPL.Atomic()
 GraphPPL.NodeType(::DefaultBackend, ::F) where {F <: Function} = GraphPPL.Atomic()
-GraphPPL.aliases(::DefaultBackend, f) = (f, )
+GraphPPL.aliases(::DefaultBackend, f) = (f,)
+
+# Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
+GraphPPL.interfaces(::DefaultBackend, ::F, ::StaticInt{1}) where {F} = StaticInterfaces((:out,))
+GraphPPL.interfaces(::DefaultBackend, ::F, _) where {F} = StaticInterfaces((:out, :in))

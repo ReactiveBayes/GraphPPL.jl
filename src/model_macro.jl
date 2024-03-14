@@ -705,8 +705,8 @@ function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     backend_type = typeof(backend)
     return quote
         function $ms_name end
-        GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
         GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f, )
@@ -752,7 +752,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
-            __interfaces__ = GraphPPL.prepare_interfaces($ms_name, __lhs_interface__, __rhs_interfaces__)
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)

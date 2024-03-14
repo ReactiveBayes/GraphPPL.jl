@@ -461,7 +461,6 @@ end
 
         @test all(filter(as_node(MvNormal), model)) do node
             @test hasextra(model[node], :factorization_constraint_indices)
-            interfaces = GraphPPL.interfaces(MvNormal, GraphPPL.static(3))
             # desired constraints 
             desired = Set([(1, 2), (3,)])
             # actual constraints 
