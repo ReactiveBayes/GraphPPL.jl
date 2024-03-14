@@ -10,6 +10,8 @@ end
     import GraphPPL:
         create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
 
+    include("../../testutils.jl")
+
     @model function simple_model()
         x ~ Beta(1, 1)
         t ~ Gamma(1, 1)
@@ -286,6 +288,8 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
+    include("../../testutils.jl")
+
     @model function simple_model(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
         a ~ Normal(μ = x, τ = 1)
@@ -330,7 +334,9 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     @model function random_walk(y, a, b)
         x[1] ~ NormalMeanVariance(0, 1)
@@ -420,6 +426,8 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
+    include("../../testutils.jl")
+
     @model function simple_model(y, a, b)
         τ ~ Gamma(10, 10) # wrong for MvNormal, but test is for a different purpose
         θ ~ Gamma(10, 10)
@@ -478,6 +486,8 @@ end
         PluginsCollection,
         VariationalConstraintsPlugin,
         with_plugins
+
+    include("../../testutils.jl")
 
     @model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
@@ -571,6 +581,8 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
+    include("../../testutils.jl")
+
     @model function simple_model_for_fform_constraints()
         x ~ Normal(0, 1)
         y ~ Gamma(1, 1)
@@ -662,9 +674,11 @@ end
 end
 
 @testitem "@constraints macro pipeline" begin
-    import GraphPPL: PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra, with_plugins
+    import GraphPPL: create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra, with_plugins
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
@@ -673,7 +687,7 @@ end
         μ(y)::NormalMeanVariance()
     end
     # Test constraints macro with single variables and no nesting
-    model = create_terminated_model(simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     for node in filter(GraphPPL.as_variable(:x), model)
@@ -699,7 +713,7 @@ end
             μ(θ)::NormalMeanVariance()
         end
     end
-    model = create_terminated_model(outer; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    model = create_model(with_plugins(outer(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     @test hasextra(model[ctx[:w][1]], :posterior_form_constraint) === false
@@ -725,7 +739,7 @@ end
             q(in, out, σ) = q(in, out)q(σ)
         end
     end
-    model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
@@ -739,7 +753,7 @@ end
             q(in, out, σ) = q(in, out)q(σ)
         end
     end
-    model = create_terminated_model(parent_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
@@ -751,17 +765,16 @@ end
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
     end
-    @test_throws ErrorException create_terminated_model(
-        simple_model; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints))
-    )
+    @test_throws ErrorException create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
 end
 
 @testitem "A complex hierarchical constraints with lots of renaming and interleaving with constants" begin
     using Distributions
     using BitSetTuples
-
     import GraphPPL:
         create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
+
+    include("../../testutils.jl")
 
     @model function submodel_3_1(b, n, m)
         b ~ Normal(n, m)
@@ -880,6 +893,8 @@ end
         getextra,
         hasextra
 
+    include("../../testutils.jl")
+
     @model function some_state_space_model(y)
         γ ~ Gamma(1, 1)
         θ ~ Gamma(1, 1)
@@ -928,25 +943,14 @@ end
 
 @testitem "Apply MeanField constraints" begin
     using GraphPPL
-    import GraphPPL: getproperties, neighbor_data
+    import GraphPPL: create_model, with_plugins, getproperties, neighbor_data
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
 
-    for model_fform in [
-        simple_model,
-        vector_model,
-        tensor_model,
-        outer,
-        multidim_array,
-        node_with_only_anonymous,
-        node_with_two_anonymous,
-        node_with_ambiguous_anonymous,
-        multidim_array
-    ]
-        model = create_terminated_model(
-            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))
-        )
+    using .TestUtils.ModelZoo
 
+    for model_fform in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))))
         for node in filter(as_node(), model)
             node_data = model[node]
             @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
@@ -957,31 +961,24 @@ end
 
 @testitem "Apply BetheFactorization constraints" begin
     using GraphPPL
-    import GraphPPL: getproperties, neighbor_data, is_factorized
+    import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
 
-    for model_fform in [
-        simple_model,
-        vector_model,
-        tensor_model,
-        outer,
-        multidim_array,
-        node_with_only_anonymous,
-        node_with_two_anonymous,
-        node_with_ambiguous_anonymous,
-        multidim_array
-    ]
-        model = create_terminated_model(
-            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization()))
+    using .TestUtils.ModelZoo
+
+    # BetheFactorization uses `default_constraints` for `contains_default_constraints`
+    # So it is not tested here
+    for model_fform in setdiff(Set(ModelsInTheZooWithoutArguments), Set([ contains_default_constraints ]))
+        model = create_model(
+            with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))
         )
-
         for node in filter(as_node(), model)
             node_data = model[node]
             neighbors_data = neighbor_data(getproperties(node_data))
             factorized_neighbors = is_factorized.(neighbors_data)
             new_constraint = [findall(!, factorized_neighbors)]
-            for j in findall(identity, factorized_neighbors)
+            for j in findall(factorized_neighbors)
                 push!(new_constraint, [j])
             end
             sort!(new_constraint, by = first)
