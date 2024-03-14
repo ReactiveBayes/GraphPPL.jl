@@ -8,9 +8,13 @@ end
 @testitem "@meta macro pipeline" begin
     using GraphPPL
 
-    import GraphPPL: getextra, hasextra, PluginsCollection, MetaPlugin, apply_meta!
+    import GraphPPL: create_model, with_plugins, getextra, hasextra, PluginsCollection, MetaPlugin, apply_meta!
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    struct SomeMeta end
 
     # Test constraints macro with single variables and no nesting
     metaspec = @meta begin
@@ -18,7 +22,7 @@ end
         x -> SomeMeta()
         y -> (meta = SomeMeta(), other = 1)
     end
-    model = create_terminated_model(simple_model; plugins = PluginsCollection(MetaPlugin(metaspec)))
+    model = create_model(with_plugins(simple_model(), PluginsCollection(MetaPlugin(metaspec))))
     ctx = GraphPPL.getcontext(model)
 
     @test !hasextra(model[ctx[NormalMeanVariance, 1]], :meta)
@@ -32,7 +36,7 @@ end
     metaobj = @meta begin
         Gamma(w) -> SomeMeta()
     end
-    model = create_terminated_model(outer; plugins = PluginsCollection(MetaPlugin(metaobj)))
+    model = create_model(with_plugins(outer(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
     for node in filter(GraphPPL.as_node(Gamma) & GraphPPL.as_context(outer), model)
@@ -45,7 +49,7 @@ end
             α -> SomeMeta()
         end
     end
-    model = create_terminated_model(outer; plugins = PluginsCollection(MetaPlugin(metaobj)))
+    model = create_model(with_plugins(outer(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
     @test getextra(model[ctx[:y]], :meta) == SomeMeta()
@@ -56,7 +60,7 @@ end
             Normal(in, out) -> SomeMeta()
         end
     end
-    model = create_terminated_model(parent_model; plugins = PluginsCollection(MetaPlugin(metaobj)))
+    model = create_model(with_plugins(parent_model(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
     @test getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :meta) == SomeMeta()
@@ -70,7 +74,7 @@ end
             Normal(in, out) -> SomeMeta()
         end
     end
-    model = create_terminated_model(parent_model; plugins = PluginsCollection(MetaPlugin(metaobj)))
+    model = create_model(with_plugins(parent_model(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
