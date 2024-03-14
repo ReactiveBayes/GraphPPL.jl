@@ -461,7 +461,9 @@ end
 @testitem "is_factorized" begin
     import GraphPPL: is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
 
-    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    include("../../testutils.jl")
+
+    m = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
 
     x_1 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_1, nothing)
@@ -491,7 +493,7 @@ end
 
     using .TestUtils.ModelZoo
 
-    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    m = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
     x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, nothing)
     @test is_factorized(m[x])

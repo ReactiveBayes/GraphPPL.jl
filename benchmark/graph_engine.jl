@@ -5,11 +5,11 @@ function benchmark_graph_engine()
     SUITE = BenchmarkGroup(["graph_creation"])
 
     # Benchmark how long it takes to create a model structure
-    SUITE["create_model"] = @benchmarkable GraphPPL.create_model() evals = 1
+    SUITE["create_model"] = @benchmarkable GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend()) evals = 1
 
     # Benchmark how long it takes to get the context of a model
     SUITE["getcontext"] = @benchmarkable GraphPPL.getcontext(model) evals = 1 setup = begin
-        model = GraphPPL.create_model()
+        model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
     end
 
     # Benchmark how long it takes to create a factor node
@@ -29,7 +29,7 @@ function benchmark_factor_node_creation()
     for f in (sum,), n in Int.(exp10.(0:4))
         SUITE["make_node! (n inputs)", f, n] = @benchmarkable GraphPPL.make_node!(model, ctx, $f, y, (in = x,)) evals =
             1 setup = begin
-            model = GraphPPL.create_model()
+            model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
             ctx = GraphPPL.getcontext(model)
             y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
             foreach(1:($n)) do i
@@ -44,7 +44,7 @@ function benchmark_factor_node_creation()
         SUITE["make_node! (n nodes)", f, n] = @benchmarkable foreach(
             _ -> GraphPPL.make_node!(model, ctx, $f, y, (in = x,)), 1:($n)
         ) evals = 1 setup = begin
-            model = GraphPPL.create_model()
+            model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
             ctx = GraphPPL.getcontext(model)
             y = GraphPPL.getorcreate!(model, ctx, :y, nothing)
             x = GraphPPL.getorcreate!(model, ctx, :x, nothing)
@@ -60,7 +60,7 @@ function benchmark_variable_node_creation()
     # This SUITE benchmarks how long it takes to create a single variable node
     SUITE["getorcreate! (individual)"] = @benchmarkable GraphPPL.getorcreate!(model, ctx, :x, nothing) evals = 1 setup =
         begin
-            model = GraphPPL.create_model()
+            model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
             ctx = GraphPPL.getcontext(model)
         end
 
@@ -69,7 +69,7 @@ function benchmark_variable_node_creation()
         SUITE["getorcreate! (n individual)", n] = @benchmarkable foreach(
             _ -> GraphPPL.getorcreate!(model, ctx, :x, nothing), 1:($n)
         ) evals = 1 setup = begin
-            model = GraphPPL.create_model()
+            model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
             ctx = GraphPPL.getcontext(model)
         end
     end
@@ -79,7 +79,7 @@ function benchmark_variable_node_creation()
         SUITE["getorcreate! (n vector)", n] = @benchmarkable foreach(
             i -> GraphPPL.getorcreate!(model, ctx, :x, i), 1:($n)
         ) evals = 1 setup = begin
-            model = GraphPPL.create_model()
+            model = GraphPPL.Model(identity, GraphPPL.PluginsCollection(), GraphPPL.DefaultBackend())
             ctx = GraphPPL.getcontext(model)
         end
     end

@@ -105,9 +105,10 @@ Fields:
 - `plugins`: A `PluginCollection` object representing the plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, P}
+struct Model{G, P, B}
     graph::G
     plugins::P
+    backend::B
     counter::Base.RefValue{Int64}
 end
 
@@ -115,6 +116,7 @@ labels(model::Model) = MetaGraphsNext.labels(model.graph)
 Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
+getbackend(model::Model) = model.backend
 
 Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
 Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
@@ -598,10 +600,21 @@ StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
 Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
 
-Model(graph::MetaGraph) = Model(graph, PluginsCollection())
+function Model(graph::MetaGraph, plugins::PluginsCollection, backend)
+    return Model(graph, plugins, backend, Base.RefValue(0))
+end
 
-function Model(graph::MetaGraph, plugins::PluginsCollection)
-    return Model(graph, plugins, Base.RefValue(0))
+function Model(fform::F, plugins::PluginsCollection) where {F}
+    return Model(fform, plugins, default_backend(fform))
+end
+
+function Model(fform::F, plugins::PluginsCollection, backend) where {F}
+    label_type = NodeLabel
+    edge_data_type = EdgeLabel
+    vertex_data_type = NodeData
+    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
+    model = Model(graph, plugins, backend)
+    return model
 end
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
@@ -800,23 +813,6 @@ See also: [`Stochastic`](@ref), [`NodeBehaviour`](@ref)
 struct Deterministic <: NodeBehaviour end
 
 NodeBehaviour(::Any) = Deterministic()
-
-"""
-create_model()
-
-Create a new empty probabilistic graphical model. 
-
-Returns:
-A `Model` object representing the probabilistic graphical model.
-"""
-function create_model(; fform = identity, plugins = PluginsCollection())
-    label_type = NodeLabel
-    edge_data_type = EdgeLabel
-    vertex_data_type = NodeData
-    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
-    model = Model(graph, plugins)
-    return model
-end
 
 """
 copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)

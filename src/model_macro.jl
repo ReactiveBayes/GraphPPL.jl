@@ -699,7 +699,7 @@ Returns a quote block containing boilerplate functions for a model macro.
 # Returns
 - `quote`: A quote block containing the boilerplate functions for the model macro.
 """
-function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
     return quote
@@ -708,6 +708,7 @@ function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
         GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
+        GraphPPL.default_backend(::typeof($ms_name)) = $backend
     end
 end
 
@@ -781,6 +782,13 @@ function get_make_node_function(ms_body, ms_args, ms_name)
 end
 
 """
+    default_backend(model_function)
+
+Returns a default backend for the given model function.
+"""
+function default_backend end
+
+"""
     model_macro_interior_pipelines(backend)
 
 Returns a collection of syntax transformation functions for the `apply_pipeline` function based on a specific backend.
@@ -800,7 +808,7 @@ function model_macro_interior(backend, model_specification)
         warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
     end
 
-    boilerplate_functions = GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+    boilerplate_functions = GraphPPL.get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     pipeline_collection = GraphPPL.model_macro_interior_pipelines(backend)
     ms_body = apply_pipeline_collection(ms_body, pipeline_collection)
 

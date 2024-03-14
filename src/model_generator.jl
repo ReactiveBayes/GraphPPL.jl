@@ -28,7 +28,7 @@ function create_model(generator::ModelGenerator)
 end
 
 function create_model(callback, generator::ModelGenerator)
-    model = create_model(; fform = getmodel(generator), plugins = getplugins(generator))
+    model = Model(getmodel(generator), getplugins(generator))
     context = getcontext(model)
 
     extrakwargs = callback(model, context)

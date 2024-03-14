@@ -13,7 +13,9 @@
         getextra,
         by_nodeid
 
-    model = create_model(plugins = PluginsCollection(NodeIdPlugin()))
+    include("../testutils.jl")
+
+    model = create_test_model(plugins = PluginsCollection(NodeIdPlugin()))
     ctx = getcontext(model)
 
     @testset begin
