@@ -32,6 +32,11 @@ struct TestGraphPPLBackend end
 
 GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
 
+# The `TestGraphPPLBackend` treats all objects from `Distributions.jl` as stochastic nodes 
+# The rest is treated as `Deterministic` nodes
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{<:Distributions.Distribution}) = GraphPPL.Stochastic()
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, _) = GraphPPL.Deterministic()
+
 export @model
 
 # This is a special `@model` macro that should be used in tests
@@ -53,17 +58,19 @@ export PointMass, ArbitraryNode, NormalMeanVariance, NormalMeanPrecision, GammaS
 
 struct PointMass end
 
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{PointMass}) = GraphPPL.Deterministic()
+
 struct ArbitraryNode end
 
-GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
 struct NormalMeanVariance end
 
-GraphPPL.NodeBehaviour(::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
 
 struct NormalMeanPrecision end
 
-GraphPPL.NodeBehaviour(::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
 GraphPPL.aliases(::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 

@@ -2,8 +2,6 @@ module GraphPPLDistributionsExt
 
 using GraphPPL, Distributions, Static
 
-GraphPPL.NodeBehaviour(::Type{<:Distributions.Distribution}) = GraphPPL.Stochastic()
-
 function GraphPPL.default_parametrization(::GraphPPL.Atomic, t::Type{<:Distributions.Distribution}, interface_values::Tuple) 
     return distributions_ext_default_parametrization(t, distributions_ext_input_interfaces(t), interface_values)
 end

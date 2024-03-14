@@ -702,12 +702,13 @@ Returns a quote block containing boilerplate functions for a model macro.
 function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
+    backend_type = typeof(backend)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
         GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
-        GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
+        GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
         GraphPPL.default_backend(::typeof($ms_name)) = $backend
     end
 end

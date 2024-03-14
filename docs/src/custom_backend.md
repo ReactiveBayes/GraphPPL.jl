@@ -32,4 +32,5 @@ in order for backend to be fully specified.
 
 ```@docs
 GraphPPL.model_macro_interior_pipelines
+GraphPPL.NodeBehaviour
 ```
