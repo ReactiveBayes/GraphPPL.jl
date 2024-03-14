@@ -1649,6 +1649,8 @@ end
 
     include("testutils.jl")
 
+    using .TestUtils.ModelZoo
+
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)
         x ~ sum(μ, σ)
@@ -1791,6 +1793,8 @@ end
 
 @testitem "ModelGenerator based constructor is being created" begin
     import GraphPPL: ModelGenerator
+
+    include("testutils.jl")
 
     @model function foo(x, y)
         x ~ y + 1
