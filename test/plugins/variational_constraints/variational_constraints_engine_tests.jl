@@ -735,6 +735,23 @@ end
         )
         @test resolve(model, ctx, constraint) == result
     end
+
+    model = create_terminated_model(filled_matrix_model)
+    ctx = GraphPPL.getcontext(model)
+    
+    let constraint = FactorizationConstraint(
+        (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+        (FactorizationConstraintEntry((IndexedVariable(:x, nothing),)), FactorizationConstraintEntry((IndexedVariable(:y, nothing),)))
+    )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((ResolvedIndexedVariable(:x, CombinedRange(1, 10), ctx), ResolvedIndexedVariable(:y, CombinedRange(1, 10), ctx)),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(1, 10), ctx),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, CombinedRange(1, 10), ctx),))
+            )
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
 end
 
 @testitem "Resolved Constraints in" begin
@@ -747,9 +764,13 @@ end
         SplittedRange,
         getname,
         index,
-        VariableNodeProperties
+        VariableNodeProperties,
+        NodeLabel, 
+        ResizableArray
 
     context = GraphPPL.Context()
+    insert!(context.vector_variables, :w, ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)]))
+
     variable = ResolvedIndexedVariable(:w, 2:3, context)
     node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
@@ -875,7 +896,7 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
             (
                 ResolvedFactorizationConstraintEntry((
-                    ResolvedIndexedVariable(:x, SplittedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
+                    ResolvedIndexedVariable(:x, SplittedRange(1, 9), context),
                 )),
             )
         )
@@ -892,7 +913,7 @@ end
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
             (
                 ResolvedFactorizationConstraintEntry((
-                    ResolvedIndexedVariable(:x, CombinedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
+                    ResolvedIndexedVariable(:x, CombinedRange(1, 9), context),
                 )),
             )
         )
@@ -1091,4 +1112,20 @@ end
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
     @test_throws BoundsError mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
+end
+
+@testitem "Apply constraints to matrix variables" begin
+    import GraphPPL: getproperties, PluginsCollection, VariationalConstraintsPlugin, getextra
+
+    include("../../model_zoo.jl")
+
+    # Test for constraints applied to a model with matrix variables
+    c = @constraints begin
+    q(x, y) = q(x)q(y) 
+    end
+    model = create_terminated_model(filled_matrix_model; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+     
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
 end

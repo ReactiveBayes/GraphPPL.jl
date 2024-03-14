@@ -13,10 +13,13 @@ end
 Base.firstindex(range::CombinedRange) = range.from
 Base.lastindex(range::CombinedRange) = range.to
 Base.in(item, range::CombinedRange) = firstindex(range) <= item <= lastindex(range)
-Base.in(item::NTuple{N, Int} where {N}, range::CombinedRange) = CartesianIndex(item...) ∈ firstindex(range):lastindex(range)
+Base.in(item::NTuple{N, Int} where {N}, range::CombinedRange{CombinedRange, CombinedRange}) = CartesianIndex(item...) ∈ firstindex(range):lastindex(range)
 Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
+
+CombinedRange(from::CartesianIndex{1}, to::CartesianIndex{1}) = CombinedRange(from[1], to[1])
+CombinedRange(from::CartesianIndex{N}, to::CartesianIndex{N}) where {N} = CombinedRange(from.I, to.I)
 
 """
     SplittedRange{L, R}
@@ -396,7 +399,7 @@ Base.in(
     nodedata::NodeData,
     properties::VariableNodeProperties,
     var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
-) = (getname(properties) == getname(var)) && (index(properties) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+) = (getname(properties) == getname(var)) && (flattened_index(getcontext(var)[getname(var)],index(properties)) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
 
 struct ResolvedConstraintLHS{V}
     variables::V
@@ -582,7 +585,8 @@ end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
 
-function __resolve(data::NodeData)
+function __resolve(model::Model, label::NodeLabel)
+    data = model[label]
     return __resolve(data, getproperties(data))
 end
 
@@ -590,16 +594,35 @@ function __resolve(data::NodeData, properties::VariableNodeProperties)
     return ResolvedIndexedVariable(getname(properties), index(properties), getcontext(data))
 end
 
-function __resolve(data::AbstractArray{T} where {T <: NodeData})
-    firstdata = first(data)
-    lastdata = last(data)
-    if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
-        error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
+function __resolve(model::Model, labels::AbstractArray{T, 1}) where {T <: NodeLabel}
+    fdata = model[first(labels)]
+    ldata = model[last(labels)]
+    if getname(getproperties(fdata)) != getname(getproperties(ldata))
+        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
+    end
+    return ResolvedIndexedVariable(getname(getproperties(fdata)), CombinedRange(index(getproperties(fdata)), index(getproperties(ldata))), getcontext(fdata))
+end
+
+function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLabel}) where {N}
+
+    findex, flabel = firstwithindex(labels)
+    lindex, llabel = lastwithindex(labels)
+
+    fdata = model[flabel]
+    ldata = model[llabel]
+
+    # We have to test whether or not the `ResizableArray` of labels passed is a slice. If it is, we throw because the constraint is unresolvable
+    if CartesianIndex(index(getproperties(fdata))) != findex || CartesianIndex(index(getproperties(ldata))) != lindex
+        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
+    end
+    
+    if getname(getproperties(fdata)) != getname(getproperties(ldata))
+        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
     end
     return ResolvedIndexedVariable(
-        getname(getproperties(firstdata)),
-        CombinedRange(index(getproperties(firstdata)), index(getproperties(lastdata))),
-        getcontext(firstdata)
+        getname(getproperties(fdata)),
+        CombinedRange(flattened_index(labels, findex.I), flattened_index(labels,lindex.I)),
+        getcontext(fdata)
     )
 end
 
@@ -621,6 +644,7 @@ end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{Nothing})
     global_label = unroll(context[getname(variable)])
+    return __resolve(model, global_label)
     global_node_data = model[global_label]
     return __resolve(global_node_data)
 end

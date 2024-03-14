@@ -108,6 +108,19 @@ end
     end
 end
 
+@model function filled_matrix_model()
+    local x
+    local y
+    for i in 1:3
+        for j in 1:3
+            y[i, j] ~ Gamma(1, 1)
+            x[i, j] ~ Normal(0, y[i, j])
+        end
+    end
+    y[2, 4] ~ Gamma(1, 1)
+    x[2, 4] ~ Normal(0, y[2, 4])
+end
+
 @model function anonymous_in_loop(x, y)
     x_0 ~ Normal(μ = 0, σ = 1.0)
     x_prev = x_0

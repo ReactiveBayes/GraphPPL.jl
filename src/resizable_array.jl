@@ -28,7 +28,7 @@ function ResizableArray(array::AbstractVector{T}) where {T}
     return ResizableArray{V, Vector{T}, get_recursive_depth(array)}(array)
 end
 
-ResizableArray(A::AbstractArray) = ResizableArray([A[:, i] for i in 1:size(A, 2)])
+# ResizableArray(A::AbstractArray{T, N}) where {T, N} = ResizableArray{T, typeof(A), N}(A)
 
 function make_recursive_vector(::Type{T}, ::Val{1}) where {T}
     return T[]
@@ -144,10 +144,64 @@ end
 
 Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = iterate(array.data, state)
 
+function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N} 
+    result = map(f, array.data)
+    return ResizableArray(result)
+end
+
+__length(array::ResizableArray{T, V, N}) where {T, V, N} = length(array) == 0 ? 0 : __recursive_length(Val(N), array.data)
+
+function __recursive_length(::Val{N}, array) where {N}
+    if length(array) == 0
+        return 0
+    end
+    return sum((arr) -> __recursive_length(Val(N - 1), arr), array)
+end
+
+__recursive_length(::Val{1}, array) = length(array) == 0 ? 0 : sum((x) -> isassigned(array, x), 1:length(array))
+
+function flattened_index(array::ResizableArray{T, V, N}, index::NTuple{N, Int}) where {T, V, N}
+    return __flattened_index(Val(N), array.data, index...)
+end
+
+flattened_index(array::ResizableArray{T, V, 1}, index::Int) where {T, V} = __flattened_index(Val(1), array.data, index)
+
+function __flattened_index(::Val{1}, array::Vector{T}, index) where {T}
+    if isassigned(array, index)
+        return index
+    else
+        return sum((x) -> isassigned(array, x), 1:index)
+    end
+end
+
+function __flattened_index(::Val{N}, array::Vector{V}, findex, index...) where {N, V}
+    if findex == 1
+        return  __flattened_index(Val(N - 1), array[findex], index...)
+    else
+        return sum(i -> __recursive_length(Val(N - 1), array[i]), 1:(findex - 1)) + __flattened_index(Val(N - 1), array[findex], index...)
+    end
+end
+
 function Base.first(array::ResizableArray{T, V, N}) where {T, V, N}
-    for index in Tuple.(CartesianIndices(size(array)))
-        if isassigned(array, index...)::Bool
-            return array[index...]
+    for index in CartesianIndices(size(array)) #TODO improve performance of this function since it uses splatting
+        if isassigned(array, index.I...)::Bool
+            return  array[index.I...]
+        end
+    end
+end
+
+function firstwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
+    for index in CartesianIndices(size(array)) #TODO improve performance of this function since it uses splatting
+        if isassigned(array, index.I...)::Bool
+            return (index, array[index.I...])
+        end
+    end
+end
+
+function lastwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
+    for index in reverse(CartesianIndices(reverse(size(array)))) #TODO improve performance of this function since it uses splatting
+        if isassigned(array, reverse(index.I)...)::Bool
+            return (index, array[reverse(index.I)...])
         end
     end
 end
