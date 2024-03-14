@@ -39,18 +39,9 @@ macro model(model_specification)
     return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend(), model_specification))
 end
 
-struct SomeMeta end
-
-function create_terminated_model(fform; plugins = GraphPPL.PluginsCollection())
-    __model__ = GraphPPL.create_model(; fform = fform, plugins = plugins)
-    __context__ = GraphPPL.getcontext(__model__)
-    GraphPPL.add_toplevel_model!(__model__, __context__, fform, NamedTuple())
-    return __model__
-end
-
 # Node zoo fo tests 
 
-export PointMass, ArbitraryNode, SomeMeta, NormalMeanVariance, NormalMeanPrecision, GammaShapeRate, GammaShapeScale, Mixture
+export PointMass, ArbitraryNode, NormalMeanVariance, NormalMeanPrecision, GammaShapeRate, GammaShapeScale, Mixture
 
 struct PointMass end
 
@@ -132,7 +123,7 @@ export simple_model,
     contains_default_constraints,
     mixture
 
-using GraphPPL
+using GraphPPL, MacroTools, Static, Distributions
 using ..TestUtils
 
 @model function simple_model()
@@ -310,6 +301,12 @@ end
     end
 end
 
+GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
+    begin
+        q(a, d) = q(a)q(d)
+    end
+)
+
 @model function mixture()
     m1 ~ Normal(0, 1)
     m2 ~ Normal(0, 1)
@@ -322,11 +319,21 @@ end
     y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
 end
 
-GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
-    begin
-        q(a, d) = q(a)q(d)
-    end
-)
+const ModelsInTheZooWithoutArguments = [
+    simple_model,
+    vector_model,
+    tensor_model,
+    node_with_only_anonymous,
+    node_with_two_anonymous,
+    node_with_ambiguous_anonymous,
+    outer,
+    multidim_array,
+    parent_model,
+    contains_default_constraints,
+    mixture
+]
+
+export ModelsInTheZooWithoutArguments
 
 end
 end
