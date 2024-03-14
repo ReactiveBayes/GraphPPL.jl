@@ -39,6 +39,14 @@ macro model(model_specification)
     return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend(), model_specification))
 end
 
+export create_test_model
+
+function create_test_model(; fform = identity, plugins = GraphPPL.PluginsCollection(), backend = TestGraphPPLBackend())
+    # `identity` is not really a probabilistic model and also does not have a backend
+    # for testing purposes however it should be fine
+    return GraphPPL.Model(fform, plugins, backend)
+end
+
 # Node zoo fo tests 
 
 export PointMass, ArbitraryNode, NormalMeanVariance, NormalMeanPrecision, GammaShapeRate, GammaShapeScale, Mixture

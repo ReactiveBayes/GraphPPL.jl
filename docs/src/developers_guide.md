@@ -3,9 +3,9 @@
 This page is aimed at developers of inference backends who aim to integrate `GraphPPL` into their packages. `GraphPPL` uses the `MetaGraphsNext` package to represent a factor graph model as a graph. In `GraphPPL`, both variables and factors are represented by nodes, and the edges denote the inclusion of variables in factors.
 
 ## Model Creation
-An empty model in `GraphPPL` is created by the `GraphPPL.create_model()` function.
+A model in `GraphPPL` is represented by the `GraphPPL.Model` structure.
 ```@docs
-GraphPPL.create_model
+GraphPPL.Model
 ```
 Models can be indexed with `GraphPPL.NodeLabel` structures, which is a unique identifier of every variable and factor node composed of it's name and a global counter. Every `GraphPPL.NodeLabel` points to a `GraphPPL.VariableNodeData` or `GraphPPL.FactorNodeData`, which contain all relevant information to do Bethe Free Energy minimization in the factor graph. Edges in the graph can be accessed by querying the model with a `NodeLabel` pair of an edge that exists.
 ## Contexts, Submodels and retrieving NodeLabels
@@ -46,26 +46,13 @@ end
 This defines the `gcv` submodel, but now we have to materialize this model. Let's greate a model and hook up all interfaces to variables that will later have to be supplied by the user.
 ```@example dev-guide
 # Create the model
-model = GraphPPL.create_model()
-context = GraphPPL.getcontext(model)
-
-# Initialize all interfaces
-κ = GraphPPL.getorcreate!(model, context, :κ, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
-ω = GraphPPL.getorcreate!(model, context, :ω, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
-z = GraphPPL.getorcreate!(model, context, :z, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
-x = GraphPPL.getorcreate!(model, context, :x, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
-y = GraphPPL.getorcreate!(model, context, :y, nothing; options = GraphPPL.VariableNodeOptions(datavar=true))
-
-# Add the gcv model
-GraphPPL.add_toplevel_model!(
-        model,
-        context,
-        gcv,
-        (κ = κ, ω = ω, z = z, x = x, y = y);
-    )
-
-# Apply the constraints
-GraphPPL.apply!(model, constraints)
+model = GraphPPL.create_model(GraphPPL.with_plugins(gcv(), GraphPPL.VariationalConstraintsPlugin(constraints))) do model, context
+    κ = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :κ, nothing)
+    ω = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :ω, nothing)
+    z = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :z, nothing)
+    x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :x, nothing)
+    y = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :y, nothing)
+end
 ```
 Now we have a fully materialized model that can be passed to an inference engine. To access constraints, we can use the `GraphPPL.factorization_constraint` and `GraphPPL.fform_constraint` functions:
 ```@docs

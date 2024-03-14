@@ -13,7 +13,9 @@
         hasextra,
         getextra
 
-    model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
+    include("../testutils.jl")
+
+    model = create_test_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
     ctx = getcontext(model)
 
     @testset begin
@@ -65,7 +67,9 @@ end
         hasextra,
         getextra
 
-    model = create_model(plugins = PluginsCollection())
+    include("../testutils.jl")
+
+    model = create_test_model(plugins = PluginsCollection())
     ctx = getcontext(model)
 
     @testset begin

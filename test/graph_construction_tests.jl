@@ -431,7 +431,7 @@ end
         end
     end
     for n in [10, 30, 50, 100, 1000]
-        model = create_model()
+        model = create_test_model()
         add_toplevel_model!(model, state_space_model, (n = n,))
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_variable(:x), model))) == n

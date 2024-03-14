@@ -1655,7 +1655,7 @@ end
     @model function test_model(μ, σ)
         x ~ sum(μ, σ)
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1672,7 +1672,7 @@ end
         y ~ x[1] + x[10]
     end
 
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1694,7 +1694,7 @@ end
         end
         y ~ x[1] + x[10] + x[11]
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1711,7 +1711,7 @@ end
             x ~ y + z
         end
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1724,7 +1724,7 @@ end
         z ~ Normal(x, Matrix{Float64}(Diagonal(ones(4))))
         y ~ Normal(z, 1)
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1768,7 +1768,7 @@ end
     @test GraphPPL.nv(model) == 7 && GraphPPL.ne(model) == 6
 
     # Test add_terminated_submodel!
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     for i in 1:10
@@ -1779,7 +1779,7 @@ end
     @test haskey(ctx, :ω_2) && haskey(ctx, :x_1) && haskey(ctx, :x_2) && haskey(ctx, :x_3)
 
     # Test anonymous variable creation
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     for i in 1:10
@@ -1803,4 +1803,21 @@ end
     @test foo(x = 1) isa ModelGenerator
     @test foo(y = 1) isa ModelGenerator
     @test foo(x = 1, y = 1) isa ModelGenerator
+end
+
+@testitem "`default_backend` should be set from the `model_macro_interior`" begin
+    import GraphPPL: default_backend, model_macro_interior
+
+    include("testutils.jl")
+
+    model_spec = quote 
+        function hello(a, b, c)
+            a ~ Normal(b, c)
+        end
+    end
+
+    eval(model_macro_interior(TestUtils.TestGraphPPLBackend(), model_spec))
+
+    @test default_backend(hello) === TestUtils.TestGraphPPLBackend()
+
 end
