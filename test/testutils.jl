@@ -32,10 +32,9 @@ struct TestGraphPPLBackend end
 
 GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
 
-# The `TestGraphPPLBackend` treats all objects from `Distributions.jl` as stochastic nodes 
-# The rest is treated as `Deterministic` nodes
-GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{<:Distributions.Distribution}) = GraphPPL.Stochastic()
-GraphPPL.NodeBehaviour(::TestGraphPPLBackend, _) = GraphPPL.Deterministic()
+# The `TestGraphPPLBackend` redirects the `NodeBehaviour` to the `DefaultBackend`
+# The `DefaultBackend` has extension rules for `Distributions.jl` types for example
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultBackend(), fform)
 
 export @model
 
