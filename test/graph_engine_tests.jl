@@ -2276,3 +2276,27 @@ end
         end
     end
 end
+
+@testitem "factor_alias" begin 
+    import GraphPPL: factor_alias, StaticInterfaces
+
+    include("testutils.jl")
+
+    function abc end
+    function xyz end
+
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInterfaces{(:a, :b)}) = abc
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInterfaces{(:x, :y)}) = xyz
+
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:a, :b)}) = abc
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:x, :y)}) = xyz
+
+    model = create_test_model()
+
+    @test factor_alias(model, abc, StaticInterfaces((:a, :b))) === abc
+    @test factor_alias(model, abc, StaticInterfaces((:x, :y))) === xyz
+
+    @test factor_alias(model, xyz, StaticInterfaces((:a, :b))) === abc
+    @test factor_alias(model, xyz, StaticInterfaces((:x, :y))) === xyz
+
+end

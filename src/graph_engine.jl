@@ -1231,9 +1231,15 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
 end
 
-factor_alias(any, interfaces) = any
-factor_alias(::typeof(+), interfaces) = sum
-factor_alias(::typeof(*), interfaces) = prod
+"""
+    factor_alias(backend, fform, interfaces)
+
+Returns the alias for a given `fform` and `interfaces` with a given `backend`.
+"""
+function factor_alias end
+
+factor_alias(backend, fform, interfaces) = error("The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
+factor_alias(model::Model, fform::F, interfaces) where {F} = factor_alias(getbackend(model), fform, interfaces)
 
 """
 Add a composite factor node to the model with the given name.
@@ -1613,7 +1619,7 @@ function make_node!(
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
-    aliased_fform = factor_alias(fform, Val(keys(aliased_rhs_interfaces)))
+    aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
     interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
