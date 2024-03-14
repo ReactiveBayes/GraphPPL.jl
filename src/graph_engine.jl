@@ -782,8 +782,8 @@ abstract type NodeType end
 struct Composite <: NodeType end
 struct Atomic <: NodeType end
 
-NodeType(::Type) = Atomic()
-NodeType(::F) where {F <: Function} = Atomic()
+NodeType(backend, fform) = error("Backend $backend must implement a `NodeType` for `$(fform)`.")
+NodeType(model::Model, fform) = NodeType(getbackend(model), fform)
 
 """
     NodeBehaviour
@@ -1401,7 +1401,7 @@ function make_node!(model::Model, ctx::Context, fform::F, lhs_interfaces, rhs_in
 end
 
 make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(NodeType(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+    make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # if it is composite, we assume it should be materialized and it is stochastic
 # TODO: shall we not assume that the `Composite` node is necessarily stochastic?
