@@ -39,6 +39,11 @@ GraphPPL.NodeBehaviour(::TestGraphPPLBackend, fform) = GraphPPL.NodeBehaviour(Gr
 GraphPPL.NodeType(::TestGraphPPLBackend, fform) = GraphPPL.NodeType(GraphPPL.DefaultBackend(), fform)
 GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.DefaultBackend(), fform)
 GraphPPL.interfaces(::TestGraphPPLBackend, fform, n) = GraphPPL.interfaces(GraphPPL.DefaultBackend(), fform, n)
+GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_alias(GraphPPL.DefaultBackend(), f, interfaces)
+
+# Check that we can alias the `+` into `sum` and `*` into `prod`
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(+), interfaces) = sum
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(*), interfaces) = prod
 
 export @model
 
@@ -80,8 +85,8 @@ GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Normal}) = (Normal, NormalMeanVar
 GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{NormalMeanVariance}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :σ))
 GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :τ))
 
-GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :σ)}) = NormalMeanVariance
-GraphPPL.factor_alias(::Type{Normal}, ::Val{(:μ, :τ)}) = NormalMeanPrecision
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :σ)}) = NormalMeanVariance
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :τ)}) = NormalMeanPrecision
 
 GraphPPL.interface_aliases(::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
     (:mean, :μ),
@@ -106,8 +111,8 @@ GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Gamma}) = (Gamma, GammaShapeRate,
 GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{GammaShapeRate}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :β))
 GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :θ))
 
-GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :β)}) = GammaShapeRate
-GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :β)}) = GammaShapeRate
+GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :θ)}) = GammaShapeScale
 
 struct Mixture end
 

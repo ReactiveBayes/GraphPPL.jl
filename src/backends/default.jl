@@ -35,3 +35,6 @@ GraphPPL.aliases(::DefaultBackend, f) = (f,)
 # Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
 GraphPPL.interfaces(::DefaultBackend, ::F, ::StaticInt{1}) where {F} = StaticInterfaces((:out,))
 GraphPPL.interfaces(::DefaultBackend, ::F, _) where {F} = StaticInterfaces((:out, :in))
+
+# By default all factors are not aliased, e.g. `Normal` remains `Normal`
+GraphPPL.factor_alias(::DefaultBackend, f::F, interfaces) where {F} = f
