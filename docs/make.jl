@@ -11,6 +11,7 @@ makedocs(
         "Getting Started"       => "getting_started.md",
         "Nested Models"         => "nested_models.md",
         "Constraint Specification" => "constraint_specification.md",
+        "Custom backend"        => "custom_backend.md",
         "Developers Guide"      => "developers_guide.md"
     ],
     format   = Documenter.HTML(
@@ -21,6 +22,6 @@ makedocs(
 
 if get(ENV, "CI", nothing) == "true"
     deploydocs(
-        repo = "github.com/biaslab/GraphPPL.jl.git"
+        repo = "github.com/ReactiveBayes/GraphPPL.jl.git"
     )
 end
