@@ -383,8 +383,6 @@ end
 end
 
 @testitem "push!(::SubModelConstraints, c::Constraint)" begin
-    include("../../model_zoo.jl")
-    using GraphPPL
     import GraphPPL:
         Constraint,
         GeneralSubModelConstraints,
@@ -396,6 +394,10 @@ end
         getconstraint,
         Constraints,
         IndexedVariable
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     # Test 1: Test push! with FactorizationConstraint
     constraints = GeneralSubModelConstraints(gcv)
@@ -482,17 +484,19 @@ end
 end
 
 @testitem "is_factorized || is_constant" begin
-    import GraphPPL: is_constant, is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
+    import GraphPPL: is_constant, is_factorized, create_model, with_plugins, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
     x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, nothing)
     @test is_factorized(m[x])
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
         for label in variable_nodes(model)
             nodedata = model[label]
             if is_constant(getproperties(nodedata))
@@ -505,14 +509,16 @@ end
 end
 
 @testitem "Application of PosteriorFormConstraint" begin
-    import GraphPPL: PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
+    import GraphPPL: create_model, PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct ArbitraryFunctionalFormConstraint end
 
     # Test saving of PosteriorFormConstraint in single variable
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -521,7 +527,7 @@ end
     end
 
     # Test saving of PosteriorFormConstraint in multiple variables
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -533,7 +539,7 @@ end
     end
 
     # Test saving of PosteriorFormConstraint in single variable in array
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
