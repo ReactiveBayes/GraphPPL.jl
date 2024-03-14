@@ -23,3 +23,6 @@ function model_macro_interior_pipelines(::DefaultBackend)
         convert_tilde_expression
     )
 end
+
+# By default we assume everything is a `Deterministic` node, e.g. `Matrix` or `Digonal` or `sqrt`
+GraphPPL.NodeBehaviour(::DefaultBackend, _) = GraphPPL.Deterministic()

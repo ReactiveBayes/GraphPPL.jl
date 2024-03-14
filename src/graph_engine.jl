@@ -812,7 +812,13 @@ See also: [`Stochastic`](@ref), [`NodeBehaviour`](@ref)
 """
 struct Deterministic <: NodeBehaviour end
 
-NodeBehaviour(::Any) = Deterministic()
+"""
+    NodeBehaviour(backend, fform)
+
+Returns a `NodeBehaviour` object for a given `backend` and `fform`.
+"""
+NodeBehaviour(backend, fform) = error("Backend $backend must implement a `NodeBehaviour` for `$(fform)`.")
+NodeBehaviour(model::Model, fform) = NodeBehaviour(getbackend(model), fform)
 
 """
 copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
@@ -1157,15 +1163,16 @@ end
 Defines a lazy structure for anonymous variables.
 The actual anonymous variables materialize only in `make_node!` upon calling, because it needs arguments to the `make_node!` in order to create proper links.
 """
-struct AnonymousVariable
-    model::Model
-    context::Context
+struct AnonymousVariable{M, C}
+    model::M
+    context::C
 end
 
 create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(model, context)
 
 function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
-    return materialize_anonymous_variable!(NodeBehaviour(fform), anonymous.model, anonymous.context, args)
+    model = anonymous.model
+    return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, args)
 end
 
 # Deterministic nodes can create links to variables in the model
@@ -1396,7 +1403,8 @@ end
 make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
     make_node!(NodeType(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
-#if it is composite, we assume it should be materialized and it is stochastic
+# if it is composite, we assume it should be materialized and it is stochastic
+# TODO: shall we not assume that the `Composite` node is necessarily stochastic?
 make_node!(
     nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
 ) where {F} = make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
@@ -1407,7 +1415,7 @@ make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, l
 
 # If node is Atomic, check stochasticity
 make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(Atomic(), NodeBehaviour(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+    make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(

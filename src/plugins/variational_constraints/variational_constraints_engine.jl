@@ -835,7 +835,7 @@ end
 function apply_constraints!(model::Model, node::NodeLabel, constraint::ResolvedFactorizationConstraint)
     node_data = model[node]
     node_properties = getproperties(node_data)
-    return apply_constraints!(NodeBehaviour(fform(node_properties)), model, node, node_data, node_properties, constraint)
+    return apply_constraints!(NodeBehaviour(model, fform(node_properties)), model, node, node_data, node_properties, constraint)
 end
 
 function apply_constraints!(
