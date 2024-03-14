@@ -30,3 +30,4 @@ GraphPPL.NodeBehaviour(::DefaultBackend, _) = GraphPPL.Deterministic()
 # By default we assume that types and functions are `Atomic` nodes, `Composite` nodes should be specified explicitly in the `@model` macro
 GraphPPL.NodeType(::DefaultBackend, ::Type) = GraphPPL.Atomic()
 GraphPPL.NodeType(::DefaultBackend, ::F) where {F <: Function} = GraphPPL.Atomic()
+GraphPPL.aliases(::DefaultBackend, f) = (f, )

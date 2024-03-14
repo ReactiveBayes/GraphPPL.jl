@@ -9,8 +9,6 @@ import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
-aliases(f) = (f,)
-
 struct Broadcasted
     name::Symbol
 end
@@ -674,7 +672,7 @@ abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
-    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(N)
+    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(model, N)
 end
 
 struct IsFactorNode <: AbstractModelFilterPredicate end
@@ -782,8 +780,8 @@ abstract type NodeType end
 struct Composite <: NodeType end
 struct Atomic <: NodeType end
 
-NodeType(backend, fform) = error("Backend $backend must implement a `NodeType` for `$(fform)`.")
-NodeType(model::Model, fform) = NodeType(getbackend(model), fform)
+NodeType(backend, fform) = error("Backend $backend must implement a method for `NodeType` for `$(fform)`.")
+NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
 
 """
     NodeBehaviour
@@ -817,11 +815,19 @@ struct Deterministic <: NodeBehaviour end
 
 Returns a `NodeBehaviour` object for a given `backend` and `fform`.
 """
-NodeBehaviour(backend, fform) = error("Backend $backend must implement a `NodeBehaviour` for `$(fform)`.")
-NodeBehaviour(model::Model, fform) = NodeBehaviour(getbackend(model), fform)
+NodeBehaviour(backend, fform) = error("Backend $backend must implement a method for `NodeBehaviour` for `$(fform)`.")
+NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
 
 """
-copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
+    aliases(backend, fform)
+
+Returns a collection of aliases for `fform` depending on the `backend`.
+"""
+aliases(backend, fform) = error("Backend $backend must implement a method for `aliases` for `$(fform)`.")
+aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
+
+"""
+    copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
 Copy the variables in the Markov blanket of a parent context to a child context, using a mapping specified by a named tuple.
 
