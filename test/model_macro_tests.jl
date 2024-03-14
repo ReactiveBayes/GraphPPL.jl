@@ -7,26 +7,74 @@
 end
 
 @testitem "apply_pipeline" begin
-    include("model_zoo.jl")
     import GraphPPL: apply_pipeline
-    function pipeline(e::Expr)
-        if e.head == :call
-            return Expr(:call, e.args[1], e.args[2], e.args[3] + 1)
-        else
-            return e
+
+    include("testutils.jl")
+
+    @testset "Default `what_walk`" begin
+        # `Pipeline` that finds all `Expr` nodes in the AST in the form of `:(x + 1)`
+        # And replaces them with `:(x + 2)`
+        function pipeline1(e::Expr)
+            if e.head == :call && e.args[1] == :+ && e.args[3] === 1
+                return Expr(:call, e.args[1], e.args[2], e.args[3] + 1)
+            else
+                return e
+            end
         end
+
+        input = :(x + 1)
+        output = :(x + 2)
+        @test_expression_generating apply_pipeline(input, pipeline1) output
+
+        input = :(x + y)
+        output = :(x + y)
+        @test_expression_generating apply_pipeline(input, pipeline1) output
+
+        input = :(x * 1)
+        output = :(x * 1)
+        @test_expression_generating apply_pipeline(input, pipeline1) output
+
+        input = :(y ~ Normal(x + 1, z))
+        output = :(y ~ Normal(x + 2, z))
+        @test_expression_generating apply_pipeline(input, pipeline1) output
     end
-    input = quote
-        x + 1
+
+    @testset "Guarded `what_walk`" begin 
+        # `Pipeline` that finds all `Expr` nodes in the AST in the form of `:(x + 1)`
+        # And replaces them with `:(x + 2)` but guarded not to go inside `~` expression
+        function pipeline2(e::Expr)
+            if e.head == :call && e.args[1] == :+ && e.args[3] === 1
+                return Expr(:call, e.args[1], e.args[2], e.args[3] + 1)
+            else
+                return e
+            end
+        end
+
+        GraphPPL.what_walk(::typeof(pipeline2)) = GraphPPL.walk_until_occurrence(:(lhs_ ~ rhs_))
+
+        input = :(x + 1)
+        output = :(x + 2)
+        @test_expression_generating apply_pipeline(input, pipeline2) output
+
+        input = :(x + y)
+        output = :(x + y)
+        @test_expression_generating apply_pipeline(input, pipeline2) output
+
+        input = :(x * 1)
+        output = :(x * 1)
+        @test_expression_generating apply_pipeline(input, pipeline2) output
+
+        # Should not modift this one, since its guarded walk
+        input = :(y ~ Normal(x + 1, z))
+        output = :(y ~ Normal(x + 1, z))
+        @test_expression_generating apply_pipeline(input, pipeline2) output
     end
-    output = quote
-        x + 2
-    end
-    @test_expression_generating apply_pipeline(input, pipeline) output
 end
 
 @testitem "check_reserved_variable_names_model" begin
     import GraphPPL: apply_pipeline, check_reserved_variable_names_model
+
+    include("testutils.jl")
 
     # Test 1: test that reserved variable name __parent_options__ throws an error
     input = quote
@@ -52,6 +100,8 @@ end
 
 @testitem "check_incomplete_factorization_constraint" begin
     import GraphPPL: apply_pipeline, check_incomplete_factorization_constraint
+
+    include("testutils.jl")
 
     input = quote
         q(x)q(y)
@@ -81,6 +131,8 @@ end
 
 @testitem "warn_datavar_constvar_randomvar" begin
     import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: test that datavar throws a warning
     input = quote
@@ -120,9 +172,10 @@ end
 end
 
 @testitem "guarded_walk" begin
-    include("model_zoo.jl")
     import MacroTools: @capture
     import GraphPPL: guarded_walk
+
+    include("testutils.jl")
 
     #Test 1: walk with indexing operation as guard
     g_walk = guarded_walk((x) -> x isa Expr && x.head == :ref)
@@ -206,8 +259,9 @@ end
 end
 
 @testitem "save_expression_in_tilde" begin
-    include("model_zoo.jl")
     import GraphPPL: save_expression_in_tilde, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: save expression in tilde
     input = :(x ~ Normal(0, 1))
@@ -374,8 +428,9 @@ end
 end
 
 @testitem "get_created_by" begin
-    include("model_zoo.jl")
     import GraphPPL.get_created_by
+
+    include("testutils.jl")
 
     # Test 1: only created by
     input = [:(created_by = (x ~ Normal(0, 1)))]
@@ -393,8 +448,9 @@ end
 end
 
 @testitem "convert_deterministic_statement" begin
-    include("model_zoo.jl")
     import GraphPPL: convert_deterministic_statement, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: no deterministic statement
     input = quote
@@ -438,8 +494,9 @@ end
 end
 
 @testitem "convert_local_statement" begin
-    include("model_zoo.jl")
     import GraphPPL: convert_local_statement, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: one local statement
     input = quote
@@ -500,6 +557,8 @@ end
     import MacroTools: @capture
     import GraphPPL: is_kwargs_expression
 
+    include("testutils.jl")
+
     func_def = :(foo(a, b))
     @capture(func_def, (f_(args__)))
     @test !is_kwargs_expression(args)
@@ -533,8 +592,9 @@ end
 end
 
 @testitem "convert_to_kwargs_expression" begin
-    include("model_zoo.jl")
     import GraphPPL: convert_to_kwargs_expression, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: Input expression with ~ expression and args and kwargs expressions
     input = quote
@@ -741,19 +801,18 @@ end
 end
 
 @testitem "convert_to_anonymous" begin
-    include("model_zoo.jl")
     import GraphPPL: convert_to_anonymous, apply_pipeline
+
+    include("testutils.jl")
 
     # Test 1: convert function to anonymous function
     input = quote
         Normal(0, 1)
     end
     created_by = :(x ~ Normal(0, 1))
-    anon = MacroTools.gensym_ids(gensym(:anon))
     output = quote
-        begin
-            $anon = GraphPPL.create_anonymous_variable!(__model__, __context__)
-            $anon ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(0, 1)}
+        let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            var"#anon" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(0, 1)}
         end
     end
     @test_expression_generating convert_to_anonymous(input, created_by) output
@@ -778,6 +837,8 @@ end
 @testitem "not_enter_indexed_walk" begin
     import GraphPPL: not_enter_indexed_walk
 
+    include("testutils.jl")
+
     # Test 1: not enter indexed walk
     input = quote
         x[1] ~ y[10 + 1]
@@ -798,20 +859,18 @@ end
 end
 
 @testitem "convert_anonymous_variables" begin
-    include("model_zoo.jl")
-    using MacroTools
     import GraphPPL: convert_anonymous_variables, apply_pipeline
+
+    include("testutils.jl")
 
     #Test 1: Input expression with a function call in rhs arguments
     input = quote
         x ~ Normal(Normal(0, 1), 1) where {created_by = (x ~ Normal(Normal(0, 1), 1))}
     end
-    sym = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(
-            begin
-                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), 1)}
+            let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), 1)}
             end,
             1
         ) where {created_by = (x ~ Normal(Normal(0, 1), 1))}
@@ -831,12 +890,10 @@ end
     input = quote
         x ~ Normal(; μ = Normal(0, 1), σ = 1) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = 1))}
     end
-    sym = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(;
-            μ = begin
-                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = 1)}
+            μ = let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = 1)}
             end, σ = 1
         ) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = 1))}
     end
@@ -855,17 +912,13 @@ end
     input = quote
         x ~ Normal(Normal(0, 1), Normal(0, 1)) where {created_by = (x ~ Normal(Normal(0, 1), Normal(0, 1)))}
     end
-    sym1 = MacroTools.gensym_ids(gensym(:anon))
-    sym2 = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(
-            begin
-                $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym1 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), Normal(0, 1))}
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), Normal(0, 1))}
             end,
-            begin
-                $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym2 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), Normal(0, 1))}
+            let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon2" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), Normal(0, 1))}
             end
         ) where {created_by = (x ~ Normal(Normal(0, 1), Normal(0, 1)))}
     end
@@ -875,17 +928,13 @@ end
     input = quote
         x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1)) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
     end
-    sym1 = MacroTools.gensym_ids(gensym(:anon))
-    sym2 = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(;
-            μ = begin
-                $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym1 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1))}
+            μ = let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1))}
             end,
-            σ = begin
-                $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym2 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1))}
+            σ = let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon2" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1))}
             end
         ) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
     end
@@ -895,16 +944,12 @@ end
     input = quote
         x ~ Normal(Normal(Normal(0, 1), 1), 1) where {created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1))}
     end
-    sym1 = MacroTools.gensym_ids(gensym(:anon))
-    sym2 = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(
-            begin
-                $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym1 ~ Normal(
-                    begin
-                        $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        $sym2 ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1)}
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" ~ Normal(
+                    let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon2" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1)}
                     end,
                     1
                 ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1)}
@@ -921,16 +966,12 @@ end
             Normal(Normal(0, 1), 1), 1
         ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
-    sym1 = MacroTools.gensym_ids(gensym(:anon))
-    sym2 = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x ~ Normal(
-            begin
-                $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym1 ~ Normal(
-                    begin
-                        $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        $sym2 ~ Normal(
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" ~ Normal(
+                    let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon2" ~ Normal(
                             0, 1
                         ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
                     end,
@@ -955,16 +996,12 @@ end
             Normal(Normal(0, 1), 1), 1
         ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
-    sym1 = MacroTools.gensym_ids(gensym(:anon))
-    sym2 = MacroTools.gensym_ids(gensym(:anon))
     output = quote
         x .~ Normal(
-            begin
-                $sym1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym1 ~ Normal(
-                    begin
-                        $sym2 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        $sym2 ~ Normal(
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" ~ Normal(
+                    let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon2" ~ Normal(
                             0, 1
                         ) where {anonymous = true, created_by = x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()}}
                     end,
@@ -978,8 +1015,10 @@ end
 end
 
 @testitem "add_get_or_create_expression" begin
-    include("model_zoo.jl")
     import GraphPPL: add_get_or_create_expression, apply_pipeline
+
+    include("testutils.jl")
+
     #Test 1: test scalar variable
     input = quote
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
@@ -1116,8 +1155,10 @@ end
 end
 
 @testitem "generate_get_or_create" begin
-    include("model_zoo.jl")
     import GraphPPL: generate_get_or_create, apply_pipeline
+
+    include("testutils.jl")
+
     # Test 1: test scalar variable
     output = generate_get_or_create(:x, :x, nothing)
     desired_result = quote
@@ -1191,36 +1232,11 @@ end
     @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
 end
 
-@testitem "missing_interfaces" begin
-    include("model_zoo.jl")
-    import GraphPPL: missing_interfaces, interfaces
-    function abc end
-
-    GraphPPL.interfaces(::typeof(abc), ::StaticInt{3}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
-
-    @test missing_interfaces(abc, static(3), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces((:out,))
-    @test missing_interfaces(abc, static(3), (out = :y,)) == GraphPPL.StaticInterfaces((:in1, :in2))
-    @test missing_interfaces(abc, static(3), NamedTuple()) == GraphPPL.StaticInterfaces((:in1, :in2, :out))
-
-    function xyz end
-
-    GraphPPL.interfaces(::typeof(xyz), ::StaticInt{0}) = GraphPPL.StaticInterfaces(())
-    @test missing_interfaces(xyz, static(0), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces(())
-
-    function foo end
-
-    GraphPPL.interfaces(::typeof(foo), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:a, :b))
-    @test missing_interfaces(foo, static(2), (a = 1, b = 2)) == GraphPPL.StaticInterfaces(())
-
-    function bar end
-    GraphPPL.interfaces(::typeof(bar), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
-    @test missing_interfaces(bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
-end
-
 @testitem "keyword_expressions_to_named_tuple" begin
-    include("model_zoo.jl")
     import MacroTools: @capture
     import GraphPPL: keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
+
+    include("testutils.jl")
 
     expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
     @test keyword_expressions_to_named_tuple(expr) == :((in1 = y, in2 = z))
@@ -1245,9 +1261,9 @@ end
 end
 
 @testitem "convert_tilde_expression" begin
-    include("model_zoo.jl")
     import GraphPPL: convert_tilde_expression, apply_pipeline
-    function Normal end
+
+    include("testutils.jl")
 
     # Test 1: Test regular node creation input
     input = quote
@@ -1310,8 +1326,7 @@ end
     input = quote
         z ~ (
             Normal(
-                begin
-                    anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                let anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                     anon_1 ~ ((x + 1) where {anonymous = true, created_by = :(z ~ Normal(x + 1, y))})
                 end,
                 y
@@ -1328,8 +1343,7 @@ end
                 GraphPPL.proxylabel(:z, nothing, z),
                 (
                     (
-                        begin
-                            anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        let anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                             begin
                                 var"#node2", var"#var2" = GraphPPL.make_node!(
                                     __model__,
@@ -1551,9 +1565,9 @@ end
 end
 
 @testitem "compose_simple_operators_with_brackets pipeline" begin
-    include("model_zoo.jl")
-
     import GraphPPL: compose_simple_operators_with_brackets, apply_pipeline
+
+    include("testutils.jl")
 
     input = :(s ~ s1 + s2 + s3 + s4 + s5)
     output = :(s ~ (((s1 + s2) + s3) + s4) + s5)
@@ -1592,6 +1606,8 @@ end
 @testitem "options_vector_to_factoroptions" begin
     import GraphPPL: options_vector_to_named_tuple
 
+    include("testutils.jl")
+
     # Test 1: Test with empty input
     input = []
     output = :((;))
@@ -1618,12 +1634,7 @@ end
 end
 
 @testitem "model_macro_interior" begin
-    using LinearAlgebra
-    using Distributions
-    include("model_zoo.jl")
-    using GraphPPL
-    using Graphs
-    using MetaGraphsNext
+    using LinearAlgebra, MetaGraphsNext, Graphs
     import GraphPPL:
         model_macro_interior,
         create_model,
@@ -1635,6 +1646,8 @@ end
         NodeCreationOptions,
         getproperties,
         Context
+
+    include("testutils.jl")
 
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)

@@ -1,7 +1,8 @@
-using GraphPPL
-using MacroTools
-using Static
-using Distributions
+module TestUtils
+
+using GraphPPL, MacroTools, Static, Distributions
+
+export @test_expression_generating
 
 macro test_expression_generating(lhs, rhs)
     test_expr_gen = gensym(:text_expr_gen)
@@ -18,16 +19,44 @@ macro test_expression_generating(lhs, rhs)
     )
 end
 
+export @test_expression_generating_broken
+
 macro test_expression_generating_broken(lhs, rhs)
     return esc(:(@test_broken (prettify($lhs) == prettify($rhs))))
 end
 
+# We use a custom backend for testing purposes, instead of using the `DefaultBackend`
+# The `TestGraphPPLBackend` is a simple backend that specifies how to handle objects from `Distributions.jl`
+# It does use the default pipeline collection for the `@model` macro
+struct TestGraphPPLBackend end
+
+GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
+
+export @model
+
+# This is a special `@model` macro that should be used in tests
+macro model(model_specification)
+    return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend(), model_specification))
+end
+
+struct SomeMeta end
+
+function create_terminated_model(fform; plugins = GraphPPL.PluginsCollection())
+    __model__ = GraphPPL.create_model(; fform = fform, plugins = plugins)
+    __context__ = GraphPPL.getcontext(__model__)
+    GraphPPL.add_toplevel_model!(__model__, __context__, fform, NamedTuple())
+    return __model__
+end
+
+# Node zoo fo tests 
+
+export PointMass, ArbitraryNode, SomeMeta, NormalMeanVariance, NormalMeanPrecision, GammaShapeRate, GammaShapeScale, Mixture
+
 struct PointMass end
 
 struct ArbitraryNode end
-GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
-struct SomeMeta end
+GraphPPL.NodeBehaviour(::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
 struct NormalMeanVariance end
 
@@ -69,18 +98,42 @@ GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticIn
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :β)}) = GammaShapeRate
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 
-function create_terminated_model(fform; plugins = GraphPPL.PluginsCollection())
-    __model__ = GraphPPL.create_model(; fform = fform, plugins = plugins)
-    __context__ = GraphPPL.getcontext(__model__)
-    GraphPPL.add_toplevel_model!(__model__, __context__, fform, NamedTuple())
-    return __model__
-end
-
 struct Mixture end
 
 GraphPPL.interfaces(::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
 
 GraphPPL.NodeBehaviour(::Type{Mixture}) = GraphPPL.Stochastic()
+
+# Model zoo for tests
+
+module ModelZoo
+
+export simple_model,
+    vector_model,
+    tensor_model,
+    anonymous_in_loop,
+    node_with_only_anonymous,
+    node_with_two_anonymous,
+    type_arguments,
+    node_with_ambiguous_anonymous,
+    gcv,
+    gcv_lm,
+    hgf,
+    prior,
+    broadcastable,
+    broadcaster,
+    inner_inner,
+    inner,
+    outer,
+    multidim_array,
+    child_model,
+    parent_model,
+    model_with_default_constraints,
+    contains_default_constraints,
+    mixture
+
+using GraphPPL
+using ..TestUtils
 
 @model function simple_model()
     x ~ Normal(0, 1)
@@ -285,3 +338,9 @@ GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constr
         q(a, d) = q(a)q(d)
     end
 )
+
+end
+end
+
+using GraphPPL, MacroTools, Static, Distributions
+using .TestUtils
