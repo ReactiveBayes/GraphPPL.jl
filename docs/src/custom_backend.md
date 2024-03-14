@@ -35,4 +35,5 @@ GraphPPL.model_macro_interior_pipelines
 GraphPPL.NodeBehaviour
 GraphPPL.NodeType
 GraphPPL.aliases
+GraphPPL.interfaces
 ```

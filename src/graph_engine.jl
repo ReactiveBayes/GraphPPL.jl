@@ -1317,10 +1317,15 @@ struct MixedArguments{A <: Tuple, K <: NamedTuple}
 end
 
 """
-Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
+    interfaces(backend, fform, ::StaticInt{N}) where N
+
+Returns the interfaces for a given `fform` and `backend` with a given amount of interfaces `N`.
 """
-interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
-interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
+function interfaces end
+
+interfaces(backend, fform, ninputs) =
+    error("The backend $(backend) must implement a method for `interfaces` for `$(fform)` and `$(ninputs)` number of inputs.")
+interfaces(model::Model, fform::F, ninputs) where {F} = interfaces(getbackend(model), fform, ninputs)
 
 struct StaticInterfaceAliases{A} end
 
@@ -1351,8 +1356,8 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(fform::F, val, known_interfaces::NamedTuple) where {F}
-    return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
+function missing_interfaces(model::Model, fform::F, val, known_interfaces::NamedTuple) where {F}
+    return missing_interfaces(interfaces(model, fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
 function missing_interfaces(
@@ -1361,8 +1366,8 @@ function missing_interfaces(
     return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
 end
 
-function prepare_interfaces(fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
-    missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
+function prepare_interfaces(model::Model, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
+    missing_interface = missing_interfaces(model, fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
     return prepare_interfaces(missing_interface, fform, lhs_interface, rhs_interfaces)
 end
 
@@ -1609,20 +1614,21 @@ function make_node!(
 ) where {F}
     aliased_rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
     aliased_fform = factor_alias(fform, Val(keys(aliased_rhs_interfaces)))
-    interfaces = materialze_interfaces(prepare_interfaces(aliased_fform, lhs_interface, aliased_rhs_interfaces))
+    interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
 
-sort_interfaces(fform, defined_interfaces::NamedTuple) =
-    sort_interfaces(interfaces(fform, static(length(defined_interfaces))), defined_interfaces)
+function sort_interfaces(model::Model, fform::F, defined_interfaces::NamedTuple) where {F}
+    return sort_interfaces(interfaces(model, fform, static(length(defined_interfaces))), defined_interfaces)
+end
 
 function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) where {I}
     return defined_interfaces[I]
 end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where {F}
-    interfaces = sort_interfaces(fform, interfaces)
+    interfaces = sort_interfaces(model, fform, interfaces)
     interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
     for (interface_name, interface) in iterator(interfaces)

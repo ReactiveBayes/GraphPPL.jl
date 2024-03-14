@@ -13,7 +13,7 @@ function distributions_ext_default_parametrization(t::Type{<:Distributions.Distr
     return NamedTuple{interfaces}(interface_values)
 end
 
-function GraphPPL.interfaces(T::Type{<:Distributions.Distribution}, _) 
+function GraphPPL.interfaces(::GraphPPL.DefaultBackend, T::Type{<:Distributions.Distribution}, _) 
     return distributions_ext_interfaces(T)
 end
 
