@@ -150,11 +150,14 @@ end
 end
 
 @testitem "factor_nodes" begin
-    import GraphPPL: factor_nodes, is_factor, labels
-    include("model_zoo.jl")
+    import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for modelfn in ModelsInTheZooWithoutArguments
+        model = create_model(modelfn())
         fnodes = collect(factor_nodes(model))
         for node in fnodes
             @test is_factor(model[node])
@@ -168,12 +171,14 @@ end
 end
 
 @testitem "factor_nodes with lambda function" begin
-    import GraphPPL: factor_nodes, is_factor, labels
+    import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(factor_nodes(model))
         factor_nodes(model) do label, nodedata
             @test is_factor(model[label])
@@ -191,11 +196,14 @@ end
 end
 
 @testitem "variable_nodes" begin
-    import GraphPPL: variable_nodes, is_variable, labels
-    include("model_zoo.jl")
+    import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         for node in fnodes
             @test is_variable(model[node])
@@ -209,12 +217,14 @@ end
 end
 
 @testitem "variable_nodes with lambda function" begin
-    import GraphPPL: variable_nodes, is_variable, labels
+    import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         variable_nodes(model) do label, nodedata
             @test is_variable(model[label])
@@ -233,9 +243,10 @@ end
 
 @testitem "variable_nodes with anonymous variables" begin
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
-
     using Distributions
     import GraphPPL: create_model, variable_nodes, getname
+
+    include("testutils.jl")
 
     @model function simple_submodel_with_2_anonymous_for_variable_nodes(z, x, y)
         # Creates two anonymous variables here
@@ -269,6 +280,8 @@ end
 @testitem "degree" begin
     import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
 
+    include("testutils.jl")
+
     for n in 5:10
         model = create_model()
         ctx = getcontext(model)
@@ -300,10 +313,14 @@ end
 end
 
 @testitem "is_constant" begin
-    import GraphPPL: is_constant, variable_nodes, getname, getproperties
-    include("model_zoo.jl")
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    import GraphPPL: create_model, is_constant, variable_nodes, getname, getproperties
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         for label in variable_nodes(model)
             node = model[label]
             props = getproperties(node)
@@ -318,15 +335,19 @@ end
 
 @testitem "is_data" begin
     import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
-    include("model_zoo.jl")
+
+    include("testutils.jl")
 
     m = create_model()
     ctx = getcontext(m)
     x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
     @test is_data(getproperties(m[x]))
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    # Since the models here are without top arguments they cannot create `data` labels
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         for label in variable_nodes(model)
             @test !is_data(getproperties(model[label]))
         end
@@ -335,6 +356,8 @@ end
 
 @testitem "NodeCreationOptions" begin
     import GraphPPL: NodeCreationOptions, withopts, withoutopts
+
+    include("testutils.jl")
 
     @test NodeCreationOptions() == NodeCreationOptions()
     @test keys(NodeCreationOptions()) === ()
@@ -375,9 +398,11 @@ end
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
-    import GraphPPL: getplugins, factor_nodes, PluginsCollection, setextra!, getextra
+    import GraphPPL: create_model, with_plugins, getplugins, factor_nodes, PluginsCollection, setextra!, getextra
 
-    include("model_zoo.jl")
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct AnArbitraryPluginForTestUniqeness end
 
@@ -391,8 +416,8 @@ end
         return label, nodedata
     end
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForTestUniqeness()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForTestUniqeness())))
         for f1 in factor_nodes(model), f2 in factor_nodes(model)
             if f1 !== f2
                 @test getextra(model[f1], :count) !== getextra(model[f2], :count)
@@ -415,9 +440,12 @@ end
         PluginsCollection,
         VariableNodeProperties,
         NodeCreationOptions,
-        create_terminated_model
+        create_model,
+        with_plugins
 
-    include("model_zoo.jl")
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct AnArbitraryPluginForChangingOptions end
 
@@ -428,8 +456,8 @@ end
         return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(kind = :constant, value = 1.0)))
     end
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForChangingOptions()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForChangingOptions())))
         for v in variable_nodes(model)
             @test getname(getproperties(model[v])) === :x
             @test index(getproperties(model[v])) === nothing
@@ -441,6 +469,7 @@ end
 
 @testitem "proxy labels" begin
     import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
+
     y = NodeLabel(:y, 1)
 
     let p = ProxyLabel(:x, nothing, y)
@@ -666,7 +695,6 @@ end
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
-    include("model_zoo.jl")
     import GraphPPL:
         create_model,
         getcontext,
@@ -680,6 +708,11 @@ end
         ResizableArray,
         add_edge!,
         getproperties
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
     model = create_model()
     ctx = getcontext(model)
 
@@ -705,27 +738,30 @@ end
         @test n ∈ neighbors(model, a)
     end
     # Test 2: Test getting sorted neighbors
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
     @test getname.(neighbors(model, node)) == [:z, :x, :y]
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
     @test getname.(collect(neighbors(model, node))) == [:z, :x, :y]
 end
 
 @testitem "filter(::Predicate, ::Model)" begin
-    import GraphPPL: as_node, as_context, as_variable
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_node, as_context, as_variable
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     result = collect(filter(as_node(Normal) | as_variable(:x), model))
     @test length(result) == 3
 
-    model = create_terminated_model(outer)
+    model = create_model(outer())
     result = collect(filter(as_node(Gamma) & as_context(inner_inner), model))
     @test length(result) == 0
 
@@ -737,10 +773,13 @@ end
 end
 
 @testitem "filter(::FactorNodePredicate, ::Model)" begin
-    import GraphPPL: as_node, getcontext
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_node, getcontext
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     context = getcontext(model)
     result = filter(as_node(Normal), model)
     @test collect(result) == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
@@ -749,10 +788,13 @@ end
 end
 
 @testitem "filter(::VariableNodePredicate, ::Model)" begin
-    import GraphPPL: as_variable, getcontext, variable_nodes
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_variable, getcontext, variable_nodes
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     context = getcontext(model)
     result = filter(as_variable(:x), model)
     @test collect(result) == [context[:x]...]
@@ -761,10 +803,13 @@ end
 end
 
 @testitem "filter(::SubmodelPredicate, Model)" begin
-    import GraphPPL: as_context
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_context
 
-    model = create_terminated_model(outer)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(outer())
 
     result = filter(as_context(inner), model)
     @test length(collect(result)) == 0
@@ -912,13 +957,16 @@ end
 end
 
 @testitem "path_to_root(::Context)" begin
-    import GraphPPL: Context, path_to_root, getcontext
-    include("model_zoo.jl")
+    import GraphPPL: create_model, Context, path_to_root, getcontext
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     ctx = Context()
     @test path_to_root(ctx) == [ctx]
 
-    model = create_terminated_model(outer)
+    model = create_model(outer())
     ctx = getcontext(model)
     inner_context = ctx[inner, 1]
     inner_inner_context = inner_context[inner_inner, 1]
@@ -926,16 +974,14 @@ end
 end
 
 @testitem "VarDict" begin
-    using GraphPPL
-    import GraphPPL: Context, VarDict
+    using Distributions
+    import GraphPPL: Context, VarDict, create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
+
+    include("testutils.jl")
 
     ctx = Context()
     vardict = VarDict(ctx)
     @test isa(vardict, VarDict)
-
-    using Distributions
-
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
 
     @model function submodel(y, x_prev, x_next)
         γ ~ Gamma(1, 1)
@@ -1025,12 +1071,21 @@ end
 end
 
 @testitem "NodeType" begin
-    include("model_zoo.jl")
     import GraphPPL: NodeType, Composite, Atomic
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
     @test NodeType(Composite) == Atomic()
     @test NodeType(Atomic) == Atomic()
+
     @test NodeType(abs) == Atomic()
-    @test NodeType(gcv) === Composite()
+
+    # Could test all here 
+    for model in ModelsInTheZooWithoutArguments
+        @test NodeType(model) == Composite()
+    end
 end
 
 @testitem "create_model()" begin
@@ -1486,7 +1541,7 @@ end
     using GraphPPL
     import GraphPPL: interface_aliases, StaticInterfaces
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
     @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
     @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
@@ -1631,8 +1686,11 @@ end
 end
 
 @testitem "default_parametrization" begin
-    include("model_zoo.jl")
     import GraphPPL: default_parametrization, Composite, Atomic
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     # Test 1: Add default arguments to Normal call
     @test default_parametrization(Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
@@ -1685,9 +1743,7 @@ end
 end
 
 @testitem "make_node!(::Atomic)" begin
-    include("model_zoo.jl")
-    using Graphs
-    using BitSetTuples
+    using Graphs, BitSetTuples
     import GraphPPL:
         getcontext,
         make_node!,
@@ -1703,6 +1759,9 @@ end
         value,
         NodeCreationOptions,
         getproperties
+
+    include("testutils.jl")
+
     # Test 1: Deterministic call returns result of deterministic function and does not create new node
     model = create_model()
     ctx = getcontext(model)
@@ -1935,9 +1994,13 @@ end
 end
 
 @testitem "make_node!(::Composite)" begin
-    include("model_zoo.jl")
-    using Graphs
+    using MetaGraphsNext, Graphs
     import GraphPPL: getcontext, make_node!, create_model, getorcreate!, ProxyLabel, NodeCreationOptions
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
     #test make node for priors
     model = create_model()
     ctx = getcontext(model)
@@ -2080,7 +2143,8 @@ end
 
 @testitem "sort_interfaces" begin
     import GraphPPL: sort_interfaces
-    include("model_zoo.jl")
+
+    include("testutils.jl")
 
     # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
     @test sort_interfaces(NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
@@ -2097,7 +2161,10 @@ end
 
 @testitem "prepare_interfaces" begin
     import GraphPPL: prepare_interfaces
-    include("model_zoo.jl")
+    
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     @test prepare_interfaces(anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
     @test prepare_interfaces(anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
@@ -2107,10 +2174,13 @@ end
 end
 
 @testitem "save and load graph" begin
-    using GraphPPL
+    import GraphPPL: create_model, with_plugins, savegraph, loadgraph, getextra, as_node
 
-    include("model_zoo.jl")
-    model = create_terminated_model(vector_model; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(with_plugins(vector_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     mktemp() do file, io
         file = file * ".jld2"
         @show file
