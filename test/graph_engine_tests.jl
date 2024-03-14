@@ -1100,14 +1100,40 @@ end
 
     using .TestUtils.ModelZoo
 
-    @test NodeType(Composite) == Atomic()
-    @test NodeType(Atomic) == Atomic()
+    model = create_test_model()
 
-    @test NodeType(abs) == Atomic()
+    @test NodeType(model, Composite) == Atomic()
+    @test NodeType(model, Atomic) == Atomic()
+    @test NodeType(model, abs) == Atomic()
+    @test NodeType(model, Normal) == Atomic()
+    @test NodeType(model, NormalMeanVariance) == Atomic()
+    @test NodeType(model, NormalMeanPrecision) == Atomic()
 
     # Could test all here 
-    for model in ModelsInTheZooWithoutArguments
-        @test NodeType(model) == Composite()
+    for model_fn in ModelsInTheZooWithoutArguments
+        @test NodeType(model, model_fn) == Composite()
+    end
+end
+
+@testitem "NodeBehaviour" begin
+    import GraphPPL: NodeBehaviour, Deterministic, Stochastic
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
+
+    @test NodeBehaviour(model, () -> 1) == Deterministic()
+    @test NodeBehaviour(model, Matrix) == Deterministic()
+    @test NodeBehaviour(model, abs) == Deterministic()
+    @test NodeBehaviour(model, Normal) == Stochastic()
+    @test NodeBehaviour(model, NormalMeanVariance) == Stochastic()
+    @test NodeBehaviour(model, NormalMeanPrecision) == Stochastic()
+
+    # Could test all here 
+    for model_fn in ModelsInTheZooWithoutArguments
+        @test NodeBehaviour(model, model_fn) == Stochastic()
     end
 end
 

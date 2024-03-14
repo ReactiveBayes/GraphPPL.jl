@@ -32,9 +32,11 @@ struct TestGraphPPLBackend end
 
 GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
 
-# The `TestGraphPPLBackend` redirects the `NodeBehaviour` to the `DefaultBackend`
+# The `TestGraphPPLBackend` redirects the `NodeBehaviour` and `NodeType` to the `DefaultBackend`
 # The `DefaultBackend` has extension rules for `Distributions.jl` types for example
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultBackend(), fform)
+GraphPPL.NodeType(::TestGraphPPLBackend, fform) = GraphPPL.NodeType(GraphPPL.DefaultBackend(), fform)
+
 
 export @model
 
@@ -100,6 +102,7 @@ GraphPPL.aliases(::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
 
 GraphPPL.interfaces(::Type{GammaShapeRate}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :β))
 GraphPPL.interfaces(::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :θ))
+
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :β)}) = GammaShapeRate
 GraphPPL.factor_alias(::Type{Gamma}, ::Val{(:α, :θ)}) = GammaShapeScale
 
@@ -107,7 +110,7 @@ struct Mixture end
 
 GraphPPL.interfaces(::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
 
-GraphPPL.NodeBehaviour(::Type{Mixture}) = GraphPPL.Stochastic()
+GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{Mixture}) = GraphPPL.Stochastic()
 
 # Model zoo for tests
 
