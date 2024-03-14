@@ -1,8 +1,8 @@
 @testitem "Empty constraints" begin
-    import GraphPPL: VariationalConstraintsPlugin, EmptyConstraints
+    import GraphPPL: VariationalConstraintsPlugin, UnspecifiedConstraints
 
-    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(EmptyConstraints)
-    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(EmptyConstraints)
+    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(UnspecifiedConstraints)
+    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(UnspecifiedConstraints)
 end
 
 @testitem "simple @model + various constraints" begin
@@ -922,6 +922,70 @@ end
             @test hasextra(model[node], :factorization_constraint_indices)
             # Even though `y` is a data variable, it is not factorized at the construction with `factorized = false`
             return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1, 2), (3,))
+        end
+    end
+end
+
+@testitem "Apply MeanField constraints" begin
+    using GraphPPL
+    import GraphPPL: getproperties, neighbor_data
+
+    include("../../model_zoo.jl")
+
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))
+        )
+
+        for node in filter(as_node(), model)
+            node_data = model[node]
+            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
+                Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
+        end
+    end
+end
+
+@testitem "Apply BetheFactorization constraints" begin
+    using GraphPPL
+    import GraphPPL: getproperties, neighbor_data, is_factorized
+
+    include("../../model_zoo.jl")
+
+    for model_fform in [
+        simple_model,
+        vector_model,
+        tensor_model,
+        outer,
+        multidim_array,
+        node_with_only_anonymous,
+        node_with_two_anonymous,
+        node_with_ambiguous_anonymous,
+        multidim_array
+    ]
+        model = create_terminated_model(
+            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization()))
+        )
+
+        for node in filter(as_node(), model)
+            node_data = model[node]
+            neighbors_data = neighbor_data(getproperties(node_data))
+            factorized_neighbors = is_factorized.(neighbors_data)
+            new_constraint = [findall(!, factorized_neighbors)]
+            for j in findall(identity, factorized_neighbors)
+                push!(new_constraint, [j])
+            end
+            sort!(new_constraint, by = first)
+            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) == Tuple(new_constraint)
         end
     end
 end

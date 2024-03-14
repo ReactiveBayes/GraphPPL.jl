@@ -504,14 +504,6 @@ end
     end
 end
 
-@testitem "constant_constraint" begin
-    using BitSetTuples
-    import GraphPPL: constant_constraint
-
-    @test tupled_contents(constant_constraint(1, 1)) == ((1,),)
-    @test tupled_contents(constant_constraint(5, 3)) == ((1, 2, 4, 5), (1, 2, 4, 5), (3,), (1, 2, 4, 5), (1, 2, 4, 5))
-end
-
 @testitem "Application of PosteriorFormConstraint" begin
     import GraphPPL: PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
 
@@ -597,32 +589,34 @@ end
     end
 end
 
-@testitem "save constraints with constants" begin
+@testitem "save constraints with constants via `mean_field_constraint!`" begin
     include("../../model_zoo.jl")
     using BitSetTuples
     using GraphPPL
     import GraphPPL:
-        intersect_constraint_bitset!,
-        constant_constraint,
-        factorization_constraint,
+        getextra,
+        mean_field_constraint!,
         getproperties,
         VariationalConstraintsPlugin,
-        PluginsCollection
+        PluginsCollection,
+        VariationalConstraintsFactorizationBitSetKey
 
     model = create_terminated_model(simple_model; plugins = GraphPPL.PluginsCollection(VariationalConstraintsPlugin()))
     ctx = GraphPPL.getcontext(model)
 
-    @test tupled_contents(constant_constraint(3, 1)) == ((1,), (2, 3), (2, 3))
-    @test tupled_contents(constant_constraint(3, 2)) == ((1, 3), (2,), (1, 3))
-    @test tupled_contents(constant_constraint(3, 3)) == ((1, 2), (1, 2), (3,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(3), 1)) == ((1,), (2, 3), (2, 3))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(3), 2)) == ((1, 3), (2,), (1, 3))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(3), 3)) == ((1, 2), (1, 2), (3,))
 
     node = ctx[NormalMeanVariance, 2]
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 1))) == ((1,), (2, 3), (2, 3))
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 2))) == ((1,), (2,), (3,))
+    constraint_bitset = getextra(model[node], VariationalConstraintsFactorizationBitSetKey)
+    @test tupled_contents(intersect!(constraint_bitset, mean_field_constraint!(BoundedBitSetTuple(3), 1))) == ((1,), (2, 3), (2, 3))
+    @test tupled_contents(intersect!(constraint_bitset, mean_field_constraint!(BoundedBitSetTuple(3), 2))) == ((1,), (2,), (3,))
 
     node = ctx[NormalMeanVariance, 1]
+    constraint_bitset = getextra(model[node], VariationalConstraintsFactorizationBitSetKey)
     # Here it is the mean field because the original model has `x ~ Normal(0, 1)` and `0` and `1` are constants 
-    @test tupled_contents(intersect_constraint_bitset!(model[node], constant_constraint(3, 1))) == ((1,), (2,), (3,))
+    @test tupled_contents(intersect!(constraint_bitset, mean_field_constraint!(BoundedBitSetTuple(3), 1))) == ((1,), (2,), (3,))
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
@@ -1023,17 +1017,16 @@ end
 @testitem "default_constraints" begin
     import GraphPPL:
         default_constraints,
-        factorization_constraint,
         getproperties,
         PluginsCollection,
         VariationalConstraintsPlugin,
         hasextra,
         getextra,
-        EmptyConstraints
+        UnspecifiedConstraints
 
     include("../../model_zoo.jl")
 
-    @test default_constraints(simple_model) == EmptyConstraints
+    @test default_constraints(simple_model) == UnspecifiedConstraints
     @test default_constraints(model_with_default_constraints) == @constraints(
         begin
             q(a, d) = q(a)q(d)
@@ -1082,82 +1075,20 @@ end
     end
 end
 
-@testitem "mean_field_constraint" begin
+@testitem "mean_field_constraint!" begin
     using BitSetTuples
-    import GraphPPL: mean_field_constraint
+    import GraphPPL: mean_field_constraint!
 
-    @test tupled_contents(mean_field_constraint(5)) == ((1,), (2,), (3,), (4,), (5,))
-    @test tupled_contents(mean_field_constraint(10)) == ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5))) == ((1,), (2,), (3,), (4,), (5,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(10))) == ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,))
 
-    @test tupled_contents(mean_field_constraint(1, (1,))) == ((1,),)
-    @test tupled_contents(mean_field_constraint(2, (1,))) == ((1,), (2,))
-    @test tupled_contents(mean_field_constraint(2, (2,))) == ((1,), (2,))
-    @test tupled_contents(mean_field_constraint(5, (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
-    @test tupled_contents(mean_field_constraint(5, (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
-    @test_throws BoundsError mean_field_constraint(5, (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
-    @test tupled_contents(mean_field_constraint(5, (1, 2))) == ((1,), (2,), (3, 4, 5), (3, 4, 5), (3, 4, 5))
-end
-
-@testitem "Apply MeanField constraints" begin
-    using GraphPPL
-    import GraphPPL: getproperties, neighbor_data
-
-    include("../../model_zoo.jl")
-
-    for model_fform in [
-        simple_model,
-        vector_model,
-        tensor_model,
-        outer,
-        multidim_array,
-        node_with_only_anonymous,
-        node_with_two_anonymous,
-        node_with_ambiguous_anonymous,
-        multidim_array
-    ]
-        model = create_terminated_model(
-            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))
-        )
-
-        for node in filter(as_node(), model)
-            node_data = model[node]
-            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
-                Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
-        end
-    end
-end
-
-@testitem "Apply BetheFactorization constraints" begin
-    using GraphPPL
-    import GraphPPL: getproperties, neighbor_data, is_factorized
-
-    include("../../model_zoo.jl")
-
-    for model_fform in [
-        simple_model,
-        vector_model,
-        tensor_model,
-        outer,
-        multidim_array,
-        node_with_only_anonymous,
-        node_with_two_anonymous,
-        node_with_ambiguous_anonymous,
-        multidim_array
-    ]
-        model = create_terminated_model(
-            model_fform; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization()))
-        )
-
-        for node in filter(as_node(), model)
-            node_data = model[node]
-            neighbors_data = neighbor_data(getproperties(node_data))
-            factorized_neighbors = is_factorized.(neighbors_data)
-            new_constraint = [findall(!, factorized_neighbors)]
-            for j in findall(identity, factorized_neighbors)
-                push!(new_constraint, [j])
-            end
-            sort!(new_constraint, by = first)
-            @test GraphPPL.getextra(node_data, :factorization_constraint_indices) == Tuple(new_constraint)
-        end
-    end
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(1), 1)) == ((1,),)
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), 3)) == ((1, 2, 4, 5), (1, 2, 4, 5), (3,), (1, 2, 4, 5), (1, 2, 4, 5))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(1), (1,))) == ((1,),)
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (1,))) == ((1,), (2,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (2,))) == ((1,), (2,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2))) == ((1,), (2,), (3, 4, 5), (3, 4, 5), (3, 4, 5))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
+    @test_throws BoundsError mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
 end
