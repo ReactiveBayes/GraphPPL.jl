@@ -396,10 +396,31 @@ Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedInd
     (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
 
 Base.in(
+        nodedata::NodeData,
+        properties::VariableNodeProperties,
+        var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
+    ) = Base.in(nodedata, properties, var, index(properties))
+
+Base.in(
     nodedata::NodeData,
     properties::VariableNodeProperties,
-    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
-) = (getname(properties) == getname(var)) && (flattened_index(getcontext(var)[getname(var)],index(properties)) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::NTuple{N, Int} where {N}
+) = (getname(properties) == getname(var)) && (flattened_index(getcontext(var)[getname(var)],i) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+
+Base.in(nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::Int
+) = (getname(properties) == getname(var)) && (i ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::Nothing) = false
+
+
 
 struct ResolvedConstraintLHS{V}
     variables::V
