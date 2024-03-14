@@ -2,6 +2,8 @@ using BenchmarkTools
 using GraphPPL
 using Distributions
 
+import GraphPPL: @model
+
 function benchmark_model_creation()
     SUITE = BenchmarkGroup()
 
