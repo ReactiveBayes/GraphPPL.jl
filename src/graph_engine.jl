@@ -596,7 +596,10 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
-Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
+
+function Base.convert(::Type{NamedTuple}, ::StaticInterfaces{I}, t::Tuple) where {I}
+    return NamedTuple{I}(t)
+end
 
 function Model(graph::MetaGraph, plugins::PluginsCollection, backend)
     return Model(graph, plugins, backend, Base.RefValue(0))
@@ -1238,7 +1241,8 @@ Returns the alias for a given `fform` and `interfaces` with a given `backend`.
 """
 function factor_alias end
 
-factor_alias(backend, fform, interfaces) = error("The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
+factor_alias(backend, fform, interfaces) =
+    error("The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
 factor_alias(model::Model, fform::F, interfaces) where {F} = factor_alias(getbackend(model), fform, interfaces)
 
 """
@@ -1337,8 +1341,17 @@ struct StaticInterfaceAliases{A} end
 
 StaticInterfaceAliases(A::Tuple) = StaticInterfaceAliases{A}()
 
-interface_aliases(fform) = StaticInterfaceAliases(())
-interface_aliases(fform::F, interfaces::StaticInterfaces) where {F} = interface_aliases(interface_aliases(fform), interfaces)
+"""
+    interface_aliases(backend, fform)
+
+Returns the aliases for a given `fform` and `backend`.
+"""
+function interface_aliases end
+
+interface_aliases(backend, fform) = error("The backend $backend must implement a method for `interface_aliases` for `$(fform)`.")
+interface_aliases(model::Model, fform::F) where {F} = interface_aliases(getbackend(model), fform)
+interface_aliases(model::Model, fform::F, interfaces::StaticInterfaces) where {F} =
+    interface_aliases(interface_aliases(model, fform), interfaces)
 
 function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
     return StaticInterfaces(
@@ -1618,7 +1631,9 @@ function make_node!(
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple
 ) where {F}
-    aliased_rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
+    aliased_rhs_interfaces = convert(
+        NamedTuple, interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
+    )
     aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
     interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
