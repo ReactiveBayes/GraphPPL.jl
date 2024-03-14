@@ -1402,8 +1402,16 @@ function materialze_interfaces(interfaces::NamedTuple)
     return map(materialize_interface, interfaces)
 end
 
-default_parametrization(::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
-default_parametrization(::Composite, fform::F, rhs) where {F} = error("Composite nodes always have to be initialized with named arguments")
+"""
+    default_parametrization(backend, fform, rhs)
+
+Returns the default parametrization for a given `fform` and `backend` with a given `rhs`.
+"""
+function default_parametrization end
+
+default_parametrization(backend, nodetype, fform, rhs) =
+    error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
+default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
 
 # maybe change name
 
@@ -1555,7 +1563,7 @@ make_node!(
     options,
     fform,
     lhs_interface,
-    GraphPPL.default_parametrization(node_type, fform, rhs_interfaces)
+    GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
 make_node!(

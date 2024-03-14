@@ -41,6 +41,8 @@ GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.Defau
 GraphPPL.interfaces(::TestGraphPPLBackend, fform, n) = GraphPPL.interfaces(GraphPPL.DefaultBackend(), fform, n)
 GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_alias(GraphPPL.DefaultBackend(), f, interfaces)
 GraphPPL.interface_aliases(::TestGraphPPLBackend, f) = GraphPPL.interface_aliases(GraphPPL.DefaultBackend(), f)
+GraphPPL.default_parametrization(::TestGraphPPLBackend, nodetype, f, rhs) =
+    GraphPPL.default_parametrization(GraphPPL.DefaultBackend(), nodetype, f, rhs)
 
 # Check that we can alias the `+` into `sum` and `*` into `prod`
 GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(+), interfaces) = sum
