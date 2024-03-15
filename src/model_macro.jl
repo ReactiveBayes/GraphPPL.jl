@@ -130,36 +130,6 @@ function warn_datavar_constvar_randomvar(e::Expr)
 end
 
 """
-    compose_simple_operators_with_brackets(expr::Expr)
-
-This pipeline converts simple multi-argument operators to their corresponding bracketed expression. 
-E.g. the expression `x ~ x1 + x2 + x3 + x4` becomes `x ~ ((x1 + x2) + x3) + x4)`.
-"""
-function compose_simple_operators_with_brackets(e::Expr)
-    operators_to_compose = [:+, :sum, :-, :*, :prod]
-    if @capture(e, lhs_ ~ rhs_)
-        newrhs = postwalk(rhs) do subexpr
-            for operator in operators_to_compose
-                if @capture(subexpr, $(operator)(args__))
-                    return recursive_brackets_expression(operator, args)
-                end
-            end
-            return subexpr
-        end
-        return :($lhs ~ $newrhs)
-    end
-    return e
-end
-
-function recursive_brackets_expression(operator, args)
-    if length(args) > 2
-        return recursive_brackets_expression(operator, vcat([Expr(:call, operator, args[1], args[2])], args[3:end]))
-    else
-        return Expr(:call, operator, args...)
-    end
-end
-
-"""
     save_expression_in_tilde(expr::Expr)
 
 Save the expression found in the tilde syntax in the `created_by` field of the expression. This function also ensures that the `where` clause is always present in the tilde syntax.
@@ -706,10 +676,11 @@ function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
+            GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
-        GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f, )
+        GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f,)
         GraphPPL.default_backend(::typeof($ms_name)) = $backend
     end
 end
