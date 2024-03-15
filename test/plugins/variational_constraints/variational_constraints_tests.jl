@@ -963,11 +963,12 @@ end
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
     include("../../testutils.jl")
-
+  
     using .TestUtils.ModelZoo
 
     # BetheFactorization uses `default_constraints` for `contains_default_constraints`
     # So it is not tested here
+
     for model_fform in setdiff(Set(ModelsInTheZooWithoutArguments), Set([contains_default_constraints]))
         model = create_model(
             with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))

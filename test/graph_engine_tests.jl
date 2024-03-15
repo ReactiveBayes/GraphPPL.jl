@@ -2281,7 +2281,9 @@ end
     end
 end
 
+
 @testitem "factor_alias" begin
+
     import GraphPPL: factor_alias, StaticInterfaces
 
     include("testutils.jl")
@@ -2302,4 +2304,5 @@ end
 
     @test factor_alias(model, xyz, StaticInterfaces((:a, :b))) === abc
     @test factor_alias(model, xyz, StaticInterfaces((:x, :y))) === xyz
+
 end
