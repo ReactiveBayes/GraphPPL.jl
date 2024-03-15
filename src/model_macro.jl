@@ -117,19 +117,6 @@ end
 what_walk(::typeof(check_incomplete_factorization_constraint)) = walk_until_occurrence((:(lhs_ = rhs_), :(lhs_::rhs_)))
 
 """
-    warn_datavar_constvar_randomvar(expr::Expr)
-
-Warn the user that the datavar, constvar and randomvar syntax is deprecated and will not be supported in the future.
-"""
-function warn_datavar_constvar_randomvar(e::Expr)
-    if @capture(e, ((lhs_ = datavar(args__)) | (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__))))
-        @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-        return nothing
-    end
-    return e
-end
-
-"""
     save_expression_in_tilde(expr::Expr)
 
 Save the expression found in the tilde syntax in the `created_by` field of the expression. This function also ensures that the `where` clause is always present in the tilde syntax.

@@ -129,48 +129,6 @@ end
     @test apply_pipeline(input, check_incomplete_factorization_constraint) == input
 end
 
-@testitem "warn_datavar_constvar_randomvar" begin
-    import GraphPPL: warn_datavar_constvar_randomvar, apply_pipeline
-
-    include("testutils.jl")
-
-    # Test 1: test that datavar throws a warning
-    input = quote
-        x = datavar(Float64)
-        x ~ Normal(0, 1)
-    end
-    @test_logs (
-        :warn,
-        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
-
-    # Test 2: test that constvar throws a warning
-    input = quote
-        x = constvar(1.0)
-        x ~ Normal(0, 1)
-    end
-    @test_logs (
-        :warn,
-        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
-
-    # Test 3: test that randomvar throws a warning
-    input = quote
-        x = randomvar(Normal(0, 1))
-        x ~ Normal(0, 1)
-    end
-    @test_logs (
-        :warn,
-        "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-    ) apply_pipeline(input, warn_datavar_constvar_randomvar)
-
-    # Test 4: test that tilde syntax does not throw a warning
-    input = quote
-        x ~ Normal(0, 1)
-    end
-    @test apply_pipeline(input, warn_datavar_constvar_randomvar) == input
-end
-
 @testitem "guarded_walk" begin
     import MacroTools: @capture
     import GraphPPL: guarded_walk
