@@ -144,7 +144,7 @@ end
 
 Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = iterate(array.data, state)
 
-function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N} 
+function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
     result = map(f, array.data)
     return ResizableArray(result)
 end
@@ -176,7 +176,7 @@ end
 
 function __flattened_index(::Val{N}, array::Vector{V}, findex, index...) where {N, V}
     if findex == 1
-        return  __flattened_index(Val(N - 1), array[findex], index...)
+        return __flattened_index(Val(N - 1), array[findex], index...)
     else
         return sum(i -> __recursive_length(Val(N - 1), array[i]), 1:(findex - 1)) + __flattened_index(Val(N - 1), array[findex], index...)
     end
@@ -185,7 +185,7 @@ end
 function Base.first(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in CartesianIndices(size(array)) #TODO improve performance of this function since it uses splatting
         if isassigned(array, index.I...)::Bool
-            return  array[index.I...]
+            return array[index.I...]
         end
     end
 end
