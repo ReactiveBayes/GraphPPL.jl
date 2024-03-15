@@ -728,3 +728,27 @@ end
     @test length(collect(filter(as_variable(:b), model))) === 0
     @test length(collect(filter(as_variable(:x), model))) === 10
 end
+
+@testitem "Using distribution objects as priors" begin
+    using Distributions
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+
+    @model function coin_model_priors(y, prior)
+        θ ~ prior
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    ydata = rand(10)
+    prior = Beta(1, 1)
+
+    model = create_model(coin_model_priors(prior = prior)) do model, context 
+        return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata)))
+    end
+
+    @test length(collect(filter(as_node(Bernoulli), model))) === 10
+    @test length(collect(filter(as_node(prior), model))) === 1
+end
