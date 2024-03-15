@@ -403,15 +403,21 @@ Base.in(
 ) = Base.in(nodedata, properties, var, index(properties))
 
 Base.in(
-    nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}, i::Union{Int, Nothing}
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}},
+    i::Union{Int, Nothing}
 ) = (getname(var) == getname(properties)) && (index(var) == index(properties)) && (getcontext(var) == getcontext(nodedata))
 
-
 Base.in(
-    nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}, i::NTuple{M, Int} where {M}
-) = (getname(properties) == getname(var)) &&
-(flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
-(getcontext(var) == getcontext(nodedata))
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}},
+    i::NTuple{M, Int} where {M}
+) =
+    (getname(properties) == getname(var)) &&
+    (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
+    (getcontext(var) == getcontext(nodedata))
 
 Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) =
     (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
@@ -427,7 +433,7 @@ Base.in(
     properties::VariableNodeProperties,
     var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
     i::NTuple{N, Int} where {N}
-) = 
+) =
     (getname(properties) == getname(var)) &&
     (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
     (getcontext(var) == getcontext(nodedata))
@@ -631,15 +637,18 @@ end
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
 
 __resolve_index_consistency(model, labels, findex::Int, lindex::Int) = (findex, lindex)
-function __resolve_index_consistency(model, labels, findex::NTuple{N, Int}, lindex::NTuple{N, Int}) where {N} 
-    
+function __resolve_index_consistency(model, labels, findex::NTuple{N, Int}, lindex::NTuple{N, Int}) where {N}
     differing_indices = findall(map(indices -> indices[1] != indices[2], zip(findex, lindex)))
     if length(differing_indices) == 1 && first(differing_indices) == N
         full_array = model[first(labels[1])].context[first(labels[1]).name] # This black magic line gets the full array of the sliced variable that we need to acces. It accesses it through the context which is saved in the nodedata.
         return flattened_index(full_array, findex), flattened_index(full_array, lindex)
     else
-        throw(Graphs.NotImplementedError("Congratulations, you tried to define a factorization constraint for a >2 dimensional random variable where there is either more than one differing index between the endpoints of the constraint, or you've sliced the random variable in more than 1 dimension. We've thought about this
-        edge case but don't know how we can resolve this, let alone efficiently. Please open an issue on GitHub if you need this feature, or consider changing your model definition. Furthermore, PR's are always welcome!"))
+        throw(
+            Graphs.NotImplementedError(
+                "Congratulations, you tried to define a factorization constraint for a >2 dimensional random variable where there is either more than one differing index between the endpoints of the constraint, or you've sliced the random variable in more than 1 dimension. We've thought about this
+edge case but don't know how we can resolve this, let alone efficiently. Please open an issue on GitHub if you need this feature, or consider changing your model definition. Furthermore, PR's are always welcome!"
+            )
+        )
     end
 end
 
@@ -670,11 +679,8 @@ function __resolve(model::Model, labels::AbstractArray{T, 1}) where {T <: NodeLa
     findex = index(getproperties(fdata))
     lindex = index(getproperties(ldata))
     findex, lindex = __resolve_index_consistency(model, labels, findex, lindex)
-    
-    
-    return ResolvedIndexedVariable(
-        getname(getproperties(fdata)), CombinedRange(findex, lindex), getcontext(fdata)
-    )
+
+    return ResolvedIndexedVariable(getname(getproperties(fdata)), CombinedRange(findex, lindex), getcontext(fdata))
 end
 
 function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLabel}) where {N}
@@ -722,6 +728,16 @@ end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable)
     global_label = unroll(context[getname(variable)])[index(variable)...]
+    return __resolve(model, global_label)
+end
+
+resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} =
+    throw(Graphs.NotImplementedError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
+
+function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
+    global_label = unroll(context[getname(variable)])[CartesianIndex(firstindex(index(variable))):CartesianIndex(
+        lastindex(index(variable))
+    )]
     return __resolve(model, global_label)
 end
 

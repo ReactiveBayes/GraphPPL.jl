@@ -39,7 +39,7 @@ end
         @test_expression_generating apply_pipeline(input, pipeline1) output
     end
 
-    @testset "Guarded `what_walk`" begin 
+    @testset "Guarded `what_walk`" begin
         # `Pipeline` that finds all `Expr` nodes in the AST in the form of `:(x + 1)`
         # And replaces them with `:(x + 2)` but guarded not to go inside `~` expression
         function pipeline2(e::Expr)
@@ -1729,7 +1729,7 @@ end
 
     include("testutils.jl")
 
-    model_spec = quote 
+    model_spec = quote
         function hello(a, b, c)
             a ~ Normal(b, c)
         end
@@ -1738,5 +1738,4 @@ end
     eval(model_macro_interior(TestUtils.TestGraphPPLBackend(), model_spec))
 
     @test default_backend(hello) === TestUtils.TestGraphPPLBackend()
-
 end

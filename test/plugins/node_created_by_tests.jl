@@ -94,7 +94,16 @@ end
     using Distributions
 
     import GraphPPL:
-        create_model, with_plugins, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
+        create_model,
+        with_plugins,
+        getcontext,
+        add_toplevel_model!,
+        factor_nodes,
+        as_node,
+        hasextra,
+        PluginsCollection,
+        NodeCreatedByPlugin,
+        getextra
 
     include("../testutils.jl")
 
