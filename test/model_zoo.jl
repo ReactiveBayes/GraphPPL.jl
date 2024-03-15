@@ -117,8 +117,6 @@ end
             x[i, j] ~ Normal(0, y[i, j])
         end
     end
-    y[2, 4] ~ Gamma(1, 1)
-    x[2, 4] ~ Normal(0, y[2, 4])
 end
 
 @model function anonymous_in_loop(x, y)

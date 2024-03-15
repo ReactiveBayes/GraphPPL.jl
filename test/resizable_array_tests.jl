@@ -262,7 +262,6 @@ end
     end
 end
 
-
 @testitem "map" begin
     import GraphPPL: ResizableArray
 
@@ -311,5 +310,4 @@ end
     @test flattened_index(s, (2, 1, 1)) == 4
     s[2, 1, 2] = Ref(1)
     @test flattened_index(s, (2, 1, 1)) == 4
-
 end
