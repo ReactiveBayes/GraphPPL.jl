@@ -39,7 +39,6 @@ end
         @test_expression_generating apply_pipeline(input, pipeline1) output
     end
 
-
     @testset "Guarded `what_walk`" begin
 
         # `Pipeline` that finds all `Expr` nodes in the AST in the form of `:(x + 1)`
@@ -1731,9 +1730,7 @@ end
 
     include("testutils.jl")
 
-
-    model_spec = quote 
-
+    model_spec = quote
         function hello(a, b, c)
             a ~ Normal(b, c)
         end

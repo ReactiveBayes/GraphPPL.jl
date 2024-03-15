@@ -105,7 +105,6 @@ end
         NodeCreatedByPlugin,
         getextra
 
-
     include("../testutils.jl")
 
     @model function simple_model()

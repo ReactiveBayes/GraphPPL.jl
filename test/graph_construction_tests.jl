@@ -745,13 +745,10 @@ end
     ydata = rand(10)
     prior = Beta(1, 1)
 
-
     model = create_model(coin_model_priors(prior = prior)) do model, context
-
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata)))
     end
 
     @test length(collect(filter(as_node(Bernoulli), model))) === 10
     @test length(collect(filter(as_node(prior), model))) === 1
-
 end

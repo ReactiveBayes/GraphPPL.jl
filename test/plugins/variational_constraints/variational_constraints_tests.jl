@@ -963,7 +963,7 @@ end
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
     include("../../testutils.jl")
-  
+
     using .TestUtils.ModelZoo
 
     # BetheFactorization uses `default_constraints` for `contains_default_constraints`

@@ -152,7 +152,6 @@ export simple_model,
     mixture,
     filled_matrix_model
 
-
 using GraphPPL, MacroTools, Static, Distributions
 using ..TestUtils
 
@@ -359,7 +358,6 @@ GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constr
     t4 ~ Normal(0, 1)
     y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
 end
-
 
 @model function filled_matrix_model()
     local x
