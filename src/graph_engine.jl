@@ -9,8 +9,6 @@ import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
-aliases(f) = (f,)
-
 struct Broadcasted
     name::Symbol
 end
@@ -105,9 +103,10 @@ Fields:
 - `plugins`: A `PluginCollection` object representing the plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, P}
+struct Model{G, P, B}
     graph::G
     plugins::P
+    backend::B
     counter::Base.RefValue{Int64}
 end
 
@@ -115,6 +114,7 @@ labels(model::Model) = MetaGraphsNext.labels(model.graph)
 Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
+getbackend(model::Model) = model.backend
 
 Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
 Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
@@ -596,12 +596,26 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
-Base.NamedTuple(::StaticInterfaces{I}, t::NamedTuple) where {I} = NamedTuple{I}(values(t))
 
-Model(graph::MetaGraph) = Model(graph, PluginsCollection())
+function Base.convert(::Type{NamedTuple}, ::StaticInterfaces{I}, t::Tuple) where {I}
+    return NamedTuple{I}(t)
+end
 
-function Model(graph::MetaGraph, plugins::PluginsCollection)
-    return Model(graph, plugins, Base.RefValue(0))
+function Model(graph::MetaGraph, plugins::PluginsCollection, backend)
+    return Model(graph, plugins, backend, Base.RefValue(0))
+end
+
+function Model(fform::F, plugins::PluginsCollection) where {F}
+    return Model(fform, plugins, default_backend(fform))
+end
+
+function Model(fform::F, plugins::PluginsCollection, backend) where {F}
+    label_type = NodeLabel
+    edge_data_type = EdgeLabel
+    vertex_data_type = NodeData
+    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
+    model = Model(graph, plugins, backend)
+    return model
 end
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
@@ -661,7 +675,7 @@ abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
-    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(N)
+    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(model, N)
 end
 
 struct IsFactorNode <: AbstractModelFilterPredicate end
@@ -769,8 +783,8 @@ abstract type NodeType end
 struct Composite <: NodeType end
 struct Atomic <: NodeType end
 
-NodeType(::Type) = Atomic()
-NodeType(::F) where {F <: Function} = Atomic()
+NodeType(backend, fform) = error("Backend $backend must implement a method for `NodeType` for `$(fform)`.")
+NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
 
 """
     NodeBehaviour
@@ -799,27 +813,24 @@ See also: [`Stochastic`](@ref), [`NodeBehaviour`](@ref)
 """
 struct Deterministic <: NodeBehaviour end
 
-NodeBehaviour(::Any) = Deterministic()
+"""
+    NodeBehaviour(backend, fform)
+
+Returns a `NodeBehaviour` object for a given `backend` and `fform`.
+"""
+NodeBehaviour(backend, fform) = error("Backend $backend must implement a method for `NodeBehaviour` for `$(fform)`.")
+NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
 
 """
-create_model()
+    aliases(backend, fform)
 
-Create a new empty probabilistic graphical model. 
-
-Returns:
-A `Model` object representing the probabilistic graphical model.
+Returns a collection of aliases for `fform` depending on the `backend`.
 """
-function create_model(; fform = identity, plugins = PluginsCollection())
-    label_type = NodeLabel
-    edge_data_type = EdgeLabel
-    vertex_data_type = NodeData
-    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
-    model = Model(graph, plugins)
-    return model
-end
+aliases(backend, fform) = error("Backend $backend must implement a method for `aliases` for `$(fform)`.")
+aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
 
 """
-copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
+    copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
 Copy the variables in the Markov blanket of a parent context to a child context, using a mapping specified by a named tuple.
 
@@ -1161,15 +1172,16 @@ end
 Defines a lazy structure for anonymous variables.
 The actual anonymous variables materialize only in `make_node!` upon calling, because it needs arguments to the `make_node!` in order to create proper links.
 """
-struct AnonymousVariable
-    model::Model
-    context::Context
+struct AnonymousVariable{M, C}
+    model::M
+    context::C
 end
 
 create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(model, context)
 
 function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
-    return materialize_anonymous_variable!(NodeBehaviour(fform), anonymous.model, anonymous.context, args)
+    model = anonymous.model
+    return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, args)
 end
 
 # Deterministic nodes can create links to variables in the model
@@ -1222,9 +1234,16 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
 end
 
-factor_alias(any, interfaces) = any
-factor_alias(::typeof(+), interfaces) = sum
-factor_alias(::typeof(*), interfaces) = prod
+"""
+    factor_alias(backend, fform, interfaces)
+
+Returns the alias for a given `fform` and `interfaces` with a given `backend`.
+"""
+function factor_alias end
+
+factor_alias(backend, fform, interfaces) =
+    error("The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
+factor_alias(model::Model, fform::F, interfaces) where {F} = factor_alias(getbackend(model), fform, interfaces)
 
 """
 Add a composite factor node to the model with the given name.
@@ -1308,17 +1327,31 @@ struct MixedArguments{A <: Tuple, K <: NamedTuple}
 end
 
 """
-Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
+    interfaces(backend, fform, ::StaticInt{N}) where N
+
+Returns the interfaces for a given `fform` and `backend` with a given amount of interfaces `N`.
 """
-interfaces(any_f, ::StaticInt{1}) = StaticInterfaces((:out,))
-interfaces(any_f, any_val) = StaticInterfaces((:out, :in))
+function interfaces end
+
+interfaces(backend, fform, ninputs) =
+    error("The backend $(backend) must implement a method for `interfaces` for `$(fform)` and `$(ninputs)` number of inputs.")
+interfaces(model::Model, fform::F, ninputs) where {F} = interfaces(getbackend(model), fform, ninputs)
 
 struct StaticInterfaceAliases{A} end
 
 StaticInterfaceAliases(A::Tuple) = StaticInterfaceAliases{A}()
 
-interface_aliases(fform) = StaticInterfaceAliases(())
-interface_aliases(fform::F, interfaces::StaticInterfaces) where {F} = interface_aliases(interface_aliases(fform), interfaces)
+"""
+    interface_aliases(backend, fform)
+
+Returns the aliases for a given `fform` and `backend`.
+"""
+function interface_aliases end
+
+interface_aliases(backend, fform) = error("The backend $backend must implement a method for `interface_aliases` for `$(fform)`.")
+interface_aliases(model::Model, fform::F) where {F} = interface_aliases(getbackend(model), fform)
+interface_aliases(model::Model, fform::F, interfaces::StaticInterfaces) where {F} =
+    interface_aliases(interface_aliases(model, fform), interfaces)
 
 function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
     return StaticInterfaces(
@@ -1342,8 +1375,8 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(fform::F, val, known_interfaces::NamedTuple) where {F}
-    return missing_interfaces(interfaces(fform, val), StaticInterfaces(keys(known_interfaces)))
+function missing_interfaces(model::Model, fform::F, val, known_interfaces::NamedTuple) where {F}
+    return missing_interfaces(interfaces(model, fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
 function missing_interfaces(
@@ -1352,8 +1385,8 @@ function missing_interfaces(
     return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
 end
 
-function prepare_interfaces(fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
-    missing_interface = missing_interfaces(fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
+function prepare_interfaces(model::Model, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
+    missing_interface = missing_interfaces(model, fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
     return prepare_interfaces(missing_interface, fform, lhs_interface, rhs_interfaces)
 end
 
@@ -1369,8 +1402,16 @@ function materialze_interfaces(interfaces::NamedTuple)
     return map(materialize_interface, interfaces)
 end
 
-default_parametrization(::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
-default_parametrization(::Composite, fform::F, rhs) where {F} = error("Composite nodes always have to be initialized with named arguments")
+"""
+    default_parametrization(backend, fform, rhs)
+
+Returns the default parametrization for a given `fform` and `backend` with a given `rhs`.
+"""
+function default_parametrization end
+
+default_parametrization(backend, nodetype, fform, rhs) =
+    error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
+default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
 
 # maybe change name
 
@@ -1398,9 +1439,10 @@ function make_node!(model::Model, ctx::Context, fform::F, lhs_interfaces, rhs_in
 end
 
 make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(NodeType(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+    make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
-#if it is composite, we assume it should be materialized and it is stochastic
+# if it is composite, we assume it should be materialized and it is stochastic
+# TODO: shall we not assume that the `Composite` node is necessarily stochastic?
 make_node!(
     nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
 ) where {F} = make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
@@ -1411,7 +1453,7 @@ make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, l
 
 # If node is Atomic, check stochasticity
 make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(Atomic(), NodeBehaviour(fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+    make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
@@ -1521,7 +1563,7 @@ make_node!(
     options,
     fform,
     lhs_interface,
-    GraphPPL.default_parametrization(node_type, fform, rhs_interfaces)
+    GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
 make_node!(
@@ -1597,22 +1639,25 @@ function make_node!(
     lhs_interface::Union{NodeLabel, ProxyLabel},
     rhs_interfaces::NamedTuple
 ) where {F}
-    aliased_rhs_interfaces = NamedTuple(interface_aliases(fform, StaticInterfaces(keys(rhs_interfaces))), (rhs_interfaces))
-    aliased_fform = factor_alias(fform, Val(keys(aliased_rhs_interfaces)))
-    interfaces = materialze_interfaces(prepare_interfaces(aliased_fform, lhs_interface, aliased_rhs_interfaces))
+    aliased_rhs_interfaces = convert(
+        NamedTuple, interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
+    )
+    aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
+    interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
     nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
 
-sort_interfaces(fform, defined_interfaces::NamedTuple) =
-    sort_interfaces(interfaces(fform, static(length(defined_interfaces))), defined_interfaces)
+function sort_interfaces(model::Model, fform::F, defined_interfaces::NamedTuple) where {F}
+    return sort_interfaces(interfaces(model, fform, static(length(defined_interfaces))), defined_interfaces)
+end
 
 function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) where {I}
     return defined_interfaces[I]
 end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where {F}
-    interfaces = sort_interfaces(fform, interfaces)
+    interfaces = sort_interfaces(model, fform, interfaces)
     interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
     for (interface_name, interface) in iterator(interfaces)

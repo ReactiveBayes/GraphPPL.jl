@@ -1,4 +1,4 @@
-export @model
+
 import MacroTools: postwalk, prewalk, @capture, walk
 using NamedTupleTools
 using Static
@@ -28,8 +28,6 @@ function (w::walk_until_occurrence{E})(f, x) where {E <: Expr}
     return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
 end
 
-find_where_block = walk_until_occurrence(:(lhs ~ rhs_ where {options__}))
-
 what_walk(anything) = postwalk
 
 """
@@ -46,9 +44,25 @@ The `apply_pipeline` function takes an expression `e` and a `pipeline` function 
 # Returns
 The result of applying the pipeline function to `e`.
 """
-function apply_pipeline(e::Expr, pipeline)
+function apply_pipeline(e::Expr, pipeline::F) where {F}
     walk = what_walk(pipeline)
     return walk(x -> __guard_f(pipeline, x), e)
+end
+
+"""
+    apply_pipeline_collection(e::Expr, collection)
+
+Similar to [`apply_pipeline`](@ref), but applies a collection of pipeline functions to an expression. 
+
+# Arguments
+- `e::Expr`: An expression to apply the pipeline to.
+- `collection`: A collection of functions to apply to the expressions in `e`.
+
+# Returns
+The result of applying the pipeline function to `e`.
+"""
+function apply_pipeline_collection(e::Expr, collection)
+    return reduce((e, pipeline) -> apply_pipeline(e, pipeline), collection, init = e)
 end
 
 """
@@ -101,49 +115,6 @@ function check_incomplete_factorization_constraint(e::Expr)
 end
 
 what_walk(::typeof(check_incomplete_factorization_constraint)) = walk_until_occurrence((:(lhs_ = rhs_), :(lhs_::rhs_)))
-
-"""
-    warn_datavar_constvar_randomvar(expr::Expr)
-
-Warn the user that the datavar, constvar and randomvar syntax is deprecated and will not be supported in the future.
-"""
-function warn_datavar_constvar_randomvar(e::Expr)
-    if @capture(e, ((lhs_ = datavar(args__)) | (lhs_ = constvar(args__)) | (lhs_ = randomvar(args__))))
-        @warn "datavar, constvar and randomvar syntax are deprecated and will not be supported in the future. Please use the tilde syntax instead."
-        return nothing
-    end
-    return e
-end
-
-"""
-    compose_simple_operators_with_brackets(expr::Expr)
-
-This pipeline converts simple multi-argument operators to their corresponding bracketed expression. 
-E.g. the expression `x ~ x1 + x2 + x3 + x4` becomes `x ~ ((x1 + x2) + x3) + x4)`.
-"""
-function compose_simple_operators_with_brackets(e::Expr)
-    operators_to_compose = [:+, :sum, :-, :*, :prod]
-    if @capture(e, lhs_ ~ rhs_)
-        newrhs = postwalk(rhs) do subexpr
-            for operator in operators_to_compose
-                if @capture(subexpr, $(operator)(args__))
-                    return recursive_brackets_expression(operator, args)
-                end
-            end
-            return subexpr
-        end
-        return :($lhs ~ $newrhs)
-    end
-    return e
-end
-
-function recursive_brackets_expression(operator, args)
-    if length(args) > 2
-        return recursive_brackets_expression(operator, vcat([Expr(:call, operator, args[1], args[2])], args[3:end]))
-    else
-        return Expr(:call, operator, args...)
-    end
-end
 
 """
     save_expression_in_tilde(expr::Expr)
@@ -303,10 +274,9 @@ Convert an expression to an anonymous variable. This function is used to convert
 """
 function convert_to_anonymous(e::Expr, created_by)
     if @capture(e, f_(args__))
-        sym = MacroTools.gensym_ids(gensym(:anon))
+        sym = gensym(:anon)
         return quote
-            begin
-                $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                 $sym ~ $f($(args...)) where {anonymous = true, created_by = $created_by}
             end
         end
@@ -686,15 +656,19 @@ Returns a quote block containing boilerplate functions for a model macro.
 # Returns
 - `quote`: A quote block containing the boilerplate functions for the model macro.
 """
-function get_boilerplate_functions(ms_name, ms_args, num_interfaces)
+function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
+    backend_type = typeof(backend)
     return quote
         function $ms_name end
-        GraphPPL.interfaces(::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(Tuple($ms_args))
-        GraphPPL.NodeType(::typeof($ms_name)) = GraphPPL.Composite()
-        GraphPPL.NodeBehaviour(::typeof($ms_name)) = GraphPPL.Stochastic()
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
+            GraphPPL.StaticInterfaces(Tuple($ms_args))
+        GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
+        GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
+        GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f,)
+        GraphPPL.default_backend(::typeof($ms_name)) = $backend
     end
 end
 
@@ -736,7 +710,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
-            __interfaces__ = GraphPPL.prepare_interfaces($ms_name, __lhs_interface__, __rhs_interfaces__)
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
@@ -767,7 +741,22 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     return make_node_function
 end
 
-function model_macro_interior(model_specification)
+"""
+    default_backend(model_function)
+
+Returns a default backend for the given model function.
+"""
+function default_backend end
+
+"""
+    model_macro_interior_pipelines(backend)
+
+Returns a collection of syntax transformation functions for the `apply_pipeline` function based on a specific backend.
+The functions are being applied to the model in the `model_macro_interior` macro body in the exact same order they are returned.
+"""
+function model_macro_interior_pipelines end
+
+function model_macro_interior(backend, model_specification)
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__)
         ms_body_
     end) | (function ms_name_(ms_args__)
@@ -778,21 +767,11 @@ function model_macro_interior(model_specification)
     if !isnothing(ms_kwargs) && length(ms_kwargs) > 0
         warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
     end
-    boilerplate_functions = GraphPPL.get_boilerplate_functions(ms_name, ms_args, num_interfaces)
 
-    ms_body = apply_pipeline(ms_body, check_reserved_variable_names_model)
-    ms_body = apply_pipeline(ms_body, warn_datavar_constvar_randomvar)
-    # The `compose_simple_operators_with_brackets` pipeline is a workaround for 
-    # `RxInfer` inference backend, which cannot handle the multi-argument operators
-    ms_body = apply_pipeline(ms_body, compose_simple_operators_with_brackets)
-    ms_body = apply_pipeline(ms_body, save_expression_in_tilde)
-    ms_body = apply_pipeline(ms_body, convert_deterministic_statement)
-    ms_body = apply_pipeline(ms_body, convert_local_statement)
-    ms_body = apply_pipeline(ms_body, convert_to_kwargs_expression)
-    ms_body = apply_pipeline(ms_body, add_get_or_create_expression)
-    ms_body = apply_pipeline(ms_body, convert_anonymous_variables)
-    ms_body = apply_pipeline(ms_body, replace_begin_end)
-    ms_body = apply_pipeline(ms_body, convert_tilde_expression)
+    boilerplate_functions = GraphPPL.get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
+    pipeline_collection = GraphPPL.model_macro_interior_pipelines(backend)
+    ms_body = apply_pipeline_collection(ms_body, pipeline_collection)
+
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
     result = quote
         $boilerplate_functions
@@ -800,8 +779,4 @@ function model_macro_interior(model_specification)
         nothing
     end
     return result
-end
-
-macro model(model_specification)
-    return esc(GraphPPL.model_macro_interior(model_specification))
 end

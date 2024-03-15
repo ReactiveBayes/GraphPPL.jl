@@ -1,7 +1,8 @@
 @testitem "Basic creation" begin
     using Distributions
-
     import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!
+
+    include("testutils.jl")
 
     @model function basic_model(a, b)
         x ~ Normal(a, b)
@@ -34,8 +35,9 @@ end
 
 @testitem "Data creation via callback" begin
     using Distributions
-
     import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!, NodeLabel
+
+    include("testutils.jl")
 
     @model function simple_model_for_model_generator(observation, a, b)
         x ~ Beta(0, 1)
@@ -72,8 +74,9 @@ end
 
 @testitem "Indexing in provided fixed kwargs" begin
     using Distributions
-
     import GraphPPL: ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_data, is_constant, getproperties, value
+
+    include("testutils.jl")
 
     @model function basic_model(inputs)
         x ~ Beta(inputs[1], inputs[2])
@@ -111,8 +114,9 @@ end
 
 @testitem "Error messages" begin
     using Distributions
-
     import GraphPPL: create_model, Model, ModelGenerator
+
+    include("testutils.jl")
 
     @model function simple_model_for_model_generator(observation, a, b)
         x ~ Beta(0, 1)

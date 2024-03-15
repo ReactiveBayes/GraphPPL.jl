@@ -13,7 +13,9 @@
         hasextra,
         getextra
 
-    model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
+    include("../testutils.jl")
+
+    model = create_test_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
     ctx = getcontext(model)
 
     @testset begin
@@ -65,7 +67,9 @@ end
         hasextra,
         getextra
 
-    model = create_model(plugins = PluginsCollection())
+    include("../testutils.jl")
+
+    model = create_test_model(plugins = PluginsCollection())
     ctx = getcontext(model)
 
     @testset begin
@@ -90,7 +94,9 @@ end
     using Distributions
 
     import GraphPPL:
-        create_model, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
+        create_model, with_plugins, getcontext, add_toplevel_model!, factor_nodes, as_node, hasextra, PluginsCollection, NodeCreatedByPlugin, getextra
+
+    include("../testutils.jl")
 
     @model function simple_model()
         x ~ Normal(0, 1)
@@ -98,10 +104,7 @@ end
         z ~ Beta(x, y)
     end
 
-    model = create_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
-    context = getcontext(model)
-
-    add_toplevel_model!(model, simple_model, NamedTuple())
+    model = create_model(with_plugins(simple_model(), PluginsCollection(NodeCreatedByPlugin())))
 
     fnormal = map(label -> model[label], filter(as_node(Normal), model))
     fgamma = map(label -> model[label], filter(as_node(Gamma), model))

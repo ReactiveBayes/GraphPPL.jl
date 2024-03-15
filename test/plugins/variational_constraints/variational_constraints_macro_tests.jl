@@ -23,11 +23,9 @@
 end
 
 @testitem "check_for_returns" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
-
     import GraphPPL: check_for_returns_constraints, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: check_for_returns with no returns
     input = quote
@@ -60,10 +58,9 @@ end
 end
 
 @testitem "add_constraints_construction" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: add_constraints_construction
+
+    include("../../testutils.jl")
 
     # Test 1: add_constraints_construction to regular constraint specification
     input = quote
@@ -152,10 +149,9 @@ end
 end
 
 @testitem "replace_begin_end" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: replace_begin_end, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: replace_begin_end with one begin and end
     input = quote
@@ -221,10 +217,9 @@ end
 end
 
 @testitem "create_submodel_constraints" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: create_submodel_constraints, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: create_submodel_constraints with one nested layer
     input = quote
@@ -346,10 +341,9 @@ end
 end
 
 @testitem "create_factorization_split" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: create_factorization_split, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: create_factorization_split with one factorization split
     input = quote
@@ -382,10 +376,9 @@ end
 end
 
 @testitem "create_factorization_combinedrange" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: create_factorization_combinedrange, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: create_factorization_combinedrange with one combined range
     input = quote
@@ -398,10 +391,9 @@ end
 end
 
 @testitem "convert_variable_statements" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: convert_variable_statements, apply_pipeline
+
+    include("../../testutils.jl")
 
     # Test 1: convert_variable_statements with a single variable statement
     input = quote
@@ -463,10 +455,9 @@ end
 end
 
 @testitem "convert_functionalform_constraints" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: convert_functionalform_constraints, apply_pipeline, IndexedVariable
+
+    include("../../testutils.jl")
 
     # Test 1: convert_functionalform_constraints with a single functional form constraint
     input = quote
@@ -537,10 +528,9 @@ end
 end
 
 @testitem "convert_message_constraints" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: convert_message_constraints, apply_pipeline, IndexedVariable
+
+    include("../../testutils.jl")
 
     # Test 1: convert_message_constraints with a single functional form constraint
     input = quote
@@ -553,10 +543,9 @@ end
 end
 
 @testitem "convert_factorization_constraints" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: convert_factorization_constraints, apply_pipeline, IndexedVariable
+
+    include("../../testutils.jl")
 
     # Test 1: convert_factorization_constraints with a single factorization constraint
     input = quote
@@ -592,10 +581,9 @@ end
 end
 
 @testitem "constraints_macro_interior" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: constraints_macro_interior
+
+    include("../../testutils.jl")
 
     input = quote
         q(x)::Normal
@@ -631,10 +619,12 @@ end
 end
 
 @testitem "constraints_macro" begin
-    using GraphPPL
-    using MacroTools
-    include("../../model_zoo.jl")
     import GraphPPL: Constraints
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
         q(x) = q(x[begin]) .. q(x[end])

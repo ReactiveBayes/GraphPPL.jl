@@ -319,7 +319,6 @@ end
     using Distributions
     import GraphPPL:
         Constraints,
-        Constraint,
         FactorizationConstraint,
         FactorizationConstraintEntry,
         PosteriorFormConstraint,
@@ -383,8 +382,6 @@ end
 end
 
 @testitem "push!(::SubModelConstraints, c::Constraint)" begin
-    include("../../model_zoo.jl")
-    using GraphPPL
     import GraphPPL:
         Constraint,
         GeneralSubModelConstraints,
@@ -396,6 +393,10 @@ end
         getconstraint,
         Constraints,
         IndexedVariable
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     # Test 1: Test push! with FactorizationConstraint
     constraints = GeneralSubModelConstraints(gcv)
@@ -459,7 +460,9 @@ end
 @testitem "is_factorized" begin
     import GraphPPL: is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
 
-    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    include("../../testutils.jl")
+
+    m = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
 
     x_1 = getorcreate!(m, ctx, NodeCreationOptions(factorized = true), :x_1, nothing)
@@ -482,17 +485,20 @@ end
 end
 
 @testitem "is_factorized || is_constant" begin
-    import GraphPPL: is_constant, is_factorized, create_model, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
+    import GraphPPL:
+        is_constant, is_factorized, create_model, with_plugins, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
 
-    m = create_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    using .TestUtils.ModelZoo
+
+    m = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
     ctx = getcontext(m)
     x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, nothing)
     @test is_factorized(m[x])
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
         for label in variable_nodes(model)
             nodedata = model[label]
             if is_constant(getproperties(nodedata))
@@ -505,14 +511,16 @@ end
 end
 
 @testitem "Application of PosteriorFormConstraint" begin
-    import GraphPPL: PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
+    import GraphPPL: create_model, PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct ArbitraryFunctionalFormConstraint end
 
     # Test saving of PosteriorFormConstraint in single variable
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -521,7 +529,7 @@ end
     end
 
     # Test saving of PosteriorFormConstraint in multiple variables
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -533,7 +541,7 @@ end
     end
 
     # Test saving of PosteriorFormConstraint in single variable in array
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -548,14 +556,16 @@ end
 end
 
 @testitem "Application of MessageFormConstraint" begin
-    import GraphPPL: MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra
+    import GraphPPL: create_model, MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct ArbitraryMessageFormConstraint end
 
     # Test saving of MessageFormConstraint in single variable
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     context = GraphPPL.getcontext(model)
     constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     node = first(filter(GraphPPL.as_variable(:x), model))
@@ -563,7 +573,7 @@ end
     @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
 
     # Test saving of MessageFormConstraint in multiple variables
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -575,7 +585,7 @@ end
     end
 
     # Test saving of MessageFormConstraint in single variable in array
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
     constraint = MessageFormConstraint(IndexedVariable(:x, 1), ArbitraryMessageFormConstraint())
     apply_constraints!(model, context, constraint)
@@ -590,10 +600,10 @@ end
 end
 
 @testitem "save constraints with constants via `mean_field_constraint!`" begin
-    include("../../model_zoo.jl")
     using BitSetTuples
-    using GraphPPL
     import GraphPPL:
+        create_model,
+        with_plugins,
         getextra,
         mean_field_constraint!,
         getproperties,
@@ -601,7 +611,11 @@ end
         PluginsCollection,
         VariationalConstraintsFactorizationBitSetKey
 
-    model = create_terminated_model(simple_model; plugins = GraphPPL.PluginsCollection(VariationalConstraintsPlugin()))
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(with_plugins(simple_model(), GraphPPL.PluginsCollection(VariationalConstraintsPlugin())))
     ctx = GraphPPL.getcontext(model)
 
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(3), 1)) == ((1,), (2, 3), (2, 3))
@@ -620,15 +634,16 @@ end
 end
 
 @testitem "materialize_constraints!(:Model, ::NodeLabel, ::FactorNodeData)" begin
-    include("../../model_zoo.jl")
-
     using BitSetTuples
-    using GraphPPL
+    import GraphPPL:
+        create_model, with_plugins, materialize_constraints!, EdgeLabel, get_constraint_names, getproperties, getextra, setextra!
 
-    import GraphPPL: materialize_constraints!, EdgeLabel, get_constraint_names, getproperties, getextra, setextra!
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     # Test 1: Test materialize with a Full Factorization constraint
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
@@ -643,7 +658,7 @@ end
     @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
 
     # Test 2: Test materialize with an applied constraint
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
@@ -652,7 +667,7 @@ end
     @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2, 3))
 
     # # Test 3: Check that materialize_constraints! throws if the constraint is not a valid partition
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
@@ -660,7 +675,7 @@ end
     @test_throws ErrorException materialize_constraints!(model, node)
 
     # Test 4: Check that materialize_constraints! throws if the constraint is not a valid partition
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = GraphPPL.getcontext(model)
     node = ctx[NormalMeanVariance, 2]
 
@@ -669,9 +684,8 @@ end
 end
 
 @testitem "Resolve Factorization Constraints" begin
-    include("../../model_zoo.jl")
-    using GraphPPL
     import GraphPPL:
+        create_model,
         FactorizationConstraint,
         FactorizationConstraintEntry,
         IndexedVariable,
@@ -683,7 +697,11 @@ end
         CombinedRange,
         SplittedRange
 
-    model = create_terminated_model(outer)
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(outer())
     ctx = GraphPPL.getcontext(model)
     inner_context = ctx[inner, 1]
 
@@ -738,7 +756,6 @@ end
 end
 
 @testitem "Resolved Constraints in" begin
-    using GraphPPL
     import GraphPPL:
         ResolvedFactorizationConstraint,
         ResolvedConstraintLHS,
@@ -780,7 +797,10 @@ end
 end
 
 @testitem "convert_to_bitsets" begin
+    using BitSetTuples
     import GraphPPL:
+        create_model,
+        with_plugins,
         ResolvedFactorizationConstraint,
         ResolvedConstraintLHS,
         ResolvedFactorizationConstraintEntry,
@@ -790,11 +810,11 @@ end
         apply_constraints!,
         getproperties
 
-    using BitSetTuples
+    include("../../testutils.jl")
 
-    include("../../model_zoo.jl")
+    using .TestUtils.ModelZoo
 
-    model = create_terminated_model(outer; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(outer(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     inner_context = context[inner, 1]
     inner_inner_context = inner_context[inner_inner, 1]
@@ -866,7 +886,7 @@ end
         @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1,), (2, 3), (2, 3))
     end
 
-    model = create_terminated_model(multidim_array; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(multidim_array(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 5]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -883,7 +903,7 @@ end
         @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1, 3), (2, 3), (1, 2, 3))
     end
 
-    model = create_terminated_model(multidim_array; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(multidim_array(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 5]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -902,7 +922,7 @@ end
 
     # Test ResolvedFactorizationConstraints over anonymous variables
 
-    model = create_terminated_model(node_with_only_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(node_with_only_anonymous(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 6]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -914,7 +934,7 @@ end
     end
 
     # Test ResolvedFactorizationConstraints over multiple anonymous variables
-    model = create_terminated_model(node_with_two_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(node_with_two_anonymous(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     normal_node = context[NormalMeanVariance, 6]
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -929,9 +949,7 @@ end
     end
 
     # Test ResolvedFactorizationConstraints over ambiguous anonymouys variables
-    model = create_terminated_model(
-        node_with_ambiguous_anonymous; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())
-    )
+    model = create_model(with_plugins(node_with_ambiguous_anonymous(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     normal_node = last(filter(GraphPPL.as_node(NormalMeanVariance), model))
     neighbors = model[GraphPPL.neighbors(model, normal_node)]
@@ -946,7 +964,7 @@ end
     end
 
     # Test ResolvedFactorizationConstraint with a Mixture node
-    model = create_terminated_model(mixture; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     context = GraphPPL.getcontext(model)
     mixture_node = first(filter(GraphPPL.as_node(Mixture), model))
     neighbors = model[GraphPPL.neighbors(model, mixture_node)]
@@ -1016,6 +1034,8 @@ end
 
 @testitem "default_constraints" begin
     import GraphPPL:
+        create_model,
+        with_plugins,
         default_constraints,
         getproperties,
         PluginsCollection,
@@ -1024,7 +1044,9 @@ end
         getextra,
         UnspecifiedConstraints
 
-    include("../../model_zoo.jl")
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     @test default_constraints(simple_model) == UnspecifiedConstraints
     @test default_constraints(model_with_default_constraints) == @constraints(
@@ -1033,7 +1055,7 @@ end
         end
     )
 
-    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin()))
+    model = create_model(with_plugins(contains_default_constraints(), PluginsCollection(VariationalConstraintsPlugin())))
     ctx = GraphPPL.getcontext(model)
     # Test that default constraints are applied
     for i in 1:10
@@ -1048,7 +1070,7 @@ end
             q(a, d) = q(a, d)
         end
     end
-    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    model = create_model(with_plugins(contains_default_constraints(), PluginsCollection(VariationalConstraintsPlugin(c))))
     ctx = GraphPPL.getcontext(model)
     for i in 1:10
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
@@ -1062,7 +1084,7 @@ end
             q(a, d) = q(a, d)
         end
     end
-    model = create_terminated_model(contains_default_constraints; plugins = PluginsCollection(VariationalConstraintsPlugin(c)))
+    model = create_model(with_plugins(contains_default_constraints(), PluginsCollection(VariationalConstraintsPlugin(c))))
     ctx = GraphPPL.getcontext(model)
     for i in 1:10
         node = model[ctx[model_with_default_constraints, i][NormalMeanVariance, 1]]
@@ -1083,7 +1105,8 @@ end
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(10))) == ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,))
 
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(1), 1)) == ((1,),)
-    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), 3)) == ((1, 2, 4, 5), (1, 2, 4, 5), (3,), (1, 2, 4, 5), (1, 2, 4, 5))
+    @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), 3)) ==
+        ((1, 2, 4, 5), (1, 2, 4, 5), (3,), (1, 2, 4, 5), (1, 2, 4, 5))
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(1), (1,))) == ((1,),)
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (1,))) == ((1,), (2,))
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(2), (2,))) == ((1,), (2,))

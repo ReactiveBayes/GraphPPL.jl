@@ -54,7 +54,9 @@ end
 @testitem "model constructor" begin
     import GraphPPL: create_model, Model
 
-    @test typeof(create_model()) <: Model
+    include("testutils.jl")
+
+    @test typeof(create_test_model()) <: Model
 
     @test_throws MethodError Model()
 end
@@ -62,7 +64,9 @@ end
 @testitem "NodeData constructor" begin
     import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     context = getcontext(model)
 
     @testset "FactorNodeProperties" begin
@@ -114,7 +118,9 @@ end
         hasextra,
         NodeDataExtraKey
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     context = getcontext(model)
 
     @testset for properties in (FactorNodeProperties(fform = String), VariableNodeProperties(name = :x, index = 1))
@@ -150,11 +156,14 @@ end
 end
 
 @testitem "factor_nodes" begin
-    import GraphPPL: factor_nodes, is_factor, labels
-    include("model_zoo.jl")
+    import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for modelfn in ModelsInTheZooWithoutArguments
+        model = create_model(modelfn())
         fnodes = collect(factor_nodes(model))
         for node in fnodes
             @test is_factor(model[node])
@@ -168,12 +177,14 @@ end
 end
 
 @testitem "factor_nodes with lambda function" begin
-    import GraphPPL: factor_nodes, is_factor, labels
+    import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(factor_nodes(model))
         factor_nodes(model) do label, nodedata
             @test is_factor(model[label])
@@ -191,11 +202,14 @@ end
 end
 
 @testitem "variable_nodes" begin
-    import GraphPPL: variable_nodes, is_variable, labels
-    include("model_zoo.jl")
+    import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         for node in fnodes
             @test is_variable(model[node])
@@ -209,12 +223,14 @@ end
 end
 
 @testitem "variable_nodes with lambda function" begin
-    import GraphPPL: variable_nodes, is_variable, labels
+    import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         variable_nodes(model) do label, nodedata
             @test is_variable(model[label])
@@ -233,9 +249,10 @@ end
 
 @testitem "variable_nodes with anonymous variables" begin
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
-
     using Distributions
     import GraphPPL: create_model, variable_nodes, getname
+
+    include("testutils.jl")
 
     @model function simple_submodel_with_2_anonymous_for_variable_nodes(z, x, y)
         # Creates two anonymous variables here
@@ -269,8 +286,10 @@ end
 @testitem "degree" begin
     import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
 
+    include("testutils.jl")
+
     for n in 5:10
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
 
         unused = getorcreate!(model, ctx, :unusued, nothing)
@@ -300,10 +319,14 @@ end
 end
 
 @testitem "is_constant" begin
-    import GraphPPL: is_constant, variable_nodes, getname, getproperties
-    include("model_zoo.jl")
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    import GraphPPL: create_model, is_constant, variable_nodes, getname, getproperties
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         for label in variable_nodes(model)
             node = model[label]
             props = getproperties(node)
@@ -318,15 +341,19 @@ end
 
 @testitem "is_data" begin
     import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
-    include("model_zoo.jl")
 
-    m = create_model()
+    include("testutils.jl")
+
+    m = create_test_model()
     ctx = getcontext(m)
     x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
     @test is_data(getproperties(m[x]))
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name)
+    using .TestUtils.ModelZoo
+
+    # Since the models here are without top arguments they cannot create `data` labels
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
         for label in variable_nodes(model)
             @test !is_data(getproperties(model[label]))
         end
@@ -335,6 +362,8 @@ end
 
 @testitem "NodeCreationOptions" begin
     import GraphPPL: NodeCreationOptions, withopts, withoutopts
+
+    include("testutils.jl")
 
     @test NodeCreationOptions() == NodeCreationOptions()
     @test keys(NodeCreationOptions()) === ()
@@ -375,9 +404,11 @@ end
 end
 
 @testitem "Check that factor node plugins are uniquely recreated" begin
-    import GraphPPL: getplugins, factor_nodes, PluginsCollection, setextra!, getextra
+    import GraphPPL: create_model, with_plugins, getplugins, factor_nodes, PluginsCollection, setextra!, getextra
 
-    include("model_zoo.jl")
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct AnArbitraryPluginForTestUniqeness end
 
@@ -391,8 +422,8 @@ end
         return label, nodedata
     end
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForTestUniqeness()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForTestUniqeness())))
         for f1 in factor_nodes(model), f2 in factor_nodes(model)
             if f1 !== f2
                 @test getextra(model[f1], :count) !== getextra(model[f2], :count)
@@ -415,9 +446,12 @@ end
         PluginsCollection,
         VariableNodeProperties,
         NodeCreationOptions,
-        create_terminated_model
+        create_model,
+        with_plugins
 
-    include("model_zoo.jl")
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     struct AnArbitraryPluginForChangingOptions end
 
@@ -428,8 +462,8 @@ end
         return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(kind = :constant, value = 1.0)))
     end
 
-    for model_name in [simple_model, vector_model, tensor_model, outer, multidim_array]
-        model = create_terminated_model(model_name; plugins = PluginsCollection(AnArbitraryPluginForChangingOptions()))
+    for model_fn in ModelsInTheZooWithoutArguments
+        model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForChangingOptions())))
         for v in variable_nodes(model)
             @test getname(getproperties(model[v])) === :x
             @test index(getproperties(model[v])) === nothing
@@ -441,6 +475,7 @@ end
 
 @testitem "proxy labels" begin
     import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
+
     y = NodeLabel(:y, 1)
 
     let p = ProxyLabel(:x, nothing, y)
@@ -532,9 +567,11 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, FactorNodeProperties, PluginCollection
+    import GraphPPL: getcontext, NodeLabel, NodeData, VariableNodeProperties, FactorNodeProperties, PluginCollection
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     model[NodeLabel(:μ, 1)] = NodeData(ctx, VariableNodeProperties(name = :μ, index = nothing))
     @test nv(model) == 1 && ne(model) == 0
@@ -552,9 +589,11 @@ end
 
 @testitem "setindex!(::Model, ::EdgeLabel, ::NodeLabel, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, EdgeLabel
+    import GraphPPL: getcontext, NodeLabel, NodeData, VariableNodeProperties, EdgeLabel
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
 
     μ = NodeLabel(:μ, 1)
@@ -586,7 +625,9 @@ end
 @testitem "getindex(::Model, ::NodeLabel)" begin
     import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, getproperties
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     label = NodeLabel(:x, 1)
     model[label] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
@@ -598,10 +639,12 @@ end
 
 @testitem "increase_count(::Model)" begin
     import GraphPPL: create_model, increase_count
-    model = create_model()
+
+    include("testutils.jl")
+
+    model = create_test_model()
 
     increase_count(model)
-
     @test model.counter == 1
     increase_count(model)
     @test model.counter == 2
@@ -610,7 +653,9 @@ end
 @testitem "nv_ne(::Model)" begin
     import GraphPPL: create_model, getcontext, nv, ne, NodeData, VariableNodeProperties, NodeLabel, EdgeLabel
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     @test isempty(model)
     @test nv(model) == 0
@@ -643,8 +688,10 @@ end
         add_edge!,
         getproperties
 
+    include("testutils.jl")
+
     # Test 1: Test getting all edges from a model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
@@ -666,7 +713,6 @@ end
 end
 
 @testitem "neighbors(::Model, ::NodeData)" begin
-    include("model_zoo.jl")
     import GraphPPL:
         create_model,
         getcontext,
@@ -680,7 +726,12 @@ end
         ResizableArray,
         add_edge!,
         getproperties
-    model = create_model()
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
     ctx = getcontext(model)
 
     a = NodeLabel(:a, 1)
@@ -690,7 +741,7 @@ end
     add_edge!(model, a, getproperties(model[a]), b, :edge, 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     a = ResizableArray(NodeLabel, Val(1))
     b = ResizableArray(NodeLabel, Val(1))
@@ -705,27 +756,30 @@ end
         @test n ∈ neighbors(model, a)
     end
     # Test 2: Test getting sorted neighbors
-    model = create_terminated_model(simple_model)
+    model = create_model(simple_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
     @test getname.(neighbors(model, node)) == [:z, :x, :y]
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
-    model = create_terminated_model(vector_model)
+    model = create_model(vector_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
     @test getname.(collect(neighbors(model, node))) == [:z, :x, :y]
 end
 
 @testitem "filter(::Predicate, ::Model)" begin
-    import GraphPPL: as_node, as_context, as_variable
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_node, as_context, as_variable
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     result = collect(filter(as_node(Normal) | as_variable(:x), model))
     @test length(result) == 3
 
-    model = create_terminated_model(outer)
+    model = create_model(outer())
     result = collect(filter(as_node(Gamma) & as_context(inner_inner), model))
     @test length(result) == 0
 
@@ -737,10 +791,13 @@ end
 end
 
 @testitem "filter(::FactorNodePredicate, ::Model)" begin
-    import GraphPPL: as_node, getcontext
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_node, getcontext
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     context = getcontext(model)
     result = filter(as_node(Normal), model)
     @test collect(result) == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
@@ -749,10 +806,13 @@ end
 end
 
 @testitem "filter(::VariableNodePredicate, ::Model)" begin
-    import GraphPPL: as_variable, getcontext, variable_nodes
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_variable, getcontext, variable_nodes
 
-    model = create_terminated_model(simple_model)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(simple_model())
     context = getcontext(model)
     result = filter(as_variable(:x), model)
     @test collect(result) == [context[:x]...]
@@ -761,10 +821,13 @@ end
 end
 
 @testitem "filter(::SubmodelPredicate, Model)" begin
-    import GraphPPL: as_context
-    include("model_zoo.jl")
+    import GraphPPL: create_model, as_context
 
-    model = create_terminated_model(outer)
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(outer())
 
     result = filter(as_context(inner), model)
     @test length(collect(result)) == 0
@@ -782,7 +845,9 @@ end
 @testitem "generate_nodelabel(::Model, ::Symbol)" begin
     import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     first_sym = generate_nodelabel(model, :x)
     @test typeof(first_sym) == NodeLabel
 
@@ -905,20 +970,25 @@ end
 @testitem "getcontext(::Model)" begin
     import GraphPPL: Context, getcontext, create_model, add_variable_node!, NodeCreationOptions
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     @test getcontext(model) == model.graph[]
     add_variable_node!(model, getcontext(model), NodeCreationOptions(), :x, nothing)
     @test getcontext(model)[:x] == model.graph[][:x]
 end
 
 @testitem "path_to_root(::Context)" begin
-    import GraphPPL: Context, path_to_root, getcontext
-    include("model_zoo.jl")
+    import GraphPPL: create_model, Context, path_to_root, getcontext
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
 
     ctx = Context()
     @test path_to_root(ctx) == [ctx]
 
-    model = create_terminated_model(outer)
+    model = create_model(outer())
     ctx = getcontext(model)
     inner_context = ctx[inner, 1]
     inner_inner_context = inner_context[inner_inner, 1]
@@ -926,16 +996,15 @@ end
 end
 
 @testitem "VarDict" begin
-    using GraphPPL
-    import GraphPPL: Context, VarDict
+    using Distributions
+    import GraphPPL:
+        Context, VarDict, create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
+
+    include("testutils.jl")
 
     ctx = Context()
     vardict = VarDict(ctx)
     @test isa(vardict, VarDict)
-
-    using Distributions
-
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
 
     @model function submodel(y, x_prev, x_next)
         γ ~ Gamma(1, 1)
@@ -1025,29 +1094,68 @@ end
 end
 
 @testitem "NodeType" begin
-    include("model_zoo.jl")
     import GraphPPL: NodeType, Composite, Atomic
-    @test NodeType(Composite) == Atomic()
-    @test NodeType(Atomic) == Atomic()
-    @test NodeType(abs) == Atomic()
-    @test NodeType(gcv) === Composite()
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
+
+    @test NodeType(model, Composite) == Atomic()
+    @test NodeType(model, Atomic) == Atomic()
+    @test NodeType(model, abs) == Atomic()
+    @test NodeType(model, Normal) == Atomic()
+    @test NodeType(model, NormalMeanVariance) == Atomic()
+    @test NodeType(model, NormalMeanPrecision) == Atomic()
+
+    # Could test all here 
+    for model_fn in ModelsInTheZooWithoutArguments
+        @test NodeType(model, model_fn) == Composite()
+    end
 end
 
-@testitem "create_model()" begin
+@testitem "NodeBehaviour" begin
+    import GraphPPL: NodeBehaviour, Deterministic, Stochastic
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
+
+    @test NodeBehaviour(model, () -> 1) == Deterministic()
+    @test NodeBehaviour(model, Matrix) == Deterministic()
+    @test NodeBehaviour(model, abs) == Deterministic()
+    @test NodeBehaviour(model, Normal) == Stochastic()
+    @test NodeBehaviour(model, NormalMeanVariance) == Stochastic()
+    @test NodeBehaviour(model, NormalMeanPrecision) == Stochastic()
+
+    # Could test all here 
+    for model_fn in ModelsInTheZooWithoutArguments
+        @test NodeBehaviour(model, model_fn) == Stochastic()
+    end
+end
+
+@testitem "create_test_model()" begin
     import GraphPPL: create_model, Model, nv, ne
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     @test typeof(model) <: Model && nv(model) == 0 && ne(model) == 0
 
-    @test_throws MethodError create_model(:x, :y, :z)
+    @test_throws MethodError create_test_model(:x, :y, :z)
 end
 
 @testitem "copy_markov_blanket_to_child_context" begin
     import GraphPPL:
         create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, ProxyLabel, unroll, getcontext, NodeCreationOptions
 
+    include("testutils.jl")
+
     # Test 1: Copy individual variables
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     function child end
     child_context = Context(ctx, child)
@@ -1058,7 +1166,7 @@ end
     @test child_context[:in1] === x
 
     # Test 2: Copy vector variables
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2)
@@ -1067,7 +1175,7 @@ end
     @test child_context[:in] === x
 
     # Test 3: Copy tensor variables
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
@@ -1078,7 +1186,7 @@ end
     @test child_context[:in] === x
 
     # Test 4: Do not copy constant variables
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     child_context = Context(ctx, child)
@@ -1086,14 +1194,14 @@ end
     @test !haskey(child_context, :in)
 
     # Test 5: Do not copy vector valued constant variables
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     child_context = Context(ctx, child)
     copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
     @test !haskey(child_context, :in)
 
     # Test 6: Copy ProxyLabel variables to child context
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     x = ProxyLabel(:x, nothing, x)
@@ -1148,9 +1256,11 @@ end
         getproperties,
         is_kind
 
+    include("testutils.jl")
+
     let # let block to suppress the scoping warnings
         # Test 1: Creation of regular one-dimensional variable
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         x = if !@isdefined(x)
             getorcreate!(model, ctx, :x, nothing)
@@ -1176,7 +1286,7 @@ end
         @test x == x2 && nv(model) == 1 && ne(model) == 0
 
         # Test 4: Test that creating a vector variable creates an array of the correct size
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, 1))
         @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
@@ -1204,7 +1314,7 @@ end
         end
 
         #Test 9: Test that creating a tensor variable creates a tensor of the correct size
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         z = if !@isdefined(z)
             getorcreate!(model, ctx, :z, 1, 1)
@@ -1249,7 +1359,7 @@ end
 
         # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
         let # force local scope
-            model = create_model()
+            model = create_test_model()
             ctx = getcontext(model)
             if !@isdefined(a)
                 getorcreate!(model, ctx, :a, nothing)
@@ -1269,7 +1379,7 @@ end
         end
 
         # Test 16. Test that the index is required to create a variable in the model
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         @test_throws ErrorException getorcreate!(model, ctx, :a)
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(), :a)
@@ -1277,13 +1387,13 @@ end
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2), :a)
 
         # Test 17. Range based getorcreate!
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, :a, 1:2)
         @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
 
         # Test 17.1 Range based getorcreate! should use the same options
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2)
         @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
@@ -1291,7 +1401,7 @@ end
         @test is_kind(getproperties(model[var[1]]), :data)
 
         # Test 18. Range x2 based getorcreate!
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, :a, 1:2, 1:3)
         @test nv(model) == 6
@@ -1300,7 +1410,7 @@ end
         end
 
         # Test 18. Range x2 based getorcreate! should use the same options
-        model = create_model()
+        model = create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2, 1:3)
         @test nv(model) == 6
@@ -1325,7 +1435,10 @@ end
         ProxyLabel,
         value,
         NodeCreationOptions
-    model = create_model()
+
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
 
     # Test case 1: check that getifcreated  the variable created by getorcreate
@@ -1358,20 +1471,20 @@ end
     @test output[1] == x && value(getproperties(model[output[2]])) == 1
 
     # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     z = getorcreate!(model, ctx, NodeCreationOptions(), :z, 1)
     z_fetched = getifcreated(model, ctx, z[1])
     @test z_fetched == z[1]
 
     # Test case 11: Test that getifcreated returns a constant node when we call it with a symbol
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     z = getifcreated(model, ctx, :Bernoulli)
     @test value(getproperties(model[z])) == :Bernoulli
 
     # Test case 12: Test that getifcreated returns a vector of NodeLabels if called with a vector of NodeLabels
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, nothing)
@@ -1379,7 +1492,7 @@ end
     @test z == [x, y]
 
     # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
@@ -1387,13 +1500,13 @@ end
     @test z == x
 
     # Test case 14: Test that getifcreated returns multiple variables if called with a tuple of constants
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     z = getifcreated(model, ctx, ([1, 1], 2))
     @test nv(model) == 2 && value(getproperties(model[z[1]])) == [1, 1] && value(getproperties(model[z[2]])) == 2
 
     # Test case 15: Test that getifcreated returns a ProxyLabel if called with a ProxyLabel
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     x = ProxyLabel(:x, nothing, x)
@@ -1416,8 +1529,10 @@ end
         is_constant,
         value
 
+    include("testutils.jl")
+
     # Test 1: simple add variable to model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     node_id = add_variable_node!(model, ctx, NodeCreationOptions(), :x, nothing)
     @test nv(model) == 1 && haskey(ctx.individual_variables, :x) && ctx.individual_variables[:x] == node_id
@@ -1431,7 +1546,7 @@ end
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), 1, 1)
 
     # Test 4: Add a vector variable to the model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     ctx[:x] = ResizableArray(NodeLabel, Val(1))
     node_id = add_variable_node!(model, ctx, NodeCreationOptions(), :x, 2)
@@ -1442,7 +1557,7 @@ end
     @test nv(model) == 2 && haskey(ctx, :x) && ctx[:x][1] == node_id && length(ctx[:x]) == 2
 
     # Test 6: Add a tensor variable to the model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     ctx[:x] = ResizableArray(NodeLabel, Val(2))
     node_id = add_variable_node!(model, ctx, NodeCreationOptions(), :x, (2, 3))
@@ -1453,7 +1568,7 @@ end
     @test nv(model) == 2 && haskey(ctx, :x) && ctx[:x][2, 4] == node_id
 
     # Test 9: Add a variable with a non-integer index
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     ctx[:z] = ResizableArray(NodeLabel, Val(2))
     @test_throws MethodError add_variable_node!(model, ctx, NodeCreationOptions(), :z, "a")
@@ -1466,7 +1581,7 @@ end
     @test_throws BoundsError add_variable_node!(model, ctx, NodeCreationOptions(), :x, -1)
 
     # Test 11: Add a variable with options
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     var = add_variable_node!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :x, nothing)
     @test nv(model) == 1 &&
@@ -1476,7 +1591,7 @@ end
         value(getproperties(model[var])) == 1.0
 
     # Test 12: Add a variable without options
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     var = add_variable_node!(model, ctx, :x, nothing)
     @test nv(model) == 1 && haskey(ctx, :x) && ctx[:x] == var
@@ -1486,43 +1601,45 @@ end
     using GraphPPL
     import GraphPPL: interface_aliases, StaticInterfaces
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :precision)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :τ)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :precision)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :τ)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :p)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :p)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :p)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :prec)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :m, :prec)))) === StaticInterfaces((:out, :μ, :τ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+    model = create_test_model()
 
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :τ)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :precision)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :τ)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :precision)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :precision)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :τ)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :p)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :p)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :p)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :prec)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :m, :prec)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :prec)))) === 0
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :precision)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :τ)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :p)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :prec)))) === StaticInterfaces((:out, :μ, :τ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :prec)))) === StaticInterfaces((:out, :μ, :τ))
 
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :σ)))) === StaticInterfaces((:out, :μ, :σ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :variance)))) === StaticInterfaces((:out, :μ, :σ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :μ, :variance)))) === StaticInterfaces((:out, :μ, :σ))
-    @test @inferred(interface_aliases(Normal, StaticInterfaces((:out, :mean, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :τ)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :precision)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :τ)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :precision)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :precision)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :τ)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :p)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :p)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :p)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :prec)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :m, :prec)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :prec)))) === 0
 
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :σ)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :variance)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :mean, :σ)))) === 0
-    @test @allocated(interface_aliases(Normal, StaticInterfaces((:out, :μ, :variance)))) === 0
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :variance)))) === StaticInterfaces((:out, :μ, :σ))
+    @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :σ)))) === StaticInterfaces((:out, :μ, :σ))
+
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :σ)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :variance)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :σ)))) === 0
+    @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :variance)))) === 0
 end
 
 @testitem "add_atomic_factor_node!" begin
@@ -1530,8 +1647,10 @@ end
     using Graphs
     import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, getcontext, getorcreate!, label_for, getname, NodeCreationOptions
 
+    include("testutils.jl")
+
     # Test 1: Add an atomic factor node to the model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
@@ -1558,7 +1677,7 @@ end
     @test_broken getname(node_id) == sum # TODO: (bvdmitri) check with Wouter
 
     # Test 5: Test that creating a node with an instantiated object is supported
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     prior = Normal(0, 1)
@@ -1571,8 +1690,10 @@ end
     using Graphs
     import GraphPPL: create_model, add_composite_factor_node!, getcontext, to_symbol, children, add_variable_node!, Context
 
+    include("testutils.jl")
+
     # Add a composite factor node to the model
-    model = create_model()
+    model = create_test_model()
     parent_ctx = getcontext(model)
     child_ctx = getcontext(model)
     add_variable_node!(model, child_ctx, :x, nothing)
@@ -1603,7 +1724,9 @@ end
     import GraphPPL:
         create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, generate_nodelabel, NodeCreationOptions
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
@@ -1618,7 +1741,10 @@ end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
     import GraphPPL: create_model, getcontext, nv, ne, NodeData, NodeLabel, EdgeLabel, add_edge!, getorcreate!, NodeCreationOptions
-    model = create_model()
+
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
@@ -1631,25 +1757,32 @@ end
 end
 
 @testitem "default_parametrization" begin
-    include("model_zoo.jl")
     import GraphPPL: default_parametrization, Composite, Atomic
 
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
+
     # Test 1: Add default arguments to Normal call
-    @test default_parametrization(Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
+    @test default_parametrization(model, Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
 
     # Test 2: Add :in to function call that has default behaviour 
-    @test default_parametrization(Atomic(), +, (1, 2)) == (in = (1, 2),)
+    @test default_parametrization(model, Atomic(), +, (1, 2)) == (in = (1, 2),)
 
     # Test 3: Add :in to function call that has default behaviour with nested interfaces
-    @test default_parametrization(Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
+    @test default_parametrization(model, Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
 
-    @test_throws ErrorException default_parametrization(Composite(), gcv, (1, 2))
+    @test_throws ErrorException default_parametrization(model, Composite(), gcv, (1, 2))
 end
 
 @testitem "contains_nodelabel" begin
     import GraphPPL: create_model, getcontext, getorcreate!, contains_nodelabel, NodeCreationOptions, True, False, MixedArguments
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     a = getorcreate!(model, ctx, :x, nothing)
     b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :x, nothing)
@@ -1685,9 +1818,7 @@ end
 end
 
 @testitem "make_node!(::Atomic)" begin
-    include("model_zoo.jl")
-    using Graphs
-    using BitSetTuples
+    using Graphs, BitSetTuples
     import GraphPPL:
         getcontext,
         make_node!,
@@ -1703,8 +1834,11 @@ end
         value,
         NodeCreationOptions,
         getproperties
+
+    include("testutils.jl")
+
     # Test 1: Deterministic call returns result of deterministic function and does not create new node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1719,7 +1853,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1727,7 +1861,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -1737,7 +1871,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 5: Deterministic atomic call with nodelabels should create the actual node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -1747,7 +1881,7 @@ end
     @test nv(model) == 4
 
     # Test 6: Stochastic node with default arguments
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1757,7 +1891,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 7: Stochastic node with instantiated object
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     uprior = Normal(0, 1)
@@ -1766,7 +1900,7 @@ end
     @test nv(model) == 2
 
     # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -1775,7 +1909,7 @@ end
     @test_throws AssertionError make_node!(model, ctx, options, +, out, (in = in1, out = in2))
 
     # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -1783,7 +1917,7 @@ end
     @test nv(model) == 3 && value(getproperties(model[ctx[:constvar_2]])) == [0, 1]
 
     # Test 9: Stochastic node with all interfaces defined as constants
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -1796,7 +1930,7 @@ end
     function abc(; a = 1, b = 2)
         return a + b
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -1806,14 +1940,14 @@ end
     function abc(a; b = 2)
         return a + b
     end
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
     @test make_node!(model, ctx, options, abc, out, MixedArguments((2,), (b = 2,))) == (nothing, 4)
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -1821,7 +1955,7 @@ end
     @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments((a,), (b = 2,)))
 
     # Test 13: Make stochastic node with aliases
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1829,7 +1963,7 @@ end
     @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1837,7 +1971,7 @@ end
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1846,7 +1980,7 @@ end
     @test nv(model) == 4
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1859,7 +1993,7 @@ end
     @test nv(model) == 4
 
     # Test 15.1: Make stochastic node with aliased interfaces
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1872,7 +2006,7 @@ end
     end
 
     # Test 15.2: Make stochastic node with aliased interfaces
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1891,7 +2025,9 @@ end
     import GraphPPL:
         getcontext, materialize_factor_node!, create_model, getorcreate!, ProxyLabel, prune!, getname, label_for, edges, NodeCreationOptions
 
-    model = create_model()
+    include("testutils.jl")
+
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1903,7 +2039,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1911,7 +2047,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -1921,7 +2057,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1935,11 +2071,15 @@ end
 end
 
 @testitem "make_node!(::Composite)" begin
-    include("model_zoo.jl")
-    using Graphs
+    using MetaGraphsNext, Graphs
     import GraphPPL: getcontext, make_node!, create_model, getorcreate!, ProxyLabel, NodeCreationOptions
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
     #test make node for priors
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1948,14 +2088,14 @@ end
     @test ctx[prior, 1][:a] === ProxyLabel(:x, nothing, x)
 
     #test make node for other composite models
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, x), (0, 1))
 
     # test make node of broadcastable composite model
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -1968,15 +2108,17 @@ end
     using Graphs
     import GraphPPL: create_model, getcontext, getorcreate!, prune!, create_model, getorcreate!, add_edge!, NodeCreationOptions
 
+    include("testutils.jl")
+
     # Test 1: Prune a node with no edges
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     x = getorcreate!(model, ctx, :x, nothing)
     prune!(model)
     @test nv(model) == 0
 
     # Test 2: Prune two nodes
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1992,8 +2134,10 @@ end
 @testitem "broadcast" begin
     import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, Broadcasted, NodeCreationOptions
 
+    include("testutils.jl")
+
     # Test 1: Broadcast a vector node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1)
@@ -2006,7 +2150,7 @@ end
     @test size(z) == (2,)
 
     # Test 2: Broadcast a matrix node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1, 1)
@@ -2024,7 +2168,7 @@ end
     @test size(z) == (2, 2)
 
     # Test 3: Broadcast a vector node with a matrix node
-    model = create_model()
+    model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, 1)
@@ -2050,39 +2194,80 @@ end
     end
 end
 
+@testitem "missing_interfaces" begin
+    import GraphPPL: missing_interfaces, interfaces
+
+    include("testutils.jl")
+
+    model = create_test_model()
+
+    function abc end
+
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInt{3}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
+
+    @test missing_interfaces(model, abc, static(3), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces((:out,))
+    @test missing_interfaces(model, abc, static(3), (out = :y,)) == GraphPPL.StaticInterfaces((:in1, :in2))
+    @test missing_interfaces(model, abc, static(3), NamedTuple()) == GraphPPL.StaticInterfaces((:in1, :in2, :out))
+
+    function xyz end
+
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInt{0}) = GraphPPL.StaticInterfaces(())
+    @test missing_interfaces(model, xyz, static(0), (in1 = :x, in2 = :y)) == GraphPPL.StaticInterfaces(())
+
+    function foo end
+
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(foo), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:a, :b))
+    @test missing_interfaces(model, foo, static(2), (a = 1, b = 2)) == GraphPPL.StaticInterfaces(())
+
+    function bar end
+    GraphPPL.interfaces(::TestUtils.TestGraphPPLBackend, ::typeof(bar), ::StaticInt{2}) = GraphPPL.StaticInterfaces((:in1, :in2, :out))
+    @test missing_interfaces(model, bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
+end
+
 @testitem "sort_interfaces" begin
     import GraphPPL: sort_interfaces
-    include("model_zoo.jl")
+
+    include("testutils.jl")
+
+    model = create_test_model()
 
     # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
-    @test sort_interfaces(NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
 
-    @test_throws ErrorException sort_interfaces(NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
+    @test_throws ErrorException sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
 end
 
 @testitem "prepare_interfaces" begin
     import GraphPPL: prepare_interfaces
-    include("model_zoo.jl")
 
-    @test prepare_interfaces(anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
-    @test prepare_interfaces(anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
+    include("testutils.jl")
 
-    @test prepare_interfaces(type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
-    @test prepare_interfaces(type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
+    using .TestUtils.ModelZoo
+
+    model = create_test_model()
+
+    @test prepare_interfaces(model, anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
+    @test prepare_interfaces(model, anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
+
+    @test prepare_interfaces(model, type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
+    @test prepare_interfaces(model, type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
 end
 
 @testitem "save and load graph" begin
-    using GraphPPL
+    import GraphPPL: create_model, with_plugins, savegraph, loadgraph, getextra, as_node
 
-    include("model_zoo.jl")
-    model = create_terminated_model(vector_model; plugins = GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    model = create_model(with_plugins(vector_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     mktemp() do file, io
         file = file * ".jld2"
         @show file
@@ -2094,4 +2279,28 @@ end
                 GraphPPL.getextra(model2[node2], :factorization_constraint_bitset)
         end
     end
+end
+
+@testitem "factor_alias" begin 
+    import GraphPPL: factor_alias, StaticInterfaces
+
+    include("testutils.jl")
+
+    function abc end
+    function xyz end
+
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInterfaces{(:a, :b)}) = abc
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(abc), ::StaticInterfaces{(:x, :y)}) = xyz
+
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:a, :b)}) = abc
+    GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:x, :y)}) = xyz
+
+    model = create_test_model()
+
+    @test factor_alias(model, abc, StaticInterfaces((:a, :b))) === abc
+    @test factor_alias(model, abc, StaticInterfaces((:x, :y))) === xyz
+
+    @test factor_alias(model, xyz, StaticInterfaces((:a, :b))) === abc
+    @test factor_alias(model, xyz, StaticInterfaces((:x, :y))) === xyz
+
 end

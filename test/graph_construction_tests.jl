@@ -4,7 +4,6 @@
 
 @testitem "Simple model 1" begin
     using Distributions
-
     import GraphPPL:
         create_model,
         getcontext,
@@ -16,6 +15,8 @@
         as_node,
         as_variable,
         degree
+
+    include("testutils.jl")
 
     @model function simple_model_1()
         x ~ Normal(0, 1)
@@ -48,7 +49,9 @@ end
 
 @testitem "Simple model 2" begin
     using Distributions
-    using GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, prune!
+    import GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, prune!
+
+    include("testutils.jl")
 
     @model function simple_model_2(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
@@ -69,8 +72,9 @@ end
 
 @testitem "Simple model but wrong indexing into a single random variable" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions
+
+    include("testutils.jl")
 
     @model function simple_model_with_wrong_indexing(y)
         x ~ MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])
@@ -87,8 +91,9 @@ end
 
 @testitem "Simple model with lazy data (number) creation" begin
     using Distributions
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
 
-    using GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
+    include("testutils.jl")
 
     @model function simple_model_3(a, b, c, d)
         x ~ Beta(a, b)
@@ -115,8 +120,9 @@ end
 
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    include("testutils.jl")
 
     @model function simple_submodel_3(T, x, y, Λ)
         T ~ Normal(x + y, Λ)
@@ -166,8 +172,9 @@ end
 
 @testitem "Simple model with lazy data creation with attached data" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    include("testutils.jl")
 
     @model function simple_model_4_withlength(y, Σ)
         m ~ Beta(1, 1)
@@ -287,8 +294,9 @@ end
 
 @testitem "Simple model with lazy data creation with attached data but out of bounds" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+
+    include("testutils.jl")
 
     @model function simple_model_a_vector(a)
         x ~ Beta(a[1], a[2]) # In the test the provided `a` will either a scalar or a vector of length 1
@@ -408,8 +416,9 @@ end
 
 @testitem "Simple state space model" begin
     using Distributions
-
     import GraphPPL: create_model, add_toplevel_model!, degree
+
+    include("testutils.jl")
 
     # Test that graph construction creates the right amount of nodes and variables in a simple state space model
     @model function state_space_model(n)
@@ -422,7 +431,7 @@ end
         end
     end
     for n in [10, 30, 50, 100, 1000]
-        model = create_model()
+        model = create_test_model()
         add_toplevel_model!(model, state_space_model, (n = n,))
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_variable(:x), model))) == n
@@ -441,8 +450,9 @@ end
 
 @testitem "Simple state space model with lazy data creation with attached data" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_random, is_data, degree
+
+    include("testutils.jl")
 
     @model function state_space_model_with_lazy_data(y, Σ)
         x[1] ~ Normal(0, 1)
@@ -495,10 +505,11 @@ end
 
 @testitem "Nested model structure" begin
     using Distributions
-
     import GraphPPL: create_model, add_toplevel_model!
-    # Test that graph construction creates the right amount of nodes and variables in a nested model structure
 
+    include("testutils.jl")
+
+    # Test that graph construction creates the right amount of nodes and variables in a nested model structure
     @model function gcv(κ, ω, z, x, y)
         log_σ := κ * z + ω
         y ~ Normal(x, exp(log_σ))
@@ -551,8 +562,9 @@ end
 
 @testitem "Force create a new variable with the `new` syntax" begin
     using Distributions
-
     import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions
+
+    include("testutils.jl")
 
     @model function submodel(y, x_prev, x_next)
         x_next ~ Normal(x_prev, 1)
@@ -596,8 +608,9 @@ end
 
 @testitem "Anonymous variables should not be created from arithmetical operations on pure constants" begin
     using Distributions, LinearAlgebra
-
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+
+    include("testutils.jl")
 
     @model function mv_iid_inverse_wishart_known_mean(y, d)
         m ~ MvNormal(zeros(d + 1 - 1 + 1 - 1), Matrix(Diagonal(ones(d + 1 - 1 + 1 - 1))))
@@ -640,9 +653,9 @@ end
 @testitem "Aliases in the model should be resolved automatically" begin
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, fform, factor_nodes, getproperties
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    @model function aliases(s4)
+    @model function aliases_for_normal(s4)
         r1 ~ Normal(μ = 1.0, τ = 1.0)
         r2 ~ Normal(m = r1, γ = 1.0)
         r3 ~ Normal(mean = r2, σ⁻² = 1.0)
@@ -657,7 +670,7 @@ end
         s4 ~ Normal(mean = s3, variance = 1.0)
     end
 
-    model = create_model(aliases()) do model, ctx
+    model = create_model(aliases_for_normal()) do model, ctx
         return (; s4 = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :s4, nothing))
     end
 
@@ -672,8 +685,9 @@ end
 
 @testitem "Submodels can be used in the keyword arguments" begin
     using Distributions, LinearAlgebra
-
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+
+    include("testutils.jl")
 
     @model function prod_distributions(a, b, c)
         a ~ b * c
@@ -715,40 +729,26 @@ end
     @test length(collect(filter(as_variable(:x), model))) === 10
 end
 
-@testitem "Simple operators like `+` should add brackets automatically" begin
-    # This is essentially a fix for `ReactiveMP` that cannot handle the `+` node 
-    # with more than 2 inputs, but in general GraphPPL should not really do this 
-    # Instead we should expose the API for pipelines in the `@model` macro
+@testitem "Using distribution objects as priors" begin
+    using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
 
-    include("model_zoo.jl")
+    include("testutils.jl")
 
-    @model function summation_with_plus(d)
-        s1 ~ Normal(1.0, 1.0)
-        s2 ~ Normal(1.0, 1.0)
-        s3 ~ Normal(1.0, 1.0)
-        s4 ~ Normal(1.0, 1.0)
-        s5 ~ Normal(1.0, 1.0)
-        s ~ s1 + s2 + s3 + s4 + s5
-        d ~ Normal(s, 1.0)
-    end
-
-    @model function summation_with_sum(d)
-        s1 ~ Normal(1.0, 1.0)
-        s2 ~ Normal(1.0, 1.0)
-        s3 ~ Normal(1.0, 1.0)
-        s4 ~ Normal(1.0, 1.0)
-        s5 ~ Normal(1.0, 1.0)
-        s ~ sum(s1, s2, s3, s4, s5)
-        d ~ Normal(s, 1.0)
-    end
-
-    for modelspec in [summation_with_plus, summation_with_sum]
-        model = create_model(modelspec()) do model, ctx
-            return (; d = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :d, LazyIndex(1.0)))
+    @model function coin_model_priors(y, prior)
+        θ ~ prior
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
         end
-
-        @test length(collect(filter(as_node(Normal), model))) === 6
-        @test length(collect(filter(as_node(sum), model))) === 4
     end
+
+    ydata = rand(10)
+    prior = Beta(1, 1)
+
+    model = create_model(coin_model_priors(prior = prior)) do model, context 
+        return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata)))
+    end
+
+    @test length(collect(filter(as_node(Bernoulli), model))) === 10
+    @test length(collect(filter(as_node(prior), model))) === 1
 end
