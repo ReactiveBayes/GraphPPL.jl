@@ -9,10 +9,6 @@ function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
     return (
         GraphPPL.check_reserved_variable_names_model,
         GraphPPL.warn_datavar_constvar_randomvar,
-        # The `compose_simple_operators_with_brackets` pipeline is a workaround for 
-        # `RxInfer` inference backend, which cannot handle the multi-argument operators
-        # TODO (bvdmitri): Move this to an RxInfer specific backend
-        GraphPPL.compose_simple_operators_with_brackets,
         GraphPPL.save_expression_in_tilde,
         GraphPPL.convert_deterministic_statement,
         GraphPPL.convert_local_statement,
