@@ -1248,4 +1248,8 @@ end
         end
     end
 
+    constraints_5 = @constraints begin
+        q(prec, y) = q(prec[(1,1):(3, 3)])q(y)
+    end
+    @test_throws GraphPPL.Graphs.NotImplementedError model = create_terminated_model(uneven_matrix; plugins = PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
 end

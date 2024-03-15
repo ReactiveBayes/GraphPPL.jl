@@ -725,6 +725,14 @@ function resolve(model::Model, context::Context, variable::IndexedVariable)
     return __resolve(model, global_label)
 end
 
+resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} = throw(Graphs.NotImplementedError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
+
+
+function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
+    global_label = unroll(context[getname(variable)])[CartesianIndex(firstindex(index(variable))):CartesianIndex(lastindex(index(variable)))]
+    return __resolve(model, global_label)
+end
+
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
     vfiltered = filter(variable -> haskey(context, getname(variable)), getvariables(constraint))
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
