@@ -842,11 +842,7 @@ end
         ResizableArray
 
     context = GraphPPL.Context()
-    insert!(
-        context.vector_variables,
-        :w,
-        ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)])
-    )
+    context[:w] = ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)])
 
     insert!(
         context.tensor_variables,
