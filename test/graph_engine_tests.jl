@@ -1343,7 +1343,7 @@ end
         @test_throws ErrorException z = if !@isdefined(z)
             getorcreate!(model, ctx, :z, nothing)
         else
-            (check_variate_compatability(z, :z) ? z : getorcreate!(model, ctx, :z, nothing))
+            (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, nothing))
         end
 
         #Test 13: Test that getting this variable with an index that is too small does not work
