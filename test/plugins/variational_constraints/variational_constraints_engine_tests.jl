@@ -843,14 +843,9 @@ end
 
     context = GraphPPL.Context()
     context[:w] = ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)])
-
-    insert!(
-        context.tensor_variables,
-        :prec,
-        ResizableArray([
-            [NodeLabel(:prec, 1), NodeLabel(:prec, 2), NodeLabel(:prec, 3)], [NodeLabel(:prec, 4), NodeLabel(:prec, 5), NodeLabel(:prec, 6)]
-        ])
-    )
+    context[:prec] =  ResizableArray([
+        [NodeLabel(:prec, 1), NodeLabel(:prec, 2), NodeLabel(:prec, 3)], [NodeLabel(:prec, 4), NodeLabel(:prec, 5), NodeLabel(:prec, 6)]
+    ])
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
     node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
@@ -1269,7 +1264,7 @@ end
     model = create_model(with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_4))))
     ctx = getcontext(model)
     for node in filter(as_node(Normal), model)
-        if ctx[:prec][1, 3] ∈ GraphPPL.neighbors(model, node)
+        if any(x -> x ∈ GraphPPL.neighbors(model, node), ctx[:prec][1, 3])
             @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
         else
             @test getextra(model[node], :factorization_constraint_indices) == ([1, 3], [2])
@@ -1281,5 +1276,38 @@ end
     end
     @test_throws GraphPPL.Graphs.NotImplementedError model = create_model(
         with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
+    )
+
+    @test_throws GraphPPL.Graphs.NotImplementedError constraints_5 = @constraints begin
+        q(prec, y) = q(prec[(1, 1)])..q(prec[(3, 3)])q(y)
+    end
+
+
+    @model function inner_matrix(y, mat)
+        for i in 1:2
+            for j in 1:2
+                mat[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ Normal(mat[1, 1], mat[2, 2])
+    end
+
+
+    @model function outer_matrix()
+        local mat
+        for i in 1:3
+            for j in 1:3
+                mat[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ inner_matrix(mat = mat[2:3, 2:3])
+    end
+
+    constraints_6 = @constraints begin
+        for q in inner_matrix
+            q(mat, y) = q(mat)q(y)
+        end
+    end
+    @test_broken model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
     )
 end

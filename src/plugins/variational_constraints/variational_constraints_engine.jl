@@ -90,6 +90,7 @@ __factorization_split_merge_range(a::Int, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::Int, b::FunctionalIndex) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::FunctionalIndex) = SplittedRange(a, b)
+__factorization_split_merge_range(a::NTuple{N, Int}, b::NTuple{N, Int}) where {N} = throw(Graphs.NotImplementedError("q(var[firstindex])..q(var[lastindex]) for index dimension $N (constraint specified with $a and $b as endpoints)")) 
 __factorization_split_merge_range(a::Any, b::Any) = error("Cannot merge $(a) and $(b) indexes in `factorization_split`")
 
 """

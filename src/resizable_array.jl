@@ -149,7 +149,7 @@ function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
     return ResizableArray(result)
 end
 
-__length(array::ResizableArray{T, V, N}) where {T, V, N} = length(array) == 0 ? 0 : __recursive_length(Val(N), array.data)
+__length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
 
 function __recursive_length(::Val{N}, array) where {N}
     if length(array) == 0

@@ -880,6 +880,7 @@ check_variate_compatability(node::NodeLabel, index) =
     error("Cannot call single random variable on the left-hand-side by an indexed statement")
 
 check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
+check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
 
 function check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index...) where {V, N}
     if !(length(index) == N)
