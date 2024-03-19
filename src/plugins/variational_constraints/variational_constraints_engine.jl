@@ -693,7 +693,7 @@ function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLab
 
     # We have to test whether or not the `ResizableArray` of labels passed is a slice. If it is, we throw because the constraint is unresolvable
     if CartesianIndex(index(getproperties(fdata))) != findex || CartesianIndex(index(getproperties(ldata))) != lindex
-        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
+        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))). Did you pass a slice of the variable to a submodel, and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported.")
     end
 
     if getname(getproperties(fdata)) != getname(getproperties(ldata))

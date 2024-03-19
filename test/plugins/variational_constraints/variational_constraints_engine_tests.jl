@@ -1308,6 +1308,6 @@ end
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_broken model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
+    @test_throws ErrorException model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
     )
 end
