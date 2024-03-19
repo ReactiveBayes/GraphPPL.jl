@@ -752,3 +752,72 @@ end
     @test length(collect(filter(as_node(Bernoulli), model))) === 10
     @test length(collect(filter(as_node(prior), model))) === 1
 end
+
+@testitem "Model that passes a slice to child model" begin
+    using GraphPPL
+    include("testutils.jl")
+
+    @model function mixed_v(y, v)
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function mixed_m()
+        local m
+        for i in 1:3
+            for j in 1:3
+                m[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ mixed_v(v = m[:, 1])
+    end
+
+    model = GraphPPL.create_model(mixed_m()) 
+    context = GraphPPL.getcontext(model)
+
+    @test haskey(context[mixed_v, 1], :v)
+
+end
+
+@testitem "Model that constructs a new array to pass to children" begin
+    using GraphPPL
+    include("testutils.jl")
+
+    @model function mixed_v(y, v)
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function mixed_m()
+        v1 ~ Normal(0, 1)
+        v2 ~ Normal(0, 1)
+        v3 ~ Normal(0, 1)
+        y ~ mixed_v(v = [v1, v2, v3])
+    end
+
+    model = GraphPPL.create_model(mixed_m()) 
+    context = GraphPPL.getcontext(model)
+
+    @test haskey(context[mixed_v, 1], :v)
+
+    @model function mixed_v(y, v)
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function mixed_m()
+        v1 ~ Normal(0, 1)
+        v2 ~ Normal(0, 1)
+        v3 ~ Normal(0, 1)
+        v = Matrix([v1 v2; v1 v3])
+        y ~ mixed_v(v = v)
+    end
+
+    @test_throws GraphPPL.NotImplementedError local model = GraphPPL.create_model(mixed_m()) 
+end

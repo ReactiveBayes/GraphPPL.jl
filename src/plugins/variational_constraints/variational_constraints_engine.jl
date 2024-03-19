@@ -735,12 +735,15 @@ resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{
     throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
-    global_label = unroll(context[getname(variable)])[firstindex(index(variable)):lastindex(index(variable))]
+    global_label = view(unroll(context[getname(variable)]), firstindex(index(variable)):lastindex(index(variable)))
     return __resolve(model, global_label)
 end
 
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
     vfiltered = filter(variable -> haskey(context, getname(variable)), getvariables(constraint))
+    if length(vfiltered) != length(getvariables(constraint))
+        @warn "Some variables in factorization constraint $constraint are not present in the context."
+    end
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
     rhs = map(
         entry -> begin
