@@ -1310,11 +1310,53 @@ end
         y ~ inner_matrix(mat = mat[2:3, 2:3])
     end
 
-    constraints_6 = @constraints begin
+    constraints_7 = @constraints begin
         for q in inner_matrix
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
     )
+
+    @model function mixed_v(y, v)
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function mixed_m()
+        v1 ~ Normal(0, 1)
+        v2 ~ Normal(0, 1)
+        v3 ~ Normal(0, 1)
+        v = GraphPPL.ResizableArray([v1, v2, v3])
+        y ~ mixed_v(v = v)
+    end
+
+    constraints_8 = @constraints begin
+        for q in mixed_v
+            q(v, y) = q(v)q(y)
+        end
+    end
+
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(mixed_m(), PluginsCollection(VariationalConstraintsPlugin(constraints_8))))
+
+    @model function ordinary_v()
+        local v
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    constraints_9 = @constraints begin
+        q(v[1:2]) = q(v[1])q(v[2])
+        q(v, y) = q(v)q(y)
+    end
+
+    model = create_model(with_plugins(ordinary_v(), PluginsCollection(VariationalConstraintsPlugin(constraints_9))))
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
 end

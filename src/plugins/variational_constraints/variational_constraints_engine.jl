@@ -22,18 +22,7 @@ end
 Base.firstindex(range::CombinedRange) = range.from
 Base.lastindex(range::CombinedRange) = range.to
 Base.in(item, range::CombinedRange) = firstindex(range) <= item <= lastindex(range)
-Base.in(item::Int, range::CombinedRange{NTuple{N, Int}, NTuple{N, Int}}) where {N} = firstindex(range)[1] <= item <= lastindex(range)[1]
 Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
-function Base.in(item::NTuple{N, Int}, range::CombinedRange{NTuple{M, Int}, NTuple{M, Int}}) where {N, M}
-    if N > M
-        throw(IndexError("Tuple length $(N) is greater than range length $(M)"))
-    elseif N == M
-        return firstindex(range) <= item <= lastindex(range)
-    else
-        nrange = CombinedRange(firstindex(range).I[1:N], lastindex(range).I[1:N])
-        return in(item, nrange)
-    end
-end
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
 
