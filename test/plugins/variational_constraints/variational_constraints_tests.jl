@@ -578,7 +578,9 @@ end
         as_variable,
         PluginsCollection,
         VariationalConstraintsPlugin,
-        with_plugins
+        with_plugins,
+        VariationalConstraintsMarginalFormConstraintKey,
+        VariationalConstraintsMessagesFormConstraintKey
 
     include("../../testutils.jl")
 
@@ -607,14 +609,14 @@ end
         @test length(zvariables) === 1
         @test length(xvariables) === 1
         @test length(yvariables) === 1
-        @test hasextra(first(zvariables), :posterior_form_constraint)
-        @test getextra(first(zvariables), :posterior_form_constraint) === SomeArbitraryFormConstraint1()
-        @test !hasextra(first(zvariables), :message_form_constraint)
+        @test hasextra(first(zvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test getextra(first(zvariables), VariationalConstraintsMarginalFormConstraintKey) === SomeArbitraryFormConstraint1()
+        @test !hasextra(first(zvariables), VariationalConstraintsMessagesFormConstraintKey)
 
-        @test !hasextra(first(xvariables), :posterior_form_constraint)
-        @test !hasextra(first(xvariables), :message_form_constraint)
-        @test !hasextra(first(yvariables), :posterior_form_constraint)
-        @test !hasextra(first(yvariables), :message_form_constraint)
+        @test !hasextra(first(xvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(xvariables), VariationalConstraintsMessagesFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMessagesFormConstraintKey)
     end
 
     @testset "Messages functional form constraints" begin
@@ -633,14 +635,14 @@ end
         @test length(zvariables) === 1
         @test length(xvariables) === 1
         @test length(yvariables) === 1
-        @test hasextra(first(zvariables), :message_form_constraint)
-        @test getextra(first(zvariables), :message_form_constraint) === SomeArbitraryFormConstraint2()
-        @test !hasextra(first(zvariables), :posterior_form_constraint)
+        @test hasextra(first(zvariables), VariationalConstraintsMessagesFormConstraintKey)
+        @test getextra(first(zvariables), VariationalConstraintsMessagesFormConstraintKey) === SomeArbitraryFormConstraint2()
+        @test !hasextra(first(zvariables), VariationalConstraintsMarginalFormConstraintKey)
 
-        @test !hasextra(first(xvariables), :posterior_form_constraint)
-        @test !hasextra(first(xvariables), :message_form_constraint)
-        @test !hasextra(first(yvariables), :posterior_form_constraint)
-        @test !hasextra(first(yvariables), :message_form_constraint)
+        @test !hasextra(first(xvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(xvariables), VariationalConstraintsMessagesFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMessagesFormConstraintKey)
     end
 
     @testset "Both posteriors and messages functional form constraints" begin
@@ -660,20 +662,31 @@ end
         @test length(zvariables) === 1
         @test length(xvariables) === 1
         @test length(yvariables) === 1
-        @test hasextra(first(zvariables), :posterior_form_constraint)
-        @test getextra(first(zvariables), :posterior_form_constraint) === SomeArbitraryFormConstraint1()
-        @test hasextra(first(zvariables), :message_form_constraint)
-        @test getextra(first(zvariables), :message_form_constraint) === SomeArbitraryFormConstraint2()
+        @test hasextra(first(zvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test getextra(first(zvariables), VariationalConstraintsMarginalFormConstraintKey) === SomeArbitraryFormConstraint1()
+        @test hasextra(first(zvariables), VariationalConstraintsMessagesFormConstraintKey)
+        @test getextra(first(zvariables), VariationalConstraintsMessagesFormConstraintKey) === SomeArbitraryFormConstraint2()
 
-        @test !hasextra(first(xvariables), :posterior_form_constraint)
-        @test !hasextra(first(xvariables), :message_form_constraint)
-        @test !hasextra(first(yvariables), :posterior_form_constraint)
-        @test !hasextra(first(yvariables), :message_form_constraint)
+        @test !hasextra(first(xvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(xvariables), VariationalConstraintsMessagesFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(first(yvariables), VariationalConstraintsMessagesFormConstraintKey)
     end
 end
 
 @testitem "@constraints macro pipeline" begin
-    import GraphPPL: create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getname, getextra, hasextra, with_plugins
+    import GraphPPL:
+        create_model,
+        with_plugins,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        getname,
+        getextra,
+        hasextra,
+        with_plugins,
+        VariationalConstraintsMarginalFormConstraintKey,
+        VariationalConstraintsMessagesFormConstraintKey,
+        VariationalConstraintsFactorizationIndicesKey
 
     include("../../testutils.jl")
 
@@ -690,19 +703,19 @@ end
     ctx = GraphPPL.getcontext(model)
 
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test getextra(model[node], :posterior_form_constraint) == NormalMeanVariance()
-        @test !hasextra(model[node], :message_form_constraint)
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == NormalMeanVariance()
+        @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test !hasextra(model[node], :posterior_form_constraint)
-        @test getextra(model[node], :message_form_constraint) == NormalMeanVariance()
+        @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
+        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == NormalMeanVariance()
     end
     for node in filter(GraphPPL.as_variable(:z), model)
-        @test !hasextra(model[node], :posterior_form_constraint)
-        @test !hasextra(model[node], :message_form_constraint)
+        @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
+        @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
     end
-    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1,), (2,), (3,))
-    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 2]], :factorization_constraint_indices)) == ((1, 2), (3,))
+    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) == ((1,), (2,), (3,))
+    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 2]], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
 
     # Test constriants macro with nested model
     constraints = @constraints begin
@@ -715,21 +728,21 @@ end
     model = create_model(with_plugins(outer(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test hasextra(model[ctx[:w][1]], :posterior_form_constraint) === false
-    @test hasextra(model[ctx[:w][2]], :posterior_form_constraint) === false
-    @test hasextra(model[ctx[:w][3]], :posterior_form_constraint) === false
-    @test hasextra(model[ctx[:w][4]], :posterior_form_constraint) === false
-    @test hasextra(model[ctx[:w][5]], :posterior_form_constraint) === false
+    @test hasextra(model[ctx[:w][1]], VariationalConstraintsMarginalFormConstraintKey) === false
+    @test hasextra(model[ctx[:w][2]], VariationalConstraintsMarginalFormConstraintKey) === false
+    @test hasextra(model[ctx[:w][3]], VariationalConstraintsMarginalFormConstraintKey) === false
+    @test hasextra(model[ctx[:w][4]], VariationalConstraintsMarginalFormConstraintKey) === false
+    @test hasextra(model[ctx[:w][5]], VariationalConstraintsMarginalFormConstraintKey) === false
 
-    @test hasextra(model[ctx[:w][1]], :message_form_constraint) === false
-    @test getextra(model[ctx[:w][2]], :message_form_constraint) === NormalMeanVariance()
-    @test getextra(model[ctx[:w][3]], :message_form_constraint) === NormalMeanVariance()
-    @test hasextra(model[ctx[:w][4]], :message_form_constraint) === false
-    @test hasextra(model[ctx[:w][5]], :message_form_constraint) === false
+    @test hasextra(model[ctx[:w][1]], VariationalConstraintsMessagesFormConstraintKey) === false
+    @test getextra(model[ctx[:w][2]], VariationalConstraintsMessagesFormConstraintKey) === NormalMeanVariance()
+    @test getextra(model[ctx[:w][3]], VariationalConstraintsMessagesFormConstraintKey) === NormalMeanVariance()
+    @test hasextra(model[ctx[:w][4]], VariationalConstraintsMessagesFormConstraintKey) === false
+    @test hasextra(model[ctx[:w][5]], VariationalConstraintsMessagesFormConstraintKey) === false
 
-    @test getextra(model[ctx[:y]], :posterior_form_constraint) == NormalMeanVariance()
+    @test getextra(model[ctx[:y]], VariationalConstraintsMarginalFormConstraintKey) == NormalMeanVariance()
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
-        @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2, 3))
+        @test Tuple.(getextra(model[node], VariationalConstraintsFactorizationIndicesKey)) == ((1,), (2, 3))
     end
 
     # Test with specifying specific submodel
@@ -741,9 +754,11 @@ end
     model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
+    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
+        ((1, 2), (3,))
     for i in 2:99
-        @test Tuple.(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2, 3),)
+        @test Tuple.(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
+            ((1, 2, 3),)
     end
 
     # Test with specifying general submodel
@@ -755,9 +770,9 @@ end
     model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :factorization_constraint_indices)) == ((1, 2), (3,))
+    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
-        @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1, 2), (3,))
+        @test Tuple.(getextra(model[node], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
     end
 
     # Test with ambiguous constraints
@@ -968,7 +983,7 @@ end
 
     # BetheFactorization uses `default_constraints` for `contains_default_constraints`
     # So it is not tested here
-    for model_fform in setdiff(Set(ModelsInTheZooWithoutArguments), Set([ contains_default_constraints ]))
+    for model_fform in setdiff(Set(ModelsInTheZooWithoutArguments), Set([contains_default_constraints]))
         model = create_model(
             with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))
         )
