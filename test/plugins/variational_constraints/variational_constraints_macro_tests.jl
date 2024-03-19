@@ -464,7 +464,7 @@ end
         q(GraphPPL.IndexedVariable(:x, nothing))::PointMass
     end
     output = quote
-        push!(__constraints__, GraphPPL.PosteriorFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
+        push!(__constraints__, GraphPPL.MarginalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), PointMass))
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
 
@@ -475,7 +475,7 @@ end
     output = quote
         push!(
             __constraints__,
-            GraphPPL.PosteriorFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
+            GraphPPL.MarginalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
         )
     end
     @test_expression_generating apply_pipeline(input, convert_functionalform_constraints) output
@@ -499,13 +499,13 @@ end
     output = quote
         push!(
             __constraints__,
-            GraphPPL.PosteriorFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
+            GraphPPL.MarginalFormConstraint((GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass)
         )
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
                 push!(
                     __constraints__,
-                    GraphPPL.PosteriorFormConstraint(
+                    GraphPPL.MarginalFormConstraint(
                         (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass
                     )
                 )
@@ -513,7 +513,7 @@ end
                     let __constraints__ = GraphPPL.GeneralSubModelConstraints(subsubmodel)
                         push!(
                             __constraints__,
-                            GraphPPL.PosteriorFormConstraint(
+                            GraphPPL.MarginalFormConstraint(
                                 (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing)), PointMass
                             )
                         )
@@ -593,7 +593,7 @@ end
     end
     output = quote
         __constraints__ = GraphPPL.Constraints()
-        push!(__constraints__, GraphPPL.PosteriorFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
+        push!(__constraints__, GraphPPL.MarginalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
         let __outer_constraints__ = __constraints__
             let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
                 push!(
