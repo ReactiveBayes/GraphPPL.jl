@@ -540,6 +540,7 @@ getextra(node::NodeData)      = node.extra
 
 hasextra(node::NodeData, key::Symbol) = haskey(node.extra, key)
 getextra(node::NodeData, key::Symbol) = getindex(node.extra, key)
+getextra(node::NodeData, key::Symbol, default) = hasextra(node, key) ? getextra(node, key) : default
 setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
 """
@@ -552,6 +553,9 @@ function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where {K}
 end
 function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T}
     return getindex(node.extra, K)::T
+end
+function getextra(node::NodeData, key::NodeDataExtraKey{K, T}, default::T)::T where {K, T}
+    return hasextra(node, key) ? (getextra(node, key)::T) : default
 end
 function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
     return insert!(node.extra, K, value)
@@ -882,8 +886,8 @@ check_variate_compatability(node::NodeLabel, index) =
 check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
 
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, N}) where {V, N} = isassigned(node, index...)
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} = error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
-
+check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} =
+    error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
 
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
