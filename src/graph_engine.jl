@@ -852,6 +852,12 @@ add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_pa
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel, V, N}) where {V, N} =
     set!(child_context.tensor_variables, name_in_child, object_in_parent)
 
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{NodeLabel, 1})  =
+    set!(child_context.vector_variables, name_in_child, ResizableArray(object_in_parent))
+
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{NodeLabel, N}) where {N} =
+    throw(NotImplementedError("Currently it's not possible to pass a custom made matrix of random variables to a child context. Maybe you can redefine your model to implicitly create the matrix and pass it like that?"))
+
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
     set!(child_context.proxies, name_in_child, object_in_parent)
 
@@ -877,12 +883,13 @@ check_variate_compatability(node::NodeLabel, index) =
 check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
 check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
 
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, N}) where {V, N} = isassigned(node, index...)
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::NTuple{N, Int}) where {V, N} = isassigned(node, index...)
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} =
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, M}) where {N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
 
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} =
+
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Nothing) where {N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
 
 """

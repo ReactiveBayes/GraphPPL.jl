@@ -1330,7 +1330,7 @@ end
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
         with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
     )
 
@@ -1345,8 +1345,7 @@ end
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
-        v = GraphPPL.ResizableArray([v1, v2, v3])
-        y ~ mixed_v(v = v)
+        y ~ mixed_v(v = [v1, v2, v3])
     end
 
     constraints_8 = @constraints begin
