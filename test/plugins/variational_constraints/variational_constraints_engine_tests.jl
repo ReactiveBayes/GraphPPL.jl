@@ -1282,14 +1282,6 @@ end
         q(prec, y) = q(prec[(1, 1)])..q(prec[(3, 3)])q(y)
     end
 
-    constraints_6 = @constraints begin
-        q(prec, y) = q(prec[CartesianIndex(1, 3):CartesianIndex(1, 3)])q(y)
-    end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
-        with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
-    )
-
-
     @model function inner_matrix(y, mat)
         for i in 1:2
             for j in 1:2
@@ -1359,4 +1351,31 @@ end
     for node in filter(as_node(Normal), model)
         @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
     end
+
+    @model function operate_slice(y, v)
+        local v
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function pass_slice()
+        local m
+        for i in 1:3
+            for j in 1:3
+                m[i, j] ~ Normal(0, 1)
+            end
+        end
+        v = GraphPPL.ResizableArray(m[:, 1])
+        y ~ operate_slice(v = v)
+    end
+
+    constraints_10 = @constraints begin
+        for q in operate_slice
+            q(v, y) = q(v[begin])..q(v[end])q(y)
+        end
+    end
+
+    @test_throws GraphPPL.NotImplementedError model = create_model(with_plugins(pass_slice(), PluginsCollection(VariationalConstraintsPlugin(constraints_10))))
 end

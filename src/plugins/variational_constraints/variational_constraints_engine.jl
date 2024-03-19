@@ -26,9 +26,6 @@ Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
 
-CombinedRange(from::CartesianIndex{1}, to::CartesianIndex{1}) = CombinedRange(from[1], to[1])
-CombinedRange(from::CartesianIndex{N}, to::CartesianIndex{N}) where {N} = CombinedRange(from.I, to.I)
-
 """
     SplittedRange{L, R}
 
@@ -643,7 +640,7 @@ function __resolve_index_consistency(model, labels, findex::NTuple{N, Int}, lind
         return flattened_index(full_array, findex), flattened_index(full_array, lindex)
     else
         throw(
-            Graphs.NotImplementedError(
+            NotImplementedError(
                 "Congratulations, you tried to define a factorization constraint for a >2 dimensional random variable where there is either more than one differing index between the endpoints of the constraint, or you've sliced the random variable in more than 1 dimension. We've thought about this
 edge case but don't know how we can resolve this, let alone efficiently. Please open an issue on GitHub if you need this feature, or consider changing your model definition. Furthermore, PR's are always welcome!"
             )
@@ -691,12 +688,9 @@ function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLab
 
     # We have to test whether or not the `ResizableArray` of labels passed is a slice. If it is, we throw because the constraint is unresolvable
     if CartesianIndex(index(getproperties(fdata))) != findex || CartesianIndex(index(getproperties(ldata))) != lindex
-        throw(UnresolvableFactorizationConstraintError("Did you pass a slice of the variable to a submodel, and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported."))
+        throw(UnresolvableFactorizationConstraintError(lazy"Did you pass a slice of the variable to a submodel ($(getname(getproperties(fdata)))), and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported."))
     end
 
-    if getname(getproperties(fdata)) != getname(getproperties(ldata))
-        throw(UnresolvableFactorizationConstraintError(lazy"Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata)))."))
-    end
     return ResolvedIndexedVariable(
         getname(getproperties(fdata)),
         CombinedRange(flattened_index(labels, findex.I), flattened_index(labels, lindex.I)),
@@ -707,9 +701,8 @@ end
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:SplittedRange})
     global_label = unroll(context[getname(variable)])
     resolved_indices = __factorization_specification_resolve_index(index(variable), global_label)
-    global_node_data = model[global_label[firstindex(resolved_indices):lastindex(resolved_indices)]]
-    firstdata = first(global_node_data)
-    lastdata = last(global_node_data)
+    firstdata = model[global_label[firstindex(resolved_indices)]]
+    lastdata = model[global_label[lastindex(resolved_indices)]]
     if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
         error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
     end
@@ -734,9 +727,7 @@ resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{
     throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
-    global_label = unroll(context[getname(variable)])[CartesianIndex(firstindex(index(variable))):CartesianIndex(
-        lastindex(index(variable))
-    )]
+    global_label = unroll(context[getname(variable)])[firstindex(index(variable)):lastindex(index(variable))]
     return __resolve(model, global_label)
 end
 
