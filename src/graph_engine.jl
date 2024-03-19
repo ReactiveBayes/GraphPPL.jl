@@ -9,7 +9,7 @@ import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
-struct NotImplementedError <: Exception 
+struct NotImplementedError <: Exception
     message::String
 end
 
@@ -121,6 +121,8 @@ Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
 getbackend(model::Model) = model.backend
+getcounter(model::Model) = model.counter[]
+setcounter!(model::Model, value) = model.counter[] = value
 
 Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
 Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
@@ -639,24 +641,6 @@ Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(
 
 Base.getindex(model::Model, keys::Base.Generator) = [model[key] for key in keys]
 
-function Base.getproperty(val::Model, p::Symbol)
-    if p === :counter
-        return getfield(val, :counter)[]
-    else
-        return getfield(val, p)
-    end
-end
-
-function Base.setproperty!(val::Model, p::Symbol, new_count)
-    if p === :counter
-        return getfield(val, :counter)[] = new_count
-    else
-        return setfield!(val, p, x)
-    end
-end
-
-increase_count(model::Model) = Base.setproperty!(model, :counter, model.counter + 1)
-
 Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
@@ -763,13 +747,13 @@ Arguments:
 Returns:
 """
 function generate_nodelabel(model::Model, name)
-    increase_count(model)
-    return NodeLabel(name, model.counter)
+    nextcounter = setcounter!(model, getcounter(model) + 1)
+    return NodeLabel(name, nextcounter)
 end
 
 function Base.gensym(model::Model, name::Symbol)
-    increase_count(model)
-    return Symbol(String(name) * "_" * string(model.counter))
+    nextcounter = setcounter!(model, getcounter(model) + 1)
+    return Symbol(string(name, "_", nextcounter))
 end
 
 """
@@ -894,6 +878,7 @@ check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_c
 check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
 
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, N}) where {V, N} = isassigned(node, index...)
+check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::NTuple{N, Int}) where {V, N} = isassigned(node, index...)
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
 

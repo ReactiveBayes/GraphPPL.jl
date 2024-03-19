@@ -511,7 +511,14 @@ end
 end
 
 @testitem "Application of MarginalFormConstraint" begin
-    import GraphPPL: create_model, MarginalFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra, VariationalConstraintsMarginalFormConstraintKey
+    import GraphPPL:
+        create_model,
+        MarginalFormConstraint,
+        IndexedVariable,
+        apply_constraints!,
+        getextra,
+        hasextra,
+        VariationalConstraintsMarginalFormConstraintKey
 
     include("../../testutils.jl")
 
@@ -556,7 +563,14 @@ end
 end
 
 @testitem "Application of MessageFormConstraint" begin
-    import GraphPPL: create_model, MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra, VariationalConstraintsMessagesFormConstraintKey
+    import GraphPPL:
+        create_model,
+        MessageFormConstraint,
+        IndexedVariable,
+        apply_constraints!,
+        hasextra,
+        getextra,
+        VariationalConstraintsMessagesFormConstraintKey
 
     include("../../testutils.jl")
 
@@ -843,7 +857,7 @@ end
 
     context = GraphPPL.Context()
     context[:w] = ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)])
-    context[:prec] =  ResizableArray([
+    context[:prec] = ResizableArray([
         [NodeLabel(:prec, 1), NodeLabel(:prec, 2), NodeLabel(:prec, 3)], [NodeLabel(:prec, 4), NodeLabel(:prec, 5), NodeLabel(:prec, 6)]
     ])
 
@@ -1036,7 +1050,9 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This test should throw since we cannot resolve the constraint
-        @test_throws GraphPPL.UnresolvableFactorizationConstraintError GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
+        @test_throws GraphPPL.UnresolvableFactorizationConstraintError GraphPPL.convert_to_bitsets(
+            model, normal_node, neighbors, constraint
+        )
     end
 
     # Test ResolvedFactorizationConstraint with a Mixture node
@@ -1193,7 +1209,15 @@ end
 end
 
 @testitem "Apply constraints to matrix variables" begin
-    import GraphPPL: getproperties, PluginsCollection, VariationalConstraintsPlugin, getextra, getcontext, with_plugins, create_model, NotImplementedError
+    import GraphPPL:
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        getextra,
+        getcontext,
+        with_plugins,
+        create_model,
+        NotImplementedError
 
     include("../../testutils.jl")
 
@@ -1274,12 +1298,12 @@ end
     constraints_5 = @constraints begin
         q(prec, y) = q(prec[(1, 1):(3, 3)])q(y)
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
         with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
     )
 
-    @test_throws GraphPPL.NotImplementedError constraints_5 = @constraints begin
-        q(prec, y) = q(prec[(1, 1)])..q(prec[(3, 3)])q(y)
+    @test_throws GraphPPL.NotImplementedError local constraints_5 = @constraints begin
+        q(prec, y) = q(prec[(1, 1)]) .. q(prec[(3, 3)])q(y)
     end
 
     @model function inner_matrix(y, mat)
@@ -1290,7 +1314,6 @@ end
         end
         y ~ Normal(mat[1, 1], mat[2, 2])
     end
-
 
     @model function outer_matrix()
         local mat
@@ -1307,7 +1330,8 @@ end
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+        with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
     )
 
     @model function mixed_v(y, v)
@@ -1331,7 +1355,9 @@ end
         end
     end
 
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(mixed_m(), PluginsCollection(VariationalConstraintsPlugin(constraints_8))))
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
+        with_plugins(mixed_m(), PluginsCollection(VariationalConstraintsPlugin(constraints_8)))
+    )
 
     @model function ordinary_v()
         local v
@@ -1373,9 +1399,11 @@ end
 
     constraints_10 = @constraints begin
         for q in operate_slice
-            q(v, y) = q(v[begin])..q(v[end])q(y)
+            q(v, y) = q(v[begin]) .. q(v[end])q(y)
         end
     end
 
-    @test_throws GraphPPL.NotImplementedError model = create_model(with_plugins(pass_slice(), PluginsCollection(VariationalConstraintsPlugin(constraints_10))))
+    @test_throws GraphPPL.NotImplementedError local model = create_model(
+        with_plugins(pass_slice(), PluginsCollection(VariationalConstraintsPlugin(constraints_10)))
+    )
 end

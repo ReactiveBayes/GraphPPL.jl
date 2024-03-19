@@ -113,7 +113,6 @@ function getindex(array::ResizableArray{T, V, N}, index::Vararg{UnitRange}) wher
     return ResizableArray(recursive_getindex(Val(length(index)), array.data, index...))
 end
 
-
 function getindex(array::ResizableArray{T, V, N}, index::Vararg{Int}) where {T, V, N}
     @assert N >= length(index) "Invalid index $(index) for $(array) of shape $(size(array)))"
     return recursive_getindex(Val(length(index)), array.data, index...)
@@ -131,11 +130,9 @@ function recursive_getindex(::Val{1}, array::Vector, index::UnitRange)
     return array[index]
 end
 
-
 function recursive_getindex(::Val{N}, array::Vector{V}, findex, index...) where {N, V}
     return recursive_getindex(Val(N - 1), array[findex], index...)
 end
-
 
 function recursive_getindex(::Val{N}, array::Vector{V}, findex::UnitRange, index...) where {N, V}
     return [recursive_getindex(Val(N - 1), array[i], index...) for i in findex]

@@ -68,10 +68,11 @@ end
         q(x)::PointMass
     end
     output = quote
-        __constraints__ = GraphPPL.Constraints()
-        q(x, y) = q(x)q(y)
-        q(x)::PointMass
-        __constraints__
+        let __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            __constraints__
+        end
     end
     @test_expression_generating add_constraints_construction(input) output
 
@@ -85,14 +86,15 @@ end
         end
     end
     output = quote
-        __constraints__ = GraphPPL.Constraints()
-        q(x, y) = q(x)q(y)
-        q(x)::PointMass
-        for q in submodel
+        let __constraints__ = GraphPPL.Constraints()
             q(x, y) = q(x)q(y)
             q(x)::PointMass
+            for q in submodel
+                q(x, y) = q(x)q(y)
+                q(x)::PointMass
+            end
+            __constraints__
         end
-        __constraints__
     end
     @test_expression_generating add_constraints_construction(input) output
 
@@ -223,27 +225,29 @@ end
 
     # Test 1: create_submodel_constraints with one nested layer
     input = quote
-        __constraints__ = GraphPPL.Constraints()
-        q(x, y) = q(x)q(y)
-        q(x)::PointMass
-        for q in submodel
-            q(z) = q(z[begin]) .. q(z[end])
+        let __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            for q in submodel
+                q(z) = q(z[begin]) .. q(z[end])
+            end
+            q(a, b, c) = q(a)q(b)q(c)
+            __constraints__
         end
-        q(a, b, c) = q(a)q(b)q(c)
-        return __constraints__
     end
     output = quote
-        __constraints__ = GraphPPL.Constraints()
-        q(x, y) = q(x)q(y)
-        q(x)::PointMass
-        let __outer_constraints__ = __constraints__
-            let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
-                q(z) = q(z[begin]) .. q(z[end])
-                push!(__outer_constraints__, __constraints__)
+        let __constraints__ = GraphPPL.Constraints()
+            q(x, y) = q(x)q(y)
+            q(x)::PointMass
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(submodel)
+                    q(z) = q(z[begin]) .. q(z[end])
+                    push!(__outer_constraints__, __constraints__)
+                end
             end
+            q(a, b, c) = q(a)q(b)q(c)
+            __constraints__
         end
-        q(a, b, c) = q(a)q(b)q(c)
-        return __constraints__
     end
     @test_expression_generating apply_pipeline(input, create_submodel_constraints) output
 
@@ -592,27 +596,28 @@ end
         end
     end
     output = quote
-        __constraints__ = GraphPPL.Constraints()
-        push!(__constraints__, GraphPPL.MarginalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
-        let __outer_constraints__ = __constraints__
-            let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
-                push!(
-                    __constraints__,
-                    GraphPPL.FactorizationConstraint(
-                        (
-                            GraphPPL.IndexedVariable(:w, nothing),
-                            GraphPPL.IndexedVariable(:a, nothing),
-                            GraphPPL.IndexedVariable(:b, nothing)
-                        ),
-                        GraphPPL.FactorizationConstraintEntry((
-                            GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)
-                        )) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:w, nothing),),)
+        let __constraints__ = GraphPPL.Constraints()
+            push!(__constraints__, GraphPPL.MarginalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
+            let __outer_constraints__ = __constraints__
+                let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
+                    push!(
+                        __constraints__,
+                        GraphPPL.FactorizationConstraint(
+                            (
+                                GraphPPL.IndexedVariable(:w, nothing),
+                                GraphPPL.IndexedVariable(:a, nothing),
+                                GraphPPL.IndexedVariable(:b, nothing)
+                            ),
+                            GraphPPL.FactorizationConstraintEntry((
+                                GraphPPL.IndexedVariable(:a, nothing), GraphPPL.IndexedVariable(:b, nothing)
+                            )) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:w, nothing),),)
+                        )
                     )
-                )
-                push!(__outer_constraints__, __constraints__)
+                    push!(__outer_constraints__, __constraints__)
+                end
             end
+            __constraints__
         end
-        __constraints__
     end
 
     @test_expression_generating constraints_macro_interior(input) output

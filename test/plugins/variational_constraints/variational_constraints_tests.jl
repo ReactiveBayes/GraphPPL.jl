@@ -770,7 +770,8 @@ end
     model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
+    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
+        ((1, 2), (3,))
     for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
         @test Tuple.(getextra(model[node], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
     end

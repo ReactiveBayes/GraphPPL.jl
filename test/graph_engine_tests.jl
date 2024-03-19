@@ -648,17 +648,20 @@ end
     @test_throws MethodError model[0]
 end
 
-@testitem "increase_count(::Model)" begin
-    import GraphPPL: create_model, increase_count
+@testitem "getcounter and setcounter!" begin
+    import GraphPPL: create_model, setcounter!, getcounter
 
     include("testutils.jl")
 
     model = create_test_model()
 
-    increase_count(model)
-    @test model.counter == 1
-    increase_count(model)
-    @test model.counter == 2
+    @test setcounter!(model, 1) == 1
+    @test getcounter(model) == 1
+    @test setcounter!(model, 2) == 2
+    @test getcounter(model) == 2
+    @test setcounter!(model, getcounter(model) + 1) == 3
+    @test setcounter!(model, 100) == 100
+    @test getcounter(model) == 100
 end
 
 @testitem "nv_ne(::Model)" begin
