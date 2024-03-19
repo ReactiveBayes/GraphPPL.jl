@@ -1298,11 +1298,11 @@ end
     constraints_5 = @constraints begin
         q(prec, y) = q(prec[(1, 1):(3, 3)])q(y)
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
         with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
     )
 
-    @test_throws GraphPPL.NotImplementedError constraints_5 = @constraints begin
+    @test_throws GraphPPL.NotImplementedError local constraints_5 = @constraints begin
         q(prec, y) = q(prec[(1, 1)]) .. q(prec[(3, 3)])q(y)
     end
 
@@ -1330,7 +1330,7 @@ end
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
         with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
     )
 
@@ -1355,7 +1355,7 @@ end
         end
     end
 
-    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError local model = create_model(
         with_plugins(mixed_m(), PluginsCollection(VariationalConstraintsPlugin(constraints_8)))
     )
 
@@ -1403,7 +1403,7 @@ end
         end
     end
 
-    @test_throws GraphPPL.NotImplementedError model = create_model(
+    @test_throws GraphPPL.NotImplementedError local model = create_model(
         with_plugins(pass_slice(), PluginsCollection(VariationalConstraintsPlugin(constraints_10)))
     )
 end
