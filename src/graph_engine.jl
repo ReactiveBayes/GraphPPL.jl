@@ -9,7 +9,7 @@ import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
-struct NotImplementedError <: Exception 
+struct NotImplementedError <: Exception
     message::String
 end
 
@@ -891,8 +891,8 @@ check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variat
 
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, N}) where {V, N} = isassigned(node, index...)
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::NTuple{N, Int}) where {V, N} = isassigned(node, index...)
-check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} = error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
-
+check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} =
+    error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
 
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
