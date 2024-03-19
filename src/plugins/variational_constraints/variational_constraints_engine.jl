@@ -113,9 +113,14 @@ getindices(entry::FactorizationConstraintEntry) = map(index, entries(entry))
 # These functions convert the multiplication in q(x)q(y) to a collection of `FactorizationConstraintEntry`s
 Base.:(*)(left::FactorizationConstraintEntry, right::FactorizationConstraintEntry) = (left, right)
 Base.:(*)(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::FactorizationConstraintEntry) = (left..., right)
-Base.:(*)(left::FactorizationConstraintEntry, right::NTuple{N, <:FactorizationConstraintEntry} where {N}) = (left, right...)
+Base.:(*)(left::FactorizationConstraintEntry, right::NTuple{N, FactorizationConstraintEntry} where {N}) = (left, right...)
 Base.:(*)(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::NTuple{N, FactorizationConstraintEntry} where {N}) =
     (left..., right...)
+
+(left::FactorizationConstraintEntry)(right::FactorizationConstraintEntry) = left * right
+(left::NTuple{N, FactorizationConstraintEntry} where {N})(right::FactorizationConstraintEntry) = left * right
+(left::NTuple{N, FactorizationConstraintEntry} where {N})(right::NTuple{M, FactorizationConstraintEntry} where {M}) = left * right
+(left::FactorizationConstraintEntry)(right::NTuple{M, FactorizationConstraintEntry} where {M}) = left * right
 
 function Base.show(io::IO, constraint_entry::FactorizationConstraintEntry)
     print(io, "q(")
