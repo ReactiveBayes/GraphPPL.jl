@@ -1838,6 +1838,7 @@ end
         make_node!,
         create_model,
         getorcreate!,
+        AnonymousVariable,
         ProxyLabel,
         getname,
         label_for,
@@ -1855,10 +1856,15 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
+    x = AnonymousVariable(model, ctx)
     @test make_node!(model, ctx, options, +, x, (1, 1)) == (nothing, 2)
     @test make_node!(model, ctx, options, sin, x, (0,)) == (nothing, 0)
-    @test nv(model) == 1
+    @test nv(model) == 0
+
+    x = ProxyLabel(:proxy, nothing, AnonymousVariable(model, ctx))
+    @test make_node!(model, ctx, options, +, x, (1, 1)) == (nothing, 2)
+    @test make_node!(model, ctx, options, sin, x, (0,)) == (nothing, 0)
+    @test nv(model) == 0
 
     # Test 2: Stochastic atomic call returns a new node id
     node_id, _ = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
@@ -1947,7 +1953,7 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    out = getorcreate!(model, ctx, :out, nothing)
+    out = AnonymousVariable(model, ctx)
     @test make_node!(model, ctx, options, abc, out, (a = 1, b = 2)) == (nothing, 3)
 
     # Test 11: Deterministic node with mixed arguments
@@ -1957,7 +1963,7 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    out = getorcreate!(model, ctx, :out, nothing)
+    out = AnonymousVariable(model, ctx)
     @test make_node!(model, ctx, options, abc, out, MixedArguments((2,), (b = 2,))) == (nothing, 4)
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
