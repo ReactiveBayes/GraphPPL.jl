@@ -261,3 +261,53 @@ end
         end
     end
 end
+
+@testitem "map" begin
+    import GraphPPL: ResizableArray
+
+    s = ResizableArray(Int, Val(2))
+    for i in 1:10
+        for j in 1:10
+            s[i, j] = i + j
+        end
+    end
+    s[5, 11] = 16
+    result = map(elem -> elem .+ 1, s)
+    for i in 1:10
+        for j in 1:10
+            @test result[i, j] == s[i, j] + 1
+        end
+    end
+end
+
+@testitem "__length" begin
+    import GraphPPL: ResizableArray, __length
+
+    s = ResizableArray(Ref, Val(3))
+    @test __length(s) == 0
+    s[1, 1, 1] = Ref(1)
+    @test __length(s) == 1
+    s[1, 1, 2] = Ref(1)
+    @test __length(s) == 2
+    s[1, 2, 2] = Ref(1)
+    @test __length(s) == 3
+    s[2, 1, 1] = Ref(1)
+    @test __length(s) == 4
+end
+
+@testitem "__flattened_index" begin
+    import GraphPPL: ResizableArray, flattened_index
+
+    s = ResizableArray(Ref, Val(3))
+
+    s[2, 1, 1] = Ref(1)
+    @test flattened_index(s, (2, 1, 1)) == 1
+    s[1, 1, 1] = Ref(1)
+    @test flattened_index(s, (2, 1, 1)) == 2
+    s[1, 1, 2] = Ref(1)
+    @test flattened_index(s, (2, 1, 1)) == 3
+    s[1, 2, 2] = Ref(1)
+    @test flattened_index(s, (2, 1, 1)) == 4
+    s[2, 1, 2] = Ref(1)
+    @test flattened_index(s, (2, 1, 1)) == 4
+end

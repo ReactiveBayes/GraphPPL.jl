@@ -149,7 +149,8 @@ export simple_model,
     parent_model,
     model_with_default_constraints,
     contains_default_constraints,
-    mixture
+    mixture,
+    filled_matrix_model
 
 using GraphPPL, MacroTools, Static, Distributions
 using ..TestUtils
@@ -177,6 +178,17 @@ end
         x[i, i] ~ Normal(0, 1)
         y[i, i] ~ Gamma(1, 1)
         z[i, i] ~ Normal(x[i, i], y[i, i])
+    end
+end
+
+@model function filled_matrix_model()
+    local x
+    local y
+    for i in 1:3
+        for j in 1:3
+            y[i, j] ~ Gamma(1, 1)
+            x[i, j] ~ Normal(0, y[i, j])
+        end
     end
 end
 
@@ -347,6 +359,17 @@ GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constr
     y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
 end
 
+@model function filled_matrix_model()
+    local x
+    local y
+    for i in 1:3
+        for j in 1:3
+            y[i, j] ~ Gamma(1, 1)
+            x[i, j] ~ Normal(0, y[i, j])
+        end
+    end
+end
+
 const ModelsInTheZooWithoutArguments = [
     simple_model,
     vector_model,
@@ -358,7 +381,8 @@ const ModelsInTheZooWithoutArguments = [
     multidim_array,
     parent_model,
     contains_default_constraints,
-    mixture
+    mixture,
+    filled_matrix_model
 ]
 
 export ModelsInTheZooWithoutArguments

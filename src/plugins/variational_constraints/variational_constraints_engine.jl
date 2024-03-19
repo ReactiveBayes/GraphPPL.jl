@@ -1,8 +1,18 @@
+import Base: showerror, Exception
+
+struct UnresolvableFactorizationConstraintError <: Exception 
+    message::String
+end
+
+Base.showerror(io::IO, e::UnresolvableFactorizationConstraintError) = println(io, "Unresolvable factorization constraint: " * e.message)
+
+
 
 const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
 const VariationalConstraintsFactorizationBitSetKey = NodeDataExtraKey{:factorization_constraint_bitset, BoundedBitSetTuple}()
 const VariationalConstraintsMarginalFormConstraintKey = NodeDataExtraKey{:marginal_form_constraint, Any}()
 const VariationalConstraintsMessagesFormConstraintKey = NodeDataExtraKey{:messages_form_constraint, Any}()
+
 
 """
     CombinedRange{L, R}
@@ -19,7 +29,6 @@ end
 Base.firstindex(range::CombinedRange) = range.from
 Base.lastindex(range::CombinedRange) = range.to
 Base.in(item, range::CombinedRange) = firstindex(range) <= item <= lastindex(range)
-Base.in(item::NTuple{N, Int} where {N}, range::CombinedRange) = CartesianIndex(item...) ∈ firstindex(range):lastindex(range)
 Base.length(range::CombinedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::CombinedRange) = print(io, repr(range.from), ":", repr(range.to))
@@ -83,6 +92,7 @@ __factorization_split_merge_range(a::Int, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::Int, b::FunctionalIndex) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::FunctionalIndex) = SplittedRange(a, b)
+__factorization_split_merge_range(a::NTuple{N, Int}, b::NTuple{N, Int}) where {N} = throw(NotImplementedError("q(var[firstindex])..q(var[lastindex]) for index dimension $N (constraint specified with $a and $b as endpoints)")) 
 __factorization_split_merge_range(a::Any, b::Any) = error("Cannot merge $(a) and $(b) indexes in `factorization_split`")
 
 """
@@ -390,7 +400,24 @@ Base.in(nodedata::NodeData, var::ResolvedIndexedVariable) = in(nodedata, getprop
 
 Base.in(
     nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}
+) = Base.in(nodedata, properties, var, index(properties))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}},
+    i::Union{Int, Nothing}
 ) = (getname(var) == getname(properties)) && (index(var) == index(properties)) && (getcontext(var) == getcontext(nodedata))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}},
+    i::NTuple{M, Int} where {M}
+) =
+    (getname(properties) == getname(var)) &&
+    (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
+    (getcontext(var) == getcontext(nodedata))
 
 Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) =
     (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
@@ -399,7 +426,31 @@ Base.in(
     nodedata::NodeData,
     properties::VariableNodeProperties,
     var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
-) = (getname(properties) == getname(var)) && (index(properties) ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+) = Base.in(nodedata, properties, var, index(properties))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::NTuple{N, Int} where {N}
+) =
+    (getname(properties) == getname(var)) &&
+    (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
+    (getcontext(var) == getcontext(nodedata))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::Int
+) = (getname(properties) == getname(var)) && (i ∈ index(var)) && (getcontext(var) == getcontext(nodedata))
+
+Base.in(
+    nodedata::NodeData,
+    properties::VariableNodeProperties,
+    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}},
+    i::Nothing
+) = false
 
 struct ResolvedConstraintLHS{V}
     variables::V
@@ -582,33 +633,77 @@ end
 
 get_constraint_names(constraint::NTuple{N, Tuple} where {N}) = map(entry -> GraphPPL.getname.(entry), constraint)
 
-function __resolve(data::NodeData)
-    return __resolve(data, getproperties(data))
-end
-
-function __resolve(data::NodeData, properties::VariableNodeProperties)
-    return ResolvedIndexedVariable(getname(properties), index(properties), getcontext(data))
-end
-
-function __resolve(data::AbstractArray{T} where {T <: NodeData})
-    firstdata = first(data)
-    lastdata = last(data)
-    if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
-        error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
+__resolve_index_consistency(model, labels, findex::Int, lindex::Int) = (findex, lindex)
+function __resolve_index_consistency(model, labels, findex::NTuple{N, Int}, lindex::NTuple{N, Int}) where {N}
+    differing_indices = findall(map(indices -> indices[1] != indices[2], zip(findex, lindex)))
+    if length(differing_indices) == 1 && first(differing_indices) == N
+        full_array = model[first(labels[1])].context[first(labels[1]).name] # This black magic line gets the full array of the sliced variable that we need to acces. It accesses it through the context which is saved in the nodedata.
+        return flattened_index(full_array, findex), flattened_index(full_array, lindex)
+    else
+        throw(
+            NotImplementedError(
+                "Congratulations, you tried to define a factorization constraint for a >2 dimensional random variable where there is either more than one differing index between the endpoints of the constraint, or you've sliced the random variable in more than 1 dimension. We've thought about this
+edge case but don't know how we can resolve this, let alone efficiently. Please open an issue on GitHub if you need this feature, or consider changing your model definition. Furthermore, PR's are always welcome!"
+            )
+        )
     end
+end
+
+function __resolve(model::Model, label::NodeLabel)
+    data = model[label]
+    return __resolve(model, data, getproperties(data), index(getproperties(data)))
+end
+
+function __resolve(::Model, data::NodeData, properties::VariableNodeProperties, i::Union{Nothing, Int})
+    # The variable is either a single variable or in a vector, then we don't really care.
+    return ResolvedIndexedVariable(getname(properties), i, getcontext(data))
+end
+
+function __resolve(model::Model, data::NodeData, properties::VariableNodeProperties, i::NTuple{N, Int} where {N})
+    # The variable is either a single variable or in a vector, then we don't really care.
+    full_array = getcontext(data)[getname(properties)]
+    return ResolvedIndexedVariable(getname(properties), flattened_index(full_array, i), getcontext(data))
+end
+
+function __resolve(model::Model, labels::AbstractArray{T, 1}) where {T <: NodeLabel}
+    fdata = model[first(labels)]
+    ldata = model[last(labels)]
+    if getname(getproperties(fdata)) != getname(getproperties(ldata))
+        throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata)))."))
+    end
+    # If we make a slice of a matrix in the constraints, we end up here (for example, q(x[1], x[2]) = q(x[1])q(x[2]) for matrix valued x). 
+    # Then `index(getproperties(fdata))` and `index(getproperties(ldata))` will be `Tuple`, and we need to resolve this to a single `Int` in the dimension in which they differ
+    findex = index(getproperties(fdata))
+    lindex = index(getproperties(ldata))
+    findex, lindex = __resolve_index_consistency(model, labels, findex, lindex)
+
+    return ResolvedIndexedVariable(getname(getproperties(fdata)), CombinedRange(findex, lindex), getcontext(fdata))
+end
+
+function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLabel}) where {N}
+    findex, flabel = firstwithindex(labels)
+    lindex, llabel = lastwithindex(labels)
+
+    fdata = model[flabel]
+    ldata = model[llabel]
+
+    # We have to test whether or not the `ResizableArray` of labels passed is a slice. If it is, we throw because the constraint is unresolvable
+    if CartesianIndex(index(getproperties(fdata))) != findex || CartesianIndex(index(getproperties(ldata))) != lindex
+        throw(UnresolvableFactorizationConstraintError(lazy"Did you pass a slice of the variable to a submodel ($(getname(getproperties(fdata)))), and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported."))
+    end
+
     return ResolvedIndexedVariable(
-        getname(getproperties(firstdata)),
-        CombinedRange(index(getproperties(firstdata)), index(getproperties(lastdata))),
-        getcontext(firstdata)
+        getname(getproperties(fdata)),
+        CombinedRange(flattened_index(labels, findex.I), flattened_index(labels, lindex.I)),
+        getcontext(fdata)
     )
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:SplittedRange})
     global_label = unroll(context[getname(variable)])
     resolved_indices = __factorization_specification_resolve_index(index(variable), global_label)
-    global_node_data = model[global_label[firstindex(resolved_indices):lastindex(resolved_indices)]]
-    firstdata = first(global_node_data)
-    lastdata = last(global_node_data)
+    firstdata = model[global_label[firstindex(resolved_indices)]]
+    lastdata = model[global_label[lastindex(resolved_indices)]]
     if getname(getproperties(firstdata)) != getname(getproperties(lastdata))
         error("Cannot resolve factorization constraint for $(getname(getproperties(firstdata))) and $(getname(getproperties(lastdata))).")
     end
@@ -621,14 +716,20 @@ end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{Nothing})
     global_label = unroll(context[getname(variable)])
-    global_node_data = model[global_label]
-    return __resolve(global_node_data)
+    return __resolve(model, global_label)
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable)
-    global_label = unroll(context[getname(variable)])[index(variable)]
-    global_node_data = model[global_label]
-    return __resolve(global_node_data)
+    global_label = unroll(context[getname(variable)])[index(variable)...]
+    return __resolve(model, global_label)
+end
+
+resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} =
+    throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
+
+function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
+    global_label = unroll(context[getname(variable)])[firstindex(index(variable)):lastindex(index(variable))]
+    return __resolve(model, global_label)
 end
 
 function resolve(model::Model, context::Context, constraint::FactorizationConstraint)
@@ -712,10 +813,10 @@ function is_decoupled_one_linked(links, unlinked::NodeData, constraint::Resolved
     else
         # Perhaps, this is possible to resolve automatically, but that would required 
         # quite some difficult graph traversal logic, so for now we just throw an error
-        error(lazy"""
-            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
+        throw(UnresolvableFactorizationConstraintError(lazy"""
+        Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
             As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
-        """)
+        """))
     end
 end
 
