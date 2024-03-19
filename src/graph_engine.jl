@@ -549,6 +549,7 @@ getextra(node::NodeData)      = node.extra
 
 hasextra(node::NodeData, key::Symbol) = haskey(node.extra, key)
 getextra(node::NodeData, key::Symbol) = getindex(node.extra, key)
+getextra(node::NodeData, key::Symbol, default) = hasextra(node, key) ? getextra(node, key) : default
 setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
 """
@@ -561,6 +562,9 @@ function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where {K}
 end
 function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T}
     return getindex(node.extra, K)::T
+end
+function getextra(node::NodeData, key::NodeDataExtraKey{K, T}, default::T)::T where {K, T}
+    return hasextra(node, key) ? (getextra(node, key)::T) : default
 end
 function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
     return insert!(node.extra, K, value)

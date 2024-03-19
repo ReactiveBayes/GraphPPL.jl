@@ -127,9 +127,15 @@ end
         nodedata = NodeData(context, properties)
 
         @test !hasextra(nodedata, :a)
+        @test getextra(nodedata, :a, 2) === 2
+        @test !hasextra(nodedata, :a) # the default should not add the extra property, only return
         setextra!(nodedata, :a, 1)
         @test hasextra(nodedata, :a)
         @test getextra(nodedata, :a) === 1
+        @test getextra(nodedata, :a, 2) === 1
+        @test !hasextra(nodedata, :b)
+        @test_throws Exception getextra(nodedata, :b)
+        @test getextra(nodedata, :b, 2) === 2
 
         # In the current implementation it is not possible to update extra properties
         @test_throws Exception setextra!(nodedata, :a, 2)
@@ -142,9 +148,14 @@ end
         constkey_c_float = NodeDataExtraKey{:c, Float64}()
 
         @test !@inferred(hasextra(nodedata, constkey_c_float))
+        @test @inferred(getextra(nodedata, constkey_c_float, 4.0)) === 4.0
         @inferred(setextra!(nodedata, constkey_c_float, 3.0))
         @test @inferred(hasextra(nodedata, constkey_c_float))
         @test @inferred(getextra(nodedata, constkey_c_float)) === 3.0
+        @test @inferred(getextra(nodedata, constkey_c_float, 4.0)) === 3.0
+
+        # The default has a different type from the key (4.0 is Float and 4 is Int), thus the error 
+        @test_throws MethodError getextra(nodedata, constkey_c_float, 4)
 
         constkey_d_int = NodeDataExtraKey{:d, Int64}()
 
