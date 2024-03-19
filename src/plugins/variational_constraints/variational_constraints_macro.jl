@@ -108,11 +108,11 @@ end
 function convert_functionalform_constraints(e::Expr)
     if @capture(e, (q(vars_)::T_))
         return quote
-            push!(__constraints__, GraphPPL.PosteriorFormConstraint($vars, $T))
+            push!(__constraints__, GraphPPL.MarginalFormConstraint($vars, $T))
         end
     elseif @capture(e, (q(vars__)::T_))
         return quote
-            push!(__constraints__, GraphPPL.PosteriorFormConstraint($(Expr(:tuple, vars...)), $T))
+            push!(__constraints__, GraphPPL.MarginalFormConstraint($(Expr(:tuple, vars...)), $T))
         end
     else
         return e

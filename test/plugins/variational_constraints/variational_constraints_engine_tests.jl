@@ -321,7 +321,7 @@ end
         Constraints,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        PosteriorFormConstraint,
+        MarginalFormConstraint,
         MessageFormConstraint,
         SpecificSubModelConstraints,
         GeneralSubModelConstraints,
@@ -348,17 +348,17 @@ end
     )
     @test_throws ErrorException push!(constraints, constraint)
 
-    # Test 2: Test push! with PosteriorFormConstraint
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
+    # Test 2: Test push! with MarginalFormConstraint
+    constraint = MarginalFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = PosteriorFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
+    constraint = MarginalFormConstraint((IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), Normal)
+    constraint = MarginalFormConstraint(IndexedVariable(:x, 1), Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
-    constraint = PosteriorFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
+    constraint = MarginalFormConstraint([IndexedVariable(:x, 1), IndexedVariable(:y, 1)], Normal)
     push!(constraints, constraint)
     @test_throws ErrorException push!(constraints, constraint)
 
@@ -388,7 +388,7 @@ end
         SpecificSubModelConstraints,
         FactorizationConstraint,
         FactorizationConstraintEntry,
-        PosteriorFormConstraint,
+        MarginalFormConstraint,
         MessageFormConstraint,
         getconstraint,
         Constraints,
@@ -413,11 +413,11 @@ end
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 2: Test push! with PosteriorFormConstraint
+    # Test 2: Test push! with MarginalFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MarginalFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MarginalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
     # Test 3: Test push! with MessageFormConstraint
@@ -442,11 +442,11 @@ end
     ],)
     @test_throws MethodError push!(constraints, "string")
 
-    # Test 5: Test push! with PosteriorFormConstraint
+    # Test 5: Test push! with MarginalFormConstraint
     constraints = GeneralSubModelConstraints(gcv)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)
+    constraint = MarginalFormConstraint(IndexedVariable(:x, nothing), Normal)
     push!(constraints, constraint)
-    @test getconstraint(constraints) == Constraints([PosteriorFormConstraint(IndexedVariable(:x, nothing), Normal)],)
+    @test getconstraint(constraints) == Constraints([MarginalFormConstraint(IndexedVariable(:x, nothing), Normal)],)
     @test_throws MethodError push!(constraints, "string")
 
     # Test 6: Test push! with MessageFormConstraint
@@ -510,8 +510,8 @@ end
     end
 end
 
-@testitem "Application of PosteriorFormConstraint" begin
-    import GraphPPL: create_model, PosteriorFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra
+@testitem "Application of MarginalFormConstraint" begin
+    import GraphPPL: create_model, MarginalFormConstraint, IndexedVariable, apply_constraints!, getextra, hasextra, VariationalConstraintsMarginalFormConstraintKey
 
     include("../../testutils.jl")
 
@@ -519,44 +519,44 @@ end
 
     struct ArbitraryFunctionalFormConstraint end
 
-    # Test saving of PosteriorFormConstraint in single variable
+    # Test saving of MarginalFormConstraint in single variable
     model = create_model(simple_model())
     context = GraphPPL.getcontext(model)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    constraint = MarginalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == ArbitraryFunctionalFormConstraint()
     end
 
-    # Test saving of PosteriorFormConstraint in multiple variables
+    # Test saving of MarginalFormConstraint in multiple variables
     model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
+    constraint = MarginalFormConstraint(IndexedVariable(:x, nothing), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == ArbitraryFunctionalFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test !hasextra(model[node], :posterior_form_constraint)
+        @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
     end
 
-    # Test saving of PosteriorFormConstraint in single variable in array
+    # Test saving of MarginalFormConstraint in single variable in array
     model = create_model(vector_model())
     context = GraphPPL.getcontext(model)
-    constraint = PosteriorFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
+    constraint = MarginalFormConstraint(IndexedVariable(:x, 1), ArbitraryFunctionalFormConstraint())
     apply_constraints!(model, context, constraint)
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test getextra(model[node], :posterior_form_constraint) == ArbitraryFunctionalFormConstraint()
+            @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == ArbitraryFunctionalFormConstraint()
         else
-            @test !hasextra(model[node], :posterior_form_constraint)
+            @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
         end
     end
 end
 
 @testitem "Application of MessageFormConstraint" begin
-    import GraphPPL: create_model, MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra
+    import GraphPPL: create_model, MessageFormConstraint, IndexedVariable, apply_constraints!, hasextra, getextra, VariationalConstraintsMessagesFormConstraintKey
 
     include("../../testutils.jl")
 
@@ -570,7 +570,7 @@ end
     constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     node = first(filter(GraphPPL.as_variable(:x), model))
     apply_constraints!(model, context, constraint)
-    @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
+    @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == ArbitraryMessageFormConstraint()
 
     # Test saving of MessageFormConstraint in multiple variables
     model = create_model(vector_model())
@@ -578,10 +578,10 @@ end
     constraint = MessageFormConstraint(IndexedVariable(:x, nothing), ArbitraryMessageFormConstraint())
     apply_constraints!(model, context, constraint)
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
+        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == ArbitraryMessageFormConstraint()
     end
     for node in filter(GraphPPL.as_variable(:y), model)
-        @test !hasextra(model[node], :message_form_constraint)
+        @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
     end
 
     # Test saving of MessageFormConstraint in single variable in array
@@ -592,9 +592,9 @@ end
     applied_node = context[:x][1]
     for node in filter(GraphPPL.as_variable(:x), model)
         if node == applied_node
-            @test getextra(model[node], :message_form_constraint) == ArbitraryMessageFormConstraint()
+            @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == ArbitraryMessageFormConstraint()
         else
-            @test !hasextra(model[node], :message_form_constraint)
+            @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
         end
     end
 end
