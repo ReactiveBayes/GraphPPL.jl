@@ -882,7 +882,6 @@ check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::NTuple
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Vararg{Int, M}) where {V, N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
 
-
 check_variate_compatability(node::ResizableArray{NodeLabel, V, N}, index::Nothing) where {V, N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
 
@@ -1463,18 +1462,11 @@ make_node!(
 ) where {F} =
     make_node!(contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
-# If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the function evaluated at the interfaces
-make_node!(
-    ::False,
-    ::Atomic,
-    ::Deterministic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface,
-    rhs_interfaces::Tuple
-) where {F} = (nothing, fform(rhs_interfaces...))
+# If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the `fform` evaluated at the interfaces
+# This works only if the `lhs_interface` is `AnonymousVariable` (or the corresponding `ProxyLabel` with `AnonymousVariable` as the proxied variable)
+__evaluate_fform(fform::F, args::Tuple) where {F} = fform(args...)
+__evaluate_fform(fform::F, args::NamedTuple) where {F} = fform(; args...)
+__evaluate_fform(fform::F, args::MixedArguments) where {F} = fform(args.args...; args.kwargs...)
 
 make_node!(
     ::False,
@@ -1484,10 +1476,12 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface,
-    rhs_interfaces::NamedTuple
-) where {F} = (nothing, fform(; rhs_interfaces...))
+    lhs_interface::Union{AnonymousVariable, ProxyLabel{<:T, <:AnonymousVariable} where {T}},
+    rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
+) where {F} = (nothing, __evaluate_fform(fform, rhs_interfaces))
 
+# In case if the `lhs_interface` is something else we throw an error saying that `fform` cannot be instantiated since
+# arguments are not stochastic and the `fform` is not stochastic either, thus the usage of `~` is invalid
 make_node!(
     ::False,
     ::Atomic,
@@ -1497,8 +1491,8 @@ make_node!(
     options::NodeCreationOptions,
     fform::F,
     lhs_interface,
-    rhs_interfaces::MixedArguments
-) where {F} = (nothing, fform(rhs_interfaces.args...; rhs_interfaces.kwargs...))
+    rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
+) where {F} = error("`$(fform)` cannot be used as a factor node. Both the arguments and the node are not stochastic.")
 
 # If a node is Stochastic, we always materialize.
 make_node!(

@@ -752,3 +752,22 @@ end
     @test length(collect(filter(as_node(Bernoulli), model))) === 10
     @test length(collect(filter(as_node(prior), model))) === 1
 end
+
+@testitem "Model creation should throw if a `~` using with a constant on RHS" begin
+    using Distributions
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+
+    @model function broken_beta_bernoulli(y)
+        # This should throw an error since `Matrix` is not defined as a proper node
+        θ ~ Matrix([1.0 0.0; 0.0 1.0])
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    @test_throws "`Matrix` cannot be used as a factor node. Both the arguments and the node are not stochastic." create_model(broken_beta_bernoulli()) do model, context 
+        return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
+    end
+end
