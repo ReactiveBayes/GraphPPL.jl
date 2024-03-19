@@ -1,3 +1,12 @@
+import Base: showerror, Exception
+
+struct UnresolvableFactorizationConstraintError <: Exception 
+    message::String
+end
+
+Base.showerror(io::IO, e::UnresolvableFactorizationConstraintError) = println(io, "Unresolvable factorization constraint: " * e.message)
+
+
 """
     CombinedRange{L, R}
 
@@ -90,7 +99,7 @@ __factorization_split_merge_range(a::Int, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::Int) = SplittedRange(a, b)
 __factorization_split_merge_range(a::Int, b::FunctionalIndex) = SplittedRange(a, b)
 __factorization_split_merge_range(a::FunctionalIndex, b::FunctionalIndex) = SplittedRange(a, b)
-__factorization_split_merge_range(a::NTuple{N, Int}, b::NTuple{N, Int}) where {N} = throw(Graphs.NotImplementedError("q(var[firstindex])..q(var[lastindex]) for index dimension $N (constraint specified with $a and $b as endpoints)")) 
+__factorization_split_merge_range(a::NTuple{N, Int}, b::NTuple{N, Int}) where {N} = throw(NotImplementedError("q(var[firstindex])..q(var[lastindex]) for index dimension $N (constraint specified with $a and $b as endpoints)")) 
 __factorization_split_merge_range(a::Any, b::Any) = error("Cannot merge $(a) and $(b) indexes in `factorization_split`")
 
 """
@@ -673,7 +682,7 @@ function __resolve(model::Model, labels::AbstractArray{T, 1}) where {T <: NodeLa
     fdata = model[first(labels)]
     ldata = model[last(labels)]
     if getname(getproperties(fdata)) != getname(getproperties(ldata))
-        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
+        throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata)))."))
     end
     # If we make a slice of a matrix in the constraints, we end up here (for example, q(x[1], x[2]) = q(x[1])q(x[2]) for matrix valued x). 
     # Then `index(getproperties(fdata))` and `index(getproperties(ldata))` will be `Tuple`, and we need to resolve this to a single `Int` in the dimension in which they differ
@@ -693,11 +702,11 @@ function __resolve(model::Model, labels::AbstractArray{T, N} where {T <: NodeLab
 
     # We have to test whether or not the `ResizableArray` of labels passed is a slice. If it is, we throw because the constraint is unresolvable
     if CartesianIndex(index(getproperties(fdata))) != findex || CartesianIndex(index(getproperties(ldata))) != lindex
-        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))). Did you pass a slice of the variable to a submodel, and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported.")
+        throw(UnresolvableFactorizationConstraintError("Did you pass a slice of the variable to a submodel, and then tried to factorize it? These partial factorization constraints cannot be resolved and are not supported."))
     end
 
     if getname(getproperties(fdata)) != getname(getproperties(ldata))
-        error("Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata))).")
+        throw(UnresolvableFactorizationConstraintError(lazy"Cannot resolve factorization constraint for $(getname(getproperties(fdata))) and $(getname(getproperties(ldata)))."))
     end
     return ResolvedIndexedVariable(
         getname(getproperties(fdata)),
@@ -733,7 +742,7 @@ function resolve(model::Model, context::Context, variable::IndexedVariable)
 end
 
 resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} =
-    throw(Graphs.NotImplementedError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
+    throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
     global_label = unroll(context[getname(variable)])[CartesianIndex(firstindex(index(variable))):CartesianIndex(
@@ -823,10 +832,10 @@ function is_decoupled_one_linked(links, unlinked::NodeData, constraint::Resolved
     else
         # Perhaps, this is possible to resolve automatically, but that would required 
         # quite some difficult graph traversal logic, so for now we just throw an error
-        error(lazy"""
-            Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
+        throw(UnresolvableFactorizationConstraintError(lazy"""
+        Cannot resolve factorization constraint $(constraint) for an anonymous variable connected to variables $(join(links, ',')).
             As a workaround specify the name and the factorization constraint for the anonymous variable explicitly.
-        """)
+        """))
     end
 end
 

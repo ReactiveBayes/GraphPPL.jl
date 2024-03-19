@@ -4,10 +4,16 @@ using Static
 using NamedTupleTools
 using Dictionaries
 
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate
+import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate, showerror, Exception
 import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
+
+struct NotImplementedError <: Exception 
+    message::String
+end
+
+showerror(io::IO, e::NotImplementedError) = print(io, "NotImplementedError: " * e.message)
 
 struct Broadcasted
     name::Symbol

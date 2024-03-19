@@ -1036,7 +1036,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This test should throw since we cannot resolve the constraint
-        @test_throws ErrorException GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
+        @test_throws GraphPPL.UnresolvableFactorizationConstraintError GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
     end
 
     # Test ResolvedFactorizationConstraint with a Mixture node
@@ -1193,7 +1193,7 @@ end
 end
 
 @testitem "Apply constraints to matrix variables" begin
-    import GraphPPL: getproperties, PluginsCollection, VariationalConstraintsPlugin, getextra, getcontext, with_plugins, create_model
+    import GraphPPL: getproperties, PluginsCollection, VariationalConstraintsPlugin, getextra, getcontext, with_plugins, create_model, NotImplementedError
 
     include("../../testutils.jl")
 
@@ -1274,13 +1274,20 @@ end
     constraints_5 = @constraints begin
         q(prec, y) = q(prec[(1, 1):(3, 3)])q(y)
     end
-    @test_throws GraphPPL.Graphs.NotImplementedError model = create_model(
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
         with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
     )
 
-    @test_throws GraphPPL.Graphs.NotImplementedError constraints_5 = @constraints begin
+    @test_throws GraphPPL.NotImplementedError constraints_5 = @constraints begin
         q(prec, y) = q(prec[(1, 1)])..q(prec[(3, 3)])q(y)
     end
+
+    constraints_6 = @constraints begin
+        q(prec, y) = q(prec[CartesianIndex(1, 3):CartesianIndex(1, 3)])q(y)
+    end
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+        with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
+    )
 
 
     @model function inner_matrix(y, mat)
@@ -1308,6 +1315,6 @@ end
             q(mat, y) = q(mat)q(y)
         end
     end
-    @test_throws ErrorException model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_6)))
     )
 end
