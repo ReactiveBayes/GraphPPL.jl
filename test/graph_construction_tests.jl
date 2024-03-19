@@ -745,7 +745,7 @@ end
     ydata = rand(10)
     prior = Beta(1, 1)
 
-    model = create_model(coin_model_priors(prior = prior)) do model, context 
+    model = create_model(coin_model_priors(prior = prior)) do model, context
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata)))
     end
 

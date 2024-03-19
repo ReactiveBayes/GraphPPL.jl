@@ -753,6 +753,79 @@ end
         )
         @test resolve(model, ctx, constraint) == result
     end
+
+    model = create_model(filled_matrix_model())
+    ctx = GraphPPL.getcontext(model)
+
+    let constraint = FactorizationConstraint(
+            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+            (FactorizationConstraintEntry((IndexedVariable(:x, nothing),)), FactorizationConstraintEntry((IndexedVariable(:y, nothing),)))
+        )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((
+                ResolvedIndexedVariable(:x, CombinedRange(1, 9), ctx), ResolvedIndexedVariable(:y, CombinedRange(1, 9), ctx)
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(1, 9), ctx),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, CombinedRange(1, 9), ctx),))
+            )
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
+    model = create_model(filled_matrix_model())
+    ctx = GraphPPL.getcontext(model)
+
+    let constraint = FactorizationConstraint(
+            (IndexedVariable(:x, nothing), IndexedVariable(:y, nothing)),
+            (FactorizationConstraintEntry((IndexedVariable(:x, nothing),)), FactorizationConstraintEntry((IndexedVariable(:y, nothing),)))
+        )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((
+                ResolvedIndexedVariable(:x, CombinedRange(1, 9), ctx), ResolvedIndexedVariable(:y, CombinedRange(1, 9), ctx)
+            ),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(1, 9), ctx),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, CombinedRange(1, 9), ctx),))
+            )
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
+
+    # Test a constraint that mentions a lower-dimensional slice of a matrix variable
+
+    @model function uneven_matrix()
+        local prec
+        local y
+        for i in 1:3
+            for j in 1:3
+                prec[i, j] ~ Gamma(1, 1)
+                y[i, j] ~ Normal(0, prec[i, j])
+            end
+        end
+        prec[2, 4] ~ Gamma(1, 1)
+        y[2, 4] ~ Normal(0, prec[2, 4])
+    end
+
+    model = create_model(uneven_matrix())
+    ctx = GraphPPL.getcontext(model)
+    let constraint = GraphPPL.FactorizationConstraint(
+            (IndexedVariable(:prec, [1, 3]), IndexedVariable(:y, nothing)),
+            (
+                FactorizationConstraintEntry((IndexedVariable(:prec, [1, 3]),)),
+                FactorizationConstraintEntry((IndexedVariable(:y, nothing),))
+            )
+        )
+        result = ResolvedFactorizationConstraint(
+            ResolvedConstraintLHS((ResolvedIndexedVariable(:prec, 3, ctx), ResolvedIndexedVariable(:y, CombinedRange(1, 10), ctx)),),
+            (
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:prec, 3, ctx),)),
+                ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:y, CombinedRange(1, 10), ctx),))
+            )
+        )
+        @test resolve(model, ctx, constraint) == result
+    end
+
+    model = create_model(uneven_matrix())
 end
 
 @testitem "Resolved Constraints in" begin
@@ -764,9 +837,16 @@ end
         SplittedRange,
         getname,
         index,
-        VariableNodeProperties
+        VariableNodeProperties,
+        NodeLabel,
+        ResizableArray
 
     context = GraphPPL.Context()
+    context[:w] = ResizableArray([NodeLabel(:w, 1), NodeLabel(:w, 2), NodeLabel(:w, 3), NodeLabel(:w, 4), NodeLabel(:w, 5)])
+    context[:prec] =  ResizableArray([
+        [NodeLabel(:prec, 1), NodeLabel(:prec, 2), NodeLabel(:prec, 3)], [NodeLabel(:prec, 4), NodeLabel(:prec, 5), NodeLabel(:prec, 6)]
+    ])
+
     variable = ResolvedIndexedVariable(:w, 2:3, context)
     node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
     @test node_data ∈ variable
@@ -793,6 +873,10 @@ end
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
     node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = nothing))
+    @test node_data ∈ variable
+
+    variable = ResolvedIndexedVariable(:prec, 3, context)
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :prec, index = (1, 3)))
     @test node_data ∈ variable
 end
 
@@ -893,11 +977,7 @@ end
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
-            (
-                ResolvedFactorizationConstraintEntry((
-                    ResolvedIndexedVariable(:x, SplittedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
-                )),
-            )
+            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, SplittedRange(1, 9), context),)),)
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1, 3), (2, 3), (1, 2, 3))
@@ -910,11 +990,7 @@ end
 
     let constraint = ResolvedFactorizationConstraint(
             ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),),),
-            (
-                ResolvedFactorizationConstraintEntry((
-                    ResolvedIndexedVariable(:x, CombinedRange(CartesianIndex(1, 1), CartesianIndex(3, 3)), context),
-                )),
-            )
+            (ResolvedFactorizationConstraintEntry((ResolvedIndexedVariable(:x, CombinedRange(1, 9), context),)),)
         )
         @test GraphPPL.is_applicable(neighbors, constraint)
         @test tupled_contents(GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)) == ((1, 2, 3), (1, 2, 3), (1, 2, 3))
@@ -960,7 +1036,7 @@ end
         @test GraphPPL.is_applicable(neighbors, constraint)
 
         # This test should throw since we cannot resolve the constraint
-        @test_throws ErrorException GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
+        @test_throws GraphPPL.UnresolvableFactorizationConstraintError GraphPPL.convert_to_bitsets(model, normal_node, neighbors, constraint)
     end
 
     # Test ResolvedFactorizationConstraint with a Mixture node
@@ -1114,4 +1190,192 @@ end
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 3, 5))) == ((1,), (2, 4), (3,), (2, 4), (5,))
     @test tupled_contents(mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5))) == ((1,), (2,), (3,), (4,), (5,))
     @test_throws BoundsError mean_field_constraint!(BoundedBitSetTuple(5), (1, 2, 3, 4, 5, 6)) == ((1,), (2,), (3,), (4,), (5,))
+end
+
+@testitem "Apply constraints to matrix variables" begin
+    import GraphPPL: getproperties, PluginsCollection, VariationalConstraintsPlugin, getextra, getcontext, with_plugins, create_model, NotImplementedError
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    # Test for constraints applied to a model with matrix variables
+    c = @constraints begin
+        q(x, y) = q(x)q(y)
+    end
+    model = create_model(with_plugins(filled_matrix_model(), PluginsCollection(VariationalConstraintsPlugin(c))))
+
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
+
+    @model function uneven_matrix()
+        local prec
+        local y
+        for i in 1:3
+            for j in 1:3
+                prec[i, j] ~ Gamma(1, 1)
+                y[i, j] ~ Normal(0, prec[i, j])
+            end
+        end
+        prec[2, 4] ~ Gamma(1, 1)
+        y[2, 4] ~ Normal(0, prec[2, 4])
+    end
+    constraints_1 = @constraints begin
+        q(prec, y) = q(prec)q(y)
+    end
+
+    model = create_model(with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_1))))
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
+
+    constraints_2 = @constraints begin
+        q(prec[1], y) = q(prec[1])q(y)
+    end
+
+    model = create_model(with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_2))))
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        if any(x -> x ∈ GraphPPL.neighbors(model, node), ctx[:prec][1])
+            @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+        else
+            @test getextra(model[node], :factorization_constraint_indices) == ([1, 3], [2])
+        end
+    end
+
+    constraints_3 = @constraints begin
+        q(prec[2], y) = q(prec[2])q(y)
+    end
+
+    model = create_model(with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_3))))
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        if any(x -> x ∈ GraphPPL.neighbors(model, node), ctx[:prec][2])
+            @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+        else
+            @test getextra(model[node], :factorization_constraint_indices) == ([1, 3], [2])
+        end
+    end
+
+    constraints_4 = @constraints begin
+        q(prec[1, 3], y) = q(prec[1, 3])q(y)
+    end
+    model = create_model(with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_4))))
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        if any(x -> x ∈ GraphPPL.neighbors(model, node), ctx[:prec][1, 3])
+            @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+        else
+            @test getextra(model[node], :factorization_constraint_indices) == ([1, 3], [2])
+        end
+    end
+
+    constraints_5 = @constraints begin
+        q(prec, y) = q(prec[(1, 1):(3, 3)])q(y)
+    end
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(
+        with_plugins(uneven_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_5)))
+    )
+
+    @test_throws GraphPPL.NotImplementedError constraints_5 = @constraints begin
+        q(prec, y) = q(prec[(1, 1)])..q(prec[(3, 3)])q(y)
+    end
+
+    @model function inner_matrix(y, mat)
+        for i in 1:2
+            for j in 1:2
+                mat[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ Normal(mat[1, 1], mat[2, 2])
+    end
+
+
+    @model function outer_matrix()
+        local mat
+        for i in 1:3
+            for j in 1:3
+                mat[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ inner_matrix(mat = mat[2:3, 2:3])
+    end
+
+    constraints_7 = @constraints begin
+        for q in inner_matrix
+            q(mat, y) = q(mat)q(y)
+        end
+    end
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_7)))
+    )
+
+    @model function mixed_v(y, v)
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function mixed_m()
+        v1 ~ Normal(0, 1)
+        v2 ~ Normal(0, 1)
+        v3 ~ Normal(0, 1)
+        v = GraphPPL.ResizableArray([v1, v2, v3])
+        y ~ mixed_v(v = v)
+    end
+
+    constraints_8 = @constraints begin
+        for q in mixed_v
+            q(v, y) = q(v)q(y)
+        end
+    end
+
+    @test_throws GraphPPL.UnresolvableFactorizationConstraintError model = create_model(with_plugins(mixed_m(), PluginsCollection(VariationalConstraintsPlugin(constraints_8))))
+
+    @model function ordinary_v()
+        local v
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    constraints_9 = @constraints begin
+        q(v[1:2]) = q(v[1])q(v[2])
+        q(v, y) = q(v)q(y)
+    end
+
+    model = create_model(with_plugins(ordinary_v(), PluginsCollection(VariationalConstraintsPlugin(constraints_9))))
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
+
+    @model function operate_slice(y, v)
+        local v
+        for i in 1:3
+            v[i] ~ Normal(0, 1)
+        end
+        y ~ Normal(v[1], v[2])
+    end
+
+    @model function pass_slice()
+        local m
+        for i in 1:3
+            for j in 1:3
+                m[i, j] ~ Normal(0, 1)
+            end
+        end
+        v = GraphPPL.ResizableArray(m[:, 1])
+        y ~ operate_slice(v = v)
+    end
+
+    constraints_10 = @constraints begin
+        for q in operate_slice
+            q(v, y) = q(v[begin])..q(v[end])q(y)
+        end
+    end
+
+    @test_throws GraphPPL.NotImplementedError model = create_model(with_plugins(pass_slice(), PluginsCollection(VariationalConstraintsPlugin(constraints_10))))
 end
