@@ -33,9 +33,10 @@ function add_constraints_construction(e::Expr)
         end
     else
         return quote
-            __constraints__ = GraphPPL.Constraints()
-            $e
-            __constraints__
+            let __constraints__ = GraphPPL.Constraints()
+                $e
+                __constraints__
+            end
         end
     end
 end
