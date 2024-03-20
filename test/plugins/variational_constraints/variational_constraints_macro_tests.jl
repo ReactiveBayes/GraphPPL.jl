@@ -654,16 +654,36 @@ end
 
     for constraints in [constraints1, constraints2, constraints3]
         c = first(GraphPPL.factorization_constraints(constraints))
-        @test GraphPPL.getvariables(c) == (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing), GraphPPL.IndexedVariable(:z, nothing))
-        @test GraphPPL.getconstraint(c) == GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:y, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:z, nothing),))
+        @test GraphPPL.getvariables(c) ==
+            (GraphPPL.IndexedVariable(:x, nothing), GraphPPL.IndexedVariable(:y, nothing), GraphPPL.IndexedVariable(:z, nothing))
+        @test GraphPPL.getconstraint(c) ==
+            GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:x, nothing),)) *
+              GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:y, nothing),)) *
+              GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:z, nothing),))
     end
-
 
     constraints = @constraints begin
         q(z, s, m, p) = q(z)q(s)(q(m[begin]) .. q(m[end]))(q(p[begin]) .. q(p[end]))
     end
 
     con = first(GraphPPL.factorization_constraints(constraints))
-    @test GraphPPL.getvariables(con) == (GraphPPL.IndexedVariable(:z, nothing), GraphPPL.IndexedVariable(:s, nothing), GraphPPL.IndexedVariable(:m, nothing), GraphPPL.IndexedVariable(:p, nothing))
-    @test GraphPPL.getconstraint(con) == GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:z, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:s, nothing),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:m, GraphPPL.SplittedRange(GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:end}(lastindex))),)) * GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:p, GraphPPL.SplittedRange(GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:end}(lastindex))),))
-end        
+    @test GraphPPL.getvariables(con) == (
+        GraphPPL.IndexedVariable(:z, nothing),
+        GraphPPL.IndexedVariable(:s, nothing),
+        GraphPPL.IndexedVariable(:m, nothing),
+        GraphPPL.IndexedVariable(:p, nothing)
+    )
+    @test GraphPPL.getconstraint(con) ==
+        GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:z, nothing),)) *
+          GraphPPL.FactorizationConstraintEntry((GraphPPL.IndexedVariable(:s, nothing),)) *
+          GraphPPL.FactorizationConstraintEntry((
+              GraphPPL.IndexedVariable(
+                  :m, GraphPPL.SplittedRange(GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:end}(lastindex))
+              ),
+          )) *
+          GraphPPL.FactorizationConstraintEntry((
+              GraphPPL.IndexedVariable(
+                  :p, GraphPPL.SplittedRange(GraphPPL.FunctionalIndex{:begin}(firstindex), GraphPPL.FunctionalIndex{:end}(lastindex))
+              ),
+          ))
+end

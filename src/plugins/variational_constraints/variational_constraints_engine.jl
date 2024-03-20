@@ -79,7 +79,9 @@ __factorization_specification_resolve_index(index::CombinedRange, collection::Ab
     __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
-__factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel}) = SplittedRange(
+__factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, N}) where {N} =
+    throw(NotImplementedError("Splitted ranges are not supported for more than 1 dimension."))
+__factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, 1}) = SplittedRange(
     __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
@@ -757,6 +759,26 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
             ResolvedFactorizationConstraintEntry(map(variable -> resolve(model, context, variable), fentries))
         end,
         getconstraint(constraint)
+    )
+    return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
+end
+
+resolve(model::Model, context::Context, variable::NodeLabel, ::MeanField) = __resolve(model, variable)
+resolve(model::Model, context::Context, variable::AbstractArray{<:NodeLabel, N}, ::MeanField) where {N} = begin
+    firstdata = first(model[variable])
+    ResolvedIndexedVariable(
+        getname(getproperties(firstdata)), SplittedRange(firstindex(variable), lastindex(variable)), getcontext(firstdata)
+    )
+end
+
+function resolve(model::Model, context::Context, constraint::FactorizationConstraint{V, <:MeanField} where {V})
+    vfiltered = filter(variable -> haskey(context, getname(variable)), getvariables(constraint))
+    if length(vfiltered) != length(getvariables(constraint))
+        @warn "Some variables in factorization constraint $constraint are not present in the context."
+    end
+    lhs = map(variable -> resolve(model, context, variable), vfiltered)
+    rhs = map(
+        variable -> ResolvedFactorizationConstraintEntry((resolve(model, context, context[getname(variable)], MeanField()),)), vfiltered
     )
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
 end

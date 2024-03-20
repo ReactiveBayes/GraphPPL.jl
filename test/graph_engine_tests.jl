@@ -105,7 +105,7 @@ end
     end
 end
 
-@testitem "NodeDataExtraKey" begin 
+@testitem "NodeDataExtraKey" begin
     import GraphPPL: NodeDataExtraKey, getkey
 
     @test NodeDataExtraKey{:a, Int}() isa NodeDataExtraKey
