@@ -210,6 +210,7 @@ function firstwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
     end
 end
 
+
 function lastwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in reverse(CartesianIndices(reverse(size(array)))) #TODO improve performance of this function since it uses splatting
         if isassigned(array, reverse(index.I)...)::Bool

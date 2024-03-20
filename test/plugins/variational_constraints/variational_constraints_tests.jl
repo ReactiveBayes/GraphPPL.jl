@@ -248,6 +248,10 @@ end
             q(t, x, y) = q(t)q(y)q(x)
         end
 
+        structured_factorization_1_10 = @constraints begin
+            q(t, x, y) = MeanField()
+        end
+
         # These should be equivalent
         constraints = [
             structured_factorization_1_1,
@@ -258,7 +262,8 @@ end
             structured_factorization_1_6,
             structured_factorization_1_7,
             structured_factorization_1_8,
-            structured_factorization_1_9
+            structured_factorization_1_9,
+            structured_factorization_1_10
         ]
 
         for constraint in constraints
@@ -541,8 +546,16 @@ end
             end
         end
     end
+    constraints6 = @constraints begin
+        q(x) = MeanField()
+        for q in nested1
+            for q in nested2
+                q(u, θ) = q(u)q(θ)
+            end
+        end
+    end
 
-    @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5)
+    @testset for n in 1:5, constraints in (constraints1, constraints2, constraints3, constraints4, constraints5, constraints6)
         model = create_model(
             with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
         ) do model, context
