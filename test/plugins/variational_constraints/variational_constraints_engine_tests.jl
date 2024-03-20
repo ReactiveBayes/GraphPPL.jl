@@ -1428,7 +1428,6 @@ end
         with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_12)))
     )
 
-
     @model function some_matrix()
         local mat
         for i in 1:3
@@ -1443,9 +1442,7 @@ end
         q(mat) = MeanField()
         q(mat, y) = q(mat)q(y)
     end
-    model = create_model(
-        with_plugins(some_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_13)))
-    )
+    model = create_model(with_plugins(some_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_13))))
     ctx = getcontext(model)
     for node in filter(as_node(Normal), model)
         @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
