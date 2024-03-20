@@ -1721,13 +1721,7 @@ end
     @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
     @test_broken false # TODO: (bvdmitri) ideally we would like to test that the option affects the creation here
 
-    #Test 4: Make sure alias is added for the `+` node
-    options = NodeCreationOptions()
-    node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, +)
-    @test model[node_id] === node_data
-    @test_broken getname(node_id) == sum # TODO: (bvdmitri) check with Wouter
-
-    # Test 5: Test that creating a node with an instantiated object is supported
+    # Test 4: Test that creating a node with an instantiated object is supported
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()

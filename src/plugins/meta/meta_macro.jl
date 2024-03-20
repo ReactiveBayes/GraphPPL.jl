@@ -32,9 +32,10 @@ function add_meta_construction(e::Expr)
         end
     else
         return quote
-            __meta__ = GraphPPL.MetaSpecification()
-            $e
-            __meta__
+            let __meta__ = GraphPPL.MetaSpecification()
+                $e
+                __meta__
+            end
         end
     end
 end

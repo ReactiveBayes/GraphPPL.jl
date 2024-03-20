@@ -179,7 +179,14 @@
         v[2, 2] = GraphPPL.NodeLabel(:x, 5)
         v[2, 3] = GraphPPL.NodeLabel(:x, 6)
 
-        broadcast(x -> 1, v)
+        v = broadcast(x -> 1, v)
+
+        @test v[1, 1] == 1
+        @test v[1, 2] == 1
+        @test v[1, 3] == 1
+        @test v[2, 1] == 1
+        @test v[2, 2] == 1
+        @test v[2, 3] == 1
     end
 
     data = [i for i in 1:10]
