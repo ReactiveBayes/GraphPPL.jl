@@ -80,7 +80,7 @@ __factorization_specification_resolve_index(index::CombinedRange, collection::Ab
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
 __factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, N}) where {N} =
-    throw(NotImplementedError("Splitted ranges are not supported for more than 1 dimension, because it is ambiguous."))
+    throw(NotImplementedError("Splitted ranges are not supported for more than 1 dimension."))
 __factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, 1}) = SplittedRange(
     __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
