@@ -105,6 +105,18 @@ end
     end
 end
 
+@testitem "NodeDataExtraKey" begin 
+    import GraphPPL: NodeDataExtraKey, getkey
+
+    @test NodeDataExtraKey{:a, Int}() isa NodeDataExtraKey
+    @test NodeDataExtraKey{:a, Int}() === NodeDataExtraKey{:a, Int}()
+    @test NodeDataExtraKey{:a, Int}() !== NodeDataExtraKey{:a, Float64}()
+    @test NodeDataExtraKey{:a, Int}() !== NodeDataExtraKey{:b, Int}()
+    @test getkey(NodeDataExtraKey{:a, Int}()) === :a
+    @test getkey(NodeDataExtraKey{:a, Float64}()) === :a
+    @test getkey(NodeDataExtraKey{:b, Float64}()) === :b
+end
+
 @testitem "NodeData extra properties" begin
     import GraphPPL:
         create_model,

@@ -557,6 +557,8 @@ A compile time key to access the `extra` properties of the `NodeData` structure.
 """
 struct NodeDataExtraKey{K, T} end
 
+getkey(::NodeDataExtraKey{K, T}) where {K, T} = K
+
 function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where {K}
     return haskey(node.extra, K)
 end
