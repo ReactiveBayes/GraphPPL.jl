@@ -753,7 +753,6 @@ end
     @test length(collect(filter(as_node(prior), model))) === 1
 end
 
-
 @testitem "Model that passes a slice to child model" begin
     using GraphPPL
     include("testutils.jl")
@@ -775,11 +774,10 @@ end
         y ~ mixed_v(v = m[:, 1])
     end
 
-    model = GraphPPL.create_model(mixed_m()) 
+    model = GraphPPL.create_model(mixed_m())
     context = GraphPPL.getcontext(model)
 
     @test haskey(context[mixed_v, 1], :v)
-
 end
 
 @testitem "Model that constructs a new array to pass to children" begin
@@ -800,7 +798,7 @@ end
         y ~ mixed_v(v = [v1, v2, v3])
     end
 
-    model = GraphPPL.create_model(mixed_m()) 
+    model = GraphPPL.create_model(mixed_m())
     context = GraphPPL.getcontext(model)
 
     @test haskey(context[mixed_v, 1], :v)
@@ -820,7 +818,7 @@ end
         y ~ mixed_v(v = v)
     end
 
-    @test_throws GraphPPL.NotImplementedError local model = GraphPPL.create_model(mixed_m()) 
+    @test_throws GraphPPL.NotImplementedError local model = GraphPPL.create_model(mixed_m())
 end
 
 @testitem "Model creation should throw if a `~` using with a constant on RHS" begin
@@ -837,8 +835,9 @@ end
         end
     end
 
-    @test_throws "`Matrix` cannot be used as a factor node. Both the arguments and the node are not stochastic." create_model(broken_beta_bernoulli()) do model, context 
+    @test_throws "`Matrix` cannot be used as a factor node. Both the arguments and the node are not stochastic." create_model(
+        broken_beta_bernoulli()
+    ) do model, context
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
     end
 end
-

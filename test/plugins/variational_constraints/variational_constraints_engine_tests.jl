@@ -1407,12 +1407,10 @@ end
     )
 
     constraints_11 = @constraints begin
-        q(x, z, y) = q(z)(q(x[begin + 1])..q(x[end]))(q(y[begin + 1])..q(y[end]))
+        q(x, z, y) = q(z)(q(x[begin + 1]) .. q(x[end]))(q(y[begin + 1]) .. q(y[end]))
     end
 
-    model = create_model(
-        with_plugins(vector_model(), PluginsCollection(VariationalConstraintsPlugin(constraints_11)))
-    )
+    model = create_model(with_plugins(vector_model(), PluginsCollection(VariationalConstraintsPlugin(constraints_11))))
 
     ctx = getcontext(model)
     for node in filter(as_node(Normal), model)
@@ -1422,9 +1420,9 @@ end
             @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
         end
     end
-    
+
     constraints_12 = @constraints begin
-        q(mat) = q(mat[begin])..q(mat[end])
+        q(mat) = q(mat[begin]) .. q(mat[end])
     end
     @test_throws NotImplementedError local model = create_model(
         with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_12)))
