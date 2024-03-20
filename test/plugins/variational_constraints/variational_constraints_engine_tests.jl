@@ -1427,4 +1427,27 @@ end
     @test_throws NotImplementedError local model = create_model(
         with_plugins(outer_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_12)))
     )
+
+
+    @model function some_matrix()
+        local mat
+        for i in 1:3
+            for j in 1:3
+                mat[i, j] ~ Normal(0, 1)
+            end
+        end
+        y ~ Normal(mat[1, 1], mat[2, 2])
+    end
+
+    constraints_13 = @constraints begin
+        q(mat) = MeanField()
+        q(mat, y) = q(mat)q(y)
+    end
+    model = create_model(
+        with_plugins(some_matrix(), PluginsCollection(VariationalConstraintsPlugin(constraints_13)))
+    )
+    ctx = getcontext(model)
+    for node in filter(as_node(Normal), model)
+        @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+    end
 end
