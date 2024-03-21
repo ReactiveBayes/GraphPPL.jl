@@ -1701,7 +1701,7 @@ end
     include("testutils.jl")
 
     # Test 1: Add an atomic factor node to the model
-    model = create_test_model()
+    model = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.MetaPlugin()))
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
@@ -1715,11 +1715,12 @@ end
     @test nv(model) == 3 && getname(label_for(model.graph, 3)) == sum
 
     # Test 3: Add an atomic factor node with options
-    options = NodeCreationOptions((; an_arbitrary_option = true,))
+    options = NodeCreationOptions((; meta = true,))
     node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
     @test model[node_id] === node_data
     @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
-    @test_broken false # TODO: (bvdmitri) ideally we would like to test that the option affects the creation here
+    @test GraphPPL.hasextra(node_data, :meta)
+    @test GraphPPL.getextra(node_data, :meta) == true 
 
     # Test 4: Test that creating a node with an instantiated object is supported
     model = create_test_model()
