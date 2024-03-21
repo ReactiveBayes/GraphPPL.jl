@@ -15,12 +15,6 @@ end
 
 showerror(io::IO, e::NotImplementedError) = print(io, "NotImplementedError: " * e.message)
 
-struct Broadcasted
-    name::Symbol
-end
-
-getname(broadcasted::Broadcasted) = broadcasted.name
-
 """
     FunctionalIndex
 
@@ -1509,24 +1503,6 @@ make_node!(
 make_node!(
     ::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
 ) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
-
-# If we have to materialize but lhs_interface is nothing, we create a variable for it
-function make_node!(
-    materialize::True,
-    node_type::NodeType,
-    behaviour::NodeBehaviour,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Broadcasted,
-    rhs_interfaces
-) where {F}
-    lhs_node = ProxyLabel(
-        getname(lhs_interface), nothing, add_variable_node!(model, ctx, EmptyNodeCreationOptions, gensym(getname(lhs_interface)), nothing)
-    )
-    return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
-end
 
 function make_node!(
     materialize::True,

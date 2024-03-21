@@ -278,7 +278,7 @@ end
     out ~ Normal(μ, σ)
 end
 
-@model function broadcaster(out)
+@model function broadcaster()
     local μ
     local σ
     for i in 1:10

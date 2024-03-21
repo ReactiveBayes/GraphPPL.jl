@@ -531,21 +531,20 @@ Returns `nothing`.
 """
 combine_args(args::Nothing, kwargs::Nothing) = nothing
 
-function combine_broadcast_args(args::Vector, kwargs::Nothing)
-    invars = MacroTools.gensym_ids.(gensym.(args))
-    return invars, Expr(:tuple, invars...)
+combine_broadcast_args(args::Vector, kwargs::Nothing) = quote
+    args
 end
 
 function combine_broadcast_args(args::Vector, kwargs::Vector)
     kwargs_keys = [arg.args[1] for arg in kwargs]
-    kwargs_values = [arg.args[2] for arg in kwargs]
-    invars_kwargs = MacroTools.gensym_ids.(gensym.(kwargs_values))
-    kwargs_tuple = Expr(:tuple, [Expr(:(=), key, val) for (key, val) in zip(kwargs_keys, invars_kwargs)]...)
     if length(args) == 0
-        return invars_kwargs, kwargs_tuple
+        return quote
+            NamedTuple{$(Tuple(kwargs_keys))}(args)
+        end
     else
-        invars_args = MacroTools.gensym_ids.(gensym.(args))
-        return vcat(invars_args, invars_kwargs), :(GraphPPL.MixedArguments($(Expr(:tuple, invars_args...)), $kwargs_tuple))
+        return quote
+            GraphPPL.MixedArguments($(Expr(:tuple, args...)), NamedTuple{$(Tuple(kwargs_keys))}(args))
+        end
     end
 end
 
@@ -597,23 +596,18 @@ function convert_tilde_expression(e::Expr)
             end
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
-        (broadcasted_names, parsed_args) = combine_broadcast_args(args, kwargs)
+        parsed_args = GraphPPL.proxy_args(combine_broadcast_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
-        broadcastable_variables = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+        combinable_args = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
+        broadcastable_variables = kwargs === nothing ? [lhs, args...] : vcat([lhs, args...], [kwarg.args[2] for kwarg in kwargs])
+
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         return quote
-            error("Revise broadcasting in the macro generation (a note from bvdmitri)") # Remove this when fixed
-            $lhs = broadcast($(broadcastable_variables...)) do $(broadcasted_names...)
-                return GraphPPL.make_node!(
-                    __model__,
-                    __context__,
-                    GraphPPL.NodeCreationOptions($(options)),
-                    $fform,
-                    GraphPPL.Broadcasted($(QuoteNode(var))),
-                    $parsed_args
-                )
+            $lhs = GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(lhs)), Base.Broadcast.combine_axes($(combinable_args...))...)
+            __returnval__ = broadcast($(broadcastable_variables...)) do ilhs, args...
+                return GraphPPL.make_node!(__model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, ilhs, $parsed_args)
             end
-            $lhs = GraphPPL.ResizableArray($lhs)
+            $lhs = GraphPPL.ResizableArray([last(__val__) for __val__ in __returnval__])
             __context__[$(QuoteNode(lhs))] = $lhs
         end
     else
@@ -765,7 +759,7 @@ function model_macro_interior(backend, model_specification)
 
     num_interfaces = Base.length(ms_args)
     if !isnothing(ms_kwargs) && length(ms_kwargs) > 0
-        warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
+        @warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
     end
 
     boilerplate_functions = GraphPPL.get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)

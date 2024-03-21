@@ -1219,6 +1219,22 @@ end
     @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
 end
 
+@testitem "combine_broadcast_args" begin
+    import GraphPPL: combine_broadcast_args
+
+    include("testutils.jl")
+
+    @test_expression_generating combine_broadcast_args([:μ, :σ], nothing) quote
+        args
+    end
+    @test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+        NamedTuple{$(:μ, :σ)}(args)
+    end
+    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+        GraphPPL.MixedArguments((μ, σ), NamedTuple{$(:μ, :σ)}(args))
+    end
+end
+
 @testitem "convert_tilde_expression" begin
     import GraphPPL: convert_tilde_expression, apply_pipeline
 
@@ -1463,64 +1479,62 @@ end
     input = quote
         a .~ (Normal(μ, σ) where {created_by = :(a .~ Normal(μ, σ))})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
     output = quote
-        a = broadcast(μ, σ) do $(invars...)
+        a = GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(μ, σ)...)
+        __returnval__ = broadcast(a, μ, σ) do ilhs, args...
             return GraphPPL.make_node!(
-                __model__,
-                __context__,
-                GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)),
-                Normal,
-                GraphPPL.Broadcasted(:a),
-                $(Expr(:tuple, invars...))
+                __model__, __context__, GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)), Normal, ilhs, args
             )
         end
-        a = GraphPPL.ResizableArray(a)
+        a = GraphPPL.ResizableArray([last(__val__) for __val__ in __returnval__])
         __context__[:a] = a
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 12: Test node creation with broadcasting call with kwargs
     input = quote
         a .~ (Normal(; μ = μ, σ = σ) where {created_by = :(a .~ Normal(μ = μ, σ = σ))})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
     output = quote
-        a = broadcast(μ, σ) do $(invars...)
+        a = GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(μ, σ)...)
+        __returnval__ = broadcast(a, μ, σ) do ilhs, args...
             return GraphPPL.make_node!(
                 __model__,
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ = μ, σ = σ)),)),
                 Normal,
-                GraphPPL.Broadcasted(:a),
-                (μ = $(invars[1]), σ = $(invars[2]))
+                ilhs,
+                NamedTuple{$(:μ, :σ)}(args)
             )
         end
-        a = GraphPPL.ResizableArray(a)
+        a = GraphPPL.ResizableArray([last(__val__) for __val__ in __returnval__])
         __context__[:a] = a
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 13: Test node creation with broadcasting call with mixed args and kwargs
     input = quote
-        a .~ (some_node(a, b; μ = μ, σ = σ) where {created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),)})
+        out .~ (some_node(a, b; μ = μ, σ = σ) where {created_by = :(out .~ some_node(a, b; μ = μ, σ = σ),)})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:a, :b, :μ, :σ)))
     output = quote
-        a = broadcast(a, b, μ, σ) do $(invars...)
+        out = GraphPPL.getorcreate!(__model__, __context__, :out, Base.Broadcast.combine_axes(a, b, μ, σ)...)
+        __returnval__ = broadcast(out, a, b, μ, σ) do ilhs, args...
             return GraphPPL.make_node!(
                 __model__,
                 __context__,
-                GraphPPL.NodeCreationOptions((; created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),))),
+                GraphPPL.NodeCreationOptions((; created_by = :(out .~ some_node(a, b; μ = μ, σ = σ),))),
                 some_node,
-                GraphPPL.Broadcasted(:a),
-                GraphPPL.MixedArguments(($(invars[1:2]...),), (μ = $(invars[3]), σ = $(invars[4])))
+                ilhs,
+                GraphPPL.MixedArguments(
+                    (GraphPPL.proxylabel(:a, nothing, a), GraphPPL.proxylabel(:b, nothing, b)), NamedTuple{$(:μ, :σ)}(args)
+                )
             )
         end
-        a = GraphPPL.ResizableArray(a)
-        __context__[:a] = a
+        out = GraphPPL.ResizableArray([last(__val__) for __val__ in __returnval__])
+        __context__[:out] = out
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end
 
 @testitem "options_vector_to_factoroptions" begin

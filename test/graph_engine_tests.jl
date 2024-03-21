@@ -2150,9 +2150,8 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_broken broadcaster_ctx, _ = make_node!(model, ctx, options, broadcaster, ProxyLabel(:out, nothing, out), ()) # The broadcasting is broken currently
-    @test_broken contains(repr(broadcaster_ctx), "broadcaster")
-    @test_broken nv(model) == 103
+    model = create_model(broadcaster())
+    @test nv(model) == 103
 end
 
 @testitem "prune!(m::Model)" begin
@@ -2183,7 +2182,7 @@ end
 end
 
 @testitem "broadcast" begin
-    import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, Broadcasted, NodeCreationOptions
+    import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -2195,9 +2194,11 @@ end
     x = getorcreate!(model, ctx, :x, 2)
     y = getorcreate!(model, ctx, :y, 1)
     y = getorcreate!(model, ctx, :y, 2)
-    z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
-    end, x, y)
+    z = getorcreate!(model, ctx, :z, 1)
+    z = getorcreate!(model, ctx, :z, 2)
+    z = broadcast((z_, x_, y_) -> begin
+        var = make_node!(model, ctx, options, +, z_, (x_, y_))
+    end, z, x, y)
     @test size(z) == (2,)
 
     # Test 2: Broadcast a matrix node
@@ -2213,9 +2214,15 @@ end
     y = getorcreate!(model, ctx, :y, 1, 2)
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
-    z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
-    end, x, y)
+
+    z = getorcreate!(model, ctx, :z, 1, 1)
+    z = getorcreate!(model, ctx, :z, 1, 2)
+    z = getorcreate!(model, ctx, :z, 2, 1)
+    z = getorcreate!(model, ctx, :z, 2, 2)
+
+    z = broadcast((z_, x_, y_) -> begin
+        var = make_node!(model, ctx, options, +, z_, (x_, y_))
+    end, z, x, y)
     @test size(z) == (2, 2)
 
     # Test 3: Broadcast a vector node with a matrix node
@@ -2228,9 +2235,15 @@ end
     y = getorcreate!(model, ctx, :y, 1, 2)
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
-    z = broadcast((x_, y_) -> begin
-        var = make_node!(model, ctx, options, +, Broadcasted(:z), (x_, y_))
-    end, x, y)
+
+    z = getorcreate!(model, ctx, :z, 1, 1)
+    z = getorcreate!(model, ctx, :z, 1, 2)
+    z = getorcreate!(model, ctx, :z, 2, 1)
+    z = getorcreate!(model, ctx, :z, 2, 2)
+
+    z = broadcast((z_, x_, y_) -> begin
+        var = make_node!(model, ctx, options, +, z_, (x_, y_))
+    end, z, x, y)
     @test size(z) == (2, 2)
 end
 
