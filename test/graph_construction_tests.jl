@@ -842,14 +842,12 @@ end
     end
 end
 
-
 @testitem "Broadcasting in the model" begin
     using Distributions
     import GraphPPL: create_model
     using LinearAlgebra
 
     include("testutils.jl")
-
 
     @model function linreg()
         x .~ Normal(fill(0, 10), 1)
@@ -868,7 +866,7 @@ end
         a .~ Gamma(fill(0, 10), 1)
         y .~ Normal(Normal.(Normal.(x, 1), a), 1)
     end
-    
+
     model = create_model(nested_normal())
     @test length(collect(filter(as_node(Normal), model))) == 40
     @test length(collect(filter(as_node(Gamma), model))) == 10
@@ -896,7 +894,7 @@ end
         y ~ Normal(Normal(0, 1), 1)
     end
 
-    model = create_model(anonymous_variables()) 
+    model = create_model(anonymous_variables())
     @test length(collect(filter(as_node(Normal), model))) == 2
 
     # Test whether anonymous variables are created correctly when we pass a deterministic function with stochastic inputs as an argument

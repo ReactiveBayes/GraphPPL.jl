@@ -1091,7 +1091,9 @@ end
                                                         let var"#anon6" = GraphPPL.create_anonymous_variable!(__model__, __context__)
                                                             var"#anon6" ~ (
                                                                 diagm(
-                                                                    let var"#anon7" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                                    let var"#anon7" = GraphPPL.create_anonymous_variable!(
+                                                                            __model__, __context__
+                                                                        )
                                                                         var"#anon7" ~ (
                                                                             ones(
                                                                                 2
@@ -1116,7 +1118,8 @@ end
                                                                     )
                                                                 }
                                                             )
-                                                        end + let var"#anon8" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                        end +
+                                                        let var"#anon8" = GraphPPL.create_anonymous_variable!(__model__, __context__)
                                                             var"#anon8" ~ (
                                                                 diagm(
                                                                     let var"#anon9" = GraphPPL.create_anonymous_variable!(
@@ -1191,7 +1194,11 @@ end
         x = if !@isdefined(x)
             GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x,  (nothing,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x,  (nothing,)...))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
@@ -1265,20 +1272,24 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x,  (nothing,)...)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x,  (nothing,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x,  (nothing,)...))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(
             begin
                 $sym = if !@isdefined($sym)
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)),  (nothing,)...)
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
                 else
                     (
-                        if GraphPPL.check_variate_compatability($sym,  (nothing,)...)
+                        if GraphPPL.check_variate_compatability($sym, (nothing,)...)
                             $sym
                         else
-                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)),  (nothing,)...)
+                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
                         end
                     )
                 end
@@ -1295,9 +1306,13 @@ end
     end
     output = quote
         y = if !@isdefined(y)
-            GraphPPL.getorcreate!(__model__, __context__, :y,  (nothing,)...)
+            GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(y,  (nothing,)...) ? y : GraphPPL.getorcreate!(__model__, __context__, :y,  (nothing,)...))
+            (if GraphPPL.check_variate_compatability(y, (nothing,)...)
+                    y
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
+                end)
         end
         y ~ x where {created_by = (y := x), is_deterministic = true}
     end
@@ -1309,9 +1324,13 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x,  (nothing,)...)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x,  (nothing,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x,  (nothing,)...))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {q = q(x)q(y)}), q = q(x)q(y)}
     end
@@ -1329,11 +1348,13 @@ end
         x = if !@isdefined(x)
             GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+            (
+                if GraphPPL.check_variate_compatability(x, (nothing,)...)
                     x
                 else
                     GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
-                end)
+                end
+            )
         end
     end
     @test_expression_generating output desired_result

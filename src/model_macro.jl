@@ -371,10 +371,7 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::Nothing) = generate_get_or_create(
-    s,
-    :((nothing,))
-)
+generate_get_or_create(s::Symbol, index::Nothing) = generate_get_or_create(s, :((nothing,)))
 
 """
     generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
@@ -388,7 +385,7 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create(s, :(($(index...), )))
+generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create(s, :(($(index...),)))
 
 function generate_get_or_create(s::Symbol, index::Expr)
     return quote

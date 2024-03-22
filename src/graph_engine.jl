@@ -1206,7 +1206,6 @@ end
 
 check_variate_compatability(node::AnonymousVariable, any...) = true
 
-
 """
     add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
 
