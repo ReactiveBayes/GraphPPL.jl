@@ -1109,6 +1109,7 @@ end
 
         c_for_y_1 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[1]])))[3])
         c_for_y_2 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[2]])))[3])
+        # The values are swapped intentionally, the first one depends on `c[2]` and the second one on `c[1]`
         @test is_constant(c_for_y_1) && value(c_for_y_1) === 2.0
         @test is_constant(c_for_y_2) && value(c_for_y_2) === 1.0
     end
