@@ -139,6 +139,7 @@ end
 Base.length(label::NodeLabel) = 1
 Base.getindex(label::NodeLabel, any) = label
 Base.:(<)(left::NodeLabel, right::NodeLabel) = left.global_counter < right.global_counter
+Base.broadcastable(label::NodeLabel) = Ref(label)
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
@@ -173,6 +174,8 @@ end
 proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) =
     ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
+
+Base.broadcastable(label::ProxyLabel) = Ref(label)
 
 # By default we assume that the `proxied` is just a constant here, so
 # in case if 
