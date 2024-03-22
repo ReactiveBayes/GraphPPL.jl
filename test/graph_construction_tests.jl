@@ -872,4 +872,15 @@ end
     model = create_model(nested_normal())
     @test length(collect(filter(as_node(Normal), model))) == 40
     @test length(collect(filter(as_node(Gamma), model))) == 10
+
+    function foo end
+    GraphPPL.NodeBehaviour(::TestUtils.TestGraphPPLBackend, ::typeof(foo)) = GraphPPL.Stochastic()
+
+    @model function emtpy_broadcast()
+        x .~ Normal(fill(0, 10), 1)
+        x .~ foo()
+    end
+
+    model = create_model(emtpy_broadcast())
+    @test length(collect(filter(as_node(foo), model))) == 10
 end
