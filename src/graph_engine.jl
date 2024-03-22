@@ -137,6 +137,7 @@ struct NodeLabel
 end
 
 Base.length(label::NodeLabel) = 1
+Base.size(label::NodeLabel) = ()
 Base.getindex(label::NodeLabel, any) = label
 Base.:(<)(left::NodeLabel, right::NodeLabel) = left.global_counter < right.global_counter
 Base.broadcastable(label::NodeLabel) = Ref(label)
@@ -175,7 +176,7 @@ proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, R
     ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
 
-Base.broadcastable(label::ProxyLabel) = Ref(label)
+Base.broadcastable(label::ProxyLabel) = Base.broadcastable(unroll(label))
 
 # By default we assume that the `proxied` is just a constant here, so
 # in case if 
@@ -209,6 +210,7 @@ Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getna
 Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
 Base.show(io::IO, proxy::ProxyLabel) = print(io, getname(proxy), "[", index(proxy)[1], "]")
 Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
+Base.size(proxy::ProxyLabel) = size(unroll(proxy))
 
 Base.last(label::ProxyLabel) = last(label.proxied, label)
 
@@ -1020,6 +1022,8 @@ end
 
 check_variate_compatability(label::LazyNodeLabel, indices...) =
     __lazy_node_label_check_variate_compatability(label, label.collection, indices)
+
+Base.broadcastable(label::LazyNodeLabel) = collect(__lazy_iterator(label))
 
 # Redirect some of the standard collection methods to the underlying collection
 Base.IteratorSize(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorSize(C)

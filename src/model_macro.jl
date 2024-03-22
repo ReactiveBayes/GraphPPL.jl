@@ -560,7 +560,7 @@ generate_lhs_proxylabel(var, index::AbstractArray) = quote
 end
 
 __combine_axes() = Base.OneTo(1)
-__combine_axes(any...) = Base.Broadcast.combine_axes(Base.Broadcast.broadcastable.(any)...)
+__combine_axes(any...) = Base.Broadcast.combine_axes(any...)
 
 """
     convert_tilde_expression(e::Expr)

@@ -996,6 +996,61 @@ end
     @test length(collect(filter(as_node(foo), model))) == 10
 end
 
+@testitem "Broadcasting with LazyNodeLabel" begin 
+    using Distributions, LinearAlgebra
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")    
+
+    @model function linear_regression_broadcasted(x, y)
+        a ~ Normal(mean = 0.0, var = 1.0)
+        b ~ Normal(mean = 0.0, var = 1.0)
+        # Variance over-complicated for a purpose of checking that this expressions are allowed, it should be equal to `1.0`
+        y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+    end
+
+    xdata = rand(10)
+    ydata = rand(10)
+
+    model = create_model(linear_regression_broadcasted()) do model, ctx 
+        return (
+            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
+        )
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 12
+    @test length(collect(filter(as_node(sum), model))) == 10
+    @test length(collect(filter(as_node(prod), model))) == 10
+    @test length(collect(filter(as_node(det), model))) == 0
+    @test length(collect(filter(as_node(diagm), model))) == 0
+    @test length(collect(filter(as_node(ones), model))) == 0
+
+    # `xdata` is not passed
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+        return (
+            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
+        )
+    end
+
+    # `ydata` is not passed
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+        return (
+            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
+        )
+    end
+
+    # both `xdata` and `ydata` are not passed
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+        return (
+            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
+            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
+        )
+    end
+end
+
 @testitem "Anonymous variables" begin
     using GraphPPL
     import GraphPPL: create_model
