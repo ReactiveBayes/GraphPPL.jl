@@ -93,7 +93,7 @@ end
     end
 
     for i in 1:length(collection)
-        _range = FunctionalIndex{:begub}(firstindex):i
+        _range = FunctionalIndex{:begin}(firstindex):i
         @test collection[_range] == collection[begin:i]
     end
 end
