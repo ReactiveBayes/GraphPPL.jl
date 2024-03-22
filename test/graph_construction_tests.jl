@@ -884,3 +884,30 @@ end
     model = create_model(emtpy_broadcast())
     @test length(collect(filter(as_node(foo), model))) == 10
 end
+
+@testitem "Anonymous variables" begin
+    using GraphPPL
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    # Test whether generic anonymous variables are created correctly
+    @model function anonymous_variables()
+        y ~ Normal(Normal(0, 1), 1)
+    end
+
+    model = create_model(anonymous_variables()) 
+    @test length(collect(filter(as_node(Normal), model))) == 2
+
+    # Test whether anonymous variables are created correctly when we pass a deterministic function with stochastic inputs as an argument
+
+    function foo end
+
+    @model function det_anonymous_variables()
+        y .~ Bernoulli(fill(0.5, 10))
+        x ~ foo(foo(in = y))
+    end
+
+    model = create_model(det_anonymous_variables())
+    @test length(collect(filter(as_node(foo), model))) == 2
+end

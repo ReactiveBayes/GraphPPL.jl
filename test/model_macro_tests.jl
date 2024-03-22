@@ -1691,12 +1691,12 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(var"#broad"...)...)
+            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
         else
-            if GraphPPL.check_variate_compatability(a, Base.Broadcast.combine_axes(var"#broad"...)...)
+            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
                 a
             else
-                GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(var"#broad"...)...)
+                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
             end
         end
         var"#rvar#" = broadcast(a, var"#broad"...) do ilhs, args...
@@ -1715,12 +1715,12 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(var"#broad"...)...)
+            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
         else
-            if GraphPPL.check_variate_compatability(a, Base.Broadcast.combine_axes(var"#broad"...)...)
+            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
                 a
             else
-                GraphPPL.getorcreate!(__model__, __context__, :a, Base.Broadcast.combine_axes(var"#broad"...)...)
+                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
             end
         end
         var"#rvar" = broadcast(a, var"#broad"...) do ilhs, args...
@@ -1745,12 +1745,12 @@ end
     output = quote
         var"#broad" = (a, b, μ, σ)
         out = if !(@isdefined(out))
-            GraphPPL.getorcreate!(__model__, __context__, :out, Base.Broadcast.combine_axes(var"#broad"...)...)
+            GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
         else
-            if GraphPPL.check_variate_compatability(out, Base.Broadcast.combine_axes(var"#broad"...)...)
+            if GraphPPL.check_variate_compatability(out, GraphPPL.__combine_axes(var"#broad"...)...)
                 out
             else
-                GraphPPL.getorcreate!(__model__, __context__, :out, Base.Broadcast.combine_axes(var"#broad"...)...)
+                GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
             end
         end
         var"#rvar" = broadcast(out, var"#broad"...) do ilhs, args...
