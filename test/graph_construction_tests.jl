@@ -1088,6 +1088,50 @@ end
     end
 end
 
+@testitem "Complex ranges with `begin`/`end` should be supported" begin
+    using Distributions
+    import GraphPPL: create_model, getproperties, neighbor_data, is_constant, value
+
+    include("testutils.jl")
+
+    @model function complex_ranges_with_begin_end_1()
+        c = [1.0, 2.0]
+        y[1] ~ Normal(0.0, c[begin + 1])
+        y[2] ~ Normal(0.0, c[end - 1])
+    end
+
+    @testset "Test case 1" begin
+        model = create_model(complex_ranges_with_begin_end_1())
+
+        @test length(collect(filter(as_node(Normal), model))) == 2
+
+        normalnodes = collect(filter(as_node(Normal), model))
+
+        c_for_y_1 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[1]])))[3])
+        c_for_y_2 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[2]])))[3])
+        @test is_constant(c_for_y_1) && value(c_for_y_1) === 2.0
+        @test is_constant(c_for_y_2) && value(c_for_y_2) === 1.0
+    end
+
+    @model function complex_ranges_with_begin_end_2()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[1:(end - 1 + 1)])
+    end
+
+    @testset "Test case 2" begin
+        model = create_model(complex_ranges_with_begin_end_2())
+
+        @test length(collect(filter(as_node(Normal), model))) == 2
+
+        normalnodes = collect(filter(as_node(Normal), model))
+
+        c_for_y_1 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[1]])))[3])
+        c_for_y_2 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[2]])))[3])
+        @test is_constant(c_for_y_1) && value(c_for_y_1) === 1.0
+        @test is_constant(c_for_y_2) && value(c_for_y_2) === 2.0
+    end
+end
+
 @testitem "Anonymous variables" begin
     using GraphPPL
     import GraphPPL: create_model

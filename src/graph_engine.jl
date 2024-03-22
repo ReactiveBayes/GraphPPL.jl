@@ -59,6 +59,27 @@ function Base.show(io::IO, index::FunctionalIndex{R, F}) where {R, F}
 end
 
 """
+    FunctionalRange(left, range)
+
+A range can handle `FunctionalIndex` as one of (or both) the bounds.
+"""
+struct FunctionalRange{L, R}
+    left::L
+    right::R
+end
+
+(::Colon)(left, right::FunctionalIndex) = FunctionalRange(left, right)
+(::Colon)(left::FunctionalIndex, right) = FunctionalRange(left, right)
+(::Colon)(left::FunctionalIndex, right::FunctionalIndex) = FunctionalRange(left, right)
+
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L, R <: FunctionalIndex} =
+    collection[(range.left):range.right(collection)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R} =
+    collection[range.left(collection):(range.right)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R <: FunctionalIndex} =
+    collection[range.left(collection):range.right(collection)]
+
+"""
     IndexedVariable
 
 `IndexedVariable` represents a reference to a variable named `name` with index `index`. 

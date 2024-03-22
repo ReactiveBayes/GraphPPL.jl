@@ -14,6 +14,7 @@ function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
         GraphPPL.convert_to_kwargs_expression,
         GraphPPL.add_get_or_create_expression,
         GraphPPL.convert_anonymous_variables,
+        GraphPPL.replace_begin_end,
         GraphPPL.convert_tilde_expression
     )
 end
