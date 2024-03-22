@@ -841,3 +841,116 @@ end
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
     end
 end
+
+@testitem "Condition based initialization of variables" begin
+    using Distributions
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function condition_based_initialization(condition)
+        if condition
+            y ~ Normal(0.0, 1.0)
+        else
+            y ~ Gamma(1.0, 1.0)
+        end
+    end
+
+    model1 = create_model(condition_based_initialization(condition = true))
+    model2 = create_model(condition_based_initialization(condition = false))
+
+    @test length(collect(filter(as_variable(:y), model1))) == 1
+    @test length(collect(filter(as_variable(:y), model2))) == 1
+
+    @test length(collect(filter(as_node(Normal), model1))) == 1
+    @test length(collect(filter(as_node(Gamma), model1))) == 0
+
+    @test length(collect(filter(as_node(Normal), model2))) == 0
+    @test length(collect(filter(as_node(Gamma), model2))) == 1
+end
+
+@testitem "Attempt to trick Julia's parser" begin
+    using Distributions
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    # We use `@isdefined` macro inside the macro generator code to check if the variable is defined
+    # The idea of this test is to double check that `@model` parser and Julia in particular 
+    # does not confuse the undefined `y` variable with the `y` variable defined in the model
+    @model function tricky_model_1()
+        y ~ Normal(0.0, 1.0)
+        if false
+            y = nothing
+        end
+    end
+
+    @model function tricky_model_2()
+        y ~ Normal(0.0, 1.0)
+        if false
+            y = nothing
+        end
+        local y
+    end
+
+    for modelfn in [tricky_model_1, tricky_model_2]
+        model_3 = create_model(modelfn())
+        @test length(collect(filter(as_variable(:y), model_3))) == 1
+        @test length(collect(filter(as_node(Normal), model_3))) == 1
+    end
+
+    global yy = 1
+
+    @model function tricky_model_3()
+        yy ~ Normal(0.0, 1.0)
+        # This is technically not allowed in real models 
+        # However we want the `@model` macro to instantiate a different `yy` variable 
+        # and not confuse it with the global `yy`. We "override" `yy` but since its a local 
+        # random variable it should not override the global `yy` which is tested below
+        yy = 2
+    end
+
+    # Test before model creation
+    @test yy === 1
+
+    model_3 = create_model(tricky_model_3())
+
+    @test length(collect(filter(as_variable(:yy), model_3))) == 1
+    @test length(collect(filter(as_node(Normal), model_3))) == 1
+    # We test here that the `@model` macro does not confuse the global `yy` in the model after model creation
+    @test yy === 1
+
+    # We double check though that the `@model` macro may depend on global variables if needed
+    global boolean = true
+    @model function model_that_uses_global_variables_1()
+        if boolean
+            y ~ Normal(0.0, 1.0)
+        else
+            y ~ Gamma(1.0, 1.0)
+        end
+    end
+
+    model_4 = create_model(model_that_uses_global_variables_1())
+
+    @test length(collect(filter(as_variable(:y), model_4))) == 1
+    @test length(collect(filter(as_node(Normal), model_4))) == 1
+    @test length(collect(filter(as_node(Gamma), model_4))) == 0
+
+    global m = 0.0
+    global v = 1.0
+    @model function model_that_uses_global_variables_2()
+        y ~ Normal(m, v)
+    end
+
+    model_5 = create_model(model_that_uses_global_variables_1())
+
+    @test length(collect(filter(as_variable(:y), model_5))) == 1
+    @test length(collect(filter(as_node(Normal), model_5))) == 1
+    @test length(collect(filter(as_node(Gamma), model_5))) == 0
+
+    normalnode = first(collect(filter(as_node(Normal), model_5)))
+    nodeneighborsproperties = map(GraphPPL.getproperties, GraphPPL.neighbor_data(GraphPPL.getproperties(model_5[normalnode])))
+
+    @test GraphPPL.is_constant(nodeneighborsproperties[2]) && GraphPPL.value(nodeneighborsproperties[2]) === m
+    @test GraphPPL.is_constant(nodeneighborsproperties[3]) && GraphPPL.value(nodeneighborsproperties[3]) === v
+end
