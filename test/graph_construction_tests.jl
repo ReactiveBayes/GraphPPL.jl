@@ -841,3 +841,71 @@ end
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
     end
 end
+
+@testitem "Broadcasting in the model" begin
+    using Distributions
+    import GraphPPL: create_model
+    using LinearAlgebra
+
+    include("testutils.jl")
+
+    @model function linreg()
+        x .~ Normal(fill(0, 10), 1)
+        a .~ Normal(fill(0, 10), 1)
+        b .~ Normal(fill(0, 10), 1)
+        y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+    end
+
+    model = create_model(linreg())
+    @test length(collect(filter(as_node(Normal), model))) == 40
+    @test length(collect(filter(as_node(sum), model))) == 10
+    @test length(collect(filter(as_node(prod), model))) == 10
+
+    @model function nested_normal()
+        x .~ Normal(fill(0, 10), 1)
+        a .~ Gamma(fill(0, 10), 1)
+        y .~ Normal(Normal.(Normal.(x, 1), a), 1)
+    end
+
+    model = create_model(nested_normal())
+    @test length(collect(filter(as_node(Normal), model))) == 40
+    @test length(collect(filter(as_node(Gamma), model))) == 10
+
+    function foo end
+    GraphPPL.NodeBehaviour(::TestUtils.TestGraphPPLBackend, ::typeof(foo)) = GraphPPL.Stochastic()
+
+    @model function emtpy_broadcast()
+        x .~ Normal(fill(0, 10), 1)
+        x .~ foo()
+    end
+
+    model = create_model(emtpy_broadcast())
+    @test length(collect(filter(as_node(foo), model))) == 10
+end
+
+@testitem "Anonymous variables" begin
+    using GraphPPL
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    # Test whether generic anonymous variables are created correctly
+    @model function anonymous_variables()
+        y ~ Normal(Normal(0, 1), 1)
+    end
+
+    model = create_model(anonymous_variables())
+    @test length(collect(filter(as_node(Normal), model))) == 2
+
+    # Test whether anonymous variables are created correctly when we pass a deterministic function with stochastic inputs as an argument
+
+    function foo end
+
+    @model function det_anonymous_variables()
+        y .~ Bernoulli(fill(0.5, 10))
+        x ~ foo(foo(in = y))
+    end
+
+    model = create_model(det_anonymous_variables())
+    @test length(collect(filter(as_node(foo), model))) == 2
+end
