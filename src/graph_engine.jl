@@ -1176,6 +1176,8 @@ struct AnonymousVariable{M, C}
     context::C
 end
 
+Base.broadcastable(v::AnonymousVariable) = Ref(v)
+
 create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(model, context)
 
 function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
@@ -1198,6 +1200,9 @@ end
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
     return add_variable_node!(model, context, NodeCreationOptions(), :anonymous, nothing)
 end
+
+check_variate_compatability(node::AnonymousVariable, any...) = true
+
 
 """
     add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)

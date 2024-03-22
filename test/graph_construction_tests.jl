@@ -841,3 +841,35 @@ end
         return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
     end
 end
+
+
+@testitem "Broadcasting in the model" begin
+    using Distributions
+    import GraphPPL: create_model
+    using LinearAlgebra
+
+    include("testutils.jl")
+
+
+    @model function linreg()
+        x .~ Normal(fill(0, 10), 1)
+        a .~ Normal(fill(0, 10), 1)
+        b .~ Normal(fill(0, 10), 1)
+        y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+    end
+
+    model = create_model(linreg())
+    @test length(collect(filter(as_node(Normal), model))) == 40
+    @test length(collect(filter(as_node(sum), model))) == 10
+    @test length(collect(filter(as_node(prod), model))) == 10
+
+    @model function nested_normal()
+        x .~ Normal(fill(0, 10), 1)
+        a .~ Gamma(fill(0, 10), 1)
+        y .~ Normal(Normal.(Normal.(x, 1), a), 1)
+    end
+    
+    model = create_model(nested_normal())
+    @test length(collect(filter(as_node(Normal), model))) == 40
+    @test length(collect(filter(as_node(Gamma), model))) == 10
+end

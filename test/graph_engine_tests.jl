@@ -1720,7 +1720,7 @@ end
     @test model[node_id] === node_data
     @test nv(model) == 4 && getname(label_for(model.graph, 4)) == sum
     @test GraphPPL.hasextra(node_data, :meta)
-    @test GraphPPL.getextra(node_data, :meta) == true 
+    @test GraphPPL.getextra(node_data, :meta) == true
 
     # Test 4: Test that creating a node with an instantiated object is supported
     model = create_test_model()

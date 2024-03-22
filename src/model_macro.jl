@@ -274,10 +274,26 @@ Convert an expression to an anonymous variable. This function is used to convert
 """
 function convert_to_anonymous(e::Expr, created_by)
     if @capture(e, f_(args__))
+        if first(string(f)) == '.'
+            sym = gensym(:anon)
+            f = Symbol(string(f)[2:end])
+            return quote
+                let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                    $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                end
+            end
+        end
         sym = gensym(:anon)
         return quote
             let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
                 $sym ~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+            end
+        end
+    elseif @capture(e, f_.(args__))
+        sym = gensym(:anon)
+        return quote
+            let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
             end
         end
     end
@@ -334,7 +350,7 @@ function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         @capture(lhs, (var_[index__]) | (var_))
         return quote
-            $(generate_get_or_create(var, lhs, index))
+            $(generate_get_or_create(var, index))
             $e
         end
     end
@@ -350,27 +366,15 @@ Generates code to get or create a variable in the graph. This function is used t
 
 # Arguments
 - `s::Symbol`: The symbol representing the variable.
-- `lhs::Symbol`: The symbol representing the left-hand side of the expression.
 - `index::Nothing`: The index of the variable. This argument is always `nothing`.
 
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-function generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
-    return quote
-        $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
-        else
-            (
-                if GraphPPL.check_variate_compatability($s, nothing)
-                    $s
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), nothing)
-                end
-            )
-        end
-    end
-end
+generate_get_or_create(s::Symbol, index::Nothing) = generate_get_or_create(
+    s,
+    :((nothing,))
+)
 
 """
     generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
@@ -379,22 +383,23 @@ Generates code to get or create a variable in the graph. This function is used t
 
 # Arguments
 - `s::Symbol`: The symbol representing the variable.
-- `lhs::Expr`: The expression representing the left-hand side of the assignment.
 - `index::AbstractArray`: The index of the variable.
 
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-function generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
+generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create(s, :(($(index...), )))
+
+function generate_get_or_create(s::Symbol, index::Expr)
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
+            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
         else
             (
-                if GraphPPL.check_variate_compatability($s, $(index...))
+                if GraphPPL.check_variate_compatability($s, $(index)...)
                     $s
                 else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index...))
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
                 end
             )
         end
@@ -599,16 +604,17 @@ function convert_tilde_expression(e::Expr)
         parsed_args = GraphPPL.proxy_args(combine_broadcast_args(args, kwargs))
         options = GraphPPL.options_vector_to_named_tuple(options)
         combinable_args = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
-        broadcastable_variables = kwargs === nothing ? [lhs, args...] : vcat([lhs, args...], [kwarg.args[2] for kwarg in kwargs])
-
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
+        combinablesym = gensym()
+        getorcreate_lhs = generate_get_or_create(lhs, :(Base.Broadcast.combine_axes($combinablesym...)))
+        returnvalsym = gensym()
         return quote
-            $lhs = GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(lhs)), Base.Broadcast.combine_axes($(combinable_args...))...)
-            __returnval__ = broadcast($(broadcastable_variables...)) do ilhs, args...
+            $combinablesym = ($(combinable_args...),)
+            $getorcreate_lhs
+            $returnvalsym = broadcast($lhs, $combinablesym...) do ilhs, args...
                 return GraphPPL.make_node!(__model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, ilhs, $parsed_args)
             end
-            $lhs = GraphPPL.ResizableArray([last(__val__) for __val__ in __returnval__])
-            __context__[$(QuoteNode(lhs))] = $lhs
+            last.($returnvalsym)
         end
     else
         return e
