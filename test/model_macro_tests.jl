@@ -791,6 +791,30 @@ end
     created_by = :(x ~ Normal(0, 1))
     output = input
     @test_expression_generating convert_to_anonymous(input, created_by) output
+
+    # Test 4: handle broadcasted expression
+    input = quote
+        Normal.(fill(0, 10), fill(1, 10))
+    end
+    created_by = :(x ~ Normal(0, 1))
+    output = quote
+        let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            var"#anon" .~ Normal(fill(0, 10), fill(1, 10)) where {anonymous = true, created_by = x ~ Normal(0, 1)}
+        end
+    end
+    @test_expression_generating convert_to_anonymous(input, created_by) output
+
+    # Test 5: handle broadcasted expression with special cases
+    input = quote
+        a .+ b
+    end
+    created_by = :(x ~ Normal(0, 1))
+    output = quote
+        let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            var"#anon" .~ ((a + b) where {anonymous = true, created_by = x ~ Normal(0, 1)})
+        end
+    end
+    @test_expression_generating convert_to_anonymous(input, created_by) output
 end
 
 @testitem "not_enter_indexed_walk" begin
