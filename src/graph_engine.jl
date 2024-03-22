@@ -15,12 +15,6 @@ end
 
 showerror(io::IO, e::NotImplementedError) = print(io, "NotImplementedError: " * e.message)
 
-struct Broadcasted
-    name::Symbol
-end
-
-getname(broadcasted::Broadcasted) = broadcasted.name
-
 """
     FunctionalIndex
 
@@ -145,6 +139,7 @@ end
 Base.length(label::NodeLabel) = 1
 Base.getindex(label::NodeLabel, any) = label
 Base.:(<)(left::NodeLabel, right::NodeLabel) = left.global_counter < right.global_counter
+Base.broadcastable(label::NodeLabel) = Ref(label)
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
@@ -179,6 +174,8 @@ end
 proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) =
     ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
+
+Base.broadcastable(label::ProxyLabel) = Ref(label)
 
 # By default we assume that the `proxied` is just a constant here, so
 # in case if 
@@ -1182,6 +1179,8 @@ struct AnonymousVariable{M, C}
     context::C
 end
 
+Base.broadcastable(v::AnonymousVariable) = Ref(v)
+
 create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(model, context)
 
 function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
@@ -1204,6 +1203,8 @@ end
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
     return add_variable_node!(model, context, NodeCreationOptions(), :anonymous, nothing)
 end
+
+check_variate_compatability(node::AnonymousVariable, any...) = true
 
 """
     add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
@@ -1509,24 +1510,6 @@ make_node!(
 make_node!(
     ::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
 ) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
-
-# If we have to materialize but lhs_interface is nothing, we create a variable for it
-function make_node!(
-    materialize::True,
-    node_type::NodeType,
-    behaviour::NodeBehaviour,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Broadcasted,
-    rhs_interfaces
-) where {F}
-    lhs_node = ProxyLabel(
-        getname(lhs_interface), nothing, add_variable_node!(model, ctx, EmptyNodeCreationOptions, gensym(getname(lhs_interface)), nothing)
-    )
-    return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_node, rhs_interfaces)
-end
 
 function make_node!(
     materialize::True,

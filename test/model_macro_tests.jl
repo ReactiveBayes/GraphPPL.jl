@@ -791,6 +791,30 @@ end
     created_by = :(x ~ Normal(0, 1))
     output = input
     @test_expression_generating convert_to_anonymous(input, created_by) output
+
+    # Test 4: handle broadcasted expression
+    input = quote
+        Normal.(fill(0, 10), fill(1, 10))
+    end
+    created_by = :(x ~ Normal(0, 1))
+    output = quote
+        let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            var"#anon" .~ Normal(fill(0, 10), fill(1, 10)) where {anonymous = true, created_by = x ~ Normal(0, 1)}
+        end
+    end
+    @test_expression_generating convert_to_anonymous(input, created_by) output
+
+    # Test 5: handle broadcasted expression with special cases
+    input = quote
+        a .+ b
+    end
+    created_by = :(x ~ Normal(0, 1))
+    output = quote
+        let var"#anon" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+            var"#anon" .~ ((a + b) where {anonymous = true, created_by = x ~ Normal(0, 1)})
+        end
+    end
+    @test_expression_generating convert_to_anonymous(input, created_by) output
 end
 
 @testitem "not_enter_indexed_walk" begin
@@ -971,6 +995,190 @@ end
         ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
     @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+
+    # Test 11: Input expression with broadcasted call as anonymous variable
+    input = quote
+        x .~ Normal(f.(y), 1) where {created_by = (x ~ Normal(f.(y), 1))}
+    end
+    output = quote
+        x .~ Normal(
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" .~ f(y) where {anonymous = true, created_by = x ~ Normal(f.(y), 1)}
+            end,
+            1
+        ) where {created_by = (x ~ Normal(f.(y), 1))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+
+    # Test 12: Input expression with nested broadcasted call as anonymous variable
+    input = quote
+        x .~ Normal(f.(g.(y)), 1) where {created_by = (x ~ Normal(f.(g.(y)), 1))}
+    end
+    output = quote
+        x .~ Normal(
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" .~ f(
+                    let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon2" .~ g(y) where {anonymous = true, created_by = x ~ Normal(f.(g.(y)), 1)}
+                    end
+                ) where {anonymous = true, created_by = x ~ Normal(f.(g.(y)), 1)}
+            end,
+            1
+        ) where {created_by = (x ~ Normal(f.(g.(y)), 1))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+
+    input = quote
+        y .~ Normal(a .* y .+ b, 1) where {created_by = y .~ Normal(a .* y .+ b, 1)}
+    end
+    output = quote
+        y .~ (
+            Normal(
+                let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                    var"#anon1" .~ (
+                        (
+                            let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                var"#anon2" .~ ((a * y) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))})
+                            end + b
+                        ) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))}
+                    )
+                end,
+                1
+            ) where {(created_by = (y .~ Normal(a .* y .+ b, 1)))}
+        )
+    end
+    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+
+    input = quote
+        y .~ Normal(
+            mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+        ) where {created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))}
+    end
+    output = quote
+        (
+            y .~ (
+                Normal(
+                    mean = let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon1" .~ (
+                            (
+                                let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                    var"#anon2" .~ (
+                                        (
+                                            x * b
+                                        ) where {
+                                            anonymous = true,
+                                            created_by = (
+                                                y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+                                            )
+                                        }
+                                    )
+                                end + a
+                            ) where {
+                                anonymous = true,
+                                created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                            }
+                        )
+                    end,
+                    var = let var"#anon3" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                        var"#anon3" ~ (
+                            det(
+                                let var"#anon4" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                    var"#anon4" .~ (
+                                        (
+                                            let var"#anon5" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                var"#anon5" .~ (
+                                                    (
+                                                        let var"#anon6" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                            var"#anon6" ~ (
+                                                                diagm(
+                                                                    let var"#anon7" = GraphPPL.create_anonymous_variable!(
+                                                                            __model__, __context__
+                                                                        )
+                                                                        var"#anon7" ~ (
+                                                                            ones(
+                                                                                2
+                                                                            ) where {
+                                                                                anonymous = true,
+                                                                                created_by = (
+                                                                                    y .~ Normal(
+                                                                                        mean = x .* b .+ a,
+                                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                        )
+                                                                    end
+                                                                ) where {
+                                                                    anonymous = true,
+                                                                    created_by = (
+                                                                        y .~ Normal(
+                                                                            mean = x .* b .+ a,
+                                                                            var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                                        )
+                                                                    )
+                                                                }
+                                                            )
+                                                        end +
+                                                        let var"#anon8" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                            var"#anon8" ~ (
+                                                                diagm(
+                                                                    let var"#anon9" = GraphPPL.create_anonymous_variable!(
+                                                                            __model__, __context__
+                                                                        )
+                                                                        var"#anon9" ~ (
+                                                                            ones(
+                                                                                2
+                                                                            ) where {
+                                                                                anonymous = true,
+                                                                                created_by = (
+                                                                                    y .~ Normal(
+                                                                                        mean = x .* b .+ a,
+                                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                        )
+                                                                    end
+                                                                ) where {
+                                                                    anonymous = true,
+                                                                    created_by = (
+                                                                        y .~ Normal(
+                                                                            mean = x .* b .+ a,
+                                                                            var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                                        )
+                                                                    )
+                                                                }
+                                                            )
+                                                        end
+                                                    ) where {
+                                                        anonymous = true,
+                                                        created_by = (
+                                                            y .~ Normal(
+                                                                mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                            )
+                                                        )
+                                                    }
+                                                )
+                                            end / 2
+                                        ) where {
+                                            anonymous = true,
+                                            created_by = (
+                                                y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+                                            )
+                                        }
+                                    )
+                                end
+                            ) where {
+                                anonymous = true,
+                                created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                            }
+                        )
+                    end
+                ) where {(created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))))}
+            )
+        )
+    end
+    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 end
 
 @testitem "add_get_or_create_expression" begin
@@ -984,9 +1192,13 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x, nothing) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, nothing))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
@@ -998,9 +1210,9 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, 1)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...)
         else
-            (GraphPPL.check_variate_compatability(x, 1) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, 1))
+            (GraphPPL.check_variate_compatability(x, (1,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...))
         end
         x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
     end
@@ -1012,9 +1224,9 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...)
         else
-            (GraphPPL.check_variate_compatability(x, 1, 2) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2))
+            (GraphPPL.check_variate_compatability(x, (1, 2)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...))
         end
         x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
     end
@@ -1026,9 +1238,9 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, i)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...)
         else
-            (GraphPPL.check_variate_compatability(x, i) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, i))
+            (GraphPPL.check_variate_compatability(x, (i,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...))
         end
         x[i] ~ Normal(0, 1) where {created_by = (x[i] ~ Normal(0, 1))}
     end
@@ -1040,9 +1252,9 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
         else
-            (GraphPPL.check_variate_compatability(x, i, j) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, i, j))
+            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
         end
         x[i, j] ~ Normal(0, 1) where {created_by = (x[i, j] ~ Normal(0, 1))}
     end
@@ -1060,20 +1272,24 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x, nothing) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, nothing))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(
             begin
                 $sym = if !@isdefined($sym)
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing)
+                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
                 else
                     (
-                        if GraphPPL.check_variate_compatability($sym, nothing)
+                        if GraphPPL.check_variate_compatability($sym, (nothing,)...)
                             $sym
                         else
-                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), nothing)
+                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
                         end
                     )
                 end
@@ -1090,9 +1306,13 @@ end
     end
     output = quote
         y = if !@isdefined(y)
-            GraphPPL.getorcreate!(__model__, __context__, :y, nothing)
+            GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(y, nothing) ? y : GraphPPL.getorcreate!(__model__, __context__, :y, nothing))
+            (if GraphPPL.check_variate_compatability(y, (nothing,)...)
+                    y
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
+                end)
         end
         y ~ x where {created_by = (y := x), is_deterministic = true}
     end
@@ -1104,9 +1324,13 @@ end
     end
     output = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x, nothing) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, nothing))
+            (if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end)
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {q = q(x)q(y)}), q = q(x)q(y)}
     end
@@ -1119,73 +1343,79 @@ end
     include("testutils.jl")
 
     # Test 1: test scalar variable
-    output = generate_get_or_create(:x, :x, nothing)
+    output = generate_get_or_create(:x, nothing)
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, nothing)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
         else
-            (GraphPPL.check_variate_compatability(x, nothing) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, nothing))
+            (
+                if GraphPPL.check_variate_compatability(x, (nothing,)...)
+                    x
+                else
+                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+                end
+            )
         end
     end
     @test_expression_generating output desired_result
 
     # Test 2: test vector variable
-    output = generate_get_or_create(:x, :(x[1]), [1])
+    output = generate_get_or_create(:x, [1])
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, 1)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...)
         else
-            (GraphPPL.check_variate_compatability(x, 1) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, 1))
+            (GraphPPL.check_variate_compatability(x, (1,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...))
         end
     end
     @test_expression_generating output desired_result
 
     # Test 3: test matrix variable
-    output = generate_get_or_create(:x, :(x[1, 2]), [1, 2])
+    output = generate_get_or_create(:x, [1, 2])
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...)
         else
-            (GraphPPL.check_variate_compatability(x, 1, 2) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, 1, 2))
+            (GraphPPL.check_variate_compatability(x, (1, 2)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...))
         end
     end
     @test_expression_generating output desired_result
 
     # Test 5: test symbol-indexed variable
-    output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
+    output = generate_get_or_create(:x, [:i, :j])
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
         else
-            (GraphPPL.check_variate_compatability(x, i, j) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, i, j))
+            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
         end
     end
     @test_expression_generating output desired_result
 
     # Test 6: test vector of single symbol
-    output = generate_get_or_create(:x, :(x[i]), [:i])
+    output = generate_get_or_create(:x, [:i])
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, i)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...)
         else
-            (GraphPPL.check_variate_compatability(x, i) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, i))
+            (GraphPPL.check_variate_compatability(x, (i,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...))
         end
     end
     @test_expression_generating output desired_result
 
     # Test 7: test vector of symbols
-    output = generate_get_or_create(:x, :(x[i, j]), [:i, :j])
+    output = generate_get_or_create(:x, [:i, :j])
     desired_result = quote
         x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, i, j)
+            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
         else
-            (GraphPPL.check_variate_compatability(x, i, j) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, i, j))
+            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
         end
     end
     @test_expression_generating output desired_result
 
     # Test 8: test error if un-unrollable index
-    @test_throws MethodError generate_get_or_create(:x, 1, 2)
+    @test_throws MethodError generate_get_or_create(:x, 2)
 
     # Test 9: test error if un-unrollable index
     @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
@@ -1217,6 +1447,22 @@ end
     end
     @capture(input, (lhs_ ~ f_(args__; kwargs__) where {options__}))
     @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
+end
+
+@testitem "combine_broadcast_args" begin
+    import GraphPPL: combine_broadcast_args
+
+    include("testutils.jl")
+
+    @test_expression_generating combine_broadcast_args([:μ, :σ], nothing) quote
+        args
+    end
+    @test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+        NamedTuple{$(:μ, :σ)}(args)
+    end
+    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+        GraphPPL.MixedArguments((μ, σ), NamedTuple{$(:μ, :σ)}(args))
+    end
 end
 
 @testitem "convert_tilde_expression" begin
@@ -1463,64 +1709,86 @@ end
     input = quote
         a .~ (Normal(μ, σ) where {created_by = :(a .~ Normal(μ, σ))})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
     output = quote
-        a = broadcast(μ, σ) do $(invars...)
+        var"#broad" = (μ, σ)
+        a = if !(@isdefined(a))
+            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+        else
+            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
+                a
+            else
+                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+            end
+        end
+        var"#rvar#" = broadcast(a, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
-                __model__,
-                __context__,
-                GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)),
-                Normal,
-                GraphPPL.Broadcasted(:a),
-                $(Expr(:tuple, invars...))
+                __model__, __context__, GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)), Normal, ilhs, args
             )
         end
-        a = GraphPPL.ResizableArray(a)
-        __context__[:a] = a
+        last.(var"#rvar#")
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 12: Test node creation with broadcasting call with kwargs
     input = quote
         a .~ (Normal(; μ = μ, σ = σ) where {created_by = :(a .~ Normal(μ = μ, σ = σ))})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:μ, :σ)))
     output = quote
-        a = broadcast(μ, σ) do $(invars...)
+        var"#broad" = (μ, σ)
+        a = if !(@isdefined(a))
+            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+        else
+            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
+                a
+            else
+                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+            end
+        end
+        var"#rvar" = broadcast(a, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
                 __model__,
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ = μ, σ = σ)),)),
                 Normal,
-                GraphPPL.Broadcasted(:a),
-                (μ = $(invars[1]), σ = $(invars[2]))
+                ilhs,
+                NamedTuple{$(:μ, :σ)}(args)
             )
         end
-        a = GraphPPL.ResizableArray(a)
-        __context__[:a] = a
+        last.(var"#rvar")
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 13: Test node creation with broadcasting call with mixed args and kwargs
     input = quote
-        a .~ (some_node(a, b; μ = μ, σ = σ) where {created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),)})
+        out .~ (some_node(a, b; μ = μ, σ = σ) where {created_by = :(out .~ some_node(a, b; μ = μ, σ = σ),)})
     end
-    invars = MacroTools.gensym_ids.(gensym.((:a, :b, :μ, :σ)))
     output = quote
-        a = broadcast(a, b, μ, σ) do $(invars...)
+        var"#broad" = (a, b, μ, σ)
+        out = if !(@isdefined(out))
+            GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
+        else
+            if GraphPPL.check_variate_compatability(out, GraphPPL.__combine_axes(var"#broad"...)...)
+                out
+            else
+                GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
+            end
+        end
+        var"#rvar" = broadcast(out, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
                 __model__,
                 __context__,
-                GraphPPL.NodeCreationOptions((; created_by = :(a .~ some_node(a, b; μ = μ, σ = σ),))),
+                GraphPPL.NodeCreationOptions((; created_by = :(out .~ some_node(a, b; μ = μ, σ = σ),))),
                 some_node,
-                GraphPPL.Broadcasted(:a),
-                GraphPPL.MixedArguments(($(invars[1:2]...),), (μ = $(invars[3]), σ = $(invars[4])))
+                ilhs,
+                GraphPPL.MixedArguments(
+                    (GraphPPL.proxylabel(:a, nothing, a), GraphPPL.proxylabel(:b, nothing, b)), NamedTuple{$(:μ, :σ)}(args)
+                )
             )
         end
-        a = GraphPPL.ResizableArray(a)
-        __context__[:a] = a
+        last.(var"#rvar")
     end
-    @test_expression_generating_broken apply_pipeline(input, convert_tilde_expression) output
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end
 
 @testitem "options_vector_to_factoroptions" begin
