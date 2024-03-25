@@ -112,3 +112,15 @@ Now that we have a grasp on the basic syntax and semantics of `GraphPPL`, let's 
     x .~ Bernoulli(π)
 end
 ```
+
+## Visualizing the model
+GraphPPL exports a simple visualization function that can be used to visualize the factor graph of a model. This model requires the `GraphPlot` and `Cairo` packages to be installed. To visualize the `coin_toss` model, we can run:
+
+```@example getting-started
+using GraphPlot, Cairo
+import GraphPPL: create_model, getorcreate!
+model = create_model(coin_toss()) do model, context
+    return (;x = getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = false), :x, 1:10))
+end
+GraphPlot.gplot(model)
+```
