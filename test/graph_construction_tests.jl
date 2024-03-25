@@ -1119,8 +1119,25 @@ end
         y .~ Normal(0.0, c[1:(end - 1 + 1)])
     end
 
-    @testset "Test case 2" begin
-        model = create_model(complex_ranges_with_begin_end_2())
+    @model function complex_ranges_with_begin_end_3()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[(begin + 1 - 1):2])
+    end
+
+    @model function complex_ranges_with_begin_end_4()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[(begin + 1 - 1):(end - 1 + 1)])
+    end
+
+    @model function complex_ranges_with_begin_end_5()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[begin:end])
+    end
+
+    @testset "Test case 2" for modelfn in [
+        complex_ranges_with_begin_end_2, complex_ranges_with_begin_end_3, complex_ranges_with_begin_end_4, complex_ranges_with_begin_end_5
+    ]
+        model = create_model(modelfn())
 
         @test length(collect(filter(as_node(Normal), model))) == 2
 
