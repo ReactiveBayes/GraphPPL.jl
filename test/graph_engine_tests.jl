@@ -76,6 +76,28 @@ end
     @test isbitstype(typeof((FunctionalIndex{:begin}(firstindex) - 1 + 1)))
 end
 
+@testitem "FunctionalRange" begin 
+    import GraphPPL: FunctionalIndex
+
+    collection = [1, 2, 3, 4, 5]
+
+    range = FunctionalIndex{:begin}(firstindex):FunctionalIndex{:end}(lastindex)
+    @test collection[range] == collection
+
+    range = (FunctionalIndex{:begin}(firstindex) + 1):(FunctionalIndex{:end}(lastindex) - 1)
+    @test collection[range] == collection[(begin + 1):(end - 1)]
+
+    for i in 1:length(collection)
+        _range = i:FunctionalIndex{:end}(lastindex)
+        @test collection[_range] == collection[i:end]
+    end
+
+    for i in 1:length(collection)
+        _range = FunctionalIndex{:begin}(firstindex):i
+        @test collection[_range] == collection[begin:i]
+    end
+end
+
 @testitem "model constructor" begin
     import GraphPPL: create_model, Model
 
