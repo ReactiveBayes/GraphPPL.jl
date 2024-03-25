@@ -1139,6 +1139,17 @@ end
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
+
+            # `a` and `b` are either const or datavars
+            model = create_model(fold_datavars_1(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
         end
 
         @testset "fold_datavars_2 with just constants" begin

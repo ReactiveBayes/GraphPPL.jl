@@ -1203,7 +1203,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
     link_const, link_const_or_data = reduce(Iterators.map(getproperties, linked); init = (true, true)) do accum, props
         check_is_all_constant, check_is_all_constant_or_data = accum
         check_is_all_constant = check_is_all_constant && is_constant(props)
-        check_is_all_constant_or_data = check_is_all_constant_or_data && (check_is_all_constant || is_data(props))
+        check_is_all_constant_or_data = check_is_all_constant_or_data && (is_constant(props) || is_data(props))
         return (check_is_all_constant, check_is_all_constant_or_data)
     end
 
