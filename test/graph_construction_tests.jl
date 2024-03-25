@@ -1088,15 +1088,15 @@ end
     end
 
     @model function fold_datavars_2(f, a, b)
-        y ~ Normal(f(f(a, b), f(a, b)), 1.0)
+        y ~ Normal(f(f(a, b), f(a, b)), 0.5)
     end
 
-    for f in (+, sum, *, prod, (a, b) -> a + b, (a, b) -> a * b)
-        @testset "fold_datavars_1" begin
+    for f in (+, *, (a, b) -> a + b, (a, b) -> a * b)
+        @testset "fold_datavars_1 with just constants" begin
             # Both `a` and `b` are just constant
             model = create_model(fold_datavars_1(f = f)) do model, ctx
-                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
-                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2.0), :b, nothing)
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.15), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.87), :b, nothing)
                 return (a = a, b = b)
             end
 
@@ -1108,10 +1108,12 @@ end
             # since all inputs are constants and the relationship is deterministic
             constvars = filter(label -> is_constant(getproperties(model[label])), collect(variable_nodes(model)))
             @test length(constvars) === 4
-            @test count(constvars -> value(getproperties(model[constvars])) === 1.0, constvars) === 1
-            @test count(constvars -> value(getproperties(model[constvars])) === 2.0, constvars) === 1
-            @test count(constvars -> value(getproperties(model[constvars])) === f(1.0, 2.0), constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === 0.15, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === 0.87, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === f(0.15, 0.87), constvars) === 1
+        end
 
+        @testset "fold_datavars_1 with constants and datavars" begin
             # Both `a` and `b` are datavars, in this case `@model` macro should create a new data variable
             # with the value referencing `f` function
             model = create_model(fold_datavars_1(f = f)) do model, ctx
@@ -1139,18 +1141,27 @@ end
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
         end
 
-        @testset "fold_datavars_2" begin
+        @testset "fold_datavars_2 with just constants" begin
             # Both `a` and `b` are just constant
             model = create_model(fold_datavars_2(f = f)) do model, ctx
-                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
-                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2.0), :b, nothing)
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.15), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.87), :b, nothing)
                 return (a = a, b = b)
             end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
-            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 3
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 0
 
+            constvars = filter(label -> is_constant(getproperties(model[label])), collect(variable_nodes(model)))
+            @test length(constvars) === 6
+            @test count(constvars -> value(getproperties(model[constvars])) === 0.15, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === 0.87, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === f(0.15, 0.87), constvars) === 2
+            @test count(constvars -> value(getproperties(model[constvars])) === f(f(0.15, 0.87), f(0.15, 0.87)), constvars) === 1
+        end
+
+        @testset "fold_datavars_2 with constants and datavars" begin
             # Both `a` and `b` are datavars
             model = create_model(fold_datavars_2(f = f)) do model, ctx
                 a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing)
