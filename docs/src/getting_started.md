@@ -9,9 +9,11 @@ using Distributions
 
 ## Creating a model
 
-In `GraphPPL`, we can specify a model with the `@model` macro. The `@model` macro takes a function as an argument, and registers the blueprint of creating this model. 
+In `GraphPPL`, we can specify a model with the `@model` macro. The `@model` macro takes a function as an argument, and registers the blueprint of creating this model. The model macro is not exported by default by `GraphPPL` (more on this later), so we will import it explicitly:
     
 ```@example getting-started
+import GraphPPL: @model
+
 @model function example()
 
 end
@@ -74,9 +76,17 @@ In `GraphPPL`, we can feed data and interfaces into the model through the functi
 
 ```@example getting-started
 @model function example(x)
-    for i in 1:length(x)
+    for i in 1:eachindex(x)
         x[i] ~ Normal(0, 1)
     end
+end
+```
+
+Alternatively, we can use the broadcasting syntax from Julia, extended to work with the `~` operator:
+
+```@example getting-started
+@model function example(x)
+    x .~ Normal(0, 1)
 end
 ```
 
@@ -91,7 +101,7 @@ Note that interfaces do not need to be random variables; this distinction will b
     end
 end
 ```
-Here, `x` is treated as a random variable since it is connected to a `Normal` node. However, `depth` is only used as a hyperparameter to define model structure and is not connected to any stochastic nodes, so it is treated as a regular variable. In this recursive model we also get to see nested models in action: the `recursive_model` is used as a submodel of itself. More on this on the [Nested Models](#nested-models) section.
+Here, `x` is treated as a random variable since it is connected to a `Normal` node. However, `depth` is only used as a hyperparameter to define model structure and is not connected to any stochastic nodes, so it is treated as a regular variable. In this recursive model we also get to see nested models in action: the `recursive_model` is used as a submodel of itself. More on this in the [Nested Models](#nested-models) section.
 
 ## Bayesian Coin-toss
 Now that we have a grasp on the basic syntax and semantics of `GraphPPL`, let's try to write a simple coin-toss model. We will start with a simple model that takes in a series of observations `x` that are i.i.d. distributed according to a Bernoulli distribution with parameter `π`, where we put a Beta prior on `π`:
@@ -99,8 +109,6 @@ Now that we have a grasp on the basic syntax and semantics of `GraphPPL`, let's 
 ```@example getting-started
 @model function coin_toss(x)
     π ~ Beta(1, 1)
-    for i in 1:length(x)
-        x[i] ~ Bernoulli(π)
-    end
+    x .~ Bernoulli(π)
 end
 ```
