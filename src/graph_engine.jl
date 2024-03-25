@@ -1189,23 +1189,46 @@ create_anonymous_variable!(model::Model, context::Context) = AnonymousVariable(m
 
 function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
     model = anonymous.model
-    return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, args)
+    return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, fform, args)
 end
 
 # Deterministic nodes can create links to variables in the model
 # This might be important for better factorization constraints resolution
-function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, args)
-    return add_variable_node!(
-        model, context, NodeCreationOptions(link = getindex.(Ref(model), unroll.(filter(is_nodelabel, args)))), :anonymous, nothing
-    )
+function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args)
+    linked = getindex.(Ref(model), unroll.(filter(is_nodelabel, args)))
+
+    # Check if all links are either `data` or `constants`
+    # In this case it is not necessary to create a new random variable, but rather a data variable 
+    # with `value = fform`
+    link_const, link_const_or_data = reduce(Iterators.map(getproperties, linked); init = (true, true)) do accum, props
+        check_is_all_constant, check_is_all_constant_or_data = accum
+        check_is_all_constant = check_is_all_constant && is_constant(props)
+        check_is_all_constant_or_data = check_is_all_constant_or_data && (check_is_all_constant || is_data(props))
+        return (check_is_all_constant, check_is_all_constant_or_data)
+    end
+
+    if !link_const && !link_const_or_data
+        # Most likely case goes first, we need to create a new factor node and a new random variable
+        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), :anonymous, nothing))
+    elseif link_const
+        # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
+        val = fform(map(link -> value(getproperties(link)), linked)...)
+        (false, add_variable_node!(model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), :anonymous, nothing))
+    elseif link_const_or_data
+        # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
+        (false, add_variable_node!(model, context, NodeCreationOptions(kind = :data, value = fform, link = linked), :anonymous, nothing))
+    else
+        # This should not really happen
+        error("Unreachable reached in `materialize_anonymous_variable!` for `Deterministic` node behaviour.")
+    end
 end
 
-function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, args::NamedTuple)
-    return materialize_anonymous_variable!(Deterministic(), model, context, values(args))
+function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args::NamedTuple)
+    return materialize_anonymous_variable!(Deterministic(), model, context, fform, values(args))
 end
 
-function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, _)
-    return add_variable_node!(model, context, NodeCreationOptions(), :anonymous, nothing)
+function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
+    return (true, add_variable_node!(model, context, NodeCreationOptions(), :anonymous, nothing))
 end
 
 check_variate_compatability(node::AnonymousVariable, any...) = true
@@ -1526,8 +1549,14 @@ function make_node!(
     lhs_interface::AnonymousVariable,
     rhs_interfaces
 ) where {F}
-    lhs_materialized = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)::NodeLabel
-    return make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_materialized, rhs_interfaces)
+    (noderequired, lhs_materialized) = materialize_anonymous_variable!(lhs_interface, fform, rhs_interfaces)::Tuple{Bool, NodeLabel}
+    node_materialized = if noderequired
+        node, _ = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_materialized, rhs_interfaces)
+        node
+    else
+        nothing
+    end
+    return node_materialized, lhs_materialized
 end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it

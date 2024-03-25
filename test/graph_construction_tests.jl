@@ -996,11 +996,11 @@ end
     @test length(collect(filter(as_node(foo), model))) == 10
 end
 
-@testitem "Broadcasting with LazyNodeLabel" begin 
+@testitem "Broadcasting with LazyNodeLabel" begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
 
-    include("testutils.jl")    
+    include("testutils.jl")
 
     @model function linear_regression_broadcasted(x, y)
         a ~ Normal(mean = 0.0, var = 1.0)
@@ -1012,7 +1012,7 @@ end
     xdata = rand(10)
     ydata = rand(10)
 
-    model = create_model(linear_regression_broadcasted()) do model, ctx 
+    model = create_model(linear_regression_broadcasted()) do model, ctx
         return (
             x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
@@ -1027,7 +1027,7 @@ end
     @test length(collect(filter(as_node(ones), model))) == 0
 
     # `xdata` is not passed
-    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
             x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
@@ -1035,7 +1035,7 @@ end
     end
 
     # `ydata` is not passed
-    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
             x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
@@ -1043,7 +1043,7 @@ end
     end
 
     # both `xdata` and `ydata` are not passed
-    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx 
+    @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
             x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
@@ -1078,3 +1078,100 @@ end
     @test length(collect(filter(as_node(foo), model))) == 2
 end
 
+@testitem "data/const variables should automatically fold when used with anonymous variable and deterministic relationship" begin
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, is_constant, is_data, getproperties, variable_nodes, value
+
+    include("testutils.jl")
+
+    @model function fold_datavars_1(f, a, b)
+        y ~ Normal(f(a, b), 0.5)
+    end
+
+    @model function fold_datavars_2(f, a, b)
+        y ~ Normal(f(f(a, b), f(a, b)), 1.0)
+    end
+
+    for f in (+, sum, *, prod, (a, b) -> a + b, (a, b) -> a * b)
+        @testset "fold_datavars_1" begin
+            # Both `a` and `b` are just constant
+            model = create_model(fold_datavars_1(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2.0), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 0
+
+            # In this case the `@model` macro should create an anonymous constvar for `f(a, b)`
+            # since all inputs are constants and the relationship is deterministic
+            constvars = filter(label -> is_constant(getproperties(model[label])), collect(variable_nodes(model)))
+            @test length(constvars) === 4
+            @test count(constvars -> value(getproperties(model[constvars])) === 1.0, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === 2.0, constvars) === 1
+            @test count(constvars -> value(getproperties(model[constvars])) === f(1.0, 2.0), constvars) === 1
+
+            # Both `a` and `b` are datavars, in this case `@model` macro should create a new data variable
+            # with the value referencing `f` function
+            model = create_model(fold_datavars_1(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+
+            datavars = filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))
+            @test length(datavars) === 3
+            @test count(datavars -> value(getproperties(model[datavars])) === f, datavars) === 1
+
+            # `a` and `b` are either const or datavars
+            model = create_model(fold_datavars_1(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
+        end
+
+        @testset "fold_datavars_2" begin
+            # Both `a` and `b` are just constant
+            model = create_model(fold_datavars_2(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2.0), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 3
+
+            # Both `a` and `b` are datavars
+            model = create_model(fold_datavars_2(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 5
+
+            # `a` and `b` are either const or datavars
+            model = create_model(fold_datavars_2(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 1.0), :a, nothing)
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 4
+        end
+    end
+end
