@@ -1152,7 +1152,7 @@ end
 
 @testitem "Anonymous variables" begin
     using GraphPPL
-    import GraphPPL: create_model
+    import GraphPPL: create_model, VariableNameAnonymous
 
     include("testutils.jl")
 
@@ -1163,6 +1163,7 @@ end
 
     model = create_model(anonymous_variables())
     @test length(collect(filter(as_node(Normal), model))) == 2
+    @test length(collect(filter(as_variable(VariableNameAnonymous), model))) == 1
 
     # Test whether anonymous variables are created correctly when we pass a deterministic function with stochastic inputs as an argument
 
@@ -1175,10 +1176,21 @@ end
 
     model = create_model(det_anonymous_variables())
     @test length(collect(filter(as_node(foo), model))) == 2
+    @test length(collect(filter(as_variable(VariableNameAnonymous), model))) == 1
 end
 
 @testitem "data/const variables should automatically fold when used with anonymous variable and deterministic relationship" begin
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, is_constant, is_data, getproperties, variable_nodes, value
+    import GraphPPL:
+        create_model,
+        getorcreate!,
+        NodeCreationOptions,
+        LazyIndex,
+        is_constant,
+        is_data,
+        getproperties,
+        variable_nodes,
+        value,
+        VariableNameAnonymous
 
     include("testutils.jl")
 
@@ -1201,6 +1213,7 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 0
 
             # In this case the `@model` macro should create an anonymous constvar for `f(a, b)`
@@ -1223,6 +1236,7 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
 
             datavars = filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))
             @test length(datavars) === 3
@@ -1237,6 +1251,7 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
 
             # `a` and `b` are either const or datavars
@@ -1248,6 +1263,19 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
+
+            # `a` and `b` are either const or datavars
+            model = create_model(fold_datavars_1(f = f)) do model, ctx
+                a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing)
+                b = 1.0
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
         end
 
@@ -1261,6 +1289,7 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 3
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 0
 
             constvars = filter(label -> is_constant(getproperties(model[label])), collect(variable_nodes(model)))
@@ -1281,6 +1310,7 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 3
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 5
 
             # `a` and `b` are either const or datavars
@@ -1292,6 +1322,19 @@ end
 
             @test length(collect(filter(as_node(f), model))) === 0
             @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 3
+            @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 4
+
+            # `a` and `b` are either const or datavars
+            model = create_model(fold_datavars_2(f = f)) do model, ctx
+                a = 1.0
+                b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                return (a = a, b = b)
+            end
+
+            @test length(collect(filter(as_node(f), model))) === 0
+            @test length(collect(filter(as_node(Normal), model))) === 1
+            @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 3
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 4
         end
     end

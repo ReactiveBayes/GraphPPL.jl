@@ -500,6 +500,10 @@ is_random(properties::VariableNodeProperties) = is_kind(properties, Val(:random)
 is_data(properties::VariableNodeProperties) = is_kind(properties, Val(:data))
 is_constant(properties::VariableNodeProperties) = is_kind(properties, Val(:constant))
 
+const VariableNameAnonymous = :anonymous_var_graphppl
+
+is_anonymous(properties::VariableNodeProperties) = properties.name === VariableNameAnonymous
+
 function Base.show(io::IO, properties::VariableNodeProperties)
     print(io, "name = ", properties.name, ", index = ", properties.index)
     if !isnothing(properties.link)
@@ -1223,35 +1227,55 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
     # Check if all links are either `data` or `constants`
     # In this case it is not necessary to create a new random variable, but rather a data variable 
     # with `value = fform`
-    link_const, link_const_or_data = reduce(Iterators.map(getproperties, linked); init = (true, true)) do accum, props
+    link_const, link_const_or_data = reduce(linked; init = (true, true)) do accum, link
         check_is_all_constant, check_is_all_constant_or_data = accum
-        check_is_all_constant = check_is_all_constant && is_constant(props)
-        check_is_all_constant_or_data = check_is_all_constant_or_data && (is_constant(props) || is_data(props))
+        check_is_all_constant = check_is_all_constant && anonymous_arg_is_constanst(link)
+        check_is_all_constant_or_data = check_is_all_constant_or_data && anonymous_arg_is_constanst_or_data(link)
         return (check_is_all_constant, check_is_all_constant_or_data)
     end
 
     if !link_const && !link_const_or_data
         # Most likely case goes first, we need to create a new factor node and a new random variable
-        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), :anonymous, nothing))
+        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
     elseif link_const
         # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
         val = fform(map(link -> value(getproperties(link)), linked)...)
-        (false, add_variable_node!(model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), :anonymous, nothing))
+        (
+            false,
+            add_variable_node!(
+                model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), VariableNameAnonymous, nothing
+            )
+        )
     elseif link_const_or_data
         # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
-        (false, add_variable_node!(model, context, NodeCreationOptions(kind = :data, value = fform, link = linked), :anonymous, nothing))
+        (
+            false,
+            add_variable_node!(
+                model, context, NodeCreationOptions(kind = :data, value = fform, link = linked), VariableNameAnonymous, nothing
+            )
+        )
     else
         # This should not really happen
         error("Unreachable reached in `materialize_anonymous_variable!` for `Deterministic` node behaviour.")
     end
 end
 
+anonymous_arg_is_constanst(data) = true
+anonymous_arg_is_constanst(data::NodeData) = is_constant(getproperties(data))
+anonymous_arg_is_constanst(data::ResizableArray) = all(anonymous_arg_is_constanst, data)
+
+anonymous_arg_is_constanst_or_data(data) = is_constant(data)
+anonymous_arg_is_constanst_or_data(data::NodeData) = let props = getproperties(data)
+    is_constant(props) || is_data(props)
+end
+anonymous_arg_is_constanst_or_data(data::ResizableArray) = all(anonymous_arg_is_constanst_or_data, data)
+
 function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args::NamedTuple)
     return materialize_anonymous_variable!(Deterministic(), model, context, fform, values(args))
 end
 
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
-    return (true, add_variable_node!(model, context, NodeCreationOptions(), :anonymous, nothing))
+    return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
 end
 
 check_variate_compatability(node::AnonymousVariable, any...) = true
