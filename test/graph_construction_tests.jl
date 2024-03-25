@@ -1352,3 +1352,52 @@ end
         end
     end
 end
+
+@testitem "return value from the `@model` should be saved in the Context" begin
+    using Distributions
+    import GraphPPL: create_model, LazyIndex, getorcreate!, NodeCreationOptions, returnval, getcontext, children
+
+    include("testutils.jl")
+
+    @model function submodel_with_return(y, x, z, subval)
+        y ~ Normal(x, z)
+        return subval
+    end
+
+    @model function model_with_return(y, val)
+        x .~ Normal(ones(10), ones(10))
+        z .~ Normal(ones(10), ones(10))
+
+        # The purpose of this call is to have another `return` statement in the model
+        # The real `return` statement is outside of the anonymous function
+        function anonymous_inside()
+            for i in 1:10
+                y[i] ~ submodel_with_return(x = x[i], z = z[i], subval = (i, "hello world!"))
+            end
+            return "this value should not be returned"
+        end
+
+        anonymous_inside()
+        
+        return val
+    end
+
+    for topval in (1, [1, 1], ("hello", "world!"))
+        model = create_model(model_with_return(val = topval)) do model, ctx
+            return (y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(rand(10))),)
+        end
+
+        toplevelcontext = getcontext(model)
+
+        @test returnval(toplevelcontext) == topval
+
+        sublevelreturns = []
+
+        # Children are unordered, so we first gather all the return values, sort them and then check
+        foreach(children(toplevelcontext)) do subcontext
+            push!(sublevelreturns, returnval(subcontext))
+        end
+
+        @test sort(sublevelreturns, by = first) == [(i, "hello world!") for i in 1:10]
+    end
+end
