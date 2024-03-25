@@ -1239,7 +1239,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
         (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
     elseif link_const
         # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
-        val = fform(map(link -> value(getproperties(link)), linked)...)
+        val = fform(map(arg -> arg isa NodeLabel ? value(getproperties(model[arg])) : arg, unroll.(args))...)
         (
             false,
             add_variable_node!(
@@ -1251,7 +1251,11 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
         (
             false,
             add_variable_node!(
-                model, context, NodeCreationOptions(kind = :data, value = (fform, args), link = linked), VariableNameAnonymous, nothing
+                model,
+                context,
+                NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked),
+                VariableNameAnonymous,
+                nothing
             )
         )
     else
@@ -1265,9 +1269,10 @@ anonymous_arg_is_constanst(data::NodeData) = is_constant(getproperties(data))
 anonymous_arg_is_constanst(data::ResizableArray) = all(anonymous_arg_is_constanst, data)
 
 anonymous_arg_is_constanst_or_data(data) = is_constant(data)
-anonymous_arg_is_constanst_or_data(data::NodeData) = let props = getproperties(data)
-    is_constant(props) || is_data(props)
-end
+anonymous_arg_is_constanst_or_data(data::NodeData) =
+    let props = getproperties(data)
+        is_constant(props) || is_data(props)
+    end
 anonymous_arg_is_constanst_or_data(data::ResizableArray) = all(anonymous_arg_is_constanst_or_data, data)
 
 function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args::NamedTuple)
