@@ -1266,14 +1266,14 @@ end
 
 anonymous_arg_is_constanst(data) = true
 anonymous_arg_is_constanst(data::NodeData) = is_constant(getproperties(data))
-anonymous_arg_is_constanst(data::ResizableArray) = all(anonymous_arg_is_constanst, data)
+anonymous_arg_is_constanst(data::AbstractArray) = all(anonymous_arg_is_constanst, data)
 
 anonymous_arg_is_constanst_or_data(data) = is_constant(data)
 anonymous_arg_is_constanst_or_data(data::NodeData) =
     let props = getproperties(data)
         is_constant(props) || is_data(props)
     end
-anonymous_arg_is_constanst_or_data(data::ResizableArray) = all(anonymous_arg_is_constanst_or_data, data)
+anonymous_arg_is_constanst_or_data(data::AbstractArray) = all(anonymous_arg_is_constanst_or_data, data)
 
 function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args::NamedTuple)
     return materialize_anonymous_variable!(Deterministic(), model, context, fform, values(args))
