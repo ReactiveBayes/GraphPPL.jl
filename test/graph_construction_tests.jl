@@ -1051,6 +1051,105 @@ end
     end
 end
 
+@testitem "Broadcasting over ranges" begin
+    using Distributions, LinearAlgebra
+    import GraphPPL: create_model, getproperties, neighbor_data, is_random, is_constant, value
+
+    include("testutils.jl")
+
+    @model function broadcasting_over_range()
+        # Should create 10 `x` variables
+        x .~ Normal(ones(10), 1)
+
+        # Apply state space (AR) structure on top of the previous `x` variables
+        x[1] ~ Normal(0.0, 1.0)
+        # Here it basically says that `xᵢ₊₁ = xᵢ + 1` for `i = 2, ..., 10`
+        x[2:end] .~ x[1:(end - 1)] + 1
+    end
+
+    model = create_model(broadcasting_over_range())
+
+    @test length(collect(filter(as_node(Normal), model))) == 11
+    @test length(collect(filter(as_node(sum), model))) == 9
+
+    xvariables = collect(filter(as_variable(:x), model))
+
+    foreach(enumerate(collect(filter(as_node(sum), model)))) do (i, label)
+        nodedata = model[label]
+        nodeproperties = getproperties(nodedata)
+        nodeneighbor_properties = map(getproperties, neighbor_data(nodeproperties))
+
+        # The first index of the `sum` is xᵢ₊₁
+        @test is_random(nodeneighbor_properties[1]) && nodeneighbor_properties[1] === getproperties(model[xvariables[i + 1]])
+        # The second index of the `sum` is xᵢ
+        @test is_random(nodeneighbor_properties[2]) && nodeneighbor_properties[2] === getproperties(model[xvariables[i]])
+        # The third index of the `sum` is the constant `1`
+        @test is_constant(nodeneighbor_properties[3]) && value(nodeneighbor_properties[3]) == 1
+    end
+end
+
+@testitem "Complex ranges with `begin`/`end` should be supported" begin
+    using Distributions
+    import GraphPPL: create_model, getproperties, neighbor_data, is_constant, value
+
+    include("testutils.jl")
+
+    @model function complex_ranges_with_begin_end_1()
+        c = [1.0, 2.0]
+        y[1] ~ Normal(0.0, c[begin + 1])
+        y[2] ~ Normal(0.0, c[end - 1])
+    end
+
+    @testset "Test case 1" begin
+        model = create_model(complex_ranges_with_begin_end_1())
+
+        @test length(collect(filter(as_node(Normal), model))) == 2
+
+        normalnodes = collect(filter(as_node(Normal), model))
+
+        c_for_y_1 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[1]])))[3])
+        c_for_y_2 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[2]])))[3])
+        # The values are swapped intentionally, the first one depends on `c[2]` and the second one on `c[1]`
+        @test is_constant(c_for_y_1) && value(c_for_y_1) === 2.0
+        @test is_constant(c_for_y_2) && value(c_for_y_2) === 1.0
+    end
+
+    @model function complex_ranges_with_begin_end_2()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[1:(end - 1 + 1)])
+    end
+
+    @model function complex_ranges_with_begin_end_3()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[(begin + 1 - 1):2])
+    end
+
+    @model function complex_ranges_with_begin_end_4()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[(begin + 1 - 1):(end - 1 + 1)])
+    end
+
+    @model function complex_ranges_with_begin_end_5()
+        c = [1.0, 2.0]
+        y .~ Normal(0.0, c[begin:end])
+    end
+
+    @testset "Test case 2" for modelfn in [
+        complex_ranges_with_begin_end_2, complex_ranges_with_begin_end_3, complex_ranges_with_begin_end_4, complex_ranges_with_begin_end_5
+    ]
+        model = create_model(modelfn())
+
+        @test length(collect(filter(as_node(Normal), model))) == 2
+
+        normalnodes = collect(filter(as_node(Normal), model))
+
+        c_for_y_1 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[1]])))[3])
+        c_for_y_2 = getproperties(collect(neighbor_data(getproperties(model[normalnodes[2]])))[3])
+        @test is_constant(c_for_y_1) && value(c_for_y_1) === 1.0
+        @test is_constant(c_for_y_2) && value(c_for_y_2) === 2.0
+    end
+end
+
 @testitem "Anonymous variables" begin
     using GraphPPL
     import GraphPPL: create_model

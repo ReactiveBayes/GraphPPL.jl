@@ -59,6 +59,27 @@ function Base.show(io::IO, index::FunctionalIndex{R, F}) where {R, F}
 end
 
 """
+    FunctionalRange(left, range)
+
+A range can handle `FunctionalIndex` as one of (or both) the bounds.
+"""
+struct FunctionalRange{L, R}
+    left::L
+    right::R
+end
+
+(::Colon)(left, right::FunctionalIndex) = FunctionalRange(left, right)
+(::Colon)(left::FunctionalIndex, right) = FunctionalRange(left, right)
+(::Colon)(left::FunctionalIndex, right::FunctionalIndex) = FunctionalRange(left, right)
+
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L, R <: FunctionalIndex} =
+    collection[(range.left):range.right(collection)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R} =
+    collection[range.left(collection):(range.right)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R <: FunctionalIndex} =
+    collection[range.left(collection):range.right(collection)]
+
+"""
     IndexedVariable
 
 `IndexedVariable` represents a reference to a variable named `name` with index `index`. 
@@ -891,6 +912,8 @@ check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, M}) where {N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, range::AbstractRange) where {N} =
+    all(check_variate_compatability(node, i) for i in range) # This might be a bit slow if the range is large
 
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Nothing) where {N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")

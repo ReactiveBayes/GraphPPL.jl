@@ -606,7 +606,7 @@ function convert_tilde_expression(e::Expr)
         combinable_args = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         combinablesym = gensym()
-        getorcreate_lhs = generate_get_or_create(lhs, :(GraphPPL.__combine_axes($combinablesym...)))
+        getorcreate_lhs = generate_get_or_create(var, :(GraphPPL.__combine_axes($combinablesym...)))
         returnvalsym = gensym()
         return quote
             $combinablesym = ($(combinable_args...),)
