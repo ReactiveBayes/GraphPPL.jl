@@ -1240,7 +1240,10 @@ end
 
             datavars = filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))
             @test length(datavars) === 3
-            @test count(datavars -> value(getproperties(model[datavars])) === f, datavars) === 1
+            @test count(
+                datavars -> !isnothing(value(getproperties(model[datavars]))) && first(value(getproperties(model[datavars]))) === f,
+                datavars
+            ) === 1
 
             # `a` and `b` are either const or datavars
             model = create_model(fold_datavars_1(f = f)) do model, ctx
@@ -1277,6 +1280,16 @@ end
             @test length(collect(filter(as_node(Normal), model))) === 1
             @test length(collect(filter(as_variable(VariableNameAnonymous), model))) === 1
             @test length(filter(label -> is_data(getproperties(model[label])), collect(variable_nodes(model)))) === 2
+
+            foreach(collect(filter(as_variable(VariableNameAnonymous), model))) do label
+                nodedata = model[label]
+                nodeproperties = getproperties(nodedata)
+                fform, args = value(nodeproperties)
+
+                @test fform === f
+                @test length(args) === 2
+                @test args[2] === 1.0
+            end
         end
 
         @testset "fold_datavars_2 with just constants" begin

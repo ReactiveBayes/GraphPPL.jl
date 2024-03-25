@@ -1251,7 +1251,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
         (
             false,
             add_variable_node!(
-                model, context, NodeCreationOptions(kind = :data, value = fform, link = linked), VariableNameAnonymous, nothing
+                model, context, NodeCreationOptions(kind = :data, value = (fform, args), link = linked), VariableNameAnonymous, nothing
             )
         )
     else

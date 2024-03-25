@@ -320,7 +320,7 @@ end
 @testitem "variable_nodes with anonymous variables" begin
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
     using Distributions
-    import GraphPPL: create_model, variable_nodes, getname
+    import GraphPPL: create_model, variable_nodes, getname, is_anonymous, getproperties
 
     include("testutils.jl")
 
@@ -343,13 +343,13 @@ end
     @testset let submodel = simple_submodel_with_2_anonymous_for_variable_nodes
         model = create_model(simple_model_for_variable_nodes(submodel = submodel))
         @test length(collect(variable_nodes(model))) === 11
-        @test length(collect(filter(v -> getname(v) === :anonymous, collect(variable_nodes(model))))) === 2
+        @test length(collect(filter(v -> is_anonymous(getproperties(model[v])), collect(variable_nodes(model))))) === 2
     end
 
     @testset let submodel = simple_submodel_with_3_anonymous_for_variable_nodes
         model = create_model(simple_model_for_variable_nodes(submodel = submodel))
         @test length(collect(variable_nodes(model))) === 13 # +1 for new anonymous +1 for new constant
-        @test length(collect(filter(v -> getname(v) === :anonymous, collect(variable_nodes(model))))) === 3
+        @test length(collect(filter(v -> is_anonymous(getproperties(model[v])), collect(variable_nodes(model))))) === 3
     end
 end
 
