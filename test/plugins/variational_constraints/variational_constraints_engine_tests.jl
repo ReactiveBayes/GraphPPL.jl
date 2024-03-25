@@ -1448,3 +1448,50 @@ end
         @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
     end
 end
+
+@testitem "Test factorization constraint with automatically folded data/const variables" begin
+    import GraphPPL:
+        getproperties,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        NodeCreationOptions,
+        getorcreate!,
+        with_plugins,
+        create_model,
+        getextra,
+        VariationalConstraintsFactorizationIndicesKey
+
+    include("../../testutils.jl")
+
+    @model function fold_datavars(f, a, b)
+        y ~ Normal(f(f(a, b), f(a, b)), 0.5)
+    end
+
+    @testset for f in (+, *, (a, b) -> a + b, (a, b) -> a * b), case in (1, 2, 3)
+        model = create_model(with_plugins(fold_datavars(f = f), PluginsCollection(VariationalConstraintsPlugin()))) do model, ctx
+            if case === 1
+                return (
+                    a = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.35), :a, nothing),
+                    b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.54), :b, nothing)
+                )
+            elseif case === 2
+                return (
+                    a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing),
+                    b = getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 0.54), :b, nothing)
+                )
+            elseif case === 3
+                return (
+                    a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :a, nothing),
+                    b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :b, nothing)
+                )
+            end
+        end
+
+        @test length(collect(filter(as_node(Normal), model))) === 1
+        @test length(collect(filter(as_node(f), model))) === 0
+
+        foreach(collect(filter(as_node(Normal), model))) do node
+            @test getextra(model[node], VariationalConstraintsFactorizationIndicesKey) == ([1], [2], [3])
+        end
+    end
+end
