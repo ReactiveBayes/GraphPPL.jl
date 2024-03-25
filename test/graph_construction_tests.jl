@@ -1004,6 +1004,12 @@ end
     end
     @test length(collect(filter(as_node(Bernoulli), model))) == 10
     @test length(collect(filter(as_node(Beta), model))) == 1
+
+    @model function weird_broadcast()
+        π ~ Beta(1, 1)
+        z .~ Bernoulli(Normal.(0, 1))
+    end
+    @test_throws ErrorException local model = create_model(weird_broadcast())
 end
 
 @testitem "Broadcasting with LazyNodeLabel" begin 

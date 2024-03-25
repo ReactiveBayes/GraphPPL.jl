@@ -1746,7 +1746,7 @@ Call a plugin specific logic for a node with label and nodedata upon their creat
 function preprocess_plugin end
 
 """
-    postprocess(plugin, model)
+    postprocess_plugin(plugin, model)
 
 Calls a plugin specific logic after the model has been created. By default does nothing.
 """
