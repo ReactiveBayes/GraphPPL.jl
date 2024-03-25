@@ -994,6 +994,16 @@ end
 
     model = create_model(emtpy_broadcast())
     @test length(collect(filter(as_node(foo), model))) == 10
+
+    @model function coin_toss(x)
+        π ~ Beta(1, 1)
+        x .~ Bernoulli(π)
+    end
+    model = create_model(coin_toss()) do model, context
+        return (; x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data), :x, 1:10))
+    end
+    @test length(collect(filter(as_node(Bernoulli), model))) == 10
+    @test length(collect(filter(as_node(Beta), model))) == 1
 end
 
 @testitem "Broadcasting with LazyNodeLabel" begin 

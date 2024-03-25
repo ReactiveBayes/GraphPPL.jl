@@ -918,6 +918,7 @@ check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_c
 check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
 
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{NodeLabel, N}) where {N} = true
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, M}) where {N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
