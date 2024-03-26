@@ -120,7 +120,7 @@ end
 
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind
 
     include("testutils.jl")
 
@@ -134,6 +134,9 @@ end
             T[i, j] ~ simple_submodel_3(x = m, Λ = Σ, y = y[i])
         end
     end
+
+    @test LazyIndex() === LazyIndex(MissingCollection())
+    @test LazyIndex(missing) === LazyIndex(MissingCollection())
 
     @testset for n in 5:10
         model = create_model(simple_model_3(n = n)) do model, ctx

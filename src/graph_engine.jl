@@ -1068,6 +1068,7 @@ Base.eachindex(::MissingCollection) = __err_missing_collection_missing_method(:e
 Base.axes(::MissingCollection) = __err_missing_collection_missing_method(:axes)
 
 LazyIndex() = LazyIndex(MissingCollection())
+LazyIndex(::Missing) = LazyIndex(MissingCollection())
 
 getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::LazyIndex) =
     LazyNodeLabel(model, ctx, options, name, index.collection)
