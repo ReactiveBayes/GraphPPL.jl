@@ -952,6 +952,13 @@ end
     @test !isempty(output)
     @test contains(output, "identity") # fform
 
+    # By default `returnval` is not defined
+    @test_throws UndefRefError GraphPPL.returnval(ctx1)
+    for i in 1:10
+        GraphPPL.returnval!(ctx1, (i, "$i"))
+        @test GraphPPL.returnval(ctx1) == (i, "$i")
+    end
+
     function test end
 
     ctx2 = Context(0, test, "test", nothing)
@@ -972,6 +979,8 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
+
+
 end
 
 @testitem "haskey(::Context)" begin

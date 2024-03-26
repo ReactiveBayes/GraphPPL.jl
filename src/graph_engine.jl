@@ -255,6 +255,7 @@ struct Context
     vector_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
     proxies::UnorderedDictionary{Symbol, ProxyLabel}
+    returnval::Ref{Any}
 end
 
 function Context(depth::Int, fform::Function, prefix::String, parent)
@@ -269,7 +270,8 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         UnorderedDictionary{Symbol, NodeLabel}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
-        UnorderedDictionary{Symbol, ProxyLabel}()
+        UnorderedDictionary{Symbol, ProxyLabel}(),
+        Ref{Any}()
     )
 end
 
@@ -286,6 +288,8 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
+returnval(context::Context) = context.returnval[]
+returnval!(context::Context, value) = context.returnval[] = value
 count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
 shortname(context::Context) = string(context.prefix)
 
@@ -1734,11 +1738,15 @@ function materialize_factor_node!(model::Model, context::Context, options::NodeC
     return factor_node_id, factor_node_data, factor_node_properties
 end
 
-add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple) =
-    add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces)
+function add_terminated_submodel!(model::Model, context::Context, fform, interfaces::NamedTuple)
+    return add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces)
+end
 
-add_terminated_submodel!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple) =
-    add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
+function add_terminated_submodel!(model::Model, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
+    returnval = add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
+    returnval!(context, returnval)
+    return returnval
+end
 
 """
 Add the `fform` as the toplevel model to the `model` and `context` with the specified `interfaces`.
