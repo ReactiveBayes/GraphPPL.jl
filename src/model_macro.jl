@@ -562,6 +562,9 @@ end
 __combine_axes() = Base.OneTo(1)
 __combine_axes(any...) = Base.Broadcast.combine_axes(any...)
 
+__check_vectorized_input(any) = last.(any)
+__check_vectorized_input(::Tuple{T, GraphPPL.NodeLabel}) where {T} = error("Cannot broadcast scalar inputs over an unspecified or one-dimensional return array. Did you accidentally make a statement like this: `x ~ Bernoulli(Beta.(1, 1))` without initializing `x`?")
+
 """
     convert_tilde_expression(e::Expr)
 
@@ -614,7 +617,7 @@ function convert_tilde_expression(e::Expr)
             $returnvalsym = broadcast($lhs, $combinablesym...) do ilhs, args...
                 return GraphPPL.make_node!(__model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, ilhs, $parsed_args)
             end
-            last.($returnvalsym)
+            GraphPPL.__check_vectorized_input($returnvalsym)
         end
     else
         return e

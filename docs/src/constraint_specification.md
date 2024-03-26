@@ -8,6 +8,7 @@ The constraints macro accepts a high-level constraint specification and converts
 ```@example constraints
 using GraphPPL
 using Distributions
+import GraphPPL: @model
 
 @model function toy_model(x, y, z)
     x ~ Normal(y, z)

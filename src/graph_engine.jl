@@ -600,7 +600,19 @@ function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K,
     return insert!(node.extra, K, value)
 end
 
+"""
+    is_factor(nodedata::NodeData)
+
+Returns `true` if the node data is associated with a factor node, `false` otherwise.
+See also: [`is_variable`](@ref),
+"""
 is_factor(node::NodeData)   = is_factor(getproperties(node))
+"""
+    is_variable(nodedata::NodeData)
+
+Returns `true` if the node data is associated with a variable node, `false` otherwise.
+See also: [`is_factor`](@ref),
+"""
 is_variable(node::NodeData) = is_variable(getproperties(node))
 
 factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), labels(model))
@@ -803,9 +815,27 @@ end
 Base.getindex(context::Context, ivar::IndexedVariable{Nothing}) = context[getname(ivar)]
 Base.getindex(context::Context, ivar::IndexedVariable) = context[getname(ivar)][index(ivar)]
 
+"""
+    NodeType
+
+Abstract type representing either `Composite` or `Atomic` trait for a given object. By default is `Atomic` unless specified otherwise.
+See also: [`Composite`](@ref), [`Atomic`](@ref)
+"""
 abstract type NodeType end
 
+"""
+    Composite
+
+`Composite` object used as a trait of structs and functions that are composed of multiple nodes and therefore implement `make_node!`.
+See also: [`Atomic`](@ref), [`NodeType`](@ref)
+"""
 struct Composite <: NodeType end
+
+"""
+    Atomic
+`Atomic` object used as a trait of structs and functions that are composed of a single node and are therefore materialized as a single node in the factor graph.
+See also: [`Composite`](@ref), [`NodeType`](@ref)
+"""
 struct Atomic <: NodeType end
 
 NodeType(backend, fform) = error("Backend $backend must implement a method for `NodeType` for `$(fform)`.")
@@ -917,6 +947,7 @@ check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_c
 check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
 
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{NodeLabel, N}) where {N} = true
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, M}) where {N, M} =
     error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
@@ -937,6 +968,7 @@ it returns it. Otherwise, it creates a new variable and returns it.
 # Arguments
 - `model::Model`: The factor graph model to search for or create the variable in.
 - `context::Context`: The context to search for or create the variable in.
+- `options::NodeCreationOptions`: Options for creating the variable. Must be a `NodeCreationOptions` object.
 - `name`: The variable (name) to search for or create. Must be a symbol.
 - `index`: Optional index for the variable. Can be an integer, a tuple of integers, or `nothing`.
 
@@ -1803,7 +1835,7 @@ Call a plugin specific logic for a node with label and nodedata upon their creat
 function preprocess_plugin end
 
 """
-    postprocess(plugin, model)
+    postprocess_plugin(plugin, model)
 
 Calls a plugin specific logic after the model has been created. By default does nothing.
 """

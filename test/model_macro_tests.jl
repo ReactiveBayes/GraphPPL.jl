@@ -1725,7 +1725,7 @@ end
                 __model__, __context__, GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)), Normal, ilhs, args
             )
         end
-        last.(var"#rvar#")
+        GraphPPL.__check_vectorized_input(var"#rvar#")
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
@@ -1754,7 +1754,7 @@ end
                 NamedTuple{$(:μ, :σ)}(args)
             )
         end
-        last.(var"#rvar")
+        GraphPPL.__check_vectorized_input(var"#rvar")
     end
 
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
@@ -1786,7 +1786,7 @@ end
                 )
             )
         end
-        last.(var"#rvar")
+        GraphPPL.__check_vectorized_input(var"#rvar")
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end

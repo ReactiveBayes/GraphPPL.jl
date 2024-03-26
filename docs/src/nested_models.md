@@ -6,6 +6,7 @@ In `GraphPPL`, a model is defined as a collection of random variables and their 
 
 ``` @example nested-models
 using GraphPPL
+import GraphPPL: @model
 
 @model function gcv(κ, ω, z, x, y)
     log_σ := κ * z + ω

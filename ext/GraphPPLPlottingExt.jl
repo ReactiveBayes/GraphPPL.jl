@@ -1,6 +1,6 @@
 module GraphPPLPlottingExt
 
-using GraphPPL, GraphPlot, Cairo, Compose
+using GraphPPL, GraphPlot, Cairo, GraphPlot.Compose
 
 function GraphPlot.gplot(model::GraphPPL.Model; file_name = "tmp.png")
     g = model.graph

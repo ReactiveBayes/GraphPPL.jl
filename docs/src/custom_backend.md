@@ -41,3 +41,9 @@ GraphPPL.factor_alias
 GraphPPL.interface_aliases
 GraphPPL.default_parametrization
 ```
+
+For inference backends, we recommend to implement the `@model` macro using the following pattern:
+
+```@docs
+GraphPPL.@model
+```

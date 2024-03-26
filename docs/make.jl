@@ -12,7 +12,9 @@ makedocs(
         "Nested Models"         => "nested_models.md",
         "Constraint Specification" => "constraint_specification.md",
         "Custom backend"        => "custom_backend.md",
-        "Developers Guide"      => "developers_guide.md"
+        "Plugins"               => "plugins.md",
+        "Developers Guide"      => "developers_guide.md",
+        "Reference"             => "reference.md",
     ],
     format   = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true"
