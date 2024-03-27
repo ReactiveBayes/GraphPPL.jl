@@ -5,20 +5,26 @@
 The `ModelGenerator` structure is used to lazily create 
 the model with the given `model` and `kwargs` and `plugins`.
 """
-struct ModelGenerator{G, K, P}
+struct ModelGenerator{G, K, P, B}
     model::G
     kwargs::K
     plugins::P
+    backend::B
 end
 
-ModelGenerator(model::G, kwargs::K) where {G, K} = ModelGenerator(model, kwargs, PluginsCollection())
+ModelGenerator(model::G, kwargs::K) where {G, K} = ModelGenerator(model, kwargs, PluginsCollection(), default_backend(model))
 
 getmodel(generator::ModelGenerator) = generator.model
 getkwargs(generator::ModelGenerator) = generator.kwargs
 getplugins(generator::ModelGenerator) = generator.plugins
+getbackend(generator::ModelGenerator) = generator.backend
 
 function with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
     return ModelGenerator(generator.model, generator.kwargs, generator.plugins + plugins)
+end
+
+function with_backend(generator::ModelGenerator, backend)
+    return ModelGenerator(generator.model, generator.kwargs, generator.plugins, backend)
 end
 
 function create_model(generator::ModelGenerator)
@@ -28,7 +34,7 @@ function create_model(generator::ModelGenerator)
 end
 
 function create_model(callback, generator::ModelGenerator)
-    model = Model(getmodel(generator), getplugins(generator))
+    model = Model(getmodel(generator), getplugins(generator), getbackend(generator))
     context = getcontext(model)
 
     extrakwargs = callback(model, context)
