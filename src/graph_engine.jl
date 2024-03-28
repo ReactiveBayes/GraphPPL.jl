@@ -606,7 +606,7 @@ end
 Returns `true` if the node data is associated with a factor node, `false` otherwise.
 See also: [`is_variable`](@ref),
 """
-is_factor(node::NodeData)   = is_factor(getproperties(node))
+is_factor(node::NodeData) = is_factor(getproperties(node))
 """
     is_variable(nodedata::NodeData)
 

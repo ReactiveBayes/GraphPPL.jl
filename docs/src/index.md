@@ -17,6 +17,10 @@ Pages = [
   "getting_started.md",
   "nested_models.md",
   "constraint_specification.md",
+  "plugins.md",
+  "migration.md",
+  "developers_guide.md",
+  "custom_backend.md",
   "reference.md"
 ]
 Depth = 2
