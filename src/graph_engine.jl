@@ -101,8 +101,8 @@ Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
 Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
 mutable struct FactorID
-    fform::Any
-    index::Int64
+    const fform::Any
+    const index::Int64
 end
 
 fform(id::FactorID) = id.fform
