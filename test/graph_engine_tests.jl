@@ -76,7 +76,7 @@ end
     @test isbitstype(typeof((FunctionalIndex{:begin}(firstindex) - 1 + 1)))
 end
 
-@testitem "FunctionalRange" begin 
+@testitem "FunctionalRange" begin
     import GraphPPL: FunctionalIndex
 
     collection = [1, 2, 3, 4, 5]
@@ -979,8 +979,6 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
-
-
 end
 
 @testitem "haskey(::Context)" begin
