@@ -100,7 +100,7 @@ Base.:(==)(left::IndexedVariable, right::IndexedVariable) = (left.name == right.
 Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
 Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
-struct FactorID
+mutable struct FactorID
     fform::Any
     index::Int64
 end
@@ -152,9 +152,9 @@ representing the name of the node, an integer representing the unique identifier
 a UInt8 representing the type of the variable, and an integer or tuple of integers representing
 the global_counter of the variable.
 """
-struct NodeLabel
-    name::Any
-    global_counter::Int64
+mutable struct NodeLabel
+    const name::Any
+    const global_counter::Int64
 end
 
 Base.length(label::NodeLabel) = 1
@@ -172,9 +172,9 @@ to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.glo
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
-struct EdgeLabel
-    name::Symbol
-    index::Union{Int, Nothing}
+mutable struct EdgeLabel
+    const name::Symbol
+    const index::Union{Int, Nothing}
 end
 
 getname(label::EdgeLabel) = label.name
@@ -186,10 +186,10 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
-struct ProxyLabel{T, V}
-    name::Symbol
-    index::T
-    proxied::V
+mutable struct ProxyLabel{T, V}
+    const name::Symbol
+    const index::T
+    const proxied::V
 end
 
 # We need two methods to resolve the ambiguities
@@ -552,10 +552,10 @@ The `context` field stores the context of the node.
 The `properties` field stores the properties of the node. 
 The `plugins` field stores additional properties of the node depending on which plugins were enabled.
 """
-struct NodeData
-    context    :: Context
-    properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
-    extra      :: UnorderedDictionary{Symbol, Any}
+mutable struct NodeData
+    const context    :: Context
+    const properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
+    const extra      :: UnorderedDictionary{Symbol, Any}
 end
 
 NodeData(context, properties) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}())
@@ -606,7 +606,7 @@ end
 Returns `true` if the node data is associated with a factor node, `false` otherwise.
 See also: [`is_variable`](@ref),
 """
-is_factor(node::NodeData)   = is_factor(getproperties(node))
+is_factor(node::NodeData) = is_factor(getproperties(node))
 """
     is_variable(nodedata::NodeData)
 
