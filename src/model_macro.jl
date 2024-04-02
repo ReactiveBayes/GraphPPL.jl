@@ -764,6 +764,12 @@ The functions are being applied to the model in the `model_macro_interior` macro
 """
 function model_macro_interior_pipelines end
 
+"""
+    model_macro_interior(backend, model_specification)
+
+The function that translates the `model_specification` code into a Julia compatible code block given some `backend`. 
+This function must be used within the `@model` macro.
+"""
 function model_macro_interior(backend, model_specification)
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__)
         ms_body_

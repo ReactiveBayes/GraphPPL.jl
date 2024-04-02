@@ -14,8 +14,6 @@ include("plugins/node_id.jl")
 include("plugins/variational_constraints/variational_constraints.jl")
 include("plugins/meta/meta.jl")
 
-include("old/old.jl")
-
 include("backends/default.jl")
 
 """

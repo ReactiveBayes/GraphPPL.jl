@@ -14,8 +14,7 @@ makedocs(
         "Plugins" => "plugins.md", 
         "Migration Guide (from v3 to v4)" => "migration_3_to_4.md", 
         "Developers Guide" => "developers_guide.md", 
-        "Custom backend" => "custom_backend.md", 
-        "Reference" => "reference.md"
+        "Custom backend" => "custom_backend.md"
     ],
     format   = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"),
     warnonly = true

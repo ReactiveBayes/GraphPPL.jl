@@ -14,14 +14,34 @@ Within these functions, the plugin can modify the model, add new nodes, or modif
 ## Available plugins
 
 The following plugins are available by default in `GraphPPL`:
-- `GraphPPL.VariationalConstraintsPlugin`: adds constraints to the model that are used in variational inference.
+- `GraphPPL.VariationalConstraintsPlugin`: adds [constraints](@ref constraints-specification) to the model that are used in variational inference.
 - `GraphPPL.MetaPlugin`: adds arbitrary metadata to nodes in the model. Can be accessed with the `@meta` macro.
 - `GraphPPL.NodeCreatedByPlugin`: adds information about the line of code that created the node. 
+- `GraphPPL.NodeIdPlugin`: allows attaching an `id` to factor nodes for later inspection.
+
+```@docs 
+GraphPPL.VariationalConstraintsPlugin
+GraphPPL.MetaPlugin
+GraphPPL.NodeCreatedByPlugin
+GraphPPL.NodeIdPlugin
+```
 
 ## Using a plugin
 
 To use a plugin, call the `with_plugins` function when constructing a model:
-```julia
-model = create_model(with_plugins(some_model(), GraphPPL.PluginCollection()))
+
+```@docs 
+GraphPPL.with_plugins
 ```
+
 The `PluginCollection` is a collection of plugins that will be applied to the model. The order of plugins in the collection is important, as the `preprocess_plugin` and `postprocess_plugin` functions are called in the order of the plugins in the collection.
+
+## Reference 
+
+```@docs 
+GraphPPL.UnknownPluginType
+GraphPPL.plugin_type
+GraphPPL.PluginsCollection
+GraphPPL.add_plugin
+GraphPPL.VariableNodePlugin
+```

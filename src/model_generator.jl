@@ -17,6 +17,15 @@ getmodel(generator::ModelGenerator) = generator.model
 getkwargs(generator::ModelGenerator) = generator.kwargs
 getplugins(generator::ModelGenerator) = generator.plugins
 
+"""
+    with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
+
+Attaches the `plugins` to the `generator`. For example:
+```julia
+plugins = GraphPPL.PluginsCollection(GraphPPL.NodeCreatedByPlugin())
+new_generator = GraphPPL.with_plugins(generator, plugins)
+```
+"""
 function with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
     return ModelGenerator(generator.model, generator.kwargs, generator.plugins + plugins)
 end
@@ -27,6 +36,34 @@ function create_model(generator::ModelGenerator)
     end
 end
 
+"""
+    create_model([callback], generator::ModelGenerator)
+
+Create a model from the `ModelGenerator`. Accepts an optional callback that can be used to inject extra keyword arguments
+into the model creation process by downstream packages. For example:
+```jldoctest
+using GraphPPL, Distributions
+
+GraphPPL.@model function beta_bernoulli(y, a, b)
+    θ ~ Beta(a, b)
+    for i in eachindex(y)
+        y[i] ~ Bernoulli(θ)
+    end
+end
+
+data_y = rand(Bernoulli(0.5), 100)
+
+model = GraphPPL.create_model(beta_bernoulli(a = 1, b = 1)) do model, ctx 
+    # Inject the data into the model
+    y = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, GraphPPL.LazyIndex(data_y))
+    return (; y = y, )
+end
+
+model isa GraphPPL.Model
+# output
+true
+```
+"""
 function create_model(callback, generator::ModelGenerator)
     model = Model(getmodel(generator), getplugins(generator))
     context = getcontext(model)
