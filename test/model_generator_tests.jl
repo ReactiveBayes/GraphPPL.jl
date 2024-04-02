@@ -207,3 +207,28 @@ end
             PluginsCollection(ArbitraryPluginForModelGeneratorTests1(), ArbitraryPluginForModelGeneratorTests2())
     end
 end
+
+@testitem "with_backend" begin
+    import GraphPPL: ModelGenerator, DefaultBackend, with_backend, getbackend, create_model
+
+    include("testutils.jl")
+
+    # `GraphPPL.@model` uses the `DefaultBackend`, while `@model` from `testutils.jl` uses the `TestBackend`
+    GraphPPL.@model function simple_model(a)
+        y ~ Normal(a, 1)
+    end
+
+    generator = ModelGenerator(simple_model, (a = 1,))
+    @test getbackend(generator) === DefaultBackend()
+
+    model = create_model(generator) 
+    @test model isa GraphPPL.Model
+    @test getbackend(model) === DefaultBackend()
+
+    generator_with_a_different_backend = @inferred(with_backend(generator, TestUtils.TestGraphPPLBackend()))
+    @test getbackend(generator_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
+
+    model_with_a_different_backend = create_model(generator_with_a_different_backend)
+    @test model_with_a_different_backend isa GraphPPL.Model
+    @test getbackend(model_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
+end
