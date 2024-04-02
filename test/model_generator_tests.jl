@@ -165,7 +165,7 @@ end
 end
 
 @testitem "with_plugins" begin
-    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins
+    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins, @model
 
     struct ArbitraryPluginForModelGeneratorTestsType1 <: AbstractPluginTraitType end
     struct ArbitraryPluginForModelGeneratorTestsType2 <: AbstractPluginTraitType end
@@ -176,8 +176,12 @@ end
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests1) = ArbitraryPluginForModelGeneratorTestsType1()
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests2) = ArbitraryPluginForModelGeneratorTestsType2()
 
+    @model function simple_model(a)
+        y ~ Normal(a, 1)
+    end
+
     @testset begin
-        generator = ModelGenerator(identity, (a = 1,))
+        generator = ModelGenerator(simple_model, (a = 1,))
 
         @test isempty(getplugins(generator))
         @test getplugins(generator) === PluginsCollection()
@@ -190,7 +194,7 @@ end
 
     @testset begin
         generator = ModelGenerator(
-            identity, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()), GraphPPL.DefaultBackend()
+            simple_model, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()), GraphPPL.DefaultBackend()
         )
 
         @test !isempty(getplugins(generator))
