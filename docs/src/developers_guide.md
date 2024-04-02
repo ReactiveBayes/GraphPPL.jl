@@ -44,13 +44,20 @@ Variables in the graph can be created by the `GraphPPL.getorcreate!` function, t
 GraphPPL.getorcreate!
 ```
 
+## Model macro
+
+The `GraphPPL.jl` does not export the `@model` macro by default. For interactive usages (e.g. testing or plotting) `GraphPPL.jl` implements [`DefaultBackend`](@ref), but any downstream packages must define their own `@model` macro and implement their [custom backend](@ref custom-backend). 
+
+```@example dev-guide
+import GraphPPL: @model
+```
+
 ## Piecing everying together
 In this section we will create a factor graph from scratch, materializing the underlying factor graph and applying constraints.
 First, let's define a model, we'll use the `gcv` model from the Nested Models section:
-``` @example dev-guide
+```@example dev-guide
 using GraphPPL
 using Distributions
-import GraphPPL: @model # hide
 
 @model function gcv(κ, ω, z, x, y)
     log_σ := κ * z + ω

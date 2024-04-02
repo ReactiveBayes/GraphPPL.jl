@@ -1,3 +1,3 @@
 ```@autodocs
-Modules = [GraphPPL, GraphPPL.Old]
+Modules = [GraphPPL]
 ```

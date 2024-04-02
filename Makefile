@@ -14,7 +14,7 @@ bench: ## Run benchmark, use `make bench branch=...` to test against a specific 
 	julia --startup-file=no --project=scripts/ scripts/bench.jl $(branch)
 
 doc_init:
-	julia --project=docs -e 'ENV["PYTHON"]=""; using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate();'
+	julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate();'
 
 docs: doc_init ## Generate documentation
 	julia --project=docs/ docs/make.jl
