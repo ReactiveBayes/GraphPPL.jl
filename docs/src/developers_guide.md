@@ -53,6 +53,7 @@ import GraphPPL: @model
 ```
 
 ## Piecing everying together
+
 In this section we will create a factor graph from scratch, materializing the underlying factor graph and applying constraints.
 First, let's define a model, we'll use the `gcv` model from the Nested Models section:
 ```@example dev-guide
@@ -90,4 +91,72 @@ node = context[Normal, 1]
 @show GraphPPL.getextra(model[node], :factorization_constraint_indices)
 @show GraphPPL.getextra(model[node], :factorization_constraint_bitset)
 nothing # hide
+```
+
+## Model creation engine internal 
+
+```@docs
+GraphPPL.Context
+GraphPPL.ModelGenerator
+GraphPPL.NodeData
+GraphPPL.NodeLabel
+GraphPPL.StaticInterfaces
+GraphPPL.LazyIndex
+GraphPPL.FactorNodeProperties
+GraphPPL.VarDict
+GraphPPL.AnonymousVariable
+GraphPPL.NodeDataExtraKey
+GraphPPL.LazyNodeLabel
+
+GraphPPL.Deterministic
+GraphPPL.Stochastic
+GraphPPL.Atomic
+GraphPPL.Composite
+GraphPPL.NodeCreationOptions
+
+GraphPPL.variable_nodes
+GraphPPL.factor_nodes
+GraphPPL.missing_interfaces
+
+GraphPPL.make_node!
+GraphPPL.add_atomic_factor_node!
+GraphPPL.add_toplevel_model!
+GraphPPL.add_variable_node!
+GraphPPL.add_composite_factor_node!
+GraphPPL.copy_markov_blanket_to_child_context
+GraphPPL.generate_nodelabel
+GraphPPL.check_variate_compatability
+
+```
+
+## Model macro internals
+
+```@docs
+GraphPPL.combine_args
+GraphPPL.convert_local_statement
+GraphPPL.add_get_or_create_expression
+GraphPPL.keyword_expressions_to_named_tuple
+GraphPPL.convert_anonymous_variables
+GraphPPL.is_kwargs_expression
+GraphPPL.convert_to_kwargs_expression
+GraphPPL.convert_deterministic_statement
+GraphPPL.proxy_args
+GraphPPL.save_expression_in_tilde
+GraphPPL.convert_meta_object
+GraphPPL.get_boilerplate_functions
+GraphPPL.apply_pipeline_collection
+GraphPPL.convert_tilde_expression
+GraphPPL.check_reserved_variable_names_model
+GraphPPL.generate_get_or_create
+GraphPPL.add_meta_construction
+GraphPPL.apply_pipeline
+GraphPPL.options_vector_to_named_tuple
+GraphPPL.get_created_by
+GraphPPL.convert_to_anonymous
+```
+
+## Auxiliary functionality 
+
+```@docs 
+GraphPPL.prune!
 ```

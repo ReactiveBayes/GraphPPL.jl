@@ -42,6 +42,13 @@ GraphPPL.interface_aliases
 GraphPPL.default_parametrization
 ```
 
+!!! note
+    The `GraphPPL.model_macro_interior` automatically creates a method for `GraphPPL.default_backend`.
+
+```@docs 
+GraphPPL.default_backend
+```
+
 For inference backends, we recommend to implement the `@model` macro using the following pattern:
 
 ```@docs

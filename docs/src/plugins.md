@@ -44,4 +44,6 @@ GraphPPL.plugin_type
 GraphPPL.PluginsCollection
 GraphPPL.add_plugin
 GraphPPL.VariableNodePlugin
+GraphPPL.FactorNodePlugin
+GraphPPL.FactorAndVariableNodesPlugin
 ```
