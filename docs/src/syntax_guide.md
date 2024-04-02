@@ -28,6 +28,8 @@ node  = model[ctx[Beta, 1]]
 GraphPPL.getextra(node, :meta)
 ```
 
+Other plugins can hook into the `where { ... }` block with the [`GraphPPL.preprocess_plugin`](@ref).
+
 ## Tracking the `created_by` field
 
 Factor nodes in the models can optionaly save the expressions with which they were created. For this functionality to 

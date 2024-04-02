@@ -139,6 +139,7 @@ model = GraphPPL.create_model(coin_toss()) do model, context
         x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data), :x, GraphPPL.LazyIndex(xdata))
     )
 end
+nothing #hide
 ```
 
 ## Visualizing the model
