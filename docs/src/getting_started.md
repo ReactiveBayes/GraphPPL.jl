@@ -19,6 +19,7 @@ import GraphPPL: @model
 end
 ```
 will define the empty `example` model.
+
 ## Syntax
 
 In general, we can write probabilistic programs in `GraphPPL` using the `~` operator. For example, if we want to define a random variable `x` that is distributed according to a normal distribution with mean 0 and variance 1, we can write:
@@ -76,7 +77,7 @@ In `GraphPPL`, we can feed data and interfaces into the model through the functi
 
 ```@example getting-started
 @model function example(x)
-    for i in 1:eachindex(x)
+    for i in eachindex(x)
         x[i] ~ Normal(0, 1)
     end
 end

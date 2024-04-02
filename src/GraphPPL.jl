@@ -14,8 +14,6 @@ include("plugins/node_id.jl")
 include("plugins/variational_constraints/variational_constraints.jl")
 include("plugins/meta/meta.jl")
 
-include("old/old.jl")
-
 include("backends/default.jl")
 
 """
@@ -47,7 +45,6 @@ Read more about the backend inteface in the corresponding section of the documen
 
 To use `GraphPPL` package as a standalone package for plotting and testing, use the `import GraphPPL: @model` explicitly to add 
 the `@model` macro to the current scope. 
-
 """
 macro model(model_specification)
     return esc(GraphPPL.model_macro_interior(DefaultBackend, model_specification))

@@ -1,4 +1,4 @@
-# Constraint Specification
+# [Constraint Specification](@id constraints-specification)
 
 `GraphPPL` represents your probabilistic model and as a Bethe Free Energy (BFE), which means that users can define constraints on the variational posterior that influence the inference procedure. The BFE is chosen as the objective function because it is a generalization of many well-known inference algorithms. In this section we will explain how to specify constraints on the variational posterior. There are two major types of constraints we can apply: We can apply factorization constraints to factor nodes, which specify how the variational posterior factorizes around a factor node. We can also apply functional form constraints to variable nodes, which specify the functional form of the variational posterior that a variable takes. We can specify all constraints using the `@constraints` macro.
 
@@ -66,4 +66,25 @@ We can specify constraints over the first `toy_model` submodel using the followi
         q(x) :: Normal
     end
 end
+```
+
+## Plugin's internals
+
+```@docs 
+GraphPPL.Constraints
+GraphPPL.SpecificSubModelConstraints
+GraphPPL.GeneralSubModelConstraints
+GraphPPL.FactorizationConstraint
+GraphPPL.FactorizationConstraintEntry
+GraphPPL.MeanField
+GraphPPL.BetheFactorization
+
+GraphPPL.MarginalFormConstraint
+GraphPPL.MessageFormConstraint
+
+GraphPPL.materialize_constraints!
+GraphPPL.factorization_split
+
+GraphPPL.SplittedRange
+GraphPPL.CombinedRange
 ```

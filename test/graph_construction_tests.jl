@@ -1397,7 +1397,7 @@ end
         end
 
         anonymous_inside()
-        
+
         return val
     end
 

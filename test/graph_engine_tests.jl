@@ -76,7 +76,7 @@ end
     @test isbitstype(typeof((FunctionalIndex{:begin}(firstindex) - 1 + 1)))
 end
 
-@testitem "FunctionalRange" begin 
+@testitem "FunctionalRange" begin
     import GraphPPL: FunctionalIndex
 
     collection = [1, 2, 3, 4, 5]
@@ -979,8 +979,6 @@ end
 
     ctx6 = Context(ctx3, secondlayer)
     @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
-
-
 end
 
 @testitem "haskey(::Context)" begin
@@ -2168,7 +2166,7 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), ())
     @test nv(model) == 4
-    @test ctx[prior, 1][:a] === ProxyLabel(:x, nothing, x)
+    @test ctx[prior, 1][:a] == ProxyLabel(:x, nothing, x)
 
     #test make node for other composite models
     model = create_test_model()

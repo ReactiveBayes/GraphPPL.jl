@@ -53,12 +53,8 @@ Base.length(range::SplittedRange) = lastindex(range) - firstindex(range) + 1
 
 Base.show(io::IO, range::SplittedRange) = print(io, repr(range.from), "..", repr(range.to))
 
-"""
-    __factorization_specification_resolve_index(index, collection)
-
-This function materializes index from constraints specification to something we can use `Base.in` function to. For example constraint specification index may return `begin` or `end`
-placeholders in a form of the `FunctionalIndex` structure. This function correctly resolves all indices and check bounds as an extra step.
-"""
+# This function materializes index from constraints specification to something we can use `Base.in` function to. For example constraint specification index may return `begin` or `end`
+# placeholders in a form of the `FunctionalIndex` structure. This function correctly resolves all indices and check bounds as an extra step.
 function __factorization_specification_resolve_index end
 
 __factorization_specification_resolve_index(index::Any, collection::NodeLabel) =

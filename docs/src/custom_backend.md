@@ -1,4 +1,4 @@
-# Customizing the behaviour of the `@model` with a custom backend
+# [Customizing the behaviour of the `@model` with a custom backend](@id custom-backend)
 
 When creating the graphical model, `GraphPPL` package uses several functions to decide what to do in specific situations, for example
 
@@ -40,10 +40,19 @@ GraphPPL.interfaces
 GraphPPL.factor_alias
 GraphPPL.interface_aliases
 GraphPPL.default_parametrization
+GraphPPL.instantiate
+```
+
+!!! note
+    The `GraphPPL.model_macro_interior` automatically creates a method for `GraphPPL.default_backend`.
+
+```@docs 
+GraphPPL.default_backend
 ```
 
 For inference backends, we recommend to implement the `@model` macro using the following pattern:
 
 ```@docs
 GraphPPL.@model
+GraphPPL.model_macro_interior
 ```
