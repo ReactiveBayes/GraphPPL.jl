@@ -53,7 +53,7 @@ As you can see, variable creation still requires the `~` operator. However, ther
 As seen in the example above, we can assign `x[i]` without explicitly defining `x` first. `GraphPPL` is able to infer that `x` is a vector of random variables, and will grow the internal representation of `x` accordingly to accomodate `i` elements. Note that this works recursively, so `z[i, j]` will define a matrix of random variables. GraphPPL does check that the index `[i,j]` is compatible with the shape of the variable `z`.
 
 !!! note
-    `eachindex(y)` works only if `y` has a static data associated with it. Read the documentation for [`create_model`](@ref) for more information.
+    `eachindex(y)` works only if `y` has a static data associated with it. Read the documentation for [`GraphPPL.create_model`](@ref) for more information.
 
 ### Factor aliases
 

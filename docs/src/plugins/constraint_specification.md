@@ -67,3 +67,24 @@ We can specify constraints over the first `toy_model` submodel using the followi
     end
 end
 ```
+
+## Plugin's internals
+
+```@docs 
+GraphPPL.Constraints
+GraphPPL.SpecificSubModelConstraints
+GraphPPL.GeneralSubModelConstraints
+GraphPPL.FactorizationConstraint
+GraphPPL.FactorizationConstraintEntry
+GraphPPL.MeanField
+GraphPPL.BetheFactorization
+
+GraphPPL.MarginalFormConstraint
+GraphPPL.MessageFormConstraint
+
+GraphPPL.materialize_constraints!
+GraphPPL.factorization_split
+
+GraphPPL.SplittedRange
+GraphPPL.CombinedRange
+```

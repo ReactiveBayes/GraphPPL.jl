@@ -46,7 +46,7 @@ GraphPPL.getorcreate!
 
 ## Model macro
 
-The `GraphPPL.jl` does not export the `@model` macro by default. For interactive usages (e.g. testing or plotting) `GraphPPL.jl` implements [`DefaultBackend`](@ref), but any downstream packages must define their own `@model` macro and implement their [custom backend](@ref custom-backend). 
+The `GraphPPL.jl` does not export the `@model` macro by default. For interactive usages (e.g. testing or plotting) `GraphPPL.jl` implements [`GraphPPL.DefaultBackend`](@ref), but any downstream packages must define their own `@model` macro and implement their [custom backend](@ref custom-backend). 
 
 ```@example dev-guide
 import GraphPPL: @model
@@ -73,6 +73,11 @@ constraints = @constraints begin
 end
 ```
 This defines the `gcv` submodel, but now we have to materialize this model. Let's greate a model and hook up all interfaces to variables that will later have to be supplied by the user.
+
+```@docs
+GraphPPL.create_model
+```
+
 ```@example dev-guide
 # Create the model
 model = GraphPPL.create_model(GraphPPL.with_plugins(gcv(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints)))) do model, context
@@ -107,6 +112,7 @@ GraphPPL.VarDict
 GraphPPL.AnonymousVariable
 GraphPPL.NodeDataExtraKey
 GraphPPL.LazyNodeLabel
+GraphPPL.IndexedVariable
 
 GraphPPL.Deterministic
 GraphPPL.Stochastic
@@ -127,6 +133,8 @@ GraphPPL.copy_markov_blanket_to_child_context
 GraphPPL.generate_nodelabel
 GraphPPL.check_variate_compatability
 
+GraphPPL.FunctionalIndex
+GraphPPL.FunctionalRange
 ```
 
 ## Model macro internals
