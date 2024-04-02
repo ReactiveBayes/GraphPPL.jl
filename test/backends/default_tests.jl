@@ -25,19 +25,19 @@ end
     @test NodeBehaviour(DefaultBackend(), Matrix) == Deterministic()
     @test NodeBehaviour(DefaultBackend(), Vector) == Deterministic()
 
-    # Submodels are defined to be stochastic
-    for model in ModelsInTheZooWithoutArguments
-        @test NodeBehaviour(DefaultBackend(), model) == Stochastic()
+    import GraphPPL: @model
+
+    @model function submodel(y, x, z)
+        y ~ Normal(x, z)
     end
+
+    # Composite nodes are defined explicitly in the `@model` macro
+    @test NodeBehaviour(DefaultBackend(), submodel) == Stochastic()
 end
 
 @testitem "NodeType" begin
     using Distributions
     import GraphPPL: DefaultBackend, NodeType, Atomic, Composite
-
-    include("../testutils.jl")
-    
-    using .TestUtils.ModelZoo
 
     # The `DefaultBackend` defines `Atomic` behaviour for objects from the `Distributions` module
     # but also for functions and types
@@ -46,8 +46,12 @@ end
     @test NodeType(DefaultBackend(), Matrix) == Atomic()
     @test NodeType(DefaultBackend(), Vector) == Atomic()
 
-    # Composite nodes are defined explicitly in the `@model` macro
-    for model in ModelsInTheZooWithoutArguments
-        @test NodeType(DefaultBackend(), model) == Composite()
+    import GraphPPL: @model
+
+    @model function submodel(y, x, z)
+        y ~ Normal(x, z)
     end
+
+    # Composite nodes are defined explicitly in the `@model` macro
+    @test NodeType(DefaultBackend(), submodel) == Composite()
 end
