@@ -42,7 +42,10 @@ As seen in the example above, we can assign `x[i]` without explicitly defining `
 
 ### Factor aliases
 
-In version `4.0`, we can define factor aliases to define different implementations of the same factor. For example, in `ReactiveMP.jl`, there are multiple implentations of the `Normal` distribution. Previously, we would have to explicitly call `NormalMeanVariance` or `NormalMeanPrecision`. In version `4.0`, we can define factor aliases to default to certain implementations when specific keyword arguments are used on construction. For example: `Normal(μ = 0, σ = 1)` will default to `NormalMeanVariance` and `Normal(μ = 0, τ = 1)` will default to `NormalMeanPrecision`. This allows users to quickly toggle between different implementations of the same factor, while keeping an implementation agnostic model definition.
+In version `4.0`, we can define factor aliases to define different implementations of the same factor. For example, in `ReactiveMP.jl`, there are multiple implentations of the `Normal` distribution. Previously, we would have to explicitly call `NormalMeanVariance` or `NormalMeanPrecision`. In version `4.0`, we can define factor aliases to default to certain implementations when specific keyword arguments are used on construction. For example: `Normal(μ = 0, σ² = 1)` will default to `NormalMeanVariance` and `Normal(μ = 0, τ = 1)` will default to `NormalMeanPrecision`. This allows users to quickly toggle between different implementations of the same factor, while keeping an implementation agnostic model definition.
+
+!!! note
+     This feature works only in the combination with the `~` operator, which creates factor nodes. Therefore it cannot be used to instantiate a distribution object in a regular Julia code.
 
 ### Nested models
 
@@ -61,7 +64,7 @@ end
     end
 end
 ```
-Note that we reuse the `kalman_filter_slice` model in the `state_space_model` model. In the argument list of any `GraphPPL` model, we have to specify the Markov Blanket of the model we are defining. This means that all interfaces with the outside world have to be passed as arguments to the model. For the `kalman_filter_slice` model, we pass the previous state `prev_x`, the new state `new_x`, the observation `y` as well as the parameters `A`, `B`, `Q` and `P`. This means that, when invoking a submodel in a larger model, we can specify all components of the Markov Blanket. Note that, in the `state_space_model` model, we do not pass `y` as an argument to the `kalman_filter_slice` model. `GraphPPL` will infer that `y` is missing from the argument list and assign it to whatever is left of the `~` operator. Note that we also use the `new(x[i + 1])` syntax to create a new variable in the position of `x[i + 1]`. Since `y` is also passed in the argument list of the `state_space_model` model, we could have written this line with the equivalen statement `x[i + 1] ~ kalman_filter_slice(prev_x = x[i], y = y[i], A=A, B=B, Q=Q, P=P)`. However, to respect the generative direction of the model and to make the code more readable, we use the `new(x[i + 1])` syntax.
+Note that we reuse the `kalman_filter_slice` model in the `state_space_model` model. In the argument list of any `GraphPPL` model, we have to specify the Markov Blanket of the model we are defining. This means that all interfaces with the outside world have to be passed as arguments to the model. For the `kalman_filter_slice` model, we pass the previous state `prev_x`, the new state `new_x`, the observation `y` as well as the parameters `A`, `B`, `Q` and `P`. This means that, when invoking a submodel in a larger model, we can specify all components of the Markov Blanket. Note that, in the `state_space_model` model, we do not pass `y` as an argument to the `kalman_filter_slice` model. `GraphPPL` will infer that `y` is missing from the argument list and assign it to whatever is left of the `~` operator. Note that we also use the `new(x[i + 1])` syntax to create a new variable in the position of `x[i + 1]`. Since `y` is also passed in the argument list of the `state_space_model` model, we could have written this line with the equivalen statement `x[i + 1] ~ kalman_filter_slice(prev_x = x[i], y = y[i], A=A, B=B, Q=Q, P=P)`. However, to respect the generative direction of the model and to make the code more readable, we use the `new(x[i + 1])` syntax. Note, however, that the underlaying representation of the models in `GraphPPL` are still undirected.
 ## Constraint specification
 With the introduction of nested models, the specification of variational constraints becomes more difficult. In version `3.1`, variable names were uniquely defined in the model, which made it easy to specify constraints on variables. In version `4.0`, nested models can contain variables with the same name as their parents, even though they are distinct random variables. Therefore, we need to specify constraints on submodel level in the constraints macro. This is done with the `for q in _submodel_` syntax. For example:
 ```julia
@@ -105,8 +108,16 @@ The meta specification follows exactly the same structure as the constraints spe
     end
     y -> SomeMetaData()
 end
+```
+Additionally, we can pass arbitrary metadata to the inference backend. For example:
+```julia
+@meta begin
+    GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
+    x -> (prod_constraint = SomeProdConstraint(), )
+end
 ```        
+By passing a `NamedTuple` in the `@model` macro, we can pass arbitrary metadata to the inference backend that we would previously have to specify in the `where` clause of a node. With the added functionality of the `@meta` macro, we can pass metadata to the inference backend in a more structured way, and detach metadata definition from model definition.
 
-# Notable differences
+# Removed Functionality
 - The `datavar`, `randomvar` and `constvar` syntax is deprecated. `GraphPPL` is able to infer the type of the variable based on the way in which it is used.
-- Specifying constraints in the `where` clause of a node is depracated. `where` can still be used to pass metadata to the inference backend, but constraints should be specified in the `@constraints` macro.
+- Specifying factorization constraints in the `where` clause of a node is no longer possible. The `where` syntax can still be used to specify metadata for factor nodes, but factorization constraints can only be specified with the `@constraints` macro.
