@@ -43,10 +43,5 @@ default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where 
 default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
     error("Composite nodes always have to be initialized with named arguments")
 
-"""
-    instantiate(::Type{Backend})
-
-instantiates a backend object of the specified type. Should be implemented for all backends.
-"""
-instantiate(any) = error("Backend of type $any does not implement `instantiate`")
-instantiate(::Type{DefaultBackend}) = DefaultBackend()
+# The default backend does not really have any special hyperparameters
+GraphPPL.instantiate(::Type{DefaultBackend}) = DefaultBackend()
