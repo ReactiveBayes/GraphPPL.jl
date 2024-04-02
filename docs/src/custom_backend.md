@@ -40,6 +40,7 @@ GraphPPL.interfaces
 GraphPPL.factor_alias
 GraphPPL.interface_aliases
 GraphPPL.default_parametrization
+GraphPPL.instantiate
 ```
 
 !!! note

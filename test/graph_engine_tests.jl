@@ -2166,7 +2166,7 @@ end
     x = getorcreate!(model, ctx, :x, nothing)
     make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), ())
     @test nv(model) == 4
-    @test ctx[prior, 1][:a] === ProxyLabel(:x, nothing, x)
+    @test ctx[prior, 1][:a] == ProxyLabel(:x, nothing, x)
 
     #test make node for other composite models
     model = create_test_model()

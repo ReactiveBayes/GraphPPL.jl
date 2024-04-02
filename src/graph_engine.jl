@@ -109,6 +109,8 @@ fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
 
 Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
+Base.:(==)(id1::FactorID, id2::FactorID) = id1.fform == id2.fform && id1.index ==  id2.index
+Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
 
 """
     Model(graph::MetaGraph)
@@ -171,6 +173,8 @@ iterate(label::NodeLabel, any) = nothing
 to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.global_counter))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
+Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
+Base.hash(label::NodeLabel, h::UInt) = hash(label.name, hash(label.global_counter, h))
 
 mutable struct EdgeLabel
     const name::Symbol
@@ -185,6 +189,8 @@ to_symbol(label::EdgeLabel, ::Nothing) = label.name
 to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(label.index) * "]")
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
+Base.:(==)(label1::EdgeLabel, label2::EdgeLabel) = label1.name == label2.name && label1.index == label2.index
+Base.hash(label::EdgeLabel, h::UInt) = hash(label.name, hash(label.index, h))
 
 mutable struct ProxyLabel{T, V}
     const name::Symbol
@@ -237,6 +243,9 @@ Base.last(label::ProxyLabel) = last(label.proxied, label)
 
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
+
+Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) = proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
+Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
 
 """
     Context
