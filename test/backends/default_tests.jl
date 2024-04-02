@@ -24,15 +24,6 @@ end
     # Raw Julia types are also deterministic
     @test NodeBehaviour(DefaultBackend(), Matrix) == Deterministic()
     @test NodeBehaviour(DefaultBackend(), Vector) == Deterministic()
-
-    import GraphPPL: @model
-
-    @model function submodel(y, x, z)
-        y ~ Normal(x, z)
-    end
-
-    # Composite nodes are defined explicitly in the `@model` macro
-    @test NodeBehaviour(DefaultBackend(), submodel) == Stochastic()
 end
 
 @testitem "NodeType" begin
@@ -45,13 +36,34 @@ end
     @test NodeType(DefaultBackend(), Gamma) == Atomic()
     @test NodeType(DefaultBackend(), Matrix) == Atomic()
     @test NodeType(DefaultBackend(), Vector) == Atomic()
+end
 
-    import GraphPPL: @model
+@testitem "DefaultBackend for submodels" begin
+    import GraphPPL:
+        @model,
+        DefaultBackend,
+        NodeBehaviour,
+        Stochastic,
+        Deterministic,
+        NodeType,
+        Atomic,
+        Composite,
+        interfaces,
+        StaticInterfaces,
+        interface_aliases,
+        StaticInterfaceAliases
 
     @model function submodel(y, x, z)
         y ~ Normal(x, z)
     end
 
-    # Composite nodes are defined explicitly in the `@model` macro
+    @model function submodel(y, x, z, d)
+        y ~ Normal(x, z + d)
+    end
+
     @test NodeType(DefaultBackend(), submodel) == Composite()
+    @test NodeBehaviour(DefaultBackend(), submodel) == Stochastic()
+    @test interfaces(DefaultBackend(), submodel, GraphPPL.StaticInt(3)) == StaticInterfaces((:y, :x, :z))
+    @test interfaces(DefaultBackend(), submodel, GraphPPL.StaticInt(4)) == StaticInterfaces((:y, :x, :z, :d))
+    @test interface_aliases(DefaultBackend(), submodel) == StaticInterfaceAliases(())
 end
