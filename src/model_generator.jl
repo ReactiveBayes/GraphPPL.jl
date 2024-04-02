@@ -20,7 +20,7 @@ getplugins(generator::ModelGenerator) = generator.plugins
 getbackend(generator::ModelGenerator) = generator.backend
 
 function with_plugins(generator::ModelGenerator, plugins::PluginsCollection)
-    return ModelGenerator(generator.model, generator.kwargs, generator.plugins + plugins)
+    return ModelGenerator(generator.model, generator.kwargs, generator.plugins + plugins, generator.backend)
 end
 
 function with_backend(generator::ModelGenerator, backend)

@@ -189,7 +189,9 @@ end
     end
 
     @testset begin
-        generator = ModelGenerator(identity, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()))
+        generator = ModelGenerator(
+            identity, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()), GraphPPL.DefaultBackend()
+        )
 
         @test !isempty(getplugins(generator))
         @test getplugins(generator) === PluginsCollection(ArbitraryPluginForModelGeneratorTests1())

@@ -42,3 +42,11 @@ GraphPPL.interface_aliases(::DefaultBackend, _) = GraphPPL.StaticInterfaceAliase
 default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
 default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
     error("Composite nodes always have to be initialized with named arguments")
+
+"""
+    instantiate(::Type{Backend})
+
+instantiates a backend object of the specified type. Should be implemented for all backends.
+"""
+instantiate(any) = error("Backend of type $any does not implement `instantiate`")
+instantiate(::Type{DefaultBackend}) = DefaultBackend()
