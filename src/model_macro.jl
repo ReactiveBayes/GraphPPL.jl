@@ -563,7 +563,9 @@ __combine_axes() = Base.OneTo(1)
 __combine_axes(any...) = Base.Broadcast.combine_axes(any...)
 
 __check_vectorized_input(any) = last.(any)
-__check_vectorized_input(::Tuple{T, GraphPPL.NodeLabel}) where {T} = error("Cannot broadcast scalar inputs over an unspecified or one-dimensional return array. Did you accidentally make a statement like this: `x ~ Bernoulli(Beta.(1, 1))` without initializing `x`?")
+__check_vectorized_input(::Tuple{T, GraphPPL.NodeLabel}) where {T} = error(
+    "Cannot broadcast scalar inputs over an unspecified or one-dimensional return array. Did you accidentally make a statement like this: `x ~ Bernoulli(Beta.(1, 1))` without initializing `x`?"
+)
 
 """
     convert_tilde_expression(e::Expr)
@@ -659,10 +661,9 @@ Returns a quote block containing boilerplate functions for a model macro.
 # Returns
 - `quote`: A quote block containing the boilerplate functions for the model macro.
 """
-function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
+function get_boilerplate_functions(backend_type, ms_name, ms_args, num_interfaces)
     error_msg = "$(ms_name) Composite node cannot be invoked with"
     ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
-    backend_type = typeof(backend)
     return quote
         function $ms_name end
         GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
@@ -671,7 +672,7 @@ function get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
         GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
         GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f,)
-        GraphPPL.default_backend(::typeof($ms_name)) = $backend
+        GraphPPL.default_backend(::typeof($ms_name)) = $(GraphPPL.instantiate(backend_type))
     end
 end
 
@@ -717,7 +718,9 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __context__ = GraphPPL.Context(__parent_context__, $ms_name)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
-            __returnval__ = GraphPPL.add_terminated_submodel!(__model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__)
+            __returnval__ = GraphPPL.add_terminated_submodel!(
+                __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
+            )
             GraphPPL.returnval!(__context__, __returnval__)
             return __context__, GraphPPL.unroll(__lhs_interface__)
         end
@@ -760,7 +763,7 @@ The functions are being applied to the model in the `model_macro_interior` macro
 """
 function model_macro_interior_pipelines end
 
-function model_macro_interior(backend, model_specification)
+function model_macro_interior(backend_type, model_specification)
     @capture(model_specification, (function ms_name_(ms_args__; ms_kwargs__)
         ms_body_
     end) | (function ms_name_(ms_args__)
@@ -772,8 +775,8 @@ function model_macro_interior(backend, model_specification)
         @warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
     end
 
-    boilerplate_functions = GraphPPL.get_boilerplate_functions(backend, ms_name, ms_args, num_interfaces)
-    pipeline_collection = GraphPPL.model_macro_interior_pipelines(backend)
+    boilerplate_functions = GraphPPL.get_boilerplate_functions(backend_type, ms_name, ms_args, num_interfaces)
+    pipeline_collection = GraphPPL.model_macro_interior_pipelines(instantiate(backend_type))
     ms_body = apply_pipeline_collection(ms_body, pipeline_collection)
 
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)

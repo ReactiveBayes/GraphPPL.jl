@@ -1421,7 +1421,6 @@ function add_edge!(
 )
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
-    # TODO: (bvdmitri) perhaps we should use a different data structure for neighbors, tuples extension might be slow
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
     model.graph[unroll(variable_node_id), factor_node_id] = label
 end
@@ -1534,6 +1533,14 @@ function default_parametrization end
 default_parametrization(backend, nodetype, fform, rhs) =
     error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
 default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
+
+
+"""
+    instantiate(::Type{Backend})
+
+Instantiates a default backend object of the specified type. Should be implemented for all backends.
+"""
+instantiate(backendtype) = error("The backend of type $backendtype must implement a method for `instantiate`.")
 
 # maybe change name
 

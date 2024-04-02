@@ -50,7 +50,7 @@ the `@model` macro to the current scope.
 
 """
 macro model(model_specification)
-    return esc(GraphPPL.model_macro_interior(DefaultBackend(), model_specification))
+    return esc(GraphPPL.model_macro_interior(DefaultBackend, model_specification))
 end
 
 end # module

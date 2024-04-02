@@ -43,6 +43,7 @@ GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_al
 GraphPPL.interface_aliases(::TestGraphPPLBackend, f) = GraphPPL.interface_aliases(GraphPPL.DefaultBackend(), f)
 GraphPPL.default_parametrization(::TestGraphPPLBackend, nodetype, f, rhs) =
     GraphPPL.default_parametrization(GraphPPL.DefaultBackend(), nodetype, f, rhs)
+GraphPPL.instantiate(::Type{TestGraphPPLBackend}) = TestGraphPPLBackend()
 
 # Check that we can alias the `+` into `sum` and `*` into `prod`
 GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(+), interfaces) = sum
@@ -52,7 +53,7 @@ export @model
 
 # This is a special `@model` macro that should be used in tests
 macro model(model_specification)
-    return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend(), model_specification))
+    return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend, model_specification))
 end
 
 export create_test_model
