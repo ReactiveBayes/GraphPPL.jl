@@ -31,14 +31,9 @@ GraphPPL.jl provides a high-level DSL for model specification. The DSL is based 
 - **Any GraphPPL model is a valid submodel**. GraphPPL.jl allows users to specify models as a composition of submodels. This allows users to reuse models and specify complex models in a modular way.
 - **Model specification should be extensible**. GraphPPL.jl allows users to extend the DSL with custom model specification procedures. This allows developers of inference backend to inject desired behavior to the model specification process.
 
-# Hello GraphPPL
-
-A model in GraphPPL.jl is specified with the `@model` macro. The macro accepts a model name and a model specification block. The model specification block is a sequence of statements that define the model. The following example shows how to define a simple model in GraphPPL.jl:
-
+To achieve tihs, GraphPPL.jl specifies a protocol for the `@model` macro:
 ```julia
-using GraphPPL
-
-@model function hello_graphppl(x)
+@model function beta_bernoulli(x)
     θ ~ Beta(1, 1)
     for i in eachindex(x)
         x[i] ~ Bernoulli(θ)
@@ -46,14 +41,17 @@ using GraphPPL
 end
 ```
 
+# Inference Backend
+
+GraphPPL.jl does not export any Bayesian inference backend. It provides a complex DSL parser, model generation, constraints specification and meta specification helpers. To run inference on 
+generated models a user needs to have a Bayesian inference backend with GraphPPL.jl support (e.g. [RxInfer.jl](https://rxinfer.ml)). 
+
 # Documentation
 
 For more information about GraphPPL.jl please refer to the [documentation](https://biaslab.github.io/GraphPPL.jl/stable).
 
-# Inference Backend
-
-GraphPPL.jl does not export any Bayesian inference backend. It provides a complex DSL parser, model generation, constraints specification and meta specification helpers. To run inference on 
-generated models a user needs to have a Bayesian inference backend with GraphPPL.jl support (e.g. [ReactiveMP.jl](https://github.com/biaslab/ReactiveMP.jl)). 
+> [!NOTE]
+> `GraphPPL.jl` API has been changed in version `4.0.0`. See [Migration Guide](https://reactivebayes.github.io/GraphPPL.jl/stable/) for more details.
 
 # License
 
