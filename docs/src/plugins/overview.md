@@ -14,17 +14,10 @@ Within these functions, the plugin can modify the model, add new nodes, or modif
 ## Available plugins
 
 The following plugins are available by default in `GraphPPL`:
-- `GraphPPL.VariationalConstraintsPlugin`: adds [constraints](@ref constraints-specification) to the model that are used in variational inference.
-- `GraphPPL.MetaPlugin`: adds arbitrary metadata to nodes in the model. Can be accessed with the `@meta` macro.
-- `GraphPPL.NodeCreatedByPlugin`: adds information about the line of code that created the node. 
-- `GraphPPL.NodeIdPlugin`: allows attaching an `id` to factor nodes for later inspection.
-
-```@docs 
-GraphPPL.VariationalConstraintsPlugin
-GraphPPL.MetaPlugin
-GraphPPL.NodeCreatedByPlugin
-GraphPPL.NodeIdPlugin
-```
+- [`GraphPPL.VariationalConstraintsPlugin`](@ref): adds [constraints](@ref constraints-specification) to the model that are used in variational inference.
+- [`GraphPPL.MetaPlugin`](@ref): adds arbitrary metadata to nodes in the model.
+- [`GraphPPL.NodeCreatedByPlugin`](@ref): adds information about the line of code that created the node. 
+- [`GraphPPL.NodeIdPlugin`](@ref): allows attaching an `id` to factor nodes for later inspection.
 
 ## Using a plugin
 

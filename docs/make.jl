@@ -13,7 +13,10 @@ makedocs(
         "Nested Models" => "nested_models.md", 
         "Plugins" => [
             "Overview" => "plugins/overview.md",
-            "Variational Inference & Constraints" => "plugins/constraint_specification.md"
+            "Variational Inference & Constraints" => "plugins/constraint_specification.md",
+            "Attaching metadata to nodes" => "plugins/meta_specification.md",
+            "Tracking creation of nodes" => "plugins/created_by.md",
+            "Setting ID of nodes" => "plugins/node_id.md",
         ], 
         "Migration Guide (from v3 to v4)" => "migration_3_to_4.md", 
         "Developers Guide" => "developers_guide.md", 

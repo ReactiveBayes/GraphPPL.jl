@@ -584,9 +584,25 @@ getcontext(node::NodeData)    = node.context
 getproperties(node::NodeData) = node.properties
 getextra(node::NodeData)      = node.extra
 
+"""
+    hasextra(node::NodeData, key::Symbol)
+
+Checks if `NodeData` has an extra property with the given key.
+"""
 hasextra(node::NodeData, key::Symbol) = haskey(node.extra, key)
+"""
+    getextra(node::NodeData, key::Symbol, [ default ])
+
+Returns the extra property with the given key. Optionally, if the property does not exist, returns the default value.
+"""
 getextra(node::NodeData, key::Symbol) = getindex(node.extra, key)
 getextra(node::NodeData, key::Symbol, default) = hasextra(node, key) ? getextra(node, key) : default
+
+""" 
+    setextra!(node::NodeData, key::Symbol, value)
+
+Sets the extra property with the given key to the given value.
+"""
 setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
 """

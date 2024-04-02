@@ -124,6 +124,10 @@ GraphPPL.variable_nodes
 GraphPPL.factor_nodes
 GraphPPL.missing_interfaces
 
+GraphPPL.hasextra
+GraphPPL.getextra
+GraphPPL.setextra!
+
 GraphPPL.make_node!
 GraphPPL.add_atomic_factor_node!
 GraphPPL.add_toplevel_model!

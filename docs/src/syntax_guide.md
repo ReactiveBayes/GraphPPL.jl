@@ -68,6 +68,8 @@ GraphPPL.getextra(node_1, :created_by)
 GraphPPL.getextra(node_2, :created_by)
 ```
 
+More information about [`GraphPPL.NodeCreatedByPlugin`](@ref) can be found [here](@ref plugins-node-created-by).
+
 ## The `return` statement
 
 Model can have the return statement inside of them for early stopping. 
