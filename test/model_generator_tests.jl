@@ -165,7 +165,7 @@ end
 end
 
 @testitem "with_plugins" begin
-    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins
+    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins, @model
 
     struct ArbitraryPluginForModelGeneratorTestsType1 <: AbstractPluginTraitType end
     struct ArbitraryPluginForModelGeneratorTestsType2 <: AbstractPluginTraitType end
@@ -176,8 +176,12 @@ end
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests1) = ArbitraryPluginForModelGeneratorTestsType1()
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests2) = ArbitraryPluginForModelGeneratorTestsType2()
 
+    @model function simple_model(a)
+        y ~ Normal(a, 1)
+    end
+
     @testset begin
-        generator = ModelGenerator(identity, (a = 1,))
+        generator = ModelGenerator(simple_model, (a = 1,))
 
         @test isempty(getplugins(generator))
         @test getplugins(generator) === PluginsCollection()
@@ -189,7 +193,9 @@ end
     end
 
     @testset begin
-        generator = ModelGenerator(identity, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()))
+        generator = ModelGenerator(
+            simple_model, (a = 1,), PluginsCollection(ArbitraryPluginForModelGeneratorTests1()), GraphPPL.DefaultBackend()
+        )
 
         @test !isempty(getplugins(generator))
         @test getplugins(generator) === PluginsCollection(ArbitraryPluginForModelGeneratorTests1())
@@ -200,4 +206,29 @@ end
         @test getplugins(generator_with_more_plugins) ===
             PluginsCollection(ArbitraryPluginForModelGeneratorTests1(), ArbitraryPluginForModelGeneratorTests2())
     end
+end
+
+@testitem "with_backend" begin
+    import GraphPPL: ModelGenerator, DefaultBackend, with_backend, getbackend, create_model
+
+    include("testutils.jl")
+
+    # `GraphPPL.@model` uses the `DefaultBackend`, while `@model` from `testutils.jl` uses the `TestBackend`
+    GraphPPL.@model function simple_model(a)
+        y ~ Normal(a, 1)
+    end
+
+    generator = ModelGenerator(simple_model, (a = 1,))
+    @test getbackend(generator) === DefaultBackend()
+
+    model = create_model(generator) 
+    @test model isa GraphPPL.Model
+    @test getbackend(model) === DefaultBackend()
+
+    generator_with_a_different_backend = @inferred(with_backend(generator, TestUtils.TestGraphPPLBackend()))
+    @test getbackend(generator_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
+
+    model_with_a_different_backend = create_model(generator_with_a_different_backend)
+    @test model_with_a_different_backend isa GraphPPL.Model
+    @test getbackend(model_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
 end

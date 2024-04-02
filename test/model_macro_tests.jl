@@ -2012,7 +2012,7 @@ end
         end
     end
 
-    eval(model_macro_interior(TestUtils.TestGraphPPLBackend(), model_spec))
+    eval(model_macro_interior(TestUtils.TestGraphPPLBackend, model_spec))
 
     @test default_backend(hello) === TestUtils.TestGraphPPLBackend()
 end

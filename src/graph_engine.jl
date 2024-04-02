@@ -100,9 +100,9 @@ Base.:(==)(left::IndexedVariable, right::IndexedVariable) = (left.name == right.
 Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
 Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
-struct FactorID
-    fform::Any
-    index::Int64
+mutable struct FactorID
+    const fform::Any
+    const index::Int64
 end
 
 fform(id::FactorID) = id.fform
@@ -152,9 +152,9 @@ representing the name of the node, an integer representing the unique identifier
 a UInt8 representing the type of the variable, and an integer or tuple of integers representing
 the global_counter of the variable.
 """
-struct NodeLabel
-    name::Any
-    global_counter::Int64
+mutable struct NodeLabel
+    const name::Any
+    const global_counter::Int64
 end
 
 Base.length(label::NodeLabel) = 1
@@ -172,9 +172,9 @@ to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.glo
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 
-struct EdgeLabel
-    name::Symbol
-    index::Union{Int, Nothing}
+mutable struct EdgeLabel
+    const name::Symbol
+    const index::Union{Int, Nothing}
 end
 
 getname(label::EdgeLabel) = label.name
@@ -186,10 +186,10 @@ to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 
-struct ProxyLabel{T, V}
-    name::Symbol
-    index::T
-    proxied::V
+mutable struct ProxyLabel{T, V}
+    const name::Symbol
+    const index::T
+    const proxied::V
 end
 
 # We need two methods to resolve the ambiguities
@@ -552,10 +552,10 @@ The `context` field stores the context of the node.
 The `properties` field stores the properties of the node. 
 The `plugins` field stores additional properties of the node depending on which plugins were enabled.
 """
-struct NodeData
-    context    :: Context
-    properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
-    extra      :: UnorderedDictionary{Symbol, Any}
+mutable struct NodeData
+    const context    :: Context
+    const properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
+    const extra      :: UnorderedDictionary{Symbol, Any}
 end
 
 NodeData(context, properties) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}())
@@ -1421,7 +1421,6 @@ function add_edge!(
 )
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
-    # TODO: (bvdmitri) perhaps we should use a different data structure for neighbors, tuples extension might be slow
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
     model.graph[unroll(variable_node_id), factor_node_id] = label
 end
@@ -1534,6 +1533,14 @@ function default_parametrization end
 default_parametrization(backend, nodetype, fform, rhs) =
     error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
 default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
+
+
+"""
+    instantiate(::Type{Backend})
+
+Instantiates a default backend object of the specified type. Should be implemented for all backends.
+"""
+instantiate(backendtype) = error("The backend of type $backendtype must implement a method for `instantiate`.")
 
 # maybe change name
 
