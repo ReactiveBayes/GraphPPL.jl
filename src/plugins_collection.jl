@@ -38,7 +38,7 @@ Base.:(+)(left::PluginsCollection, right) = add_plugin(left, right)
 Base.:(+)(left::PluginsCollection, right::PluginsCollection) = PluginsCollection((left.collection..., right.collection...))
 
 """
-   add_plugin(collection::PluginCollection, plugin)
+   add_plugin(collection::PluginsCollection, plugin)
 
 Adds a plugin to the collection. The plugin must be of a type that is supported by the collection.
 """

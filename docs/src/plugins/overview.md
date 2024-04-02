@@ -34,7 +34,7 @@ To use a plugin, call the `with_plugins` function when constructing a model:
 GraphPPL.with_plugins
 ```
 
-The `PluginCollection` is a collection of plugins that will be applied to the model. The order of plugins in the collection is important, as the `preprocess_plugin` and `postprocess_plugin` functions are called in the order of the plugins in the collection.
+The `PluginsCollection` is a collection of plugins that will be applied to the model. The order of plugins in the collection is important, as the `preprocess_plugin` and `postprocess_plugin` functions are called in the order of the plugins in the collection.
 
 ## Reference 
 

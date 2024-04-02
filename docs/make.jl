@@ -9,6 +9,7 @@ makedocs(
     pages    = [
         "Home" => "index.md", 
         "Getting Started" => "getting_started.md", 
+        "Syntax Guide" => "syntax_guide.md",
         "Nested Models" => "nested_models.md", 
         "Plugins" => [
             "Overview" => "plugins/overview.md",

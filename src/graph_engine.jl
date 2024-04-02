@@ -123,7 +123,7 @@ of nodes in the graph.
 
 Fields:
 - `graph`: A `MetaGraph` object representing the factor graph.
-- `plugins`: A `PluginCollection` object representing the plugins enabled in the model.
+- `plugins`: A `PluginsCollection` object representing the plugins enabled in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
 struct Model{G, P, B}
@@ -1144,7 +1144,9 @@ __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::
 
 # Here we can check if the `indices` are compatible with the underlying collection
 function __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices)
-    if !(checkbounds(Bool, collection, indices...)::Bool)
+    # The empty indices may be passed as a result of the `combine_axes` function in the broadcasting
+    # In this case the `indices` are `Tuple{}`
+    if !isempty(indices)::Bool && !(checkbounds(Bool, collection, indices...)::Bool)
         error(BoundsError(label.name, indices))
     end
     return true

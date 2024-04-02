@@ -81,3 +81,17 @@ end
         @test getextra(model[node], :meta) == SomeMeta()
     end
 end
+
+@testitem "Meta setting via the `where` block" begin
+    include("../../testutils.jl")
+
+    @model function some_model()
+        x ~ Beta(1.0, 2.0) where {meta = "Hello, world!"}
+    end
+
+    model = GraphPPL.create_model(GraphPPL.with_plugins(some_model(), GraphPPL.PluginsCollection(GraphPPL.MetaPlugin())))
+    ctx   = GraphPPL.getcontext(model)
+    node  = model[ctx[Beta, 1]]
+
+    @test GraphPPL.getextra(node, :meta) == "Hello, world!"
+end

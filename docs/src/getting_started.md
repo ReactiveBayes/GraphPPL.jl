@@ -1,6 +1,16 @@
 # Getting Started
 
-On this page we will cover the basic syntax of `GraphPPL` and will work towards a basic coin-toss example. This page assumes you have `GraphPPL` installed, as well as `Distributions.jl` to work with standard probability distributions as building blocks in our probabilistic programs.
+On this page we will cover the basic syntax of `GraphPPL` and will work towards a basic coin-toss example. 
+
+## Installation
+
+`GraphPPL.jl` is a registered Julia package. To install it, run the following command in the Julia REPL:
+```julia
+julia> using Pkg
+julia> Pkg.add("GraphPPL")
+```
+
+This guide assumes you have `GraphPPL.jl` installed, as well as `Distributions.jl` to work with standard probability distributions as building blocks in our probabilistic programs.
 
 ```@example getting-started
 using GraphPPL
@@ -9,20 +19,16 @@ using Distributions
 
 ## Creating a model
 
-In `GraphPPL`, we can specify a model with the `@model` macro. The `@model` macro takes a function as an argument, and registers the blueprint of creating this model. The model macro is not exported by default by `GraphPPL` (more on this later), so we will import it explicitly:
+In `GraphPPL`, we can specify a model with the `@model` macro. The `@model` macro takes a function as an argument, and registers the blueprint of creating this model. The model macro is not exported by default by `GraphPPL` to allow inference packages to define their own `@model` macro on top of the `GraphPPL.jl`. For demonstration purposes we will import `GraphPPL.@model` explicitly:
     
 ```@example getting-started
 import GraphPPL: @model
-
-@model function example()
-
-end
 ```
-will define the empty `example` model.
 
 ## Syntax
 
-In general, we can write probabilistic programs in `GraphPPL` using the `~` operator. For example, if we want to define a random variable `x` that is distributed according to a normal distribution with mean 0 and variance 1, we can write:
+In general, we can write probabilistic programs in `GraphPPL` using the `~` operator. 
+The `x ~ X` expression can be read as $x$ _sampled from_ $X$. For example, if we want to define a random variable `x` that is distributed according to a normal distribution with mean 0 and variance 1, we can write:
 
 ```@example getting-started
 @model function example()
@@ -102,26 +108,48 @@ Note that interfaces do not need to be random variables; this distinction will b
     end
 end
 ```
+
 Here, `x` is treated as a random variable since it is connected to a `Normal` node. However, `depth` is only used as a hyperparameter to define model structure and is not connected to any stochastic nodes, so it is treated as a regular variable. In this recursive model we also get to see nested models in action: the `recursive_model` is used as a submodel of itself. More on this in the [Nested Models](#nested-models) section.
 
-## Bayesian Coin-toss
-Now that we have a grasp on the basic syntax and semantics of `GraphPPL`, let's try to write a simple coin-toss model. We will start with a simple model that takes in a series of observations `x` that are i.i.d. distributed according to a Bernoulli distribution with parameter `π`, where we put a Beta prior on `π`:
+!!! note
+    Models defined with the `@model` macro have no positional arguments. All the arguments are converted to the keyword arguments.
+    This also means that the models cannot use multiple dispatch, since multiple dispatch on keyword arguments is not supported in Julia.
+
+## Bayesian Coin-Toss (Beta-Bernoulli model)
+
+Now that we have a grasp on the basic syntax and semantics of `GraphPPL`, let's try to write a simple coin-toss model a.k.a Beta-Bernoulli model. We will start with a model that takes in a series of observations `x` that are i.i.d. distributed according to a Bernoulli distribution with parameter `θ`, where we put a Beta prior on `θ`:
 
 ```@example getting-started
 @model function coin_toss(x)
-    π ~ Beta(1, 1)
-    x .~ Bernoulli(π)
+    θ ~ Beta(1, 1)
+    x .~ Bernoulli(θ)
+end
+```
+
+## Instantiating the model 
+
+To instantiate the model we need to pass the data `x`. We can do that with the [`GraphPPL.create_model`](@ref) function in combination with [`GraphPPL.LazyIndex`](@ref).
+
+```@example getting-started
+xdata = [ 1.0, 0.0, 0.0, 1.0 ]
+
+model = GraphPPL.create_model(coin_toss()) do model, context
+    return (; 
+        # This expression creates data handle for `x` in the model using the `xdata` as the underlying collection
+        x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data), :x, GraphPPL.LazyIndex(xdata))
+    )
 end
 ```
 
 ## Visualizing the model
-GraphPPL exports a simple visualization function that can be used to visualize the factor graph of a model. This model requires the `GraphPlot` and `Cairo` packages to be installed. To visualize the `coin_toss` model, we can run:
+
+`GraphPPL` exports a simple visualization function that can be used to visualize the factor graph of a model. This requires the `GraphPlot` and `Cairo` packages to be installed. To visualize the `coin_toss` model, we can run:
 
 ```@example getting-started
 using GraphPlot, Cairo
-import GraphPPL: create_model, getorcreate!
-model = create_model(coin_toss()) do model, context
-    return (;x = getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = false), :x, 1:10))
-end
 GraphPlot.gplot(model)
 ```
+
+## Syntax Guide
+
+To dive into the specifics of the syntax of the model specification within `GraphPPL.jl` read the [Syntax Guide](@ref syntax-guide).
