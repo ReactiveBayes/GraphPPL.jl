@@ -179,6 +179,23 @@ The same recipe applies when nesting models within each other, e.g.
 end
 ```
 
+# Mixture Nodes
+
+The interface of the mixture nodes does no longer require a tuple of inputs. Instead, the inputs can be passed as a vector as well. For example:
+```julia
+@model function mixture_model(y)
+    # specify two models
+    m_1 ~ Beta(2.0, 7.0)
+    m_2 ~ Beta(7.0, 2.0)
+
+    # specify prior on switch param
+    s ~ Bernoulli(0.7) 
+
+    # specify mixture prior Distribution
+    θ ~ Mixture(switch = s, inputs = [m_1, m_2])
+end
+```
+
 # Overview of the removed functionality
 
 - The `datavar`, `randomvar` and `constvar` syntax is removed. `GraphPPL` is able to infer the type of the variable based on the way in which it is used.
