@@ -33,7 +33,8 @@ demo/*wip.ipynb
 demo/*.jl
 
 .idea
-.vscode
+.vscode/
+
 
 **/*.aux
 **/*.log
@@ -46,5 +47,10 @@ Coverage.ipynb
 
 **/.DS_Store
 
+benchmark/tune.json
+benchmark_*md
+
 examples/*Compiled
 statprof
+profile.pb.gz
+.swp

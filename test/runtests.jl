@@ -1,17 +1,5 @@
-module GraphPPLTest
+using ReTestItems, GraphPPL, Aqua
 
-using Test, Documenter, GraphPPL
+Aqua.test_all(GraphPPL; ambiguities = (broken = true,))
 
-doctest(GraphPPL)
-
-@testset "GraphPPL" begin
-
-    @testset "Detect ambiguities" begin
-        @test length(Test.detect_ambiguities(GraphPPL)) == 0
-    end
-
-    include("utils.jl")
-
-end
-
-end
+runtests(GraphPPL)
