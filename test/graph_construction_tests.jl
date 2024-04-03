@@ -1068,6 +1068,35 @@ end
             y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
         )
     end
+
+    @model function beta_bernoulli_broadcasted(x)
+        θ ~ Beta(1, 1)
+        x .~ Bernoulli(θ)
+    end
+
+    xdata = [1.0, 0.0, 1.0, 0.0]
+
+    model = create_model(beta_bernoulli_broadcasted()) do model, ctx
+        return (; x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),)
+    end
+
+    @test length(collect(filter(as_node(Bernoulli), model))) == 4
+    @test length(collect(filter(as_node(Beta), model))) == 1
+end
+
+@testitem "Ambiguous broadcasting should give a descriptive error" begin 
+    using Distributions, LinearAlgebra
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+    
+    @model function faulty_beta_bernoulli_broadcasted()
+        θ ~ Beta(1, 1)
+        x .~ Bernoulli(θ)
+    end
+
+    # The error message can be improved though
+    @test_throws "Index is required in the `getorcreate!` function for variable `x`" create_model(faulty_beta_bernoulli_broadcasted())
 end
 
 @testitem "Broadcasting over ranges" begin

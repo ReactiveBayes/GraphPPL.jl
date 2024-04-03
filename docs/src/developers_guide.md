@@ -56,9 +56,9 @@ import GraphPPL: @model
 
 In this section we will create a factor graph from scratch, materializing the underlying factor graph and applying constraints.
 First, let's define a model, we'll use the `gcv` model from the Nested Models section:
+
 ```@example dev-guide
-using GraphPPL
-using Distributions
+using GraphPPL, Distributions
 
 @model function gcv(κ, ω, z, x, y)
     log_σ := κ * z + ω
@@ -72,6 +72,7 @@ constraints = @constraints begin
     q(x, y, σ) = q(x)q(y)q(σ)
 end
 ```
+
 This defines the `gcv` submodel, but now we have to materialize this model. Let's greate a model and hook up all interfaces to variables that will later have to be supplied by the user.
 
 ```@docs
@@ -79,15 +80,17 @@ GraphPPL.create_model
 ```
 
 ```@example dev-guide
-# Create the model
 model = GraphPPL.create_model(GraphPPL.with_plugins(gcv(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints)))) do model, context
-    return (;κ = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :κ, nothing),
-    ω = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :ω, nothing),
-    z = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :z, nothing),
-    x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :x, nothing),
-    y = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :y, nothing))
+    return (;
+        κ = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :κ, nothing),
+        ω = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :ω, nothing),
+        z = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :z, nothing),
+        x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :x, nothing),
+        y = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :y, nothing)
+    )
 end;
 ```
+
 Now we have a fully materialized model that can be passed to an inference engine. Factorization constraints are saved in two ways: as a tuple of lists of indices of interfaces that represent the individual clusters (e.g. `([1], [2, 3])`) and as a [BoundedBitSetTuple](http://github.com/wouterwln/BitSetTuples.jl). The `BoundedBitSetTuple` is a more efficient way to store the factorization constraints, which stores a `BitMatrix` under the hood representing the factorization clusters. Both can be accessed by the `GraphPPL.getextra` function:
 
 ```@example dev-guide
@@ -103,10 +106,15 @@ nothing # hide
 ```@docs
 GraphPPL.Context
 GraphPPL.ModelGenerator
+GraphPPL.FactorID
 GraphPPL.NodeData
 GraphPPL.NodeLabel
+GraphPPL.EdgeLabel
+GraphPPL.ProxyLabel
 GraphPPL.StaticInterfaces
 GraphPPL.LazyIndex
+GraphPPL.MissingCollection
+GraphPPL.VariableNodeProperties
 GraphPPL.FactorNodeProperties
 GraphPPL.VarDict
 GraphPPL.AnonymousVariable
@@ -123,6 +131,10 @@ GraphPPL.NodeCreationOptions
 GraphPPL.variable_nodes
 GraphPPL.factor_nodes
 GraphPPL.missing_interfaces
+
+GraphPPL.hasextra
+GraphPPL.getextra
+GraphPPL.setextra!
 
 GraphPPL.make_node!
 GraphPPL.add_atomic_factor_node!

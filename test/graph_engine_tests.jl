@@ -637,7 +637,7 @@ end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
     using Graphs
-    import GraphPPL: getcontext, NodeLabel, NodeData, VariableNodeProperties, FactorNodeProperties, PluginCollection
+    import GraphPPL: getcontext, NodeLabel, NodeData, VariableNodeProperties, FactorNodeProperties
 
     include("testutils.jl")
 

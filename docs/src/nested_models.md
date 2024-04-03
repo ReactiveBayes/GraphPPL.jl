@@ -1,4 +1,4 @@
-# Nested model specification
+# [Nested model specification](@id nested-models)
 `GraphPPL` supports nested model specification, allowing hierarchical modeling and model specification. This means that any model that is defined in `GraphPPL` can be used as a submodel in another model. This allows us to write models that are more modular and reusable. This page will go over the syntax for nested model specification in `GraphPPL` and how to use it.
 
 ## Markov Blankets
