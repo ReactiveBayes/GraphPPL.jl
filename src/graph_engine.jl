@@ -44,7 +44,7 @@ julia> index([ 2.0, 3.0 ])
 julia> (index + 1)([ 2.0, 3.0 ])
 2
 
-julia> index = FunctionalIndex{:end}(lastindex)
+julia> index = GraphPPL.FunctionalIndex{:end}(lastindex)
 (end)
 
 julia> index([ 2.0, 3.0 ])
