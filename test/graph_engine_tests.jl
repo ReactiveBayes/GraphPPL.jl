@@ -1291,7 +1291,7 @@ end
 end
 
 @testitem "check_variate_compatability" begin
-    import GraphPPL: check_variate_compatability, NodeLabel, ResizableArray
+    import GraphPPL: check_variate_compatability, NodeLabel, ResizableArray, FunctionalIndex
 
     # Test 1: Check that a one dimensional variable is compatable with a symbol
     x = NodeLabel(:x, 1)
@@ -1321,6 +1321,26 @@ end
     x = ResizableArray(NodeLabel, Val(1))
     x[1] = NodeLabel(:x, 1)
     @test_throws ErrorException !check_variate_compatability(x, nothing)
+
+    #Test 8: Check that 1-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
+    x = ResizableArray(NodeLabel, Val(1))
+    x[1] = NodeLabel(:x, 1)
+    ibegin = FunctionalIndex{:begin}(firstindex)
+    iend = FunctionalIndex{:end}(lastindex)
+    @test check_variate_compatability(x, ibegin)
+    @test check_variate_compatability(x, iend)
+    @test !check_variate_compatability(x, ibegin - 10)
+    @test !check_variate_compatability(x, iend + 10)
+
+    #Test 8: Check that 2-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
+    x = ResizableArray(NodeLabel, Val(2))
+    x[1, 1] = NodeLabel(:x, 1)
+    ibegin = FunctionalIndex{:begin}(firstindex)
+    iend = FunctionalIndex{:end}(lastindex)
+    @test check_variate_compatability(x, ibegin, ibegin)
+    @test check_variate_compatability(x, iend, iend)
+    @test !check_variate_compatability(x, ibegin - 10, iend)
+    @test !check_variate_compatability(x, iend + 10, iend)
 end
 
 @testitem "getorcreate!" begin
