@@ -1,7 +1,39 @@
 # [Syntax Guide](@id syntax-guide)
 
+## The `@model` macro
+
+The `@model` macro accepts a description of a probabilistic program and defines a function that creates (upon materialization) a corresponding factor graph.
+The single argument of the macro is a Julia function. 
+
+```@example model_macro
+using GraphPPL, Distributions, Test #hide
+import GraphPPL: @model #hide
+
+@model function model_definition_example()
+    y ~ Beta(1.0, 1.0)
+end
+model_definition_example() #hide
+```
+
+The model function can accept arguments
+
+```@example model_macro
+@model function model_definition_example(a, b)
+    y ~ Beta(a, b)
+end
+model_definition_example(a = 1, b = 2) #hide
+```
+
+Note that all argument are converted to keyword arguments and positional arguments are not supported.
+As a consequence, the models defined with the `@model` macro can't use multiple dispatch.
+
+```@example model_macro
+model_definition_example(a = 1.0, b = 1.0)
+```
+
 ## The `~` operator
-The `~` operator is at the heart of the GraphPPL syntax. It is used to define and specify the distribution of a random variable. In general, we can write `x ~ dist(args...)` to specify that the random variable `x` is distributed according to the distribution `dist` with parameters `args...`. On the left hand side of the `~` operator we have a single random variable that doesn't necessarily have to be defined yet. On the right hand side we have any factor function that takes some arguments. The arguments to the factor function should be defined, either as constants or as other random variables. The expression on the right hand side of the `~` operator can be a complex expression. For example, we can write `x ~ Bernoulli(Beta(sum(ones(10)), 1))` as an overly complicated way to define a `Bernoulli` random variable with a `Beta(10, 1)` prior.
+
+The `~` operator is at the heart of the `GraphPPL` syntax. It is used to define and specify the distribution of a random variable. In general, we can write `x ~ dist(args...)` to specify that the random variable `x` is distributed according to the distribution `dist` with parameters `args...`. On the left hand side of the `~` operator we have a single random variable that doesn't necessarily have to be defined yet. On the right hand side we have any factor function that takes some arguments. The arguments to the factor function should be defined, either as constants or as other random variables. The expression on the right hand side of the `~` operator can be a complex expression. For example, we can write `x ~ Bernoulli(Beta(sum(ones(10)), 1))` as an overly complicated way to define a `Bernoulli` random variable with a `Beta(10, 1)` prior.
 
 Variables created with the `~` operator can be used in subsequent statements. The following example reimplements our overly complicated `Bernoulli` random variable by explicitly defining the `p` parameter:
 
@@ -14,8 +46,9 @@ import GraphPPL: @model #hide
     x ~ Bernoulli(p)
 end
 ```
+
 ## The `:=` operator
-Mathematically, the `~` operator is used to define a stochastic relationship: `x ~ dist(args...)` means that `x` is distributed according to `dist(args...)`. It is therefore mathematically incorrect to use the `~` operator to denote a deterministic relationship. For example: `x ~ 1 + 1` does not make sense. However, deterministic relations are often useful in probabilistic modeling. However, the operation we want to perform is significantly different from an ordinary `=` assignment, since we do want to make a factor node for this deterministic relationship and include it in the factor graph. In that sense, we want GraphPPL to handle it as if it were a stochastic relation. For these reasons, we introduce the `:=` operator. The `:=` operator is an alias to the `~` operator, that can be used in the same way as the `~` operator, but it is used to denote deterministic relationships. Note that the `:=` operator is merely syntactic sugar and is meant to give context to readers as to which relationships are deterministic and which are stochastic. The following example demonstrates the use of the `:=` operator:
+Mathematically, the `~` operator is used to define a stochastic relationship: `x ~ dist(args...)` means that `x` is distributed according to `dist(args...)`. It is therefore mathematically incorrect to use the `~` operator to denote a deterministic relationship. For example: `x ~ 1 + 1` does not make sense. However, deterministic relations are often useful in probabilistic modeling. However, the operation we want to perform is significantly different from an ordinary `=` assignment, since we do want to make a factor node for this deterministic relationship and include it in the factor graph. For these reasons, we introduce the `:=` operator. The `:=` operator is an alias to the `~` operator, that can be used in the same way as the `~` operator, but it is used to denote deterministic relationships. Note that the `:=` operator is merely syntactic sugar and is meant to give context to readers as to which relationships are deterministic and which are stochastic. The following example demonstrates the use of the `:=` operator:
 
 ```@example :=_operator
 using GraphPPL, Distributions, Test #hide
@@ -97,6 +130,9 @@ end
     end
 end
 ```
+
+!!! note
+    The `new` function is a syntax construct that can be used only within the `~` expression and does not exist in run-time. `GraphPPL` cannot define this function as it is a reserved keyword in Julia.
 
 ## The `where { meta = ... }` block
 
