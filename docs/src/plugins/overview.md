@@ -1,14 +1,16 @@
 # Plugin system
 
-While `GraphPPL` is backend agnostic, specific inference backends might require additional functionality or data saved in nodes. To accommodate these needs, GraphPPL exposes a plugin system that allows users to extend the functionality of the package. Plugins allow the core package to remain lightweight, as well as allowing backend-specific functionality. For example, a node does not need to know by which line of code it was originally created. However, for debugging purposes, it might be useful to save this information in the node. GraphPPL implements a plugin that, when enabled on a model, saves this information in every node. This allows for useful debugging, while switching this functionality off when not needed saves the memory footprint of the model. 
+While `GraphPPL` is backend agnostic, specific inference backends might require additional functionality or data saved in nodes. To accommodate these needs, `GraphPPL` exposes a plugin system that allows users to extend the functionality of the package. Plugins allow the core package to remain lightweight, as well as allowing backend-specific functionality. For example, a node does not need to know by which line of code it was originally created. As an example, for debugging purposes, it might be useful to save this information in the node. `GraphPPL` [implements](@ref plugins-node-created-by) a plugin that, when enabled on a model, saves this information in every node. This allows for useful debugging, while switching this functionality off when not needed saves the memory footprint of the model. 
 
 ## Creating a plugin
 
-A plugin is a structure that contains a set of functions that are called at specific points in the model creation process. The plugin is implemented with the `preprocess_plugin` and `postprocess_plugin` functions:
+A plugin is a structure that contains a set of functions that are called at specific points in the model creation process. The plugin is implemented with the [`GraphPPL.preprocess_plugin`](@ref) and [`GraphPPL.postprocess_plugin`](@ref) functions:
+
 ```@docs
 GraphPPL.preprocess_plugin
 GraphPPL.postprocess_plugin
 ```
+
 Within these functions, the plugin can modify the model, add new nodes, or modify existing nodes. Also, additional data can be passed to nodes in the `preprocess_plugin` function.
 
 ## Available plugins
