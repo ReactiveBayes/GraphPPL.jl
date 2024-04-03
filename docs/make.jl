@@ -27,5 +27,9 @@ makedocs(
 )
 
 if get(ENV, "CI", nothing) == "true"
-    deploydocs(repo = "github.com/ReactiveBayes/GraphPPL.jl.git")
+    deploydocs(
+        repo = "github.com/ReactiveBayes/GraphPPL.jl.git",
+        devbranch = "main", 
+        forcepush = true
+    )
 end

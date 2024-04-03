@@ -35,6 +35,7 @@ demo/*.jl
 .idea
 .vscode/
 
+
 **/*.aux
 **/*.log
 **/*.synctex.*
