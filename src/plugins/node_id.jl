@@ -21,6 +21,11 @@ struct FilterById <: AbstractModelFilterPredicate
     id
 end
 
+"""
+    by_nodeid(id)
+
+A filter predicate that can be used to find a node given its `id` in a model.
+"""
 by_nodeid(id) = FilterById(id)
 
 function apply(predicate::FilterById, model, something)

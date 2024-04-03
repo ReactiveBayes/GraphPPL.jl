@@ -30,9 +30,26 @@ struct FunctionalIndex{R, F}
 end
 
 """
-    FunctionalIndex(collection)
+    (index::FunctionalIndex)(collection)
 
 Returns the result of applying the function `f` to the collection.
+
+```jldoctest
+julia> index = GraphPPL.FunctionalIndex{:begin}(firstindex)
+(begin)
+
+julia> index([ 2.0, 3.0 ])
+1
+
+julia> (index + 1)([ 2.0, 3.0 ])
+2
+
+julia> index = GraphPPL.FunctionalIndex{:end}(lastindex)
+(end)
+
+julia> index([ 2.0, 3.0 ])
+2
+```
 """
 (index::FunctionalIndex{R, F})(collection) where {R, F} = __functional_index_apply(R, index.f, collection)::Integer
 
@@ -62,6 +79,22 @@ end
     FunctionalRange(left, range)
 
 A range can handle `FunctionalIndex` as one of (or both) the bounds.
+
+```jldoctest
+julia> first = GraphPPL.FunctionalIndex{:begin}(firstindex)
+(begin)
+
+julia> last = GraphPPL.FunctionalIndex{:end}(lastindex)
+(end)
+
+julia> range = GraphPPL.FunctionalRange(first + 1, last - 1)
+((begin) + 1):((end) - 1)
+
+julia> [ 1.0, 2.0, 3.0, 4.0 ][range]
+2-element Vector{Float64}:
+ 2.0
+ 3.0
+```
 """
 struct FunctionalRange{L, R}
     left::L
@@ -79,11 +112,14 @@ Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L 
 Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R <: FunctionalIndex} =
     collection[range.left(collection):range.right(collection)]
 
+function Base.show(io::IO, range::FunctionalRange)
+    print(io, range.left, ":", range.right)
+end
+
 """
-    IndexedVariable
+    IndexedVariable(name, index)
 
 `IndexedVariable` represents a reference to a variable named `name` with index `index`. 
-An IndexedVariable is generally part of a vector or tensor of random variables.
 """
 struct IndexedVariable{T}
     name::Symbol
@@ -100,6 +136,11 @@ Base.:(==)(left::IndexedVariable, right::IndexedVariable) = (left.name == right.
 Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
 Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
+"""
+    FactorID(fform, index)
+
+A unique identifier for a factor node in a probabilistic graphical model.
+"""
 mutable struct FactorID
     const fform::Any
     const index::Int64
@@ -109,13 +150,11 @@ fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
 
 Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
-Base.:(==)(id1::FactorID, id2::FactorID) = id1.fform == id2.fform && id1.index ==  id2.index
+Base.:(==)(id1::FactorID, id2::FactorID) = id1.fform == id2.fform && id1.index == id2.index
 Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
 
 """
     Model(graph::MetaGraph)
-
-Materialized Factor Graph type.
 
 A structure representing a probabilistic graphical model. It contains a `MetaGraph` object
 representing the factor graph and a `Base.RefValue{Int64}` object to keep track of the number
@@ -124,6 +163,7 @@ of nodes in the graph.
 Fields:
 - `graph`: A `MetaGraph` object representing the factor graph.
 - `plugins`: A `PluginsCollection` object representing the plugins enabled in the model.
+- `backend`: A `Backend` object representing the backend used in the model.
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
 struct Model{G, P, B}
@@ -145,14 +185,9 @@ Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__mo
 Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
 
 """
-    NodeLabel(name::Symbol, global_counter::Int64)
+    NodeLabel(name, global_counter::Int64)
 
-Unique identifier for a node in a probabilistic graphical model.
-
-A structure representing a node in a probabilistic graphical model. It contains a symbol
-representing the name of the node, an integer representing the unique identifier of the node,
-a UInt8 representing the type of the variable, and an integer or tuple of integers representing
-the global_counter of the variable.
+Unique identifier for a node (factor or variable) in a probabilistic graphical model.
 """
 mutable struct NodeLabel
     const name::Any
@@ -176,6 +211,11 @@ Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_co
 Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
 Base.hash(label::NodeLabel, h::UInt) = hash(label.name, hash(label.global_counter, h))
 
+"""
+    EdgeLabel(symbol, index)
+
+A unique identifier for an edge in a probabilistic graphical model.
+"""
 mutable struct EdgeLabel
     const name::Symbol
     const index::Union{Int, Nothing}
@@ -192,6 +232,11 @@ Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 Base.:(==)(label1::EdgeLabel, label2::EdgeLabel) = label1.name == label2.name && label1.index == label2.index
 Base.hash(label::EdgeLabel, h::UInt) = hash(label.name, hash(label.index, h))
 
+"""
+    ProxyLabel(name, index, proxied)
+
+A label that proxies another label in a probabilistic graphical model.
+"""
 mutable struct ProxyLabel{T, V}
     const name::Symbol
     const index::T
@@ -244,7 +289,8 @@ Base.last(label::ProxyLabel) = last(label.proxied, label)
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
-Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) = proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
+Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) =
+    proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
 Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
 
 """
@@ -478,6 +524,11 @@ function withoutopts(options::NodeCreationOptions, ::Val{K}) where {K}
     end
 end
 
+"""
+    VariableNodeProperties(name, index, kind, link, value)
+
+Data associated with a variable node in a probabilistic graphical model.
+"""
 struct VariableNodeProperties
     name::Symbol
     index::Any
@@ -644,7 +695,7 @@ factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), 
 variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
 
 """
-A version `factor_nodes(model)` that uses a callback function to process the factor  nodes.
+A version `factor_nodes(model)` that uses a callback function to process the factor nodes.
 The callback function accepts both the label and the node data.
 """
 function factor_nodes(callback::F, model::Model) where {F}
@@ -810,8 +861,6 @@ Arguments:
 - `name`: A symbol representing the name of the node.
 - `variable_type`: A UInt8 representing the type of the variable. 0 = factor, 1 = individual variable, 2 = vector variable, 3 = tensor variable
 - `index`: An integer or tuple of integers representing the index of the variable.
-
-Returns:
 """
 function generate_nodelabel(model::Model, name)
     nextcounter = setcounter!(model, getcounter(model) + 1)
@@ -844,7 +893,6 @@ Base.getindex(context::Context, ivar::IndexedVariable) = context[getname(ivar)][
     NodeType
 
 Abstract type representing either `Composite` or `Atomic` trait for a given object. By default is `Atomic` unless specified otherwise.
-See also: [`Composite`](@ref), [`Atomic`](@ref)
 """
 abstract type NodeType end
 
@@ -852,14 +900,12 @@ abstract type NodeType end
     Composite
 
 `Composite` object used as a trait of structs and functions that are composed of multiple nodes and therefore implement `make_node!`.
-See also: [`Atomic`](@ref), [`NodeType`](@ref)
 """
 struct Composite <: NodeType end
 
 """
     Atomic
 `Atomic` object used as a trait of structs and functions that are composed of a single node and are therefore materialized as a single node in the factor graph.
-See also: [`Composite`](@ref), [`NodeType`](@ref)
 """
 struct Atomic <: NodeType end
 
@@ -870,8 +916,6 @@ NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
     NodeBehaviour
 
 Abstract type representing either `Deterministic` or `Stochastic` for a given object. By default is `Deterministic` unless specified otherwise.
-
-See also: [`Deterministic`](@ref), [`Stochastic`](@ref), 
 """
 abstract type NodeBehaviour end
 
@@ -879,8 +923,6 @@ abstract type NodeBehaviour end
     Stochastic
 
 `Stochastic` object used to parametrize factor node object with stochastic type of relationship between variables.
-
-See also: [`Deterministic`](@ref),  [`NodeBehaviour`](@ref)
 """
 struct Stochastic <: NodeBehaviour end
 
@@ -888,8 +930,6 @@ struct Stochastic <: NodeBehaviour end
     Deterministic
 
 `Deterministic` object used to parametrize factor node object with determinstic type of relationship between variables.
-
-See also: [`Stochastic`](@ref), [`NodeBehaviour`](@ref)
 """
 struct Deterministic <: NodeBehaviour end
 
@@ -962,7 +1002,6 @@ throw_if_tensor_variable(context::Context, name::Symbol) =
     check_variate_compatability(node, index)
 
 Will check if the index is compatible with the node object that is passed.
-
 """
 check_variate_compatability(node::NodeLabel, index::Nothing) = true
 check_variate_compatability(node::NodeLabel, index) =
@@ -995,7 +1034,8 @@ it returns it. Otherwise, it creates a new variable and returns it.
 - `context::Context`: The context to search for or create the variable in.
 - `options::NodeCreationOptions`: Options for creating the variable. Must be a `NodeCreationOptions` object.
 - `name`: The variable (name) to search for or create. Must be a symbol.
-- `index`: Optional index for the variable. Can be an integer, a tuple of integers, or `nothing`.
+- `index`: Optional index for the variable. Can be an integer, a collection of integers, or `nothing`. If the index is `nothing` creates a single variable. 
+If the index is an integer creates a vector-like variable. If the index is a collection of integers creates a tensor-like variable.
 
 # Returns
 The variable (name) found or created in the factor graph model and context.
@@ -1077,6 +1117,9 @@ struct LazyIndex{C}
     collection::C
 end
 
+"""
+A placeholder collection for `LazyIndex` when the actual collection is not yet available.
+"""
 struct MissingCollection end
 
 __err_missing_collection_missing_method(method::Symbol) =
@@ -1237,7 +1280,7 @@ Args:
     - `context::Context`: The context to which the symbol is added.
     - `options::NodeCreationOptions`: The options for the creation process.
     - `name::Symbol`: The ID of the variable.
-    - `index::Union{Nothing, Int, NTuple{N, Int64} where N} = nothing`: The index of the variable.
+    - `index`: The index of the variable.
 
 Returns:
     - The generated symbol for the variable.
@@ -1560,7 +1603,6 @@ function default_parametrization end
 default_parametrization(backend, nodetype, fform, rhs) =
     error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
 default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
-
 
 """
     instantiate(::Type{Backend})
