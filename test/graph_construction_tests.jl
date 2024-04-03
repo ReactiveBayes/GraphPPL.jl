@@ -1084,12 +1084,12 @@ end
     @test length(collect(filter(as_node(Beta), model))) == 1
 end
 
-@testitem "Ambiguous broadcasting should give a descriptive error" begin 
+@testitem "Ambiguous broadcasting should give a descriptive error" begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
 
     include("testutils.jl")
-    
+
     @model function faulty_beta_bernoulli_broadcasted()
         θ ~ Beta(1, 1)
         x .~ Bernoulli(θ)
@@ -1447,5 +1447,35 @@ end
         end
 
         @test sort(sublevelreturns, by = first) == [(i, "hello world!") for i in 1:10]
+    end
+end
+
+@testitem "`end` index should be allowed in the `~` operator" begin
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function begin_end_in_rhs()
+        s[1] ~ Beta(0.0, 1.0)
+        y[1] ~ Normal(s[begin], 1.0)
+        y[2] ~ Normal(s[end], 1.0)
+    end
+
+    @testset let model = create_model(begin_end_in_rhs())
+        @test length(collect(filter(as_node(Beta), model))) == 1
+        @test length(collect(filter(as_node(Normal), model))) == 2
+        @test length(collect(filter(as_variable(:s), model))) == 1
+    end
+
+    @model function begin_end_in_lhs()
+        s[1] ~ Beta(0.0, 1.0)
+        s[begin] ~ Normal(0.0, 1.0)
+        s[end] ~ Normal(0.0, 1.0)
+    end
+
+    @testset let model = create_model(begin_end_in_lhs())
+        @test length(collect(filter(as_node(Beta), model))) == 1
+        @test length(collect(filter(as_node(Normal), model))) == 2
+        @test length(collect(filter(as_variable(:s), model))) == 1
     end
 end

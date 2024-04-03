@@ -1021,6 +1021,11 @@ check_variate_compatability(node::AbstractArray{NodeLabel, N}, range::AbstractRa
 check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Nothing) where {N} =
     error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
 
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::FunctionalIndex) where {N} =
+    check_variate_compatability(node, index(node))
+check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{FunctionalIndex, M}) where {N, M} =
+    check_variate_compatability(node, map(i -> i(node), index))
+
 """
     getorcreate!(model::Model, context::Context, options::NodeCreationOptions, name, index)
 
