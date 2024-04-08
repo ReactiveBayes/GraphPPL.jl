@@ -146,15 +146,34 @@ end
 
 function vec(array::ResizableArray{T, V, N}) where {T, V, N}
     result = T[]
-    for index in Tuple.(CartesianIndices(size(array)))
-        if isassigned(array, index...)::Bool
-            push!(result, array[index...])
+    for index in CartesianIndices(size(array))
+        if isassigned(array, index.I...)::Bool
+            push!(result, array[index.I...])
         end
     end
     return result
 end
 
-Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = iterate(array.data, state)
+function Base.iterate(array::ResizableArray)
+    # We want to emulate the same iteration protocol as for the `Array` structure 
+    # which iterates over the last dimension first
+    indx  = CartesianIndices(size(array))
+    pindex, pstate = iterate(indx)
+    return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+end
+
+function Base.iterate(array::ResizableArray, state)
+    if isnothing(state)
+        return nothing
+    end
+    indx, pstate = state
+    niterate = iterate(indx, pstate)
+    if isnothing(niterate)
+        return nothing
+    end
+    nindex, nstate = niterate
+    return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+end
 
 function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
     result = map(f, array.data)

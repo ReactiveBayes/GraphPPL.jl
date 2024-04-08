@@ -318,3 +318,58 @@ end
     s[2, 1, 2] = Ref(1)
     @test flattened_index(s, (2, 1, 1)) == 4
 end
+
+@testitem "iterate" begin
+    import GraphPPL: ResizableArray
+
+    @testset "dense ResizableArray x3" begin
+        f_1(i, j, k) = i * j + k
+        f_2(i, j, k) = i + j - k
+        f_3(i, j, k) = i * j * k
+
+        for f in (f_1, f_2, f_3)
+            s = ResizableArray(Ref, Val(3))
+            m = Array{Int}(undef, 3, 3, 3)
+
+            for i in 1:3, j in 1:3, k in 1:3
+                s[i, j, k] = Ref(f(i, j, k))
+                m[i, j, k] = f(i, j, k)
+            end
+
+            mvec = vec(m)
+            indc = vec(collect(Iterators.product(1:3, 1:3, 1:3)))
+
+            for (index, elem) in zip(indc, s)
+                i, j, k = index
+                @test elem[] === m[i, j, k]
+                @test elem[] === f(i, j, k)
+            end
+
+            for (i, elem) in enumerate(s)
+                @test elem[] === mvec[i]
+            end
+
+            for (eₛ, eₘ) in zip(s, m)
+                @test eₛ[] === eₘ
+            end
+
+            @test all(iszero, map((left, right) -> left[] - right, s, m))
+        end
+    end
+
+    # `Sparse` resizable arrays cannot be easily iterated over
+    # But we can iterate through the `vec` of the array
+    @testset "sparse ResizableArray" begin
+        s = ResizableArray(Ref, Val(3))
+
+        s[2, 1, 1] = Ref(1)
+        s[1, 1, 1] = Ref(1)
+        s[1, 1, 2] = Ref(1)
+        s[1, 2, 2] = Ref(1)
+        s[2, 1, 2] = Ref(1)
+
+        for elem in vec(s)
+            @test elem[] === 1
+        end
+    end
+end
