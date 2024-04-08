@@ -226,7 +226,25 @@ GraphPPL.returnval(ctx)
 ```
 
 ## Nested models
-GraphPPL supports any previously defined model to be used as a submodel in another model. We have dedicated a separate page in the documentation on this topic, which can be found [here](nested_models.md).
+`GraphPPL` supports any previously defined model to be used as a submodel in another model. We have dedicated a separate page in the documentation on this topic, which can be found [here](nested_models.md).
+
+## Scopes
+While `GraphPPL` aims to be as close to Julia as possible, there are some differences in the way scopes are handled. In Julia, a `for` loop opens a new scope, meaning that variables defined inside the loop are not accessible outside of the loop. While this is also true in `GraphPPL` and variables can be defined with the `local` keyword to make them accessible outside of the loop, creating a variable with the same name in two different for-loops will reference the same variable. This is different from Julia, where the two variables would be distinct. The following example demonstrates this behaviour:
+
+```@example scopes
+using GraphPPL, Distributions, Test #hide
+import GraphPPL: @model #hide
+
+@model function scope_example()
+    for i in 1:10
+        x[i] ~ Normal(0, 1)
+    end
+    for i in 1:10
+        x[i] ~ Normal(0, 1)
+    end
+end
+```
+Instead of creating 20 random variables, this model will create 10 random variables and then reuse them in the second loop. This is because of the way `GraphPPL` handles variable creation. If you want to create 20 distinct random variables, you should use different names for the variables in the two loops.
 
 ## Arrays in GraphPPL
 As you can see in the previous examples, arrays in `GraphPPL` behave slightly differently than in Julia. In `GraphPPL`, we can define any `x[i]` as the left hand side of the `~` operator, without prespecifying `x` or its size. This trick involves a custom implementation of arrays in `GraphPPL` that dynamically grows as needed. This means that custom list comprehension statements in `GraphPPL` could give some unexpected behaviour. These examples are mostly pathological and should in general be avoided. However, if you do need custom list constructions, please wrap the result in `GraphPPL.ResizableArray` to ensure that factor nodes and submodels accept the array as a valid input. Note that variational constraints might throw exceptions if you try to specify a variational factorization constraint over custom created arrays of random variables.
