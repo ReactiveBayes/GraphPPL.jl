@@ -74,8 +74,6 @@ function rewrite_stacked_constraints(e::Expr)
     end
 end
 
-# what_walk(::typeof(rewrite_stacked_constraints)) = prewalk
-
 function create_factorization_split(e::Expr)
     if @capture(e, lhs_ .. rhs_)
         return :((GraphPPL.factorization_split($lhs, $rhs)))

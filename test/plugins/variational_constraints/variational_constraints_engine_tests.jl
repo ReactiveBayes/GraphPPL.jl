@@ -1495,3 +1495,31 @@ end
         end
     end
 end
+
+@testitem "show constraints" begin
+    using GraphPPL
+
+    include("../../testutils.jl")
+
+    constraint = @constraints begin
+        q(x)::PointMass
+    end
+    @test occursin(r"q\(x\) ::(.*?)PointMass", repr(constraint))
+
+    constraint = @constraints begin
+        q(x, y) = q(x)q(y)
+    end
+    @test occursin(r"q\(x, y\) = q\(x\)q\(y\)", repr(constraint))
+
+    constraint = @constraints begin
+        μ(x)::PointMass
+    end
+    @test occursin(r"μ\(x\) ::(.*?)PointMass", repr(constraint))
+
+    constraint = @constraints begin
+        q(x, y) = q(x)q(y)
+        μ(x)::PointMass
+    end
+    @test occursin(r"q\(x, y\) = q\(x\)q\(y\)", repr(constraint))
+    @test occursin(r"μ\(x\) ::(.*?)PointMass", repr(constraint))
+end
