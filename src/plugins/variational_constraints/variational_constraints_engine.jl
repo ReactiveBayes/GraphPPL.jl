@@ -207,6 +207,13 @@ FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) 
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
 
+function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F <: Union{Tuple, FactorizationConstraintEntry}})
+    print(io, "q(")
+    print(io, join(getvariables(constraint), ", "))
+    print(io, ") = ")
+    print(io, join(getconstraint(constraint), ""))
+end
+
 """
 A `MarginalFormConstraint` represents a single functional form constraint in a variational marginal constraint specification. We use type parametrization
 to dispatch on different types of constraints, for example `q(x, y) :: MvNormal` should be treated different from `q(x) :: Normal`.
@@ -215,6 +222,11 @@ struct MarginalFormConstraint{V, F}
     variables::V
     constraint::F
 end
+
+Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: AbstractArray, F}) =
+    print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: IndexedVariable, F}) =
+    print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
 """
 A `MessageConstraint` represents a single constraint on the messages in a message passing schema. 
@@ -225,22 +237,15 @@ struct MessageFormConstraint{V, F}
     constraint::F
 end
 
+Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: AbstractArray, F}) =
+    print(io, "μ(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: IndexedVariable, F}) =
+    print(io, "μ(", getvariables(constraint), ") :: ", constraint.constraint)
+
 const MaterializedConstraints = Union{FactorizationConstraint, MarginalFormConstraint, MessageFormConstraint}
 
 getvariables(c::MaterializedConstraints) = c.variables
 getconstraint(c::MaterializedConstraints) = c.constraint
-
-function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F <: Union{Tuple, FactorizationConstraintEntry}})
-    print(io, "q(")
-    print(io, join(getvariables(constraint), ", "))
-    print(io, ") = ")
-    print(io, join(getconstraint(constraint), ""))
-end
-
-Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: AbstractArray, F}) =
-    print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: IndexedVariable, F}) =
-    print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
 
 """
     GeneralSubModelConstraints

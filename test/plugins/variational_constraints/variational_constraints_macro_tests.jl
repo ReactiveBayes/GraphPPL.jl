@@ -150,6 +150,42 @@ end
     @test_expression_generating add_constraints_construction(input) output
 end
 
+@testitem "rewrite_stacked_constraints" begin
+    import GraphPPL: rewrite_stacked_constraints, apply_pipeline
+
+    include("../../testutils.jl")
+
+    # Test 1: rewrite_stacked_constraints with no stacked constraints
+    input = quote
+        q(x, y) = q(x)q(y)
+        q(x)::PointMass()
+    end
+    output = input
+    @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
+
+    # Test 2: rewrite_stacked_constraints with two stacked constraints
+    input = quote
+        q(x, y) = q(x)q(y)
+        q(x)::PointMass()::SampleList()
+    end
+    output = quote
+        q(x, y) = q(x)q(y)
+        q(x)::(PointMass() + SampleList())
+    end
+    @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
+
+    # Test 3: rewrite_stacked_constraints with three stacked constraints
+    input = quote
+        q(x, y) = q(x)q(y)
+        q(x)::PointMass()::Sample::SampleList()
+    end
+    output = quote
+        q(x, y) = q(x)q(y)
+        q(x)::((PointMass() + Sample) + SampleList())
+    end
+    @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
+end
+
 @testitem "replace_begin_end" begin
     import GraphPPL: replace_begin_end, apply_pipeline
 

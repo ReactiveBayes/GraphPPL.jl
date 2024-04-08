@@ -66,6 +66,14 @@ function create_submodel_constraints(e::Expr)
     end
 end
 
+function rewrite_stacked_constraints(e::Expr)
+    if @capture(e, (a_::b_::c_))
+        return :($a::($b + $c))
+    else
+        return e
+    end
+end
+
 function create_factorization_split(e::Expr)
     if @capture(e, lhs_ .. rhs_)
         return :((GraphPPL.factorization_split($lhs, $rhs)))
@@ -154,6 +162,7 @@ function constraints_macro_interior(cs_body::Expr)
     cs_body = add_constraints_construction(cs_body)
     cs_body = apply_pipeline(cs_body, replace_begin_end)
     cs_body = apply_pipeline(cs_body, create_submodel_constraints)
+    cs_body = apply_pipeline(cs_body, rewrite_stacked_constraints)
     cs_body = apply_pipeline(cs_body, create_factorization_split)
     cs_body = apply_pipeline(cs_body, create_factorization_combinedrange)
     cs_body = apply_pipeline(cs_body, convert_variable_statements)
