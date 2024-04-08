@@ -154,7 +154,42 @@ function vec(array::ResizableArray{T, V, N}) where {T, V, N}
     return result
 end
 
-Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = iterate(array.data, state)
+Base.iterate(array::ResizableArray{T, V, 1}, state = 1) where {T, V} = iterate(array.data, state)
+
+Base.iterate(array::ResizableArray{T, V, N}, state = 1) where {T, V, N} = __iterate(array.data, Val(N), state)
+
+function __iterate(array, ::Val{1}, state = 1)
+    final_index = 0
+    for i in 1:length(array)
+        if isassigned(array, i)
+            final_index += 1
+        end
+        if final_index == state
+            return array[i], final_index + 1
+        end
+    end
+end
+
+function __iterate(array, ::Val{N}, state = 1) where {N}
+    __state = state
+    for i in 1:length(array)
+        if isassigned(array, i)
+            child = array[i]
+            child_l = __recursive_length(Val(N - 1), child)
+            if __state > child_l
+                __state -= child_l
+            else
+                result = __iterate(child, Val(N - 1), __state)
+                if isnothing(result)
+                    return nothing
+                else
+                    return first(result), state + 1
+                end
+            end
+        end
+    end
+    return nothing
+end
 
 function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
     result = map(f, array.data)

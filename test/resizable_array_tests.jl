@@ -318,3 +318,19 @@ end
     s[2, 1, 2] = Ref(1)
     @test flattened_index(s, (2, 1, 1)) == 4
 end
+
+@testitem "iterate" begin
+    import GraphPPL: ResizableArray
+
+    s = ResizableArray(Ref, Val(3))
+
+    s[2, 1, 1] = Ref(1)
+    s[1, 1, 1] = Ref(1)
+    s[1, 1, 2] = Ref(1)
+    s[1, 2, 2] = Ref(1)
+    s[2, 1, 2] = Ref(1)
+
+    for elem in s
+        @test elem[] === 1
+    end
+end
