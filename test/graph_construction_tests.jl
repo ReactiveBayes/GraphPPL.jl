@@ -1479,3 +1479,23 @@ end
         @test length(collect(filter(as_variable(:s), model))) == 1
     end
 end
+
+@testitem "Use local scoped variable in two different scopes" begin
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function scope_twice()
+        for i in 1:5
+            tmp[i] ~ Normal(0, 1)
+        end
+        for i in 1:5
+            tmp[i] ~ Normal(0, 1)
+        end
+    end
+
+    @testset let model = create_model(scope_twice())
+        @test length(collect(filter(as_node(Normal), model))) == 10
+        @test_broken length(collect(filter(as_variable(:tmp), model))) == 10
+    end
+end
