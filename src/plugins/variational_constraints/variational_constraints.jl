@@ -17,6 +17,8 @@ See also: [`BetheFactorization`](@ref)
 """
 struct MeanField end
 
+struct NoConstraints end
+
 include("variational_constraints_macro.jl")
 include("variational_constraints_engine.jl")
 
@@ -43,8 +45,8 @@ See also: [`MeanField`](@ref)
 """
 BetheFactorization() = UnspecifiedConstraints
 
-VariationalConstraintsPlugin() = VariationalConstraintsPlugin(UnspecifiedConstraints)
-VariationalConstraintsPlugin(::Nothing) = VariationalConstraintsPlugin(UnspecifiedConstraints)
+VariationalConstraintsPlugin() = VariationalConstraintsPlugin(NoConstraints())
+VariationalConstraintsPlugin(::Nothing) = VariationalConstraintsPlugin(NoConstraints())
 
 GraphPPL.plugin_type(::VariationalConstraintsPlugin) = FactorAndVariableNodesPlugin()
 
@@ -77,7 +79,7 @@ function preprocess_vi_plugin!(
 end
 
 ## Applies the constraints in `constraints` to `model`. This function materializes the constraints in `constraints` and applies them to `model`.
-function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
+function postprocess_plugin(plugin::VariationalConstraintsPlugin{NoConstraints}, model::Model)
     # Attach `BitSetTuples` according to the number of neighbours of the factor node
     foreach(factor_nodes(model)) do flabel
         nodedata = model[flabel]
@@ -85,12 +87,22 @@ function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
         number_of_neighbours = length(neighbors(nodeproperties))
         setextra!(nodedata, VariationalConstraintsFactorizationBitSetKey, BoundedBitSetTuple(number_of_neighbours))
     end
-    if isempty(plugin.constraints)
-        apply_constraints!(
-            model, GraphPPL.get_principal_submodel(model), GraphPPL.default_constraints(GraphPPL.fform(GraphPPL.getcontext(model)))
-        )
-    else
-        apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints)
+
+    apply_constraints!(
+        model, GraphPPL.get_principal_submodel(model), GraphPPL.default_constraints(GraphPPL.fform(GraphPPL.getcontext(model)))
+    )
+
+    materialize_constraints!(model)
+end
+
+## Applies the constraints in `constraints` to `model`. This function materializes the constraints in `constraints` and applies them to `model`.
+function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
+    foreach(factor_nodes(model)) do flabel
+        nodedata = model[flabel]
+        nodeproperties = getproperties(nodedata)
+        number_of_neighbours = length(neighbors(nodeproperties))
+        setextra!(nodedata, VariationalConstraintsFactorizationBitSetKey, BoundedBitSetTuple(number_of_neighbours))
     end
+    apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints)
     materialize_constraints!(model)
 end
