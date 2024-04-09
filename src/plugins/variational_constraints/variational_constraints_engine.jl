@@ -306,6 +306,13 @@ message_form_constraints(c::Constraints) = c.message_form_constraints
 general_submodel_constraints(c::Constraints) = c.general_submodel_constraints
 specific_submodel_constraints(c::Constraints) = c.specific_submodel_constraints
 
+Base.isempty(c::Constraints) =
+    isempty(factorization_constraints(c)) &&
+    isempty(marginal_form_constraints(c)) &&
+    isempty(message_form_constraints(c)) &&
+    isempty(general_submodel_constraints(c)) &&
+    isempty(specific_submodel_constraints(c))
+
 function Constraints()
     return Constraints(
         Vector{FactorizationConstraint}(),

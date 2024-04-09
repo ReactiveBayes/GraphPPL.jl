@@ -85,6 +85,12 @@ function postprocess_plugin(plugin::VariationalConstraintsPlugin, model::Model)
         number_of_neighbours = length(neighbors(nodeproperties))
         setextra!(nodedata, VariationalConstraintsFactorizationBitSetKey, BoundedBitSetTuple(number_of_neighbours))
     end
-    apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints)
+    if isempty(plugin.constraints)
+        apply_constraints!(
+            model, GraphPPL.get_principal_submodel(model), GraphPPL.default_constraints(GraphPPL.fform(GraphPPL.getcontext(model)))
+        )
+    else
+        apply_constraints!(model, GraphPPL.get_principal_submodel(model), plugin.constraints)
+    end
     materialize_constraints!(model)
 end
