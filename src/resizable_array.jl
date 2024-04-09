@@ -157,7 +157,7 @@ end
 function Base.iterate(array::ResizableArray)
     # We want to emulate the same iteration protocol as for the `Array` structure 
     # which iterates over the last dimension first
-    indx  = CartesianIndices(size(array))
+    indx = CartesianIndices(size(array))
     pindex, pstate = iterate(indx)
     return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
 end
