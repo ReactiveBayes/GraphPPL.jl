@@ -1,8 +1,8 @@
 # GraphPPL
 
-| **Documentation**                                                         | **Build Status**                 |
-|:-------------------------------------------------------------------------:|:--------------------------------:|
-| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![DOI][ci-img]][ci-url]         |
+| **Documentation**                                                         | **Build Status**                 | **Coverage**                       |
+|:-------------------------------------------------------------------------:|:--------------------------------:|:----------------------------------:|
+| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![DOI][ci-img]][ci-url]         |[![Codecov][codecov-img]][codecov-url] |
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://reactivebayes.github.io/GraphPPL.jl/dev
@@ -12,6 +12,9 @@
 
 [ci-img]: https://github.com/reactivebayes/GraphPPL.jl/actions/workflows/ci.yml/badge.svg?branch=master
 [ci-url]: https://github.com/reactivebayes/GraphPPL.jl/actions
+
+[codecov-img]: https://codecov.io/gh/ReactiveBayes/GraphPPL.jl/graph/badge.svg?token=JESDYZVU9N
+[codecov-url]: https://codecov.io/gh/ReactiveBayes/GraphPPL.jl
 
 GraphPPL.jl is a probabilistic programming language focused on probabilistic graphical models. GraphPPL.jl materializes a probabilistic model as a factor graph and provides a set of tools for model specification. GraphPPL.jl is a part of the [RxInfer](https://rxinfer.ml) ecosystem, but it does not explicitly depend on any inference backend. GraphPPL exports a high-level DSL for model specification and allows users to append arbitrary information to nodes in the model. This information can be used by inference backends to perform inference on the model.
 
