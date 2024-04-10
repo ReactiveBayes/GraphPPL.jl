@@ -221,7 +221,7 @@ end
     generator = ModelGenerator(simple_model, (a = 1,))
     @test getbackend(generator) === DefaultBackend()
 
-    model = create_model(generator) 
+    model = create_model(generator)
     @test model isa GraphPPL.Model
     @test getbackend(model) === DefaultBackend()
 

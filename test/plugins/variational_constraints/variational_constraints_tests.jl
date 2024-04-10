@@ -1,8 +1,8 @@
 @testitem "Empty constraints" begin
-    import GraphPPL: VariationalConstraintsPlugin, UnspecifiedConstraints
+    import GraphPPL: VariationalConstraintsPlugin, UnspecifiedConstraints, NoConstraints
 
-    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(UnspecifiedConstraints)
-    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(UnspecifiedConstraints)
+    @test VariationalConstraintsPlugin() == VariationalConstraintsPlugin(NoConstraints())
+    @test VariationalConstraintsPlugin(nothing) == VariationalConstraintsPlugin(NoConstraints())
 end
 
 @testitem "simple @model + various constraints" begin
@@ -1012,5 +1012,32 @@ end
             sort!(new_constraint, by = first)
             @test GraphPPL.getextra(node_data, :factorization_constraint_indices) == Tuple(new_constraint)
         end
+    end
+end
+
+@testitem "Default constraints of top level model" begin
+    using GraphPPL
+    import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
+
+    include("../../testutils.jl")
+
+    @model function model_with_default_constraints()
+        x ~ Normal(0, 1)
+        y ~ Normal(x, 1)
+        z ~ Normal(y, 1)
+        a ~ Normal(y, z)
+    end
+
+    GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints begin
+        q(x, y, z, a) = q(x)q(y)q(z)q(a)
+    end
+
+    model = create_model(
+        with_plugins(model_with_default_constraints(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin()))
+    )
+    for node in filter(as_node(), model)
+        node_data = model[node]
+        @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
+            Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
     end
 end
