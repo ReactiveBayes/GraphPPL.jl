@@ -69,7 +69,7 @@ The major difference between versions `3` and `4` is the support for nested mode
 ```julia
 @model function kalman_filter_step(y, prev_x, new_x, A, B, Q, P)
     new_x ~ MvNormal(μ = A * prev_x, Σ = Q)
-    y ~ MvNormal(μ = B * x, Σ = P)
+    y ~ MvNormal(μ = B * new_x, Σ = P)
 end
 
 @model function state_space_model(y, A, B, Q, P)
