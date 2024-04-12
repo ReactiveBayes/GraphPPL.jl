@@ -214,6 +214,13 @@ function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F
     print(io, join(getconstraint(constraint), ""))
 end
 
+function Base.show(io::IO, constraint::FactorizationConstraint{V, F} where {V, F})
+    print(io, "q(")
+    print(io, join(getvariables(constraint), ", "))
+    print(io, ") = ")
+    print(io, getconstraint(constraint))
+end
+
 """
 A `MarginalFormConstraint` represents a single functional form constraint in a variational marginal constraint specification. We use type parametrization
 to dispatch on different types of constraints, for example `q(x, y) :: MvNormal` should be treated different from `q(x) :: Normal`.
@@ -263,7 +270,6 @@ end
 GeneralSubModelConstraints(fform::Function) = GeneralSubModelConstraints(fform, Constraints())
 
 fform(c::GeneralSubModelConstraints) = c.fform
-Base.show(io::IO, constraint::GeneralSubModelConstraints) = print(io, "q(", getsubmodel(constraint), ") :: ", getconstraint(constraint))
 
 getsubmodel(c::GeneralSubModelConstraints) = c.fform
 getconstraint(c::GeneralSubModelConstraints) = c.constraints
@@ -282,7 +288,15 @@ end
 
 SpecificSubModelConstraints(submodel::FactorID) = SpecificSubModelConstraints(submodel, Constraints())
 
-Base.show(io::IO, constraint::SpecificSubModelConstraints) = print(io, "q(", getsubmodel(constraint), ") :: ", getconstraint(constraint))
+function Base.show(io::IO, constraint::Union{SpecificSubModelConstraints, GeneralSubModelConstraints})
+    print(
+        IOContext(io, (:indent => get(io, :indent, 0) + 2), (:head => false)),
+        "q(",
+        getsubmodel(constraint),
+        ") = ",
+        getconstraint(constraint)
+    )
+end
 
 getsubmodel(c::SpecificSubModelConstraints) = c.submodel
 getconstraint(c::SpecificSubModelConstraints) = c.constraints
@@ -325,9 +339,15 @@ Constraints(constraints::Vector) = begin
 end
 
 function Base.show(io::IO, c::Constraints)
-    print(io, "Constraints: \n")
+    indent = get(io, :indent, 1)
+    head = get(io, :head, true)
+    if head
+        print(io, "Constraints: \n")
+    else
+        print(io, "\n")
+    end
     for constraint in getconstraints(c)
-        print(io, "    ")
+        print(io, "  "^indent)
         print(io, constraint)
         print(io, "\n")
     end
