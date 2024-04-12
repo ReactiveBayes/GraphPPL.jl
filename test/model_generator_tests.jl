@@ -158,7 +158,9 @@ end
             return (a = 2, observation = 3)
         end
         # Too many keys, `c = 1` is extra
-        @test_throws MethodError create_model(generator) do model, ctx
+        @test_throws "Model simple_model_for_model_generator is not defined for 4 interfaces ((:c, :a, :b, :observation))." create_model(
+            generator
+        ) do model, ctx
             return (a = 1, b = 2, observation = 3)
         end
     end
