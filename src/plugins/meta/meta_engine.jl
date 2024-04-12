@@ -39,6 +39,26 @@ struct MetaSpecification
     submodel_meta::Vector
 end
 
+function Base.show(io::IO, c::MetaSpecification)
+    indent = get(io, :indent, 1)
+    head = get(io, :head, true)
+    if head
+        print(io, "Meta: \n")
+    else
+        print(io, "\n")
+    end
+    for meta in getmetaobjects(c)
+        print(io, "  "^indent)
+        print(io, meta)
+        print(io, "\n")
+    end
+    for submodel in getsubmodelmeta(c)
+        print(io, "  "^indent)
+        print(io, submodel)
+        print(io, "\n")
+    end
+end
+
 getmetaobjects(m::MetaSpecification) = m.meta_objects
 getsubmodelmeta(m::MetaSpecification) = m.submodel_meta
 getspecificsubmodelmeta(m::MetaSpecification) = filter(m -> is_specificsubmodelmeta(m), getsubmodelmeta(m))
@@ -75,6 +95,16 @@ is_generalsubmodelmeta(m) = false
 getkey(m::GeneralSubModelMeta) = getsubmodel(m)
 
 const SubModelMeta = Union{GeneralSubModelMeta, SpecificSubModelMeta}
+
+function Base.show(io::IO, constraint::SubModelMeta)
+    print(
+        IOContext(io, (:indent => get(io, :indent, 0) + 2), (:head => false)),
+        "Meta for submodel ",
+        getsubmodel(constraint),
+        " = ",
+        getmetaobjects(constraint)
+    )
+end
 
 MetaSpecification() = MetaSpecification(Vector{MetaObject}(), Vector{SubModelMeta}())
 
