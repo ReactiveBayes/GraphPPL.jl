@@ -101,6 +101,14 @@ node = context[Normal, 1]
 nothing # hide
 ```
 
+## ResizableArrays
+
+`GraphPPL` uses `ResizableArrays` to store arrays of random variables. A `ResizableArray` is a mutable array that can grow dynamically when data is assigned to it. This is why the `x[i] ~ Normal(0, 1)` syntax is allowed in `GraphPPL`; the `ResizableArray` `x` will check if `i` is a valid index and grow the array if necessary. 
+```@docs
+GraphPPL.ResizableArray
+```
+`ResizableArray` is a subtype of `AbstractArray`, and implements all the functions that are expected from an array. Note that `size` returns the largest size of the array across each dimension, so an array of size `(2, 3)` does not necessarily has to have an element stored at index `(2, 3)`, instead there exists a vector of length 3 along the second dimension.
+
 ## Model creation engine internal 
 
 ```@docs
