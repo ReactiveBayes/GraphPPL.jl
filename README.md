@@ -51,7 +51,7 @@ generated models a user needs to have a Bayesian inference backend with GraphPPL
 
 # Documentation
 
-For more information about GraphPPL.jl please refer to the [documentation](https://biaslab.github.io/GraphPPL.jl/stable).
+For more information about GraphPPL.jl please refer to the [documentation](https://reactivebayes.github.io/GraphPPL.jl/stable).
 
 > [!NOTE]
 > `GraphPPL.jl` API has been changed in version `4.0.0`. See [Migration Guide](https://reactivebayes.github.io/GraphPPL.jl/stable/) for more details.
