@@ -737,6 +737,17 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             $ms_body
         end
 
+        function GraphPPL.add_terminated_submodel!(
+            __model__::GraphPPL.Model,
+            __context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
+            __fform__::typeof($ms_name),
+            __interfaces__::NamedTuple,
+            any::GraphPPL.StaticInt{N}
+        ) where {N}
+            error("Model $(__fform__) is not defined for $(N) interfaces ($(keys(__interfaces__))).")
+        end
+
         function ($ms_name)(; kwargs...)
             return GraphPPL.ModelGenerator($ms_name, kwargs)
         end

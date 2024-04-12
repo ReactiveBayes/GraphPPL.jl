@@ -2016,3 +2016,22 @@ end
 
     @test default_backend(hello) === TestUtils.TestGraphPPLBackend()
 end
+
+@testitem "error message for other number of interfaces" begin
+    using GraphPPL
+    using Distributions
+
+    import GraphPPL: @model
+
+    @model function somemodel(a, b, c)
+        a ~ Normal(b, c)
+    end
+
+    @test_throws "Model somemodel is not defined for 2 interfaces" GraphPPL.create_model(somemodel(a = 1, b = 2))
+
+    @model function somemodel(a, b)
+        c ~ Normal(b, a)
+    end
+
+    @test !isnothing(GraphPPL.create_model(somemodel(a = 1, b = 2)))
+end
