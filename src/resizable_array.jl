@@ -1,5 +1,16 @@
 import Base: size, setindex!, getindex, show, vec
 
+"""
+    ResizableArray{T, V, N} <: AbstractArray{T, N}
+
+A ResizableArray is an array that can grow in any dimension. It handles like a regular AbstractArray when calling `getindex`, but for `setindex!` 
+it will automatically resize the array if the index is out of bounds. It is also possible to iterate over the array in the same way as for a regular array.
+The data is stored internally as a recursive vector. The depth of the recursion is fixed at construction time and cannot be changed. 
+
+# Constructor
+- `ResizableArray(::Type{T})`: Create an empty resizable array of type `T` with depth 1, similar to a vector.
+- `ResizableArray(::Type{T}, ::Val{N})`: Create an empty resizable array of type `T` with depth `N`, similar to AbstractArray{T, N}.
+"""
 struct ResizableArray{T, V <: AbstractVector, N} <: AbstractArray{T, N}
     data::V
 end
@@ -27,8 +38,6 @@ function ResizableArray(array::AbstractVector{T}) where {T}
     V = reltype(array)
     return ResizableArray{V, Vector{T}, get_recursive_depth(array)}(array)
 end
-
-# ResizableArray(A::AbstractArray{T, N}) where {T, N} = ResizableArray{T, typeof(A), N}(A)
 
 function make_recursive_vector(::Type{T}, ::Val{1}) where {T}
     return T[]
