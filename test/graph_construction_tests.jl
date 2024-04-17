@@ -1499,3 +1499,22 @@ end
         @test_broken length(collect(filter(as_variable(:tmp), model))) == 10
     end
 end
+
+@testitem "LazyIndex should support empty indices if array is passed" begin 
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+
+    @model function foo(y) 
+        x ~ MvNormal([1, 1], [1 0.0; 0.0 1.0])
+        y ~ MvNormal(x, [1.0 0.0; 0.0 1.0])
+    end
+
+    model = create_model(foo()) do model, ctx 
+        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([ 1.0, 1.0 ])))
+    end
+
+    @test length(collect(filter(as_node(MvNormal), model))) == 2
+    @test length(collect(filter(as_variable(:x), model))) == 1
+    @test length(collect(filter(as_variable(:y), model))) == 1
+end
