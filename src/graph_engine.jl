@@ -1210,8 +1210,11 @@ __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::
 function __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices)
     # The empty indices may be passed as a result of the `combine_axes` function in the broadcasting
     # In this case the `indices` are `Tuple{}`
-    if !isempty(indices)::Bool && !(checkbounds(Bool, collection, indices...)::Bool)
-        error(BoundsError(label.name, indices))
+    if !isempty(indices)::Bool
+        # The `Tuple{Nothing}` indices may be passed as a result of the `~` operation without indices on LHS
+        if !(isone(length(indices)) && isnothing(first(indices))) && !(checkbounds(Bool, collection, indices...)::Bool)
+            error(BoundsError(label.name, indices))
+        end
     end
     return true
 end
