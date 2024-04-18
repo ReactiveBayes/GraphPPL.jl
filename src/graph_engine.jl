@@ -949,6 +949,13 @@ Returns a collection of aliases for `fform` depending on the `backend`.
 aliases(backend, fform) = error("Backend $backend must implement a method for `aliases` for `$(fform)`.")
 aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
 
+function add_vertex!(model::Model, label, data)
+    code = nv(model) + 1
+    model.graph.vertex_labels[code] = label
+    model.graph.vertex_properties[label] = (code, data)
+    Graphs.add_vertex!(model.graph.graph)
+end
+
 """
     copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
@@ -1309,7 +1316,8 @@ function add_variable_node!(model::Model, context::Context, options::NodeCreatio
     )
 
     context[name, index] = label
-    model[label] = nodedata
+    add_vertex!(model, label, nodedata)
+    # model[label] = nodedata
 
     return label
 end
@@ -1428,7 +1436,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
         UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
 
-    model[label] = nodedata
+    add_vertex!(model, label, nodedata)
     context[factornode_id] = label
 
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
