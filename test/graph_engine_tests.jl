@@ -1842,13 +1842,13 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
     variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
+    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     add_edge!(model, x, xproperties, variable_nodes, :interface)
 
-    @test ne(model) == 3 && model[x, variable_nodes[1]] == EdgeLabel(:interface, 1)
+    @test ne(model) == 3 && model[variable_nodes[1], x] == EdgeLabel(:interface, 1)
 end
 
 @testitem "default_parametrization" begin

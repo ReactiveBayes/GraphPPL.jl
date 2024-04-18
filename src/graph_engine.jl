@@ -956,6 +956,12 @@ function add_vertex!(model::Model, label, data)
     Graphs.add_vertex!(model.graph.graph)
 end
 
+function add_edge!(model::Model, src, dst, data)
+    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
+    model.graph.edge_data[(src, dst)] = data
+    return Graphs.add_edge!(model.graph.graph, code_src, code_dst)
+end
+
 """
     copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
@@ -1508,13 +1514,13 @@ function add_edge!(
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
-    if MetaGraphsNext.add_edge!(model.graph, unroll(variable_node_id), factor_node_id, label)
-        return nothing
-    else
+    edge_added = add_edge!(model, unroll(variable_node_id), factor_node_id, label)
+    if !edge_added
         error(
             lazy"Trying to create duplicate edge ($(unroll(variable_node_id)), $(factor_node_id)) while creating edge $(label) of factor node with functional form $(factor_node_propeties.fform)"
         )
     end
+    return label
 end
 
 function add_edge!(
