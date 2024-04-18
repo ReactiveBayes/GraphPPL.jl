@@ -962,6 +962,11 @@ function add_edge!(model::Model, src, dst, data)
     return Graphs.add_edge!(model.graph.graph, code_src, code_dst)
 end
 
+function has_edge(model::Model, src, dst)
+    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
+    return Graphs.has_edge(model.graph.graph, code_src, code_dst)
+end
+
 """
     copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
@@ -1511,11 +1516,16 @@ function add_edge!(
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
-    edge_added = add_edge!(model, unroll(variable_node_id), factor_node_id, label)
+    edge_added = add_edge!(model, neighbor_node_label, factor_node_id, label)
     if !edge_added
-        error(
-            lazy"Trying to create duplicate edge ($(unroll(variable_node_id)), $(factor_node_id)) while creating edge $(label) of factor node with functional form $(factor_node_propeties.fform)"
-        )
+        # Double check if the edge has already been added
+        if has_edge(model, neighbor_node_label, factor_node_id)
+            error(
+                lazy"Trying to create duplicate edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id). Make sure that all the arguments to the `~` operator are unique (both left hand side and right hand side)."
+            )
+        else
+            error(lazy"Cannot create an edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id).")
+        end
     end
     return label
 end

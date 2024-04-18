@@ -759,6 +759,7 @@ end
         EdgeLabel,
         getname,
         add_edge!,
+        has_edge,
         getproperties
 
     include("testutils.jl")
@@ -770,12 +771,21 @@ end
     b = NodeLabel(:b, 2)
     model[a] = NodeData(ctx, VariableNodeProperties(name = :a, index = nothing))
     model[b] = NodeData(ctx, FactorNodeProperties(fform = sum))
+    @test !has_edge(model, a, b)
+    @test !has_edge(model, b, a)
     add_edge!(model, b, getproperties(model[b]), a, :edge, 1)
+    @test has_edge(model, a, b)
+    @test has_edge(model, b, a)
     @test length(edges(model)) == 1
 
     c = NodeLabel(:c, 2)
     model[c] = NodeData(ctx, FactorNodeProperties(fform = sum))
+    @test !has_edge(model, a, c)
+    @test !has_edge(model, c, a)
     add_edge!(model, c, getproperties(model[c]), a, :edge, 2)
+    @test has_edge(model, a, c)
+    @test has_edge(model, c, a)
+
     @test length(edges(model)) == 2
 
     # Test 2: Test getting all edges from a model with a specific node
