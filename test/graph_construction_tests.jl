@@ -1540,8 +1540,30 @@ end
         obs ~ NormalMeanVariance(C, sigma^2)
     end
 
-    @test_throws ErrorException create_model(my_model(N = 3, sigma = 1.0)) do model, ctx
-        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex([0.0]))
+    @test_throws "Trying to create duplicate edge" create_model(my_model(N = 3, sigma = 1.0)) do model, ctx
+        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
+        return (obs = obs,)
+    end
+
+    @model function my_model(obs, N, sigma)
+        local p
+        for i in 1:N
+            p[i] ~ Beta(1, 1)
+        end
+        local x
+        for i in 1:N
+            x[i] ~ Bernoulli(p[i])
+        end
+        accum_C = x[1]
+        for i in 2:N
+            next_C ~ accum_C + x[i]
+            accum_C = next_C
+        end
+        obs ~ NormalMeanVariance(accum_C, sigma^2)
+    end
+
+    @test_throws "Trying to create duplicate edge" create_model(my_model(N = 3, sigma = 1.0)) do model, ctx
+        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
         return (obs = obs,)
     end
 end
