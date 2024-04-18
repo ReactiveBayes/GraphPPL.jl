@@ -949,6 +949,26 @@ Returns a collection of aliases for `fform` depending on the `backend`.
 aliases(backend, fform) = error("Backend $backend must implement a method for `aliases` for `$(fform)`.")
 aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
 
+function add_vertex!(model::Model, label, data)
+    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
+    code = nv(model) + 1
+    model.graph.vertex_labels[code] = label
+    model.graph.vertex_properties[label] = (code, data)
+    Graphs.add_vertex!(model.graph.graph)
+end
+
+function add_edge!(model::Model, src, dst, data)
+    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
+    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
+    model.graph.edge_data[(src, dst)] = data
+    return Graphs.add_edge!(model.graph.graph, code_src, code_dst)
+end
+
+function has_edge(model::Model, src, dst)
+    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
+    return Graphs.has_edge(model.graph.graph, code_src, code_dst)
+end
+
 """
     copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
 
@@ -1307,10 +1327,8 @@ function add_variable_node!(model::Model, context::Context, options::NodeCreatio
     label, nodedata = preprocess_plugins(
         UnionPluginType(VariableNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
-
     context[name, index] = label
-    model[label] = nodedata
-
+    add_vertex!(model, label, nodedata)
     return label
 end
 
@@ -1428,7 +1446,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
         UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
 
-    model[label] = nodedata
+    add_vertex!(model, label, nodedata)
     context[factornode_id] = label
 
     return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
@@ -1500,7 +1518,18 @@ function add_edge!(
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
-    model.graph[unroll(variable_node_id), factor_node_id] = label
+    edge_added = add_edge!(model, neighbor_node_label, factor_node_id, label)
+    if !edge_added
+        # Double check if the edge has already been added
+        if has_edge(model, neighbor_node_label, factor_node_id)
+            error(
+                lazy"Trying to create duplicate edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id). Make sure that all the arguments to the `~` operator are unique (both left hand side and right hand side)."
+            )
+        else
+            error(lazy"Cannot create an edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id).")
+        end
+    end
+    return label
 end
 
 function add_edge!(

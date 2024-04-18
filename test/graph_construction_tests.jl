@@ -1500,21 +1500,113 @@ end
     end
 end
 
-@testitem "LazyIndex should support empty indices if array is passed" begin 
+@testitem "LazyIndex should support empty indices if array is passed" begin
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
 
     include("testutils.jl")
 
-    @model function foo(y) 
+    @model function foo(y)
         x ~ MvNormal([1, 1], [1 0.0; 0.0 1.0])
         y ~ MvNormal(x, [1.0 0.0; 0.0 1.0])
     end
 
-    model = create_model(foo()) do model, ctx 
-        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([ 1.0, 1.0 ])))
+    model = create_model(foo()) do model, ctx
+        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([1.0, 1.0])))
     end
 
     @test length(collect(filter(as_node(MvNormal), model))) == 2
     @test length(collect(filter(as_variable(:x), model))) == 1
     @test length(collect(filter(as_variable(:y), model))) == 1
+end
+
+@testitem "Node arguments must be unique" begin
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+
+    @model function simple_model_duplicate_1()
+        x ~ Normal(0.0, 1.0)
+        y ~ x + x
+    end
+
+    @model function simple_model_duplicate_2()
+        x ~ Normal(0.0, 1.0)
+        y ~ x + x + x
+    end
+
+    @model function simple_model_duplicate_3()
+        x ~ Normal(0.0, 1.0)
+        y ~ Normal(x, x)
+    end
+
+    @model function simple_model_duplicate_4()
+        x ~ Normal(0.0, 1.0)
+        hide_x = x
+        y ~ Normal(hide_x, x)
+    end
+
+    @model function simple_model_duplicate_5()
+        x ~ Normal(0.0, 1.0)
+        x ~ Normal(x, 1)
+    end
+
+    @model function simple_model_duplicate_6()
+        x ~ Normal(0.0, 1.0)
+        hide_x = x
+        hide_x ~ Normal(x, 1)
+    end
+
+    for modelfn in [
+        simple_model_duplicate_1,
+        simple_model_duplicate_2,
+        simple_model_duplicate_3,
+        simple_model_duplicate_4,
+        simple_model_duplicate_5,
+        simple_model_duplicate_6
+    ]
+        @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
+            modelfn()
+        )
+    end
+
+    @model function my_model(obs, N, sigma)
+        local x
+        for i in 1:N
+            x[i] ~ Bernoulli(0.5)
+        end
+        local C
+        # This model creation is not allowed since `C` is used twice in the `~` operator
+        for i in 1:N
+            C ~ C + x[i]
+        end
+        obs ~ NormalMeanVariance(C, sigma^2)
+    end
+
+    @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
+        my_model(N = 3, sigma = 1.0)
+    ) do model, ctx
+        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
+        return (obs = obs,)
+    end
+
+    @model function my_model(obs, N, sigma)
+        local x
+        for i in 1:N
+            x[i] ~ Bernoulli(0.5)
+        end
+        accum_C = x[1]
+        for i in 2:N
+            # Here `next_C` will be used twice on the second iteration 
+            next_C ~ accum_C + x[i]
+            accum_C = next_C
+        end
+        obs ~ NormalMeanVariance(accum_C, sigma^2)
+    end
+
+    @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
+        my_model(N = 3, sigma = 1.0)
+    ) do model, ctx
+        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
+        return (obs = obs,)
+    end
 end
