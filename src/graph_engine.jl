@@ -950,6 +950,7 @@ aliases(backend, fform) = error("Backend $backend must implement a method for `a
 aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
 
 function add_vertex!(model::Model, label, data)
+    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
     code = nv(model) + 1
     model.graph.vertex_labels[code] = label
     model.graph.vertex_properties[label] = (code, data)
@@ -957,6 +958,7 @@ function add_vertex!(model::Model, label, data)
 end
 
 function add_edge!(model::Model, src, dst, data)
+    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
     code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
     model.graph.edge_data[(src, dst)] = data
     return Graphs.add_edge!(model.graph.graph, code_src, code_dst)
