@@ -1500,7 +1500,13 @@ function add_edge!(
     label = EdgeLabel(interface_name, index)
     neighbor_node_label = unroll(variable_node_id)
     addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
-    model.graph[unroll(variable_node_id), factor_node_id] = label
+    if MetaGraphsNext.add_edge!(model.graph, unroll(variable_node_id), factor_node_id, label)
+        return nothing
+    else
+        error(
+            lazy"Trying to create duplicate edge ($(unroll(variable_node_id)), $(factor_node_id)) while creating edge $(label) of factor node with functional form $(factor_node_propeties.fform)"
+        )
+    end
 end
 
 function add_edge!(

@@ -1500,21 +1500,48 @@ end
     end
 end
 
-@testitem "LazyIndex should support empty indices if array is passed" begin 
+@testitem "LazyIndex should support empty indices if array is passed" begin
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
 
     include("testutils.jl")
 
-    @model function foo(y) 
+    @model function foo(y)
         x ~ MvNormal([1, 1], [1 0.0; 0.0 1.0])
         y ~ MvNormal(x, [1.0 0.0; 0.0 1.0])
     end
 
-    model = create_model(foo()) do model, ctx 
-        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([ 1.0, 1.0 ])))
+    model = create_model(foo()) do model, ctx
+        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([1.0, 1.0])))
     end
 
     @test length(collect(filter(as_node(MvNormal), model))) == 2
     @test length(collect(filter(as_variable(:x), model))) == 1
     @test length(collect(filter(as_variable(:y), model))) == 1
+end
+
+@testitem "Node arguments must be unique" begin
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+
+    include("testutils.jl")
+
+    @model function my_model(obs, N, sigma)
+        local p
+        for i in 1:N
+            p[i] ~ Beta(1, 1)
+        end
+        local x
+        for i in 1:N
+            x[i] ~ Bernoulli(p[i])
+        end
+        local C
+        for i in 1:N
+            C ~ C + x[i]
+        end
+        obs ~ NormalMeanVariance(C, sigma^2)
+    end
+
+    @test_throws ErrorException create_model(my_model(N = 3, sigma = 1.0)) do model, ctx
+        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex([0.0]))
+        return (obs = obs,)
+    end
 end

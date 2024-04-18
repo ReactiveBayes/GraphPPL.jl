@@ -1,3 +1,4 @@
+using MetaGraphsNext.Graphs
 
 """
     ModelGenerator(model, kwargs, plugins)
