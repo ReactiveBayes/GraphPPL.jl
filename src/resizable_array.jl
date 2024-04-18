@@ -181,12 +181,15 @@ function Base.iterate(array::ResizableArray, state)
         return nothing
     end
     nindex, nstate = niterate
+    while !isassigned(array, nindex.I...)
+        pstate = nstate
+        niterate = iterate(indx, pstate)
+        if isnothing(niterate)
+            return nothing
+        end
+        nindex, nstate = niterate
+    end
     return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
-end
-
-function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
-    result = map(f, array.data)
-    return ResizableArray(result)
 end
 
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
@@ -241,7 +244,7 @@ end
 function lastwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in reverse(CartesianIndices(reverse(size(array)))) #TODO improve performance of this function since it uses splatting
         if isassigned(array, reverse(index.I)...)::Bool
-            return (index, array[reverse(index.I)...])
+            return (CartesianIndex(reverse(index.I)), array[reverse(index.I)...])
         end
     end
 end
