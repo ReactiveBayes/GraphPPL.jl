@@ -292,6 +292,8 @@ Base.last(proxied, ::ProxyLabel) = proxied
 Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) =
     proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
 Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
+Base.iterate(proxy::ProxyLabel) = iterate(unroll(proxy))
+Base.iterate(proxy::ProxyLabel, any) = iterate(unroll(proxy), any)
 
 """
     Context
@@ -1334,6 +1336,9 @@ function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, ar
     return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, fform, args)
 end
 
+iterate(anon::AnonymousVariable) = (anon, nothing)
+iterate(anon::AnonymousVariable, any) = nothing
+
 # Deterministic nodes can create links to variables in the model
 # This might be important for better factorization constraints resolution
 function materialize_anonymous_variable!(::Deterministic, model::Model, context::Context, fform, args)
@@ -1638,6 +1643,18 @@ function contains_nodelabel(collection::MixedArguments)
     return contains_nodelabel(collection.args) | contains_nodelabel(collection.kwargs)
 end
 
+"""
+    check_unique_interfaces(interfaces)
+
+Checks if the NodeLabels and ProxyLabels in the interfaces are unique. Does not check for uniqueness of other types.
+"""
+function check_unique_interfaces(interfaces::NamedTuple)
+    nodelabels = filter(is_nodelabel, unroll.(Iterators.flatten(values(interfaces))))
+    if length(nodelabels) != length(unique(nodelabels))
+        error("Interfaces must be unique (interfaces $(values(interfaces)) found).")
+    end
+end
+
 # TODO improve documentation
 
 function make_node!(model::Model, ctx::Context, fform::F, lhs_interfaces, rhs_interfaces) where {F}
@@ -1833,6 +1850,7 @@ function make_node!(
     )
     aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
     interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
+    check_unique_interfaces(interfaces)
     nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
