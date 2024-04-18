@@ -1320,11 +1320,8 @@ function add_variable_node!(model::Model, context::Context, options::NodeCreatio
     label, nodedata = preprocess_plugins(
         UnionPluginType(VariableNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
-
     context[name, index] = label
     add_vertex!(model, label, nodedata)
-    # model[label] = nodedata
-
     return label
 end
 
