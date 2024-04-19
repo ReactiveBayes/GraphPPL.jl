@@ -278,8 +278,7 @@ end
             s[i, j] = i + j
         end
     end
-    s[5, 11] = 16
-    result = map(elem -> elem .+ 1, s)
+    result = map(elem -> elem + 1, s)
     for i in 1:10
         for j in 1:10
             @test result[i, j] == s[i, j] + 1

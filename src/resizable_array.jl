@@ -17,6 +17,8 @@ end
 
 ResizableArray(::Type{T}) where {T} = ResizableArray{T, Vector{T}, 1}(T[])
 
+similar(::ResizableArray{T, V, N}) where {T, V, N} = ResizableArray(T, Val(N))
+
 function ResizableArray(::Type{T}, ::Val{N}) where {T, N}
     data = make_recursive_vector(T, Val(N))
     V = typeof(data)
@@ -29,13 +31,16 @@ end
 
 get_recursive_depth(any) = 0
 
-function reltype(v::AbstractVector)
-    return reltype(first(v))
+function reltype(::Type{<:AbstractVector{<:T}}) where {T <: AbstractArray}
+    return reltype(T)
 end
-reltype(any::T) where {T} = T
+
+function reltype(::Type{<:AbstractVector{T}}) where {T}
+    return T
+end
 
 function ResizableArray(array::AbstractVector{T}) where {T}
-    V = reltype(array)
+    V = reltype(typeof(array))
     return ResizableArray{V, Vector{T}, get_recursive_depth(array)}(array)
 end
 
@@ -184,11 +189,6 @@ function Base.iterate(array::ResizableArray, state)
     return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
 end
 
-function Base.map(f, array::ResizableArray{T, V, N}) where {T, V, N}
-    result = map(f, array.data)
-    return ResizableArray(result)
-end
-
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
 
 function __recursive_length(::Val{N}, array) where {N}
@@ -241,7 +241,7 @@ end
 function lastwithindex(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in reverse(CartesianIndices(reverse(size(array)))) #TODO improve performance of this function since it uses splatting
         if isassigned(array, reverse(index.I)...)::Bool
-            return (index, array[reverse(index.I)...])
+            return (CartesianIndex(reverse(index.I)), array[reverse(index.I)...])
         end
     end
 end
