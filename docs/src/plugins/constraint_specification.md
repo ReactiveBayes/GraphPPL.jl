@@ -69,6 +69,42 @@ We can specify constraints over the first `toy_model` submodel using the followi
 end
 ```
 
+## Default constraints
+While we can specify constraints over all instances of a submodel at a specific layer of the hierarchy, we're not guaranteed to have all instances of a submodel at a specific layer of the hierarchy. To this extent, we can specify default constraints that apply to all instances of a specific submodel. For example, we can define the following model, where we have a `recursive_model` instance at every layer of the hierarchy:
+```@example constraints
+@model function recursive_model(n, x, y)
+    z ~ Normal(x, y)
+    if n > 0
+        y ~ recursive_model(n = n - 1, x = x)
+    else
+        y ~ Normal(0, 1)
+    end
+end
+```
+We can specify default constraints over the `recursive_model` submodel using the following code:
+```@example constraints
+GraphPPL.default_constraints(::typeof(recursive_model)) = @constraints begin
+    q(x, y, z) = q(x)q(y)q(z)
+end
+```
+When a model of type `recursive_model` is now created, the default constraints will be applied to all instances of the `recursive_model` submodel. Note that default constraints are overwritten by constraints passed to the top-level model, if they concern the same instance of a submodel.
+
+## Prespecified constraints
+`GraphPPL` provides a set of prespecified constraints that can be used to specify constraints over the variational posterior. These constraint sets are aliases for their corresponding equivalent constriant sets, and can be used for convenience. The following prespecified constraints are available:
+
+```@docs
+GraphPPL.MeanField
+GraphPPL.BetheFactorization
+```
+
+This means that we can write the following:
+```@example constraints
+@constraints begin
+    q(x, y, z) = MeanField() # Equivalent to q(x, y, z) = q(x)q(y)q(z)
+    q(a, b, c) = BetheFactorization() # Equivalent to q(a, b, c) = q(a, b, c), can be used to overwrite default constraints.
+end
+```
+
 ## Plugin's internals
 
 ```@docs 
@@ -78,8 +114,6 @@ GraphPPL.SpecificSubModelConstraints
 GraphPPL.GeneralSubModelConstraints
 GraphPPL.FactorizationConstraint
 GraphPPL.FactorizationConstraintEntry
-GraphPPL.MeanField
-GraphPPL.BetheFactorization
 
 GraphPPL.MarginalFormConstraint
 GraphPPL.MessageFormConstraint
