@@ -73,11 +73,11 @@ end
 While we can specify constraints over all instances of a submodel at a specific layer of the hierarchy, we're not guaranteed to have all instances of a submodel at a specific layer of the hierarchy. To this extent, we can specify default constraints that apply to all instances of a specific submodel. For example, we can define the following model, where we have a `recursive_model` instance at every layer of the hierarchy:
 ```@example constraints
 @model function recursive_model(n, x, y)
-    z ~ Normal(x, y)
+    z ~ Gamma(1, 1)
     if n > 0
-        y ~ recursive_model(n = n - 1, x = x)
+        y ~ Normal(recursive_model(n = n - 1, x = x), z)
     else
-        y ~ Normal(0, 1)
+        y ~ Normal(0, z)
     end
 end
 ```
