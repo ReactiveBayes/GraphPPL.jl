@@ -608,6 +608,59 @@ end
     end
 end
 
+@testitem "LazyLabel in combination with ProxyLabel should create variable in the model" begin 
+    import GraphPPL: LazyLabel, getcontext, unroll, ProxyLabel, NodeLabel, proxylabel
+
+    include("testutils.jl")
+
+    @testset "Individual variable creation" begin 
+        model = create_test_model()
+        ctx = getcontext(model)
+        x = LazyLabel(:x, model, ctx)
+        p = proxylabel(:p, nothing, x)
+        _x = unroll(p)
+        @test _x isa NodeLabel
+        @test _x === ctx[:x]
+
+        z = LazyLabel(:z, model, ctx)
+        r = proxylabel(:r, nothing, proxylabel(:w, nothing, z))
+        _z = unroll(r)
+        @test _z isa NodeLabel
+        @test _z === ctx[:z]
+    end
+
+    @testset "Vector variable creation" begin 
+        model = create_test_model()
+        ctx = getcontext(model)
+        x = LazyLabel(:x, model, ctx)
+        p = proxylabel(:p, (1, ), x)
+        _x = unroll(p)
+        @test _x isa NodeLabel
+        @test _x === ctx[:x][1]
+
+        p = proxylabel(:p, (2, ), x)
+        _x = unroll(p)
+        @test _x isa NodeLabel
+        @test _x === ctx[:x][2]
+    end
+
+    @testset "throw_if_tensor_variable variable creation" begin 
+        model = create_test_model()
+        ctx = getcontext(model)
+        x = LazyLabel(:x, model, ctx)
+        p = proxylabel(:p, (1, 1, 1), x)
+        _x = unroll(p)
+        @test _x isa NodeLabel
+        @test _x === ctx[:x][1, 1, 1]
+
+        p = proxylabel(:p, (1, 1, 2), x)
+        _x = unroll(p)
+        @test _x isa NodeLabel
+        @test _x === ctx[:x][1, 1, 2]
+    end
+
+end
+
 @testitem "NodeLabel properties" begin
     import GraphPPL: NodeLabel
 

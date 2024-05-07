@@ -389,16 +389,11 @@ generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create
 
 function generate_get_or_create(s::Symbol, index::Expr)
     return quote
-        $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
+        $s = if !@isdefined($s) || !GraphPPL.check_variate_compatability($s, $(index)...)
+            GraphPPL.LazyLabel($(QuoteNode(s)), __model__, __context__, $(index)) 
+            # GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
         else
-            (
-                if GraphPPL.check_variate_compatability($s, $(index)...)
-                    $s
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
-                end
-            )
+            $s
         end
     end
 end
@@ -710,7 +705,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __parent_context__::GraphPPL.Context,
             __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
-            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel},
+            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.LazyLabel},
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )

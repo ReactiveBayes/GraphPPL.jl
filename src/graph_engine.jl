@@ -260,8 +260,8 @@ proxylabel(name::Symbol, index::Tuple, proxied) = proxied[index...]
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
-unroll(proxy::ProxyLabel) = __proxy_unroll(proxy)
-unroll(something) = something
+# Keep this, the `unroll` is public API, `__proxy_unroll` is an implementation detail
+unroll(proxy) = __proxy_unroll(proxy)
 
 __proxy_unroll(something) = something
 __proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy, proxy.index, proxy.proxied)
@@ -292,6 +292,79 @@ Base.last(proxied, ::ProxyLabel) = proxied
 Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) =
     proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
 Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
+
+struct LazyLabel{M, C}
+    name::Symbol
+    model::M
+    context::C
+end
+
+LazyLabel(name, model, context, index::Tuple{Nothing}) = LazyLabel(name, model, context)
+LazyLabel(name, model, context, index::Nothing) = LazyLabel(name, model, context)
+
+function LazyLabel(name, model, context, index::Tuple)
+    getorcreate!(model, context, name, index...)
+    return LazyLabel(name, model, context)
+end
+
+proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = proxied
+proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
+
+function __proxy_unroll(proxied::LazyLabel)
+    return haskey(proxied.context, proxied.name) ? proxied.context[proxied.name] : getorcreate!(proxied.model, proxied.context, proxied.name, nothing)
+end
+
+function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {T <: Tuple}
+    return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
+end
+
+# This is weird ambiguity
+function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {N, T <: Tuple{Vararg{UnitRange, N}}}
+    return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
+end
+
+function check_variate_compatability(label::LazyLabel, index...)
+    return haskey(label.context, label.name) ? check_variate_compatability(label.context[label.name], index...) : false
+end
+
+function Base.getindex(label::LazyLabel, indices...)
+    if haskey(label.context, label.name)
+        variable = label.context[label.name]
+        return variable[indices...]
+    else
+        error("Cannot index a variable `$(label.name)` with an index `$(indices)`. The variable `$(label.name)` has undefined shape.")
+    end
+end
+
+function Base.broadcastable(label::LazyLabel)
+    if haskey(label.context, label.name)
+        return Base.broadcastable(label.context[label.name])
+    end
+    error("Cannot broadcast a variable `$(label.name)`. The variable has undefined shape.")
+end
+
+function Base.size(label::LazyLabel)
+    if haskey(label.context, label.name)
+        return size(label.context[label.name])
+    end
+    error("Cannot `size` a variable `$(label.name)`. The variable has undefined shape.")
+end
+
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}) where {N} = true
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{Int, M}) where {N, M} =
+    error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, range::AbstractRange) where {N} =
+    all(check_variate_compatability(node, i) for i in range) # This might be a bit slow if the range is large
+
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Nothing) where {N} =
+    error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
+
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::FunctionalIndex) where {N} =
+    check_variate_compatability(node, index(node))
+check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{FunctionalIndex, M}) where {N, M} =
+    check_variate_compatability(node, map(i -> i(node), index))
 
 """
     Context
@@ -1123,10 +1196,26 @@ function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, 
     return getorcreate!(model, ctx, options, name, first(r1), first.(rs)...)
 end
 
+function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, indices...)
+    if haskey(ctx, name)
+        variable = ctx[name]
+        return variable[indices...]
+    end
+    error(lazy"Cannot create a variable named `$(name)` with non-standard indices $(indices)")
+end
+
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{NodeLabel}}) = map((v) -> getifcreated(model, context, v), var)
+getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}) where {T <: Union{NodeLabel, LazyLabel}} =
+    map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
+
+function getifcreated(model::Model, context::Context, var::LazyLabel)
+    if haskey(var.context, var.name)
+        return var.context[var.name]
+    end
+    error("The variable `$(var.name)` has not been created.")
+end
 
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
@@ -1491,7 +1580,7 @@ function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel},
+    variable_node_id::Union{ProxyLabel, NodeLabel, LazyLabel},
     interface_name::Symbol
 )
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
@@ -1511,7 +1600,7 @@ function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel},
+    variable_node_id::Union{ProxyLabel, NodeLabel, LazyLabel},
     interface_name::Symbol,
     index
 )
@@ -1654,6 +1743,7 @@ is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
 is_nodelabel(x::GraphPPL.NodeLabel) = true
 is_nodelabel(x::ProxyLabel) = true
+is_nodelabel(x::LazyLabel) = true
 
 function contains_nodelabel(collection::Tuple)
     return any(element -> is_nodelabel(element), collection) ? True() : False()
@@ -1770,7 +1860,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::Tuple
 ) where {F} = make_node!(
     materialize,
@@ -1792,7 +1882,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::MixedArguments
 ) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
@@ -1804,7 +1894,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::Tuple{}
 ) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
@@ -1816,7 +1906,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::Tuple
 ) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
@@ -1828,7 +1918,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::NamedTuple
 ) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
@@ -1854,7 +1944,7 @@ function make_node!(
     context::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = convert(
