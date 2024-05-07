@@ -307,8 +307,11 @@ function LazyLabel(name, model, context, index::Tuple)
     return LazyLabel(name, model, context)
 end
 
-proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = proxied
+proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
+
+proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
 
 function __proxy_unroll(proxied::LazyLabel)
     return haskey(proxied.context, proxied.name) ? proxied.context[proxied.name] : getorcreate!(proxied.model, proxied.context, proxied.name, nothing)
