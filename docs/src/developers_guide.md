@@ -151,7 +151,6 @@ GraphPPL.add_variable_node!
 GraphPPL.add_composite_factor_node!
 GraphPPL.copy_markov_blanket_to_child_context
 GraphPPL.generate_nodelabel
-GraphPPL.check_variate_compatability
 
 GraphPPL.FunctionalIndex
 GraphPPL.FunctionalRange

@@ -389,9 +389,8 @@ generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create
 
 function generate_get_or_create(s::Symbol, index::Expr)
     return quote
-        $s = if !@isdefined($s) # || !GraphPPL.check_variate_compatability($s, $(index)...)
+        $s = if !@isdefined($s)
             GraphPPL.LazyLabel($(QuoteNode(s)), __model__, __context__, $(index)) 
-            # GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
         else
             $s
         end

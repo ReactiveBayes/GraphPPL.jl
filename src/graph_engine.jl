@@ -327,10 +327,6 @@ function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {
     return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
 end
 
-function check_variate_compatability(label::LazyLabel, index...)
-    return haskey(label.context, label.name) ? check_variate_compatability(label.context[label.name], index...) : false
-end
-
 function Base.getindex(label::LazyLabel, indices...)
     if haskey(label.context, label.name)
         variable = label.context[label.name]
@@ -353,22 +349,6 @@ function Base.size(label::LazyLabel)
     end
     error("Cannot `size` a variable `$(label.name)`. The variable has undefined shape.")
 end
-
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}) where {N} = true
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{Int, M}) where {N, M} =
-    error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, range::AbstractRange) where {N} =
-    all(check_variate_compatability(node, i) for i in range) # This might be a bit slow if the range is large
-
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Nothing) where {N} =
-    error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
-
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::FunctionalIndex) where {N} =
-    check_variate_compatability(node, index(node))
-check_variate_compatability(node::AbstractArray{<:LazyLabel, N}, index::Vararg{FunctionalIndex, M}) where {N, M} =
-    check_variate_compatability(node, map(i -> i(node), index))
 
 """
     Context
@@ -1095,34 +1075,6 @@ throw_if_vector_variable(context::Context, name::Symbol) =
 throw_if_tensor_variable(context::Context, name::Symbol) =
     haskey(context.tensor_variables, name) ? error("Variable $name is already a tensor variable in the model") : nothing
 
-""" 
-    check_variate_compatability(node, index)
-
-Will check if the index is compatible with the node object that is passed.
-"""
-check_variate_compatability(node::NodeLabel, index::Nothing) = true
-check_variate_compatability(node::NodeLabel, index) =
-    error("Cannot call single random variable on the left-hand-side by an indexed statement")
-
-check_variate_compatability(label::GraphPPL.ProxyLabel, index) = check_variate_compatability(unroll(label), index)
-check_variate_compatability(label::GraphPPL.ProxyLabel, index...) = check_variate_compatability(unroll(label), index)
-
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, N}) where {N} = isassigned(node, index...)
-check_variate_compatability(node::AbstractArray{NodeLabel, N}) where {N} = true
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::NTuple{N, Int}) where {N} = isassigned(node, index...)
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{Int, M}) where {N, M} =
-    error("Index of length $(length(index)) not possible for $N-dimensional vector of random variables")
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, range::AbstractRange) where {N} =
-    all(check_variate_compatability(node, i) for i in range) # This might be a bit slow if the range is large
-
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Nothing) where {N} =
-    error("Cannot call vector of random variables on the left-hand-side by an unindexed statement")
-
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::FunctionalIndex) where {N} =
-    check_variate_compatability(node, index(node))
-check_variate_compatability(node::AbstractArray{NodeLabel, N}, index::Vararg{FunctionalIndex, M}) where {N, M} =
-    check_variate_compatability(node, map(i -> i(node), index))
-
 """
     getorcreate!(model::Model, context::Context, options::NodeCreationOptions, name, index)
 
@@ -1270,9 +1222,6 @@ struct LazyNodeLabel{O, C}
     collection::C
 end
 
-check_variate_compatability(label::LazyNodeLabel, indices...) =
-    __lazy_node_label_check_variate_compatability(label, label.collection, indices)
-
 Base.broadcastable(label::LazyNodeLabel) = collect(__lazy_iterator(label))
 
 # Redirect some of the standard collection methods to the underlying collection
@@ -1308,28 +1257,6 @@ function Base.iterate(::LazyNodeLabel, state)
     end
     element, nextstate = nextiteration
     return (element, (iterator, nextstate))
-end
-
-# We cannot really check any `indices` if the underlying collection is missing 
-__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::MissingCollection, indices) = true
-
-# We know in advance that numbers cannot be queried with non-empty indices, so the error is thrown 
-# unless the indices are `(nothing, )`
-__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::Number, indices::Tuple) =
-    error(BoundsError(label.name, indices))
-__lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection::Number, ::Tuple{Nothing}) = true
-
-# Here we can check if the `indices` are compatible with the underlying collection
-function __lazy_node_label_check_variate_compatability(label::LazyNodeLabel, collection, indices)
-    # The empty indices may be passed as a result of the `combine_axes` function in the broadcasting
-    # In this case the `indices` are `Tuple{}`
-    if !isempty(indices)::Bool
-        # The `Tuple{Nothing}` indices may be passed as a result of the `~` operation without indices on LHS
-        if !(isone(length(indices)) && isnothing(first(indices))) && !(checkbounds(Bool, collection, indices...)::Bool)
-            error(BoundsError(label.name, indices))
-        end
-    end
-    return true
 end
 
 # A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
@@ -1515,8 +1442,6 @@ end
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
     return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
 end
-
-check_variate_compatability(node::AnonymousVariable, any...) = true
 
 """
     add_atomic_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform)
