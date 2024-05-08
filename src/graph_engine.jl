@@ -311,6 +311,7 @@ proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = ProxyLabel(name, 
 proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
 
 proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
 proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
 
 function __proxy_unroll(proxied::LazyLabel)
@@ -1337,6 +1338,10 @@ end
 proxylabel(name::Symbol, index::Nothing, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 proxylabel(name::Symbol, index::Tuple, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
 
+proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
+proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
+proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
+
 # We disallow that because all accesses to the `LazyNodeLabel` should create a real label instead
 getifcreated(::Model, ::Context, ::LazyNodeLabel) = error("`getifcreated` cannot be called on a `LazyNodeLabel`")
 
@@ -1352,6 +1357,9 @@ function __materialize_lazy_node_label(label, index::Tuple)
 end
 
 function __materialize_lazy_node_label(label, index::Nothing)
+    if haskey(label.context, label.name)
+        return label.context[label.name]
+    end
     return getorcreate!(label.model, label.context, label.options, label.name, nothing)
 end
 

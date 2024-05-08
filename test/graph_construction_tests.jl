@@ -1610,3 +1610,48 @@ end
         return (obs = obs,)
     end
 end
+
+@testitem "Neural network model" begin
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function neural_dot(out, in, w, k)
+        local c
+        c[1] ~ in[1] * w[1]
+        for i in 2:k
+            c[i] ~ c[i - 1] + in[i] * w[i] 
+        end
+        out := identity(c[end])
+    end
+
+    @model function neuron(in, out, k)
+        local w
+        for i in 1:k
+            w[i] ~ Normal(0.0, 1.0)
+        end
+        out ~ neural_dot(in = in, w = w, k = k)
+    end
+
+    @model function neural_network_layer(in, out, n, k)
+        for i in 1:n
+            out[i] ~ neuron(in = in, k = k)
+        end
+    end
+
+    @model function neural_net(in, out, k)
+        h1 ~ neural_network_layer(in = in, n = 2, k = k)
+        h2 ~ neural_network_layer(in = h1, n = 2, k = 2)
+        out ~ neural_network_layer(in = h2, n = 2, k = 2)
+    end
+
+    model = create_model(neural_net(k = 3)) do model, ctx
+        in = GraphPPL.getorcreate!(
+            model, ctx, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :in, GraphPPL.LazyIndex(randn(3))
+        )
+        out = GraphPPL.getorcreate!(
+            model, ctx, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :out, GraphPPL.LazyIndex(randn(2))
+        )
+        return (in = in, out = out)
+    end
+end
