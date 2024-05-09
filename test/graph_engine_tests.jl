@@ -1172,7 +1172,7 @@ end
 
 @testitem "haskey(::Context)" begin
     import GraphPPL:
-        Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children
+        Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children, proxylabel
 
     ctx = Context()
     xlab = NodeLabel(:x, 1)
@@ -1201,7 +1201,7 @@ end
     @test !haskey(proxies(ctx), :z)
 
     @test !haskey(ctx, :proxy)
-    ctx[:proxy] = ProxyLabel(:proxy, nothing, xlab)
+    ctx[:proxy] = proxylabel(:proxy, xlab, nothing)
     @test !haskey(individual_variables(ctx), :proxy)
     @test !haskey(vector_variables(ctx), :proxy)
     @test !haskey(tensor_variables(ctx), :proxy)
@@ -1267,7 +1267,7 @@ end
 @testitem "VarDict" begin
     using Distributions
     import GraphPPL:
-        Context, VarDict, create_model, getorcreate!, LazyIndex, NodeCreationOptions, getcontext, is_random, is_data, getproperties
+        Context, VarDict, create_model, getorcreate!, datalabel, NodeCreationOptions, getcontext, is_random, is_data, getproperties
 
     include("testutils.jl")
 
@@ -1282,17 +1282,16 @@ end
     end
 
     @model function state_space_model_with_new(y)
-        xref[1] ~ Normal(0, 1)
-        y[1] ~ Normal(xref[1], 1)
+        x[1] ~ Normal(0, 1)
+        y[1] ~ Normal(x[1], 1)
         for i in 2:length(y)
-            # `x[i]` is not defined here, so this should fail
-            y[i] ~ submodel(x_next = new(xref[i]), x_prev = xref[i - 1])
+            y[i] ~ submodel(x_next = new(x[i]), x_prev = x[i - 1])
         end
     end
 
     ydata = ones(10)
     model = create_model(state_space_model_with_new()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
         return (y = y,)
     end
 
@@ -1419,7 +1418,7 @@ end
 
 @testitem "copy_markov_blanket_to_child_context" begin
     import GraphPPL:
-        create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, ProxyLabel, unroll, getcontext, NodeCreationOptions
+        create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, proxylabel, unroll, getcontext, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -1473,63 +1472,10 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    xref = ProxyLabel(:x, nothing, xref)
+    xref = proxylabel(:x, xref, nothing)
     child_context = Context(ctx, child)
     copy_markov_blanket_to_child_context(child_context, (in = xref,))
     @test child_context[:in] == xref
-end
-
-@testitem "check_variate_compatability" begin
-    import GraphPPL: check_variate_compatability, NodeLabel, ResizableArray, FunctionalIndex
-
-    # Test 1: Check that a one dimensional variable is compatable with a symbol
-    xref = NodeLabel(:x, 1)
-    @test check_variate_compatability(xref, nothing)
-
-    # Test 2: Check that an assigned vector variable returns the vector itself when called
-    xref = ResizableArray(NodeLabel, Val(1))
-    xref[1] = NodeLabel(:x, 1)
-    @test check_variate_compatability(xref, 1)
-
-    #Test 3: Check that if it is not assigned, it is false
-    @test !check_variate_compatability(xref, 2)
-
-    #Test 4: Check that if we overindex the array, it crashes
-    @test_throws ErrorException check_variate_compatability(xref, 1, 1)
-
-    #Test 5: Check that if we underindex the array, it crashes
-    xref = ResizableArray(NodeLabel, Val(2))
-    xref[1, 1] = NodeLabel(:x, 1)
-    @test_throws ErrorException check_variate_compatability(xref, 1)
-
-    #Test 6: Check that if we call an individual variable with an index, we return false
-    xref = NodeLabel(:x, 1)
-    @test_throws ErrorException !check_variate_compatability(xref, 1)
-
-    #Test 7: Check that if we call a vector variable without an index, we return false
-    xref = ResizableArray(NodeLabel, Val(1))
-    xref[1] = NodeLabel(:x, 1)
-    @test_throws ErrorException !check_variate_compatability(xref, nothing)
-
-    #Test 8: Check that 1-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
-    xref = ResizableArray(NodeLabel, Val(1))
-    xref[1] = NodeLabel(:x, 1)
-    ibegin = FunctionalIndex{:begin}(firstindex)
-    iend = FunctionalIndex{:end}(lastindex)
-    @test check_variate_compatability(xref, ibegin)
-    @test check_variate_compatability(xref, iend)
-    @test !check_variate_compatability(xref, ibegin - 10)
-    @test !check_variate_compatability(xref, iend + 10)
-
-    #Test 8: Check that 2-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
-    xref = ResizableArray(NodeLabel, Val(2))
-    xref[1, 1] = NodeLabel(:x, 1)
-    ibegin = FunctionalIndex{:begin}(firstindex)
-    iend = FunctionalIndex{:end}(lastindex)
-    @test check_variate_compatability(xref, ibegin, ibegin)
-    @test check_variate_compatability(xref, iend, iend)
-    @test !check_variate_compatability(xref, ibegin - 10, iend)
-    @test !check_variate_compatability(xref, iend + 10, iend)
 end
 
 @testitem "getorcreate!" begin
@@ -1721,7 +1667,7 @@ end
         getname,
         value,
         getorcreate!,
-        ProxyLabel,
+        proxylabel,
         value,
         NodeCreationOptions
 
@@ -1798,7 +1744,7 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    xref = ProxyLabel(:x, nothing, xref)
+    xref = proxylabel(:x, xref, nothing)
     zref = getifcreated(model, ctx, xref)
     @test zref === xref
 end
@@ -2109,7 +2055,7 @@ end
         create_model,
         getorcreate!,
         AnonymousVariable,
-        ProxyLabel,
+        proxylabel,
         getname,
         label_for,
         edges,
@@ -2131,7 +2077,7 @@ end
     @test make_node!(model, ctx, options, sin, xref, (0,)) == (nothing, 0)
     @test nv(model) == 0
 
-    xref = ProxyLabel(:proxy, nothing, AnonymousVariable(model, ctx))
+    xref = proxylabel(:proxy, AnonymousVariable(model, ctx), nothing)
     @test make_node!(model, ctx, options, +, xref, (1, 1)) == (nothing, 2)
     @test make_node!(model, ctx, options, sin, xref, (0,)) == (nothing, 0)
     @test nv(model) == 0
@@ -2274,9 +2220,9 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    xref = ProxyLabel(:x, nothing, xref)
+    xref = proxylabel(:x, xref, nothing)
     y = getorcreate!(model, ctx, :y, nothing)
-    y = ProxyLabel(:y, nothing, y)
+    y = proxylabel(:y,y,nothing)
     zref = getorcreate!(model, ctx, :z, nothing)
     node_id = make_node!(model, ctx, options, +, zref, (xref, y))
     prune!(model)
@@ -2313,7 +2259,7 @@ end
     using Distributions
     using Graphs
     import GraphPPL:
-        getcontext, materialize_factor_node!, create_model, getorcreate!, ProxyLabel, prune!, getname, label_for, edges, NodeCreationOptions
+        getcontext, materialize_factor_node!, create_model, getorcreate!, proxylabel, prune!, getname, label_for, edges, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -2351,9 +2297,9 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    xref = ProxyLabel(:x, nothing, xref)
+    xref = proxylabel(:x, xref, nothing)
     y = getorcreate!(model, ctx, :y, nothing)
-    y = ProxyLabel(:y, nothing, y)
+    y = proxylabel(:y, y, nothing)
     zref = getorcreate!(model, ctx, :z, nothing)
     node_id = materialize_factor_node!(model, ctx, options, +, (out = zref, in = (xref, y)))
     prune!(model)
@@ -2362,7 +2308,7 @@ end
 
 @testitem "make_node!(::Composite)" begin
     using MetaGraphsNext, Graphs
-    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, ProxyLabel, NodeCreationOptions
+    import GraphPPL: getcontext, make_node!, create_model, getorcreate!, proxylabel, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -2373,16 +2319,16 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, xref), ())
+    make_node!(model, ctx, options, prior, proxylabel(:x, xref, nothing), ())
     @test nv(model) == 4
-    @test ctx[prior, 1][:a] == ProxyLabel(:x, nothing, xref)
+    @test ctx[prior, 1][:a] == proxylabel(:x, xref, nothing)
 
     #test make node for other composite models
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, xref), (0, 1))
+    @test_throws ErrorException make_node!(model, ctx, options, gcv, proxylabel(:x, xref, nothing), (0, 1))
 
     # test make node of broadcastable composite model
     model = create_test_model()
