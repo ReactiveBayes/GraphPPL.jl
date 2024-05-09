@@ -757,7 +757,7 @@ end
         @test size(xref) === (10,)
     end
 
-    @testset "throw_if_tensor_variable variable creation" begin
+    @testset "Tensor variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, :x, nothing)

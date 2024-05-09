@@ -390,7 +390,7 @@ generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create
 function generate_get_or_create(s::Symbol, index::Expr)
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.LazyLabel($(QuoteNode(s)), __model__, __context__, $(index)) 
+            GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(s)), $(index)) 
         else
             $s
         end
@@ -439,7 +439,7 @@ Converts an expression into its proxied equivalent. Used to pass variables in su
 julia> x = GraphPPL.NodeLabel(:x, 1)
 x_1
 julia> GraphPPL.proxy_args(:(y = x))
-:(y = GraphPPL.proxylabel(:x, nothing, x))
+:(y = GraphPPL.proxylabel(:x, x, nothing))
 ```
 """
 function proxy_args end
@@ -464,9 +464,9 @@ end
 
 function proxy_args_rhs(rhs)
     if isa(rhs, Symbol)
-        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
+        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), $rhs, nothing, GraphPPL.False()))
     elseif @capture(rhs, rlabel_[index__])
-        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.False()))
     elseif @capture(rhs, new(rlabel_[index__]))
         newrhs = gensym(:force_create)
         errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
@@ -474,9 +474,10 @@ function proxy_args_rhs(rhs)
             let $newrhs = if isassigned($rlabel, $(index...))
                     error($errmsg)
                 else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
+                    GraphPPL.proxylabel($(QuoteNode(rlabel)), $newrhs, $(Expr(:tuple, index...)), GraphPPL.True())
+                    # GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
                 end
-                GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
+                # GraphPPL.proxylabel($(QuoteNode(rlabel)), $newrhs, $(Expr(:tuple, index...)), True())
             end
         )
     end
@@ -547,10 +548,10 @@ end
 combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 generate_lhs_proxylabel(var, index::Nothing) = quote
-    GraphPPL.proxylabel($(QuoteNode(var)), nothing, $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), $var, nothing, GraphPPL.True())
 end
 generate_lhs_proxylabel(var, index::AbstractArray) = quote
-    GraphPPL.proxylabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), $var, $(Expr(:tuple, index...)), GraphPPL.True())
 end
 
 __combine_axes() = Base.OneTo(1)
