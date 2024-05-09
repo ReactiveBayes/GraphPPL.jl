@@ -266,6 +266,8 @@ function proxylabel(::True, name::Symbol, proxied::Any, index::Any, maycreate::A
 end
 
 # In case if `proxied` is another `ProxyLabel` we take `|` operation with its `maycreate` to lift it further
+# This is a useful operation for `datalabels`, since they define `maycreate = True()` on their creation time
+# That means that all subsequent usages of data labels will always create a new label, even when used on right hand side from `~`
 function proxylabel(::True, name::Symbol, proxied::ProxyLabel, index::Any, maycreate::Any)
     return ProxyLabel(name, proxied, index, proxied.maycreate | maycreate)
 end
@@ -280,8 +282,7 @@ function unroll(something)
 end
 
 function unroll(proxylabel::ProxyLabel)
-    unrolled = unroll(proxylabel, proxylabel.proxied, proxylabel.index, proxylabel.maycreate, proxylabel.index)
-    return checked_getindex(unrolled, proxylabel.index)
+    return unroll(proxylabel, proxylabel.proxied, proxylabel.index, proxylabel.maycreate, proxylabel.index)
 end
 
 function unroll(proxylabel::ProxyLabel, proxied::ProxyLabel, index, maycreate, liftedindex)
@@ -330,11 +331,27 @@ Base.last(proxied, ::ProxyLabel) = proxied
 
 Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) =
     proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
-Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
+Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.maycreate, hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h))))
 
 # Iterator's interface methods
-Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
-Base.size(proxy::ProxyLabel) = size(unroll(proxy))
+Base.IteratorSize(proxy::ProxyLabel) = Base.IteratorSize(indexed_last(proxy))
+Base.IteratorEltype(proxy::ProxyLabel) = Base.IteratorEltype(indexed_last(proxy))
+Base.eltype(proxy::ProxyLabel) = Base.eltype(indexed_last(proxy))
+
+Base.length(proxy::ProxyLabel) = length(indexed_last(proxy))
+Base.size(proxy::ProxyLabel, dims...) = size(indexed_last(proxy), dims...)
+Base.firstindex(proxy::ProxyLabel) = firstindex(indexed_last(proxy))
+Base.lastindex(proxy::ProxyLabel) = lastindex(indexed_last(proxy))
+Base.eachindex(proxy::ProxyLabel) = eachindex(indexed_last(proxy))
+Base.axes(proxy::ProxyLabel) = axes(indexed_last(proxy))
+Base.getindex(proxy::ProxyLabel, indices...) = getindex(indexed_last(proxy), indices...)
+Base.size(proxy::ProxyLabel) = size(indexed_last(proxy))
+
+"""Similar to `Base.last` when applied on `ProxyLabel`, but also applies `checked_getindex` while unrolling"""
+function indexed_last end
+
+indexed_last(proxy::ProxyLabel) = checked_getindex(indexed_last(proxy.proxied), proxy.index)
+indexed_last(something)         = something
 
 """
     Context
@@ -807,9 +824,9 @@ end
 
 function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
     if maycreate === False()
-        return getifcreated(ref.model, ref.context, ref, liftedindex)
+        return checked_getindex(getifcreated(ref.model, ref.context, ref, liftedindex), index)
     elseif maycreate === True()
-        return getorcreate!(ref.model, ref.context, ref, liftedindex)
+        return checked_getindex(getorcreate!(ref.model, ref.context, ref, liftedindex), index)
     end
     error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
 end
@@ -1332,7 +1349,7 @@ end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}) where {T <: Union{NodeLabel, LazyLabel}} =
+getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}) where {T <: Union{NodeLabel, ProxyLabel, VariableRef}} =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) =
@@ -1530,7 +1547,7 @@ function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel, LazyLabel},
+    variable_node_id::Union{ProxyLabel, NodeLabel, VariableRef},
     interface_name::Symbol
 )
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
@@ -1550,7 +1567,7 @@ function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel, LazyLabel},
+    variable_node_id::Union{ProxyLabel, NodeLabel, VariableRef},
     interface_name::Symbol,
     index
 )
@@ -1693,7 +1710,7 @@ is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
 is_nodelabel(x::GraphPPL.NodeLabel) = true
 is_nodelabel(x::ProxyLabel) = true
-is_nodelabel(x::LazyLabel) = true
+is_nodelabel(x::VariableRef) = true
 
 function contains_nodelabel(collection::Tuple)
     return any(element -> is_nodelabel(element), collection) ? True() : False()
@@ -1810,7 +1827,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::Tuple
 ) where {F} = make_node!(
     materialize,
@@ -1832,7 +1849,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::MixedArguments
 ) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
@@ -1844,7 +1861,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::Tuple{}
 ) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
@@ -1856,7 +1873,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::Tuple
 ) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
@@ -1868,7 +1885,7 @@ make_node!(
     ctx::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::NamedTuple
 ) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
@@ -1894,7 +1911,7 @@ function make_node!(
     context::Context,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, LazyLabel},
+    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = convert(

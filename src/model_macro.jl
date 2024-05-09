@@ -694,7 +694,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __parent_context__::GraphPPL.Context,
             __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
-            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.LazyLabel},
+            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.VariableRef},
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )

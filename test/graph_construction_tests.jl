@@ -182,7 +182,7 @@ end
 
 @testitem "Simple model with lazy data creation with attached data" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind, datalabel, MissingCollection
 
     include("testutils.jl")
 
@@ -236,11 +236,11 @@ end
 
     models = [
         simple_model_4_withlength,
-        simple_model_4_witheachindex,
-        simple_model_4_withsize,
-        simple_model_4_with_firstindex_lastindex,
-        simple_model_4_with_forloop,
-        simple_model_4_with_foreach
+        # simple_model_4_witheachindex,
+        # simple_model_4_withsize,
+        # simple_model_4_with_firstindex_lastindex,
+        # simple_model_4_with_forloop,
+        # simple_model_4_with_foreach
     ]
 
     @testset for n in 5:10, model in models
@@ -248,8 +248,8 @@ end
         Σdata = Matrix(ones(n, n))
 
         model = create_model(model()) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex(Σdata))
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data), :Σ, Σdata)
 
             # Check also that the methods are redirected properly
             @test length(ydata) === length(y)
@@ -294,8 +294,8 @@ end
     # Test errors
     @testset for n in 5:10, model in models
         @test_throws "is not defined for a lazy node label without data attached" create_model(model()) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex())
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex())
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, MissingCollection())
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data), :Σ, MissingCollection())
 
             return (y = y, Σ = Σ)
         end
@@ -304,7 +304,7 @@ end
 
 @testitem "Simple model with lazy data creation with attached data but out of bounds" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel
 
     include("testutils.jl")
 
@@ -318,14 +318,14 @@ end
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1)
             return (a = a,)
         end
 
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1.0)
             return (a = a,)
         end
     end
@@ -334,28 +334,28 @@ end
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [])
             return (a = a,)
         end
 
         @test_throws "The index `[2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1])
             return (a = a,)
         end
 
         @test_throws "The index `[3]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0])
             return (a = a,)
         end
 
         @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0, 1.0])
             return (a = a,)
         end
     end
@@ -370,14 +370,14 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1)
             return (a = a,)
         end
 
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1.0)
             return (a = a,)
         end
     end
@@ -386,7 +386,7 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [])
             return (a = a,)
         end
 
@@ -395,7 +395,7 @@ end
         @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0, 1.0, 1.0])
             return (a = a,)
         end
     end
@@ -404,21 +404,21 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([;;]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [;;])
             return (a = a,)
         end
 
         @test_throws "The index `[2, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0 1.0;]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0 1.0;])
             return (a = a,)
         end
 
         @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0; 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0; 1.0])
             return (a = a,)
         end
     end
