@@ -823,6 +823,7 @@ function VariableRef(model::Model, context::Context, options::NodeCreationOption
 end
 
 function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
+    liftedindex = lift_index(maycreate, index, liftedindex)
     if maycreate === False()
         return checked_getindex(getifcreated(ref.model, ref.context, ref, liftedindex), index)
     elseif maycreate === True()

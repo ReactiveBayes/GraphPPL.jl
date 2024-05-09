@@ -460,7 +460,7 @@ end
 
 @testitem "Simple state space model with lazy data creation with attached data" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_random, is_data, degree
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions, index, getproperties, is_random, is_data, degree
 
     include("testutils.jl")
 
@@ -478,8 +478,8 @@ end
         Σdata = ones(n, n)
 
         model = GraphPPL.create_model(state_space_model_with_lazy_data()) do model, ctx
-            y = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, GraphPPL.LazyIndex(ydata))
-            Σ = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :Σ, GraphPPL.LazyIndex(Σdata))
+            y = GraphPPL.datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
+            Σ = GraphPPL.datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :Σ, Σdata)
             return (y = y, Σ = Σ)
         end
 
@@ -553,11 +553,10 @@ end
     end
 
     for n in [10, 30, 50, 100, 1000]
+        ydata = rand(n)
         model = GraphPPL.create_model(hgf()) do model, context
-            for i in 1:n
-                GraphPPL.getorcreate!(model, context, :y, i)
-            end
-            return (y = GraphPPL.getorcreate!(model, context, :y, 1),)
+            y = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
+            return (; y = y)
         end
 
         @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7
