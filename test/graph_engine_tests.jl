@@ -335,9 +335,9 @@ end
     end
 
     @model function simple_model_for_variable_nodes(submodel)
-        x ~ Normal(0, 1)
+        xref ~ Normal(0, 1)
         y ~ Gamma(1, 1)
-        z ~ submodel(x = x, y = y)
+        zref ~ submodel(x = xref, y = y)
     end
 
     @testset let submodel = simple_submodel_with_2_anonymous_for_variable_nodes
@@ -353,6 +353,29 @@ end
     end
 end
 
+@testitem "Predefined kinds of variable nodes" begin
+    import GraphPPL: VariableKindRandom, VariableKindData, VariableKindConstant
+    import GraphPPL: getcontext, getorcreate!, NodeCreationOptions, getproperties
+
+    include("testutils.jl")
+
+    model = create_test_model()
+    context = getcontext(model)
+    xref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindRandom), :x, nothing)
+    y = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindData), :y, nothing)
+    zref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindConstant), :z, nothing)
+
+    import GraphPPL: is_random, is_data, is_constant, is_kind
+
+    xprops = getproperties(model[xref])
+    yprops = getproperties(model[y])
+    zprops = getproperties(model[zref])
+
+    @test is_random(xprops) && is_kind(xprops, VariableKindRandom)
+    @test is_data(yprops) && is_kind(yprops, VariableKindData)
+    @test is_constant(zprops) && is_kind(zprops, VariableKindConstant)
+end
+
 @testitem "degree" begin
     import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
 
@@ -363,28 +386,28 @@ end
         ctx = getcontext(model)
 
         unused = getorcreate!(model, ctx, :unusued, nothing)
-        x = getorcreate!(model, ctx, :x, nothing)
+        xref = getorcreate!(model, ctx, :x, nothing)
         y = getorcreate!(model, ctx, :y, nothing)
 
         foreach(1:n) do k
             getorcreate!(model, ctx, :z, k)
         end
 
-        z = getorcreate!(model, ctx, :z, 1)
+        zref = getorcreate!(model, ctx, :z, 1)
 
         @test degree(model, unused) === 0
-        @test degree(model, x) === 0
+        @test degree(model, xref) === 0
         @test degree(model, y) === 0
-        @test all(zᵢ -> degree(model, zᵢ) === 0, z)
+        @test all(zᵢ -> degree(model, zᵢ) === 0, zref)
 
         for i in 1:n
-            make_node!(model, ctx, NodeCreationOptions(), sum, y, (in = [x, z[i]],))
+            make_node!(model, ctx, NodeCreationOptions(), sum, y, (in = [xref, zref[i]],))
         end
 
         @test degree(model, unused) === 0
-        @test degree(model, x) === n
+        @test degree(model, xref) === n
         @test degree(model, y) === n
-        @test all(zᵢ -> degree(model, zᵢ) === 1, z)
+        @test all(zᵢ -> degree(model, zᵢ) === 1, zref)
     end
 end
 
@@ -416,8 +439,8 @@ end
 
     m = create_test_model()
     ctx = getcontext(m)
-    x = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
-    @test is_data(getproperties(m[x]))
+    xref = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
+    @test is_data(getproperties(m[xref]))
 
     using .TestUtils.ModelZoo
 
@@ -544,25 +567,25 @@ end
 end
 
 @testitem "proxy labels" begin
-    import GraphPPL: NodeLabel, ProxyLabel, getname, unroll, ResizableArray, FunctionalIndex
+    import GraphPPL: NodeLabel, ProxyLabel, proxylabel, getname, unroll, ResizableArray, FunctionalIndex
 
     y = NodeLabel(:y, 1)
 
-    let p = ProxyLabel(:x, nothing, y)
+    let p = proxylabel(:x, y, nothing)
         @test last(p) === y
         @test getname(p) === :x
         @test getname(last(p)) === :y
     end
 
-    let p = ProxyLabel(:x, (1,), y)
+    let p = proxylabel(:x, y, (1,))
         @test_throws "Indexing a single node label `y` with an index `[1]` is not allowed" unroll(p)
     end
 
-    let p = ProxyLabel(:x, (1, 2), y)
+    let p = proxylabel(:x, y, (1, 2))
         @test_throws "Indexing a single node label `y` with an index `[1, 2]` is not allowed" unroll(p)
     end
 
-    let p = ProxyLabel(:r, nothing, ProxyLabel(:x, nothing, y))
+    let p = proxylabel(:r, proxylabel(:x, y, nothing), nothing)
         @test last(p) === y
         @test getname(p) === :r
         @test getname(last(p)) === :y
@@ -575,22 +598,22 @@ end
             s[i] = NodeLabel(:s, i)
         end
 
-        let p = ProxyLabel(:x, nothing, s)
+        let p = proxylabel(:x, s, nothing)
             @test last(p) === s
             @test all(i -> p[i] === s[i], 1:length(s))
             @test unroll(p) === s
         end
 
         for i in 1:5
-            let p = ProxyLabel(:r, nothing, ProxyLabel(:x, (i,), s))
+            let p = proxylabel(:r, proxylabel(:x, s, (i,)), nothing)
                 @test unroll(p) === s[i]
             end
         end
 
-        let p = ProxyLabel(:r, (2,), ProxyLabel(:x, (2:4,), s))
+        let p = proxylabel(:r, proxylabel(:x, s, (2:4,)), (2,))
             @test unroll(p) === s[3]
         end
-        let p = ProxyLabel(:x, (2:4,), s)
+        let p = proxylabel(:x, s, (2:4,))
             @test p[1] === s[2]
         end
     end
@@ -602,90 +625,193 @@ end
             s[i] = NodeLabel(:s, i)
         end
 
-        let p = ProxyLabel(:x, FunctionalIndex{:begin}(firstindex), s)
+        let p = proxylabel(:x, s, FunctionalIndex{:begin}(firstindex))
             @test unroll(p) === s[begin]
         end
     end
 end
 
-@testitem "LazyLabel in combination with ProxyLabel should create variable in the model" begin 
-    import GraphPPL: LazyLabel, getcontext, unroll, ProxyLabel, NodeLabel, proxylabel
+@testitem "Lift index" begin
+    import GraphPPL: lift_index, True, False
+
+    @test lift_index(True(), nothing, nothing) === nothing
+    @test lift_index(True(), (1,), nothing) === (1,)
+    @test lift_index(True(), nothing, (1,)) === (1,)
+    @test lift_index(True(), (2,), (1,)) === (2,)
+    @test lift_index(True(), (2, 2), (1,)) === (2, 2)
+
+    @test lift_index(False(), nothing, nothing) === nothing
+    @test lift_index(False(), (1,), nothing) === nothing
+    @test lift_index(False(), nothing, (1,)) === (1,)
+    @test lift_index(False(), (2,), (1,)) === (1,)
+    @test lift_index(False(), (2, 2), (1,)) === (1,)
+
+    import GraphPPL: proxylabel, lift_index, unroll, ProxyLabel
+
+    struct LiftingTest end
+
+    GraphPPL.is_proxied(::Type{LiftingTest}) = GraphPPL.True()
+
+    function GraphPPL.unroll(proxy::ProxyLabel, ::LiftingTest, index, maycreate, liftedindex)
+        @test maycreate === True()
+        if liftedindex === nothing
+            return "Hello"
+        else
+            return "World"
+        end
+    end
+
+    @test unroll(proxylabel(:x, LiftingTest(), nothing, True())) === "Hello"
+    @test unroll(proxylabel(:x, LiftingTest(), (1,), True())) === 'W'
+    @test unroll(proxylabel(:r, proxylabel(:x, proxylabel(:z, LiftingTest(), nothing), (3,), True()), nothing)) === 'r'
+    @test unroll(
+        proxylabel(:r, proxylabel(:x, proxylabel(:w, proxylabel(:z, LiftingTest(), nothing), (2:3,), True()), (1,), False()), nothing)
+    ) === 'o'
+end
+
+@testitem "`VariableRef` iterators interface" begin
+    import GraphPPL: VariableRef, getcontext
 
     include("testutils.jl")
 
-    @testset "Individual variable creation" begin 
+    @testset "Missing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        x = LazyLabel(:x, model, ctx)
-        p = proxylabel(:p, nothing, x)
-        _x = unroll(p)
-        @test _x isa NodeLabel
-        @test _x === ctx[:x]
+        xref = VariableRef(model, ctx, :x, nothing)
 
-        z = LazyLabel(:z, model, ctx)
-        r = proxylabel(:r, nothing, proxylabel(:w, nothing, z))
-        _z = unroll(r)
-        @test _z isa NodeLabel
-        @test _z === ctx[:z]
+        @test @inferred(Base.IteratorSize(xref)) === Base.SizeUnknown()
+        @test @inferred(Base.IteratorEltype(xref)) === Base.EltypeUnknown()
+        @test @inferred(Base.eltype(xref)) === Any
     end
 
-    @testset "Vector variable creation" begin 
+    @testset "Existing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        x = LazyLabel(:x, model, ctx)
-        p = proxylabel(:p, (1, ), x)
-        _x = unroll(p)
-        @test _x isa NodeLabel
-        @test _x === ctx[:x][1]
+        xref = VariableRef(model, ctx, :x, (1, ))
 
-        p = proxylabel(:p, (2, ), x)
-        _x = unroll(p)
-        @test _x isa NodeLabel
-        @test _x === ctx[:x][2]
+        @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{1}()
+        @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
+        @test @inferred(Base.eltype(xref)) === GraphPPL.NodeLabel
     end
 
-    @testset "throw_if_tensor_variable variable creation" begin 
+    @testset "Missing internal but existing external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        x = LazyLabel(:x, model, ctx)
-        p = proxylabel(:p, (1, 1, 1), x)
-        _x = unroll(p)
-        @test _x isa NodeLabel
-        @test _x === ctx[:x][1, 1, 1]
+        xref = VariableRef(model, ctx, :x, nothing, [ 1.0 1.0; 1.0, 1.0 ])
 
-        p = proxylabel(:p, (1, 1, 2), x)
-        _x = unroll(p)
-        @test _x isa NodeLabel
-        @test _x === ctx[:x][1, 1, 2]
+        @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{2}()
+        @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
+        @test @inferred(Base.eltype(xref)) === Float64
+    end
+end
+
+@testitem "`VariableRef` in combination with `ProxyLabel` should create variables in the model" begin
+    import GraphPPL:
+        VariableRef,
+        getcontext,
+        unroll,
+        ProxyLabel,
+        NodeLabel,
+        proxylabel,
+        NodeCreationOptions,
+        VariableKindRandom,
+        VariableKindData,
+        getproperties,
+        is_kind,
+        MissingCollection,
+        getorcreate!
+
+    include("testutils.jl")
+
+    @testset "Individual variable creation" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        xref = VariableRef(model, ctx, :x, nothing)
+        x = unroll(proxylabel(:p, xref, nothing, True()))
+        @test x isa NodeLabel
+        @test x === ctx[:x]
+        @test is_kind(getproperties(model[x]), VariableKindRandom)
+
+        zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, nothing, MissingCollection())
+        # Top level `False` should not play a role here really, but is also essential
+        # The bottom level `True` does allow the creation of the variable and the top-level `False` should only fetch
+        z = unroll(proxylabel(:r, proxylabel(:w, zref, nothing, True()), nothing, False()))
+        @test z isa NodeLabel
+        @test z === ctx[:z]
+        @test is_kind(getproperties(model[z]), VariableKindData)
     end
 
+    @testset "Vectored variable creation" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        xref = VariableRef(model, ctx, :x, nothing)
+        for i in 1:10
+            x = unroll(proxylabel(:x, xref, (i,), True()))
+            @test x isa NodeLabel
+            @test x === ctx[:x][i]
+        end
+        @test length(xref) === 10
+        @test firstindex(xref) === 1
+        @test lastindex(xref) === 10
+        @test collect(eachindex(xref)) == collect(1:10)
+        @test size(xref) === (10,)
+    end
+
+    @testset "throw_if_tensor_variable variable creation" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        xref = VariableRef(model, ctx, :x, nothing)
+        for i in 1:10, j in 1:10
+            xij = unroll(proxylabel(:x, xref, (i, j), True()))
+            @test xij isa NodeLabel
+            @test xij === ctx[:x][i, j]
+        end
+        @test length(xref) === 100
+        @test firstindex(xref) === 1
+        @test lastindex(xref) === 100
+        @test collect(eachindex(xref)) == collect(CartesianIndices((1:10, 1:10)))
+        @test size(xref) === (10, 10)
+    end
+
+    @testset "Variable should not be created if the `creation` flag is set to `False`" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        # `x` is not created here, should fail during `unroll`
+        xref = VariableRef(model, ctx, :x, nothing)
+        @test_throws "The variable `x` has been used, but has not been instantiated" unroll(proxylabel(:x, xref, nothing, False()))
+        # Force create `x`
+        getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+        # Since `x` has been created the `False` flag should not throw
+        xref = VariableRef(model, ctx, :x, nothing)
+        @test ctx[:x] === unroll(proxylabel(:x, xref, nothing, False()))
+    end
 end
 
 @testitem "NodeLabel properties" begin
     import GraphPPL: NodeLabel
 
-    x = NodeLabel(:x, 1)
-    @test x[1] == x
-    @test length(x) === 1
-    @test GraphPPL.to_symbol(x) === :x_1
+    xref = NodeLabel(:x, 1)
+    @test xref[1] == xref
+    @test length(xref) === 1
+    @test GraphPPL.to_symbol(xref) === :x_1
 
     y = NodeLabel(:y, 2)
-    @test x < y
+    @test xref < y
 end
 
 @testitem "getname(::NodeLabel)" begin
     import GraphPPL: ResizableArray, NodeLabel, getname
 
-    x = NodeLabel(:x, 1)
-    @test getname(x) == :x
+    xref = NodeLabel(:x, 1)
+    @test getname(xref) == :x
 
-    x = ResizableArray(NodeLabel, Val(1))
-    x[1] = NodeLabel(:x, 1)
-    @test getname(x) == :x
+    xref = ResizableArray(NodeLabel, Val(1))
+    xref[1] = NodeLabel(:x, 1)
+    @test getname(xref) == :x
 
-    x = ResizableArray(NodeLabel, Val(1))
-    x[2] = NodeLabel(:x, 1)
-    @test getname(x) == :x
+    xref = ResizableArray(NodeLabel, Val(1))
+    xref[2] = NodeLabel(:x, 1)
+    @test getname(xref) == :x
 end
 
 @testitem "setindex!(::Model, ::NodeData, ::NodeLabel)" begin
@@ -720,11 +846,11 @@ end
     ctx = getcontext(model)
 
     μ = NodeLabel(:μ, 1)
-    x = NodeLabel(:x, 2)
+    xref = NodeLabel(:x, 2)
 
     model[μ] = NodeData(ctx, VariableNodeProperties(name = :μ, index = nothing))
-    model[x] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
-    model[μ, x] = EdgeLabel(:interface, 1)
+    model[xref] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
+    model[μ, xref] = EdgeLabel(:interface, 1)
 
     @test ne(model) == 1
     @test_throws MethodError model[0, 1] = 1
@@ -1156,11 +1282,11 @@ end
     end
 
     @model function state_space_model_with_new(y)
-        x[1] ~ Normal(0, 1)
-        y[1] ~ Normal(x[1], 1)
+        xref[1] ~ Normal(0, 1)
+        y[1] ~ Normal(xref[1], 1)
         for i in 2:length(y)
             # `x[i]` is not defined here, so this should fail
-            y[i] ~ submodel(x_next = new(x[i]), x_prev = x[i - 1])
+            y[i] ~ submodel(x_next = new(xref[i]), x_prev = xref[i - 1])
         end
     end
 
@@ -1302,36 +1428,36 @@ end
     ctx = getcontext(model)
     function child end
     child_context = Context(ctx, child)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, nothing)
-    z = getorcreate!(model, ctx, NodeCreationOptions(), :z, nothing)
-    copy_markov_blanket_to_child_context(child_context, (in1 = x, in2 = y, out = z))
-    @test child_context[:in1] === x
+    zref = getorcreate!(model, ctx, NodeCreationOptions(), :z, nothing)
+    copy_markov_blanket_to_child_context(child_context, (in1 = xref, in2 = y, out = zref))
+    @test child_context[:in1] === xref
 
     # Test 2: Copy vector variables
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2)
     child_context = Context(ctx, child)
-    copy_markov_blanket_to_child_context(child_context, (in = x,))
-    @test child_context[:in] === x
+    copy_markov_blanket_to_child_context(child_context, (in = xref,))
+    @test child_context[:in] === xref
 
     # Test 3: Copy tensor variables
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 2)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 2)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 2)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 2)
     child_context = Context(ctx, child)
-    copy_markov_blanket_to_child_context(child_context, (in = x,))
-    @test child_context[:in] === x
+    copy_markov_blanket_to_child_context(child_context, (in = xref,))
+    @test child_context[:in] === xref
 
     # Test 4: Do not copy constant variables
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     child_context = Context(ctx, child)
     copy_markov_blanket_to_child_context(child_context, (in = 1,))
     @test !haskey(child_context, :in)
@@ -1346,64 +1472,64 @@ end
     # Test 6: Copy ProxyLabel variables to child context
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    x = ProxyLabel(:x, nothing, x)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = ProxyLabel(:x, nothing, xref)
     child_context = Context(ctx, child)
-    copy_markov_blanket_to_child_context(child_context, (in = x,))
-    @test child_context[:in] == x
+    copy_markov_blanket_to_child_context(child_context, (in = xref,))
+    @test child_context[:in] == xref
 end
 
 @testitem "check_variate_compatability" begin
     import GraphPPL: check_variate_compatability, NodeLabel, ResizableArray, FunctionalIndex
 
     # Test 1: Check that a one dimensional variable is compatable with a symbol
-    x = NodeLabel(:x, 1)
-    @test check_variate_compatability(x, nothing)
+    xref = NodeLabel(:x, 1)
+    @test check_variate_compatability(xref, nothing)
 
     # Test 2: Check that an assigned vector variable returns the vector itself when called
-    x = ResizableArray(NodeLabel, Val(1))
-    x[1] = NodeLabel(:x, 1)
-    @test check_variate_compatability(x, 1)
+    xref = ResizableArray(NodeLabel, Val(1))
+    xref[1] = NodeLabel(:x, 1)
+    @test check_variate_compatability(xref, 1)
 
     #Test 3: Check that if it is not assigned, it is false
-    @test !check_variate_compatability(x, 2)
+    @test !check_variate_compatability(xref, 2)
 
     #Test 4: Check that if we overindex the array, it crashes
-    @test_throws ErrorException check_variate_compatability(x, 1, 1)
+    @test_throws ErrorException check_variate_compatability(xref, 1, 1)
 
     #Test 5: Check that if we underindex the array, it crashes
-    x = ResizableArray(NodeLabel, Val(2))
-    x[1, 1] = NodeLabel(:x, 1)
-    @test_throws ErrorException check_variate_compatability(x, 1)
+    xref = ResizableArray(NodeLabel, Val(2))
+    xref[1, 1] = NodeLabel(:x, 1)
+    @test_throws ErrorException check_variate_compatability(xref, 1)
 
     #Test 6: Check that if we call an individual variable with an index, we return false
-    x = NodeLabel(:x, 1)
-    @test_throws ErrorException !check_variate_compatability(x, 1)
+    xref = NodeLabel(:x, 1)
+    @test_throws ErrorException !check_variate_compatability(xref, 1)
 
     #Test 7: Check that if we call a vector variable without an index, we return false
-    x = ResizableArray(NodeLabel, Val(1))
-    x[1] = NodeLabel(:x, 1)
-    @test_throws ErrorException !check_variate_compatability(x, nothing)
+    xref = ResizableArray(NodeLabel, Val(1))
+    xref[1] = NodeLabel(:x, 1)
+    @test_throws ErrorException !check_variate_compatability(xref, nothing)
 
     #Test 8: Check that 1-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
-    x = ResizableArray(NodeLabel, Val(1))
-    x[1] = NodeLabel(:x, 1)
+    xref = ResizableArray(NodeLabel, Val(1))
+    xref[1] = NodeLabel(:x, 1)
     ibegin = FunctionalIndex{:begin}(firstindex)
     iend = FunctionalIndex{:end}(lastindex)
-    @test check_variate_compatability(x, ibegin)
-    @test check_variate_compatability(x, iend)
-    @test !check_variate_compatability(x, ibegin - 10)
-    @test !check_variate_compatability(x, iend + 10)
+    @test check_variate_compatability(xref, ibegin)
+    @test check_variate_compatability(xref, iend)
+    @test !check_variate_compatability(xref, ibegin - 10)
+    @test !check_variate_compatability(xref, iend + 10)
 
     #Test 8: Check that 2-dim ResizableArrays and FunctionalIndices can be used in check_variate_compatability
-    x = ResizableArray(NodeLabel, Val(2))
-    x[1, 1] = NodeLabel(:x, 1)
+    xref = ResizableArray(NodeLabel, Val(2))
+    xref[1, 1] = NodeLabel(:x, 1)
     ibegin = FunctionalIndex{:begin}(firstindex)
     iend = FunctionalIndex{:end}(lastindex)
-    @test check_variate_compatability(x, ibegin, ibegin)
-    @test check_variate_compatability(x, iend, iend)
-    @test !check_variate_compatability(x, ibegin - 10, iend)
-    @test !check_variate_compatability(x, iend + 10, iend)
+    @test check_variate_compatability(xref, ibegin, ibegin)
+    @test check_variate_compatability(xref, iend, iend)
+    @test !check_variate_compatability(xref, ibegin - 10, iend)
+    @test !check_variate_compatability(xref, iend + 10, iend)
 end
 
 @testitem "getorcreate!" begin
@@ -1425,10 +1551,10 @@ end
         # Test 1: Creation of regular one-dimensional variable
         model = create_test_model()
         ctx = getcontext(model)
-        x = if !@isdefined(x)
+        x = if !@isdefined(xref)
             getorcreate!(model, ctx, :x, nothing)
         else
-            (check_variate_compatability(x, :x) ? x : getorcreate!(model, ctx, :x, nothing))
+            (check_variate_compatability(xref, :x) ? xref : getorcreate!(model, ctx, :x, nothing))
         end
         @test nv(model) == 1 && ne(model) == 0
 
@@ -1479,10 +1605,10 @@ end
         #Test 9: Test that creating a tensor variable creates a tensor of the correct size
         model = create_test_model()
         ctx = getcontext(model)
-        z = if !@isdefined(z)
+        z = if !@isdefined(zref)
             getorcreate!(model, ctx, :z, 1, 1)
         else
-            (check_variate_compatability(z, 1, 1) ? z : getorcreate!(model, ctx, :z, 1, 1))
+            (check_variate_compatability(zref, 1, 1) ? zref : getorcreate!(model, ctx, :z, 1, 1))
         end
         @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
 
@@ -1605,8 +1731,8 @@ end
     ctx = getcontext(model)
 
     # Test case 1: check that getifcreated  the variable created by getorcreate
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    @test getifcreated(model, ctx, x) == x
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    @test getifcreated(model, ctx, xref) == xref
 
     # Test case 2: check that getifcreated returns the variable created by getorcreate in a vector
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, 1)
@@ -1621,8 +1747,8 @@ end
     @test value(getproperties(model[c])) == [1, 2]
 
     # Test case 5: check that getifcreated returns a tuple of variable nodes when called with a tuple of NodeData
-    output = getifcreated(model, ctx, (x, y[1]))
-    @test output == (x, y[1])
+    output = getifcreated(model, ctx, (xref, y[1]))
+    @test output == (xref, y[1])
 
     # Test case 6: check that getifcreated returns a tuple of new variable nodes when called with a tuple of integers
     output = getifcreated(model, ctx, (1, 2))
@@ -1630,51 +1756,51 @@ end
     @test value(getproperties(model[output[2]])) == 2
 
     # Test case 7: check that getifcreated returns a tuple of variable nodes when called with a tuple of mixed input
-    output = getifcreated(model, ctx, (x, 1))
-    @test output[1] == x && value(getproperties(model[output[2]])) == 1
+    output = getifcreated(model, ctx, (xref, 1))
+    @test output[1] == xref && value(getproperties(model[output[2]])) == 1
 
     # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
     model = create_test_model()
     ctx = getcontext(model)
-    z = getorcreate!(model, ctx, NodeCreationOptions(), :z, 1)
-    z_fetched = getifcreated(model, ctx, z[1])
-    @test z_fetched == z[1]
+    zref = getorcreate!(model, ctx, NodeCreationOptions(), :z, 1)
+    z_fetched = getifcreated(model, ctx, zref[1])
+    @test z_fetched == zref[1]
 
     # Test case 11: Test that getifcreated returns a constant node when we call it with a symbol
     model = create_test_model()
     ctx = getcontext(model)
-    z = getifcreated(model, ctx, :Bernoulli)
-    @test value(getproperties(model[z])) == :Bernoulli
+    zref = getifcreated(model, ctx, :Bernoulli)
+    @test value(getproperties(model[zref])) == :Bernoulli
 
     # Test case 12: Test that getifcreated returns a vector of NodeLabels if called with a vector of NodeLabels
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, nothing)
-    z = getifcreated(model, ctx, [x, y])
-    @test z == [x, y]
+    zref = getifcreated(model, ctx, [xref, y])
+    @test zref == [xref, y]
 
     # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
-    z = getifcreated(model, ctx, x)
-    @test z == x
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
+    zref = getifcreated(model, ctx, xref)
+    @test zref == xref
 
     # Test case 14: Test that getifcreated returns multiple variables if called with a tuple of constants
     model = create_test_model()
     ctx = getcontext(model)
-    z = getifcreated(model, ctx, ([1, 1], 2))
-    @test nv(model) == 2 && value(getproperties(model[z[1]])) == [1, 1] && value(getproperties(model[z[2]])) == 2
+    zref = getifcreated(model, ctx, ([1, 1], 2))
+    @test nv(model) == 2 && value(getproperties(model[zref[1]])) == [1, 1] && value(getproperties(model[zref[2]])) == 2
 
     # Test case 15: Test that getifcreated returns a ProxyLabel if called with a ProxyLabel
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
-    x = ProxyLabel(:x, nothing, x)
-    z = getifcreated(model, ctx, x)
-    @test z === x
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = ProxyLabel(:x, nothing, xref)
+    zref = getifcreated(model, ctx, xref)
+    @test zref === xref
 end
 
 @testitem "add_variable_node!" begin
@@ -1816,7 +1942,7 @@ end
     model = create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.MetaPlugin()))
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
+    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     node_id, node_data, node_properties = add_atomic_factor_node!(model, ctx, options, sum)
     @test model[node_id] === node_data
     @test nv(model) == 2 && getname(label_for(model.graph, 2)) == sum
@@ -1887,14 +2013,14 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
+    xref, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
     y = getorcreate!(model, ctx, :y, nothing)
 
-    add_edge!(model, x, xproperties, y, :interface)
+    add_edge!(model, xref, xproperties, y, :interface)
 
     @test ne(model) == 1
 
-    @test_throws MethodError add_edge!(model, x, xproperties, y, 123)
+    @test_throws MethodError add_edge!(model, xref, xproperties, y, 123)
 end
 
 @testitem "add_edge!(::Model, ::NodeLabel, ::Vector{NodeLabel}, ::Symbol)" begin
@@ -1908,10 +2034,10 @@ end
     y = getorcreate!(model, ctx, :y, nothing)
 
     variable_nodes = [getorcreate!(model, ctx, i, nothing) for i in [:a, :b, :c]]
-    x, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
-    add_edge!(model, x, xproperties, variable_nodes, :interface)
+    xref, xdata, xproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
+    add_edge!(model, xref, xproperties, variable_nodes, :interface)
 
-    @test ne(model) == 3 && model[variable_nodes[1], x] == EdgeLabel(:interface, 1)
+    @test ne(model) == 3 && model[variable_nodes[1], xref] == EdgeLabel(:interface, 1)
 end
 
 @testitem "default_parametrization" begin
@@ -2000,18 +2126,18 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = AnonymousVariable(model, ctx)
-    @test make_node!(model, ctx, options, +, x, (1, 1)) == (nothing, 2)
-    @test make_node!(model, ctx, options, sin, x, (0,)) == (nothing, 0)
+    xref = AnonymousVariable(model, ctx)
+    @test make_node!(model, ctx, options, +, xref, (1, 1)) == (nothing, 2)
+    @test make_node!(model, ctx, options, sin, xref, (0,)) == (nothing, 0)
     @test nv(model) == 0
 
-    x = ProxyLabel(:proxy, nothing, AnonymousVariable(model, ctx))
-    @test make_node!(model, ctx, options, +, x, (1, 1)) == (nothing, 2)
-    @test make_node!(model, ctx, options, sin, x, (0,)) == (nothing, 0)
+    xref = ProxyLabel(:proxy, nothing, AnonymousVariable(model, ctx))
+    @test make_node!(model, ctx, options, +, xref, (1, 1)) == (nothing, 2)
+    @test make_node!(model, ctx, options, sin, xref, (0,)) == (nothing, 0)
     @test nv(model) == 0
 
     # Test 2: Stochastic atomic call returns a new node id
-    node_id, _ = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
+    node_id, _ = make_node!(model, ctx, options, Normal, xref, (μ = 0, σ = 1))
     @test nv(model) == 4
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
@@ -2020,8 +2146,8 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, Normal, x, (0, 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    make_node!(model, ctx, options, Normal, xref, (0, 1))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
@@ -2048,8 +2174,8 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    node_id, _ = make_node!(model, ctx, options, Normal, x, (0, 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    node_id, _ = make_node!(model, ctx, options, Normal, xref, (0, 1))
     @test nv(model) == 4
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
@@ -2059,8 +2185,8 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     uprior = Normal(0, 1)
-    x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, uprior, x, nothing)
+    xref = getorcreate!(model, ctx, :x, nothing)
+    node_id = make_node!(model, ctx, options, uprior, xref, nothing)
     @test nv(model) == 2
 
     # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
@@ -2122,24 +2248,24 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, τ = 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    node_id = make_node!(model, ctx, options, Normal, xref, (μ = 0, τ = 1))
     @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, Normal, x, (μ = 0, σ = 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    node_id = make_node!(model, ctx, options, Normal, xref, (μ = 0, σ = 1))
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    node_id = make_node!(model, ctx, options, Normal, x, (0, 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    node_id = make_node!(model, ctx, options, Normal, xref, (0, 1))
     @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
@@ -2147,12 +2273,12 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    x = ProxyLabel(:x, nothing, x)
+    xref = getorcreate!(model, ctx, :x, nothing)
+    xref = ProxyLabel(:x, nothing, xref)
     y = getorcreate!(model, ctx, :y, nothing)
     y = ProxyLabel(:y, nothing, y)
-    z = getorcreate!(model, ctx, :z, nothing)
-    node_id = make_node!(model, ctx, options, +, z, (x, y))
+    zref = getorcreate!(model, ctx, :z, nothing)
+    node_id = make_node!(model, ctx, options, +, zref, (xref, y))
     prune!(model)
     @test nv(model) == 4
 
@@ -2194,10 +2320,10 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
+    xref = getorcreate!(model, ctx, :x, nothing)
 
     # Test 1: Stochastic atomic call returns a new node
-    node_id, _, _ = materialize_factor_node!(model, ctx, options, Normal, (out = x, μ = 0, σ = 1))
+    node_id, _, _ = materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = 0, σ = 1))
     @test nv(model) == 4
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
@@ -2206,8 +2332,8 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    materialize_factor_node!(model, ctx, options, Normal, (out = x, μ = 0, σ = 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = 0, σ = 1))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
@@ -2224,12 +2350,12 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    x = ProxyLabel(:x, nothing, x)
+    xref = getorcreate!(model, ctx, :x, nothing)
+    xref = ProxyLabel(:x, nothing, xref)
     y = getorcreate!(model, ctx, :y, nothing)
     y = ProxyLabel(:y, nothing, y)
-    z = getorcreate!(model, ctx, :z, nothing)
-    node_id = materialize_factor_node!(model, ctx, options, +, (out = z, in = (x, y)))
+    zref = getorcreate!(model, ctx, :z, nothing)
+    node_id = materialize_factor_node!(model, ctx, options, +, (out = zref, in = (xref, y)))
     prune!(model)
     @test nv(model) == 4
 end
@@ -2246,17 +2372,17 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, x), ())
+    xref = getorcreate!(model, ctx, :x, nothing)
+    make_node!(model, ctx, options, prior, ProxyLabel(:x, nothing, xref), ())
     @test nv(model) == 4
-    @test ctx[prior, 1][:a] == ProxyLabel(:x, nothing, x)
+    @test ctx[prior, 1][:a] == ProxyLabel(:x, nothing, xref)
 
     #test make node for other composite models
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, x), (0, 1))
+    xref = getorcreate!(model, ctx, :x, nothing)
+    @test_throws ErrorException make_node!(model, ctx, options, gcv, ProxyLabel(:x, nothing, xref), (0, 1))
 
     # test make node of broadcastable composite model
     model = create_test_model()
@@ -2276,7 +2402,7 @@ end
     # Test 1: Prune a node with no edges
     model = create_test_model()
     ctx = getcontext(model)
-    x = getorcreate!(model, ctx, :x, nothing)
+    xref = getorcreate!(model, ctx, :x, nothing)
     prune!(model)
     @test nv(model) == 0
 
@@ -2284,12 +2410,12 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, nothing)
+    xref = getorcreate!(model, ctx, :x, nothing)
     y, ydata, yproperties = GraphPPL.add_atomic_factor_node!(model, ctx, options, sum)
-    z = getorcreate!(model, ctx, :z, nothing)
+    zref = getorcreate!(model, ctx, :z, nothing)
     w = getorcreate!(model, ctx, :w, nothing)
 
-    add_edge!(model, y, yproperties, z, :test)
+    add_edge!(model, y, yproperties, zref, :test)
     prune!(model)
     @test nv(model) == 2
 end
@@ -2303,61 +2429,61 @@ end
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, 1)
-    x = getorcreate!(model, ctx, :x, 2)
+    xref = getorcreate!(model, ctx, :x, 1)
+    xref = getorcreate!(model, ctx, :x, 2)
     y = getorcreate!(model, ctx, :y, 1)
     y = getorcreate!(model, ctx, :y, 2)
-    z = getorcreate!(model, ctx, :z, 1)
-    z = getorcreate!(model, ctx, :z, 2)
-    z = broadcast((z_, x_, y_) -> begin
+    zref = getorcreate!(model, ctx, :z, 1)
+    zref = getorcreate!(model, ctx, :z, 2)
+    zref = broadcast((z_, x_, y_) -> begin
         var = make_node!(model, ctx, options, +, z_, (x_, y_))
-    end, z, x, y)
-    @test size(z) == (2,)
+    end, zref, xref, y)
+    @test size(zref) == (2,)
 
     # Test 2: Broadcast a matrix node
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, 1, 1)
-    x = getorcreate!(model, ctx, :x, 1, 2)
-    x = getorcreate!(model, ctx, :x, 2, 1)
-    x = getorcreate!(model, ctx, :x, 2, 2)
+    xref = getorcreate!(model, ctx, :x, 1, 1)
+    xref = getorcreate!(model, ctx, :x, 1, 2)
+    xref = getorcreate!(model, ctx, :x, 2, 1)
+    xref = getorcreate!(model, ctx, :x, 2, 2)
 
     y = getorcreate!(model, ctx, :y, 1, 1)
     y = getorcreate!(model, ctx, :y, 1, 2)
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
 
-    z = getorcreate!(model, ctx, :z, 1, 1)
-    z = getorcreate!(model, ctx, :z, 1, 2)
-    z = getorcreate!(model, ctx, :z, 2, 1)
-    z = getorcreate!(model, ctx, :z, 2, 2)
+    zref = getorcreate!(model, ctx, :z, 1, 1)
+    zref = getorcreate!(model, ctx, :z, 1, 2)
+    zref = getorcreate!(model, ctx, :z, 2, 1)
+    zref = getorcreate!(model, ctx, :z, 2, 2)
 
-    z = broadcast((z_, x_, y_) -> begin
+    zref = broadcast((z_, x_, y_) -> begin
         var = make_node!(model, ctx, options, +, z_, (x_, y_))
-    end, z, x, y)
-    @test size(z) == (2, 2)
+    end, zref, xref, y)
+    @test size(zref) == (2, 2)
 
     # Test 3: Broadcast a vector node with a matrix node
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    x = getorcreate!(model, ctx, :x, 1)
-    x = getorcreate!(model, ctx, :x, 2)
+    xref = getorcreate!(model, ctx, :x, 1)
+    xref = getorcreate!(model, ctx, :x, 2)
     y = getorcreate!(model, ctx, :y, 1, 1)
     y = getorcreate!(model, ctx, :y, 1, 2)
     y = getorcreate!(model, ctx, :y, 2, 1)
     y = getorcreate!(model, ctx, :y, 2, 2)
 
-    z = getorcreate!(model, ctx, :z, 1, 1)
-    z = getorcreate!(model, ctx, :z, 1, 2)
-    z = getorcreate!(model, ctx, :z, 2, 1)
-    z = getorcreate!(model, ctx, :z, 2, 2)
+    zref = getorcreate!(model, ctx, :z, 1, 1)
+    zref = getorcreate!(model, ctx, :z, 1, 2)
+    zref = getorcreate!(model, ctx, :z, 2, 1)
+    zref = getorcreate!(model, ctx, :z, 2, 2)
 
-    z = broadcast((z_, x_, y_) -> begin
+    zref = broadcast((z_, x_, y_) -> begin
         var = make_node!(model, ctx, options, +, z_, (x_, y_))
-    end, z, x, y)
-    @test size(z) == (2, 2)
+    end, zref, xref, y)
+    @test size(zref) == (2, 2)
 end
 
 @testitem "getindex for StaticInterfaces" begin

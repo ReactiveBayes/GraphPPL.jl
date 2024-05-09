@@ -235,57 +235,91 @@ Base.hash(label::EdgeLabel, h::UInt) = hash(label.name, hash(label.index, h))
 """
     ProxyLabel(name, index, proxied)
 
-A label that proxies another label in a probabilistic graphical model.
+A label that proxies another label in a probabilistic graphical model. 
+The proxied objects must implement the `is_proxied(::Type) = True()`.
+The proxy labels may spawn new variables in a model, if `maycreate` is set to `True()`.
 """
-mutable struct ProxyLabel{T, V}
+mutable struct ProxyLabel{P, I, M}
     const name::Symbol
-    const index::T
-    const proxied::V
+    const proxied::P
+    const index::I
+    const maycreate::M
 end
 
-# We need two methods to resolve the ambiguities
-proxylabel(name::Symbol, index::Nothing, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) =
-    ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::Tuple, proxied::Union{NodeLabel, ProxyLabel, ResizableArray{NodeLabel}}) = ProxyLabel(name, index, proxied)
+is_proxied(any) = is_proxied(typeof(any))
+is_proxied(::Type) = False()
+is_proxied(::Type{T}) where {T <: NodeLabel} = True()
+is_proxied(::Type{T}) where {T <: ProxyLabel} = True()
+is_proxied(::Type{T}) where {T <: AbstractArray} = is_proxied(eltype(T))
+
+# By default, `proxylabel` set `maycreate` to `False`
+proxylabel(name::Symbol, proxied, index) = proxylabel(name, proxied, index, False())
+proxylabel(name::Symbol, proxied, index, maycreate) = proxylabel(is_proxied(proxied), name, proxied, index, maycreate)
+
+# In case if `is_proxied` returns `False` we simply return the original object, because the object cannot be proxied
+proxylabel(::False, name::Symbol, proxied::Any, index::Nothing, maycreate) = proxied
+proxylabel(::False, name::Symbol, proxied::Any, index::Tuple, maycreate) = proxied[index...]
+
+# In case if `is_proxied` returns `True`, we wrap the object into the `ProxyLabel` for later `unroll`-ing
+function proxylabel(::True, name::Symbol, proxied::Any, index::Any, maycreate::Any)
+    return ProxyLabel(name, proxied, index, maycreate)
+end
 
 Base.broadcastable(label::ProxyLabel) = Base.broadcastable(unroll(label))
-
-# By default we assume that the `proxied` is just a constant here, so
-# in case if 
-# - `index` is a `nothing` we simply return the constant as it is
-# - `index` is a `Tuple` we return the constant indexed by the tuple
-proxylabel(name::Symbol, index::Nothing, proxied) = proxied
-proxylabel(name::Symbol, index::Tuple, proxied) = proxied[index...]
 
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
-# Keep this, the `unroll` is public API, `__proxy_unroll` is an implementation detail
-unroll(proxy) = __proxy_unroll(proxy)
+function unroll(something)
+    return something
+end
 
-__proxy_unroll(something) = something
-__proxy_unroll(proxy::ProxyLabel) = __proxy_unroll(proxy, proxy.index, proxy.proxied)
-__proxy_unroll(proxy::ProxyLabel, index, proxied) = __safegetindex(__proxy_unroll(proxied), index)
-__proxy_unroll(proxy::ProxyLabel, index::NTuple{N, UnitRange}, proxied) where {N} = __safegetindex(__proxy_unroll(proxied), index)
+function unroll(proxylabel::ProxyLabel)
+    unrolled = unroll(proxylabel, proxylabel.proxied, proxylabel.index, proxylabel.maycreate, proxylabel.index)
+    return checked_getindex(unrolled, proxylabel.index)
+end
 
-__safegetindex(something, index::FunctionalIndex) = Base.getindex(something, index)
-__safegetindex(something, index::Tuple) = Base.getindex(something, index...)
-__safegetindex(something, index::Nothing) = something
+function unroll(proxylabel::ProxyLabel, proxied::ProxyLabel, index, maycreate, liftedindex)
+    # In case of a chain of proxy-labels we should lift the index, that potentially might 
+    # be used to create a new collection of variables
+    liftedindex = lift_index(maycreate, index, liftedindex)
+    unrolled = unroll(proxied, proxied.proxied, proxied.index, maycreate | proxied.maycreate, liftedindex)
+    return checked_getindex(unrolled, index)
+end
 
-__safegetindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
-__safegetindex(nodelabel::NodeLabel, index::Tuple) =
+function unroll(proxylabel::ProxyLabel, something::Any, index, maycreate, liftedindex)
+    return something
+end
+
+checked_getindex(something, index::FunctionalIndex) = Base.getindex(something, index)
+checked_getindex(something, index::Tuple) = Base.getindex(something, index...)
+checked_getindex(something, index::Nothing) = something
+
+checked_getindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
+checked_getindex(nodelabel::NodeLabel, index::Tuple) =
     error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
-__safegetindex(nodelabel::NodeLabel, index) =
+checked_getindex(nodelabel::NodeLabel, index) =
     error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
 
-Base.show(io::IO, proxy::ProxyLabel{NTuple{N, Int}} where {N}) = print(io, getname(proxy), "[", index(proxy), "]")
-Base.show(io::IO, proxy::ProxyLabel{Nothing}) = print(io, getname(proxy))
-Base.show(io::IO, proxy::ProxyLabel) = print(io, getname(proxy), "[", index(proxy)[1], "]")
-Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
-Base.size(proxy::ProxyLabel) = size(unroll(proxy))
+"""
+The `lift_index` function "lifts" (or tracks) the index that is going to be used to determine the shape of the container upon creation
+for a variable during the unrolling of the `ProxyLabel`. This index is used only if the container is set to be created and is not used if 
+variable container already exists.
+"""
+function lift_index end
+
+lift_index(::True, ::Nothing, ::Nothing) = nothing
+lift_index(::True, current, ::Nothing) = current
+lift_index(::True, ::Nothing, previous) = previous
+lift_index(::True, current, previous) = current
+lift_index(::False, current, previous) = previous
+
+Base.show(io::IO, proxy::ProxyLabel) = show_proxy(io, getname(proxy), index(proxy))
+show_proxy(io::IO, name::Symbol, index::Nothing) = print(io, name)
+show_proxy(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
+show_proxy(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
 Base.last(label::ProxyLabel) = last(label.proxied, label)
-
 Base.last(proxied::ProxyLabel, ::ProxyLabel) = last(proxied)
 Base.last(proxied, ::ProxyLabel) = proxied
 
@@ -293,62 +327,9 @@ Base.:(==)(proxy1::ProxyLabel, proxy2::ProxyLabel) =
     proxy1.name == proxy2.name && proxy1.index == proxy2.index && proxy1.proxied == proxy2.proxied
 Base.hash(proxy::ProxyLabel, h::UInt) = hash(proxy.name, hash(proxy.index, hash(proxy.proxied, h)))
 
-struct LazyLabel{M, C}
-    name::Symbol
-    model::M
-    context::C
-end
-
-LazyLabel(name, model, context, index::Tuple{Nothing}) = LazyLabel(name, model, context)
-LazyLabel(name, model, context, index::Nothing) = LazyLabel(name, model, context)
-
-function LazyLabel(name, model, context, index::Tuple)
-    getorcreate!(model, context, name, index...)
-    return LazyLabel(name, model, context)
-end
-
-proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
-
-proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
-proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
-proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
-
-function __proxy_unroll(proxied::LazyLabel)
-    return haskey(proxied.context, proxied.name) ? proxied.context[proxied.name] : getorcreate!(proxied.model, proxied.context, proxied.name, nothing)
-end
-
-function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {T <: Tuple}
-    return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
-end
-
-# This is weird ambiguity
-function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {N, T <: Tuple{Vararg{UnitRange, N}}}
-    return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
-end
-
-function Base.getindex(label::LazyLabel, indices...)
-    if haskey(label.context, label.name)
-        variable = label.context[label.name]
-        return variable[indices...]
-    else
-        error("Cannot index a variable `$(label.name)` with an index `$(indices)`. The variable `$(label.name)` has undefined shape.")
-    end
-end
-
-function Base.broadcastable(label::LazyLabel)
-    if haskey(label.context, label.name)
-        return Base.broadcastable(label.context[label.name])
-    end
-    error("Cannot broadcast a variable `$(label.name)`. The variable has undefined shape.")
-end
-
-function Base.size(label::LazyLabel)
-    if haskey(label.context, label.name)
-        return size(label.context[label.name])
-    end
-    error("Cannot `size` a variable `$(label.name)`. The variable has undefined shape.")
-end
+# Iterator's interface methods
+Base.getindex(proxy::ProxyLabel, indices...) = getindex(unroll(proxy), indices...)
+Base.size(proxy::ProxyLabel) = size(unroll(proxy))
 
 """
     Context
@@ -594,7 +575,7 @@ struct VariableNodeProperties
     value::Any
 end
 
-VariableNodeProperties(; name, index, kind = :random, link = nothing, value = nothing) =
+VariableNodeProperties(; name, index, kind = VariableKindRandom, link = nothing, value = nothing) =
     VariableNodeProperties(name, index, kind, link, value)
 
 is_factor(::VariableNodeProperties)   = false
@@ -604,7 +585,7 @@ function Base.convert(::Type{VariableNodeProperties}, name::Symbol, index, optio
     return VariableNodeProperties(
         name = name,
         index = index,
-        kind = get(options, :kind, :random),
+        kind = get(options, :kind, VariableKindRandom),
         link = get(options, :link, nothing),
         value = get(options, :value, nothing)
     )
@@ -615,11 +596,15 @@ getlink(properties::VariableNodeProperties) = properties.link
 index(properties::VariableNodeProperties) = properties.index
 value(properties::VariableNodeProperties) = properties.value
 
+const VariableKindRandom = :random
+const VariableKindData = :data
+const VariableKindConstant = :constant
+
 is_kind(properties::VariableNodeProperties, kind) = properties.kind === kind
 is_kind(properties::VariableNodeProperties, ::Val{kind}) where {kind} = properties.kind === kind
-is_random(properties::VariableNodeProperties) = is_kind(properties, Val(:random))
-is_data(properties::VariableNodeProperties) = is_kind(properties, Val(:data))
-is_constant(properties::VariableNodeProperties) = is_kind(properties, Val(:constant))
+is_random(properties::VariableNodeProperties) = is_kind(properties, Val(VariableKindRandom))
+is_data(properties::VariableNodeProperties) = is_kind(properties, Val(VariableKindData))
+is_constant(properties::VariableNodeProperties) = is_kind(properties, Val(VariableKindConstant))
 
 const VariableNameAnonymous = :anonymous_var_graphppl
 
@@ -776,6 +761,169 @@ function variable_nodes(callback::F, model::Model) where {F}
         end
     end
 end
+
+struct VariableRef{M, C, O, I, E, L}
+    model::M
+    context::C
+    options::O
+    name::Symbol
+    index::I
+    external_collection::E
+    internal_collection::L
+end
+
+is_proxied(::Type{T}) where {T <: VariableRef} = True()
+
+external_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = E
+internal_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = L
+
+function VariableRef(model::Model, context::Context, name::Symbol, index, external_collection = nothing)
+    return VariableRef(model, context, NodeCreationOptions(), name, index, external_collection)
+end
+
+Base.show(io::IO, ref::VariableRef) = variable_ref_show(io, ref.name, ref.index)
+variable_ref_show(io::IO, name::Symbol, index::Nothing) = print(io, name)
+variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
+variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
+
+function VariableRef(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index, external_collection = nothing)
+    internal_collection = if !isnothing(index)
+        getorcreate!(model, context, name, index...)
+    elseif haskey(context, name)
+        context[name]
+    else
+        nothing
+    end
+    return VariableRef(model, context, options, name, index, external_collection, internal_collection)
+end
+
+function unroll(::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
+    if maycreate === False()
+        return getifcreated(ref.model, ref.context, ref)
+    elseif maycreate === True()
+        return getorcreate!(ref.model, ref.context, ref, liftedindex)
+    end
+    error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
+end
+
+function getifcreated(model::Model, context::Context, var::VariableRef)
+    if !isnothing(var.internal_collection)
+        return var.internal_collection
+    elseif haskey(var.context, var.name)
+        return var.context[var.name]
+    else
+        error(lazy"The variable `$var` has been used, but has not been instantiated.")
+    end
+end
+
+function getorcreate!(model::Model, context::Context, var::VariableRef, index::Nothing)
+    return getorcreate!(model, context, var.options, var.name, index)
+end
+
+function getorcreate!(model::Model, context::Context, var::VariableRef, index::Tuple)
+    return getorcreate!(model, context, var.options, var.name, index...)
+end
+
+Base.IteratorSize(ref::VariableRef) = Base.IteratorSize(typeof(ref))
+Base.IteratorEltype(ref::VariableRef) = Base.IteratorEltype(typeof(ref))
+Base.eltype(ref::VariableRef) = Base.eltype(typeof(ref))
+
+Base.IteratorSize(::Type{R}) where {R <: VariableRef} =
+    variable_ref_iterator_size(external_collection_typeof(R), internal_collection_typeof(R))
+variable_ref_iterator_size(::Type{Nothing}, ::Type{Nothing}) = Base.SizeUnknown()
+variable_ref_iterator_size(::Type{E}, ::Type{L}) where {E, L} = Base.IteratorSize(E)
+variable_ref_iterator_size(::Type{Nothing}, ::Type{L}) where {L} = Base.IteratorSize(L)
+
+Base.IteratorEltype(::Type{R}) where {R <: VariableRef} =
+    variable_ref_iterator_eltype(external_collection_typeof(R), internal_collection_typeof(R))
+variable_ref_iterator_eltype(::Type{Nothing}, ::Type{Nothing}) = Base.EltypeUnknown()
+variable_ref_iterator_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.IteratorEltype(E)
+variable_ref_iterator_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.IteratorEltype(L)
+
+Base.eltype(::Type{R}) where {R <: VariableRef} = variable_ref_eltype(external_collection_typeof(R), internal_collection_typeof(R))
+variable_ref_eltype(::Type{Nothing}, ::Type{Nothing}) = Any
+variable_ref_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.eltype(E)
+variable_ref_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.eltype(L)
+
+function variableref_checked_collection_typeof(::VariableRef)
+    return variableref_checked_iterator_call(typeof, :typeof, ref)
+end
+
+Base.length(ref::VariableRef) = variableref_checked_iterator_call(Base.length, :length, ref)
+Base.size(ref::VariableRef, dims...) = variableref_checked_iterator_call((c) -> Base.size(c, dims...), :size, ref)
+Base.firstindex(ref::VariableRef) = variableref_checked_iterator_call(Base.firstindex, :firstindex, ref)
+Base.lastindex(ref::VariableRef) = variableref_checked_iterator_call(Base.lastindex, :lastindex, ref)
+Base.eachindex(ref::VariableRef) = variableref_checked_iterator_call(Base.eachindex, :eachindex, ref)
+Base.axes(ref::VariableRef) = variableref_checked_iterator_call(Base.axes, :axes, ref)
+
+function variableref_checked_iterator_call(f::F, fsymbol::Symbol, ref::VariableRef) where {F}
+    if !isnothing(ref.external_collection)
+        return f(ref.external_collection)
+    elseif !isnothing(ref.internal_collection)
+        return f(ref.internal_collection)
+    elseif haskey(ref.context, ref.name)
+        return f(ref.context[ref.name])
+    end
+    error(lazy"Cannot call `$(fsymbol)` on variable reference `$(ref.name)`. The variable `$(ref.name)` has not been instantiated.")
+end
+
+# for compilation for now
+struct LazyLabel end
+
+# LazyLabel(name, model, context, index::Tuple{Nothing}) = LazyLabel(name, model, context)
+# LazyLabel(name, model, context, index::Nothing) = LazyLabel(name, model, context)
+
+# function LazyLabel(name, model, context, index::Tuple)
+#     getorcreate!(model, context, name, index...)
+#     return LazyLabel(name, model, context)
+# end
+
+# proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
+# proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
+
+# proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+# proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+# proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+
+# function __proxy_unroll(proxied::LazyLabel)
+#     return if haskey(proxied.context, proxied.name)
+#         proxied.context[proxied.name]
+#     else
+#         getorcreate!(proxied.model, proxied.context, proxied.name, nothing)
+#     end
+# end
+
+# function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {T <: Tuple}
+#     return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
+# end
+
+# # This is weird ambiguity
+# function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {N, T <: Tuple{Vararg{UnitRange, N}}}
+#     return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
+# end
+
+# function Base.getindex(label::LazyLabel, indices...)
+#     if haskey(label.context, label.name)
+#         variable = label.context[label.name]
+#         return variable[indices...]
+#     else
+#         error("Cannot index a variable `$(label.name)` with an index `$(indices)`. The variable `$(label.name)` has undefined shape.")
+#     end
+# end
+
+# function Base.broadcastable(label::LazyLabel)
+#     if haskey(label.context, label.name)
+#         return Base.broadcastable(label.context[label.name])
+#     end
+#     error("Cannot broadcast a variable `$(label.name)`. The variable has undefined shape.")
+# end
+
+# function Base.size(label::LazyLabel)
+#     if haskey(label.context, label.name)
+#         return size(label.context[label.name])
+#     end
+#     error("Cannot `size` a variable `$(label.name)`. The variable has undefined shape.")
+# endß
 
 """
 A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
@@ -1165,14 +1313,6 @@ getifcreated(model::Model, context::Context, var::ResizableArray) = var
 getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}) where {T <: Union{NodeLabel, LazyLabel}} =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
-
-function getifcreated(model::Model, context::Context, var::LazyLabel)
-    if haskey(var.context, var.name)
-        return var.context[var.name]
-    end
-    error("The variable `$(var.name)` has not been created.")
-end
-
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
 
