@@ -272,8 +272,6 @@ function proxylabel(::True, name::Symbol, proxied::ProxyLabel, index::Any, maycr
     return ProxyLabel(name, proxied, index, proxied.maycreate | maycreate)
 end
 
-Base.broadcastable(label::ProxyLabel) = Base.broadcastable(unroll(label))
-
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
@@ -346,6 +344,9 @@ Base.eachindex(proxy::ProxyLabel) = eachindex(indexed_last(proxy))
 Base.axes(proxy::ProxyLabel) = axes(indexed_last(proxy))
 Base.getindex(proxy::ProxyLabel, indices...) = getindex(indexed_last(proxy), indices...)
 Base.size(proxy::ProxyLabel) = size(indexed_last(proxy))
+Base.broadcastable(proxy::ProxyLabel) = Base.broadcastable(indexed_last(proxy))
+
+postprocess_returnval(proxy::ProxyLabel) = postprocess_returnval(indexed_last(proxy))
 
 """Similar to `Base.last` when applied on `ProxyLabel`, but also applies `checked_getindex` while unrolling"""
 function indexed_last end
@@ -403,10 +404,19 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
-returnval(context::Context) = context.returnval[]
-returnval!(context::Context, value) = context.returnval[] = value
 count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
 shortname(context::Context) = string(context.prefix)
+
+returnval(context::Context) = context.returnval[]
+
+function returnval!(context::Context, value)
+    context.returnval[] = postprocess_returnval(value)
+end
+
+# We do not want to return `VariableRef` from the model
+# In this case we replace them with the actual node labels
+postprocess_returnval(value) = value
+postprocess_returnval(value::Tuple) = map(postprocess_returnval, value)
 
 path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
@@ -811,8 +821,8 @@ variable_ref_show(io::IO, name::Symbol, index::Nothing) = print(io, name)
 variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
-function VariableRef(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index, external_collection = nothing)
-    internal_collection = if !isnothing(index)
+function VariableRef(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple, external_collection = nothing)
+    internal_collection = if !all(isnothing, index)
         getorcreate!(model, context, name, index...)
     elseif haskey(context, name)
         context[name]
@@ -880,11 +890,13 @@ function variableref_checked_collection_typeof(::VariableRef)
 end
 
 Base.length(ref::VariableRef) = variableref_checked_iterator_call(Base.length, :length, ref)
-Base.size(ref::VariableRef, dims...) = variableref_checked_iterator_call((c) -> Base.size(c, dims...), :size, ref)
 Base.firstindex(ref::VariableRef) = variableref_checked_iterator_call(Base.firstindex, :firstindex, ref)
 Base.lastindex(ref::VariableRef) = variableref_checked_iterator_call(Base.lastindex, :lastindex, ref)
 Base.eachindex(ref::VariableRef) = variableref_checked_iterator_call(Base.eachindex, :eachindex, ref)
 Base.axes(ref::VariableRef) = variableref_checked_iterator_call(Base.axes, :axes, ref)
+
+Base.size(ref::VariableRef, dims...) = variableref_checked_iterator_call((c) -> Base.size(c, dims...), :size, ref)
+Base.getindex(ref::VariableRef, indices...) = variableref_checked_iterator_call((c) -> Base.getindex(c, indices...), :getindex, ref)
 
 function variableref_checked_iterator_call(f::F, fsymbol::Symbol, ref::VariableRef) where {F}
     if !isnothing(ref.external_collection)
@@ -899,7 +911,14 @@ end
 
 """A function for creating proxy data labels to pass into the model"""
 datalabel(model, context, options, name, collection = MissingCollection()) =
-    proxylabel(name, VariableRef(model, context, options, name, nothing, collection), nothing, True())
+    proxylabel(name, VariableRef(model, context, options, name, (nothing, ), collection), nothing, True())
+
+function postprocess_returnval(ref::VariableRef)
+    if haskey(ref.context, ref.name)
+        return ref.context[ref.name]
+    end
+    error("Cannot `return $(ref)`. The variable has not been instantiated.")
+end
 
 """
 A placeholder collection for `VariableRef` when the actual external collection is not yet available.
@@ -954,13 +973,17 @@ __check_external_collection_compatibility(label::VariableRef, collection, indice
 
 function Base.broadcastable(ref::VariableRef)
     if !isnothing(external_collection(ref))
-        # If we have an underlyign collection (e.g. data), we should instantiate all variables at the point of broadcasting 
+        # If we have an underlying collection (e.g. data), we should instantiate all variables at the point of broadcasting 
         # in order to support something like `y .~ ` where `y` is a data label
-        return collect(Iterators.map(I -> getorcreate!(ref.model, ref.context, ref.options, ref.name, I.I), CartesianIndices(axes(ref))))
+        return collect(
+            Iterators.map(
+                I -> checked_getindex(getorcreate!(ref.model, ref.context, ref.options, ref.name, I.I...), I.I), CartesianIndices(axes(ref))
+            )
+        )
     elseif !isnothing(internal_collection(ref))
-        return internal_collection(ref)
+        return Base.broadcastable(internal_collection(ref))
     elseif haskey(ref.context, ref.name)
-        return ref.context[ref.name]
+        return Base.broadcastable(ref.context[ref.name])
     end
     error("Cannot broadcast over $(ref.name). The underlying collection for `$(ref.name)` has undefined shape.")
 end
