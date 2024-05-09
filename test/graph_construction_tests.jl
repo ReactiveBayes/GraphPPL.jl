@@ -571,7 +571,7 @@ end
 
 @testitem "Force create a new variable with the `new` syntax" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -583,7 +583,9 @@ end
     @model function state_space_model(y)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
+        
         for i in 2:length(y)
+            @show i
             # `x[i]` is not defined here, so this should fail
             y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
         end
@@ -592,7 +594,7 @@ end
     ydata = ones(10)
 
     @test_throws BoundsError create_model(state_space_model()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
         return (y = y,)
     end
 
@@ -606,7 +608,7 @@ end
     end
 
     model = create_model(state_space_model_with_new()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
         return (y = y,)
     end
 

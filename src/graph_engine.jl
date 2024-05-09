@@ -289,7 +289,7 @@ function unroll(proxylabel::ProxyLabel, proxied::ProxyLabel, index, maycreate, l
     # In case of a chain of proxy-labels we should lift the index, that potentially might 
     # be used to create a new collection of variables
     liftedindex = lift_index(maycreate, index, liftedindex)
-    unrolled = unroll(proxied, proxied.proxied, proxied.index, maycreate | proxied.maycreate, liftedindex)
+    unrolled = unroll(proxied, proxied.proxied, proxied.index, proxied.maycreate, liftedindex)
     return checked_getindex(unrolled, index)
 end
 
