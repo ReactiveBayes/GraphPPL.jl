@@ -337,7 +337,8 @@ end
         getproperties,
         PluginsCollection,
         VariationalConstraintsPlugin,
-        with_plugins
+        with_plugins,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -364,7 +365,7 @@ end
             model = create_model(
                 with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
             ) do model, context
-                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+                return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
             end
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
@@ -393,7 +394,7 @@ end
             model = create_model(
                 with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
             ) do model, context
-                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+                return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
             end
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
@@ -489,7 +490,8 @@ end
         getproperties,
         PluginsCollection,
         VariationalConstraintsPlugin,
-        with_plugins
+        with_plugins,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -559,7 +561,7 @@ end
         model = create_model(
             with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
         ) do model, context
-            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+            return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
         end
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
@@ -919,7 +921,8 @@ end
         NodeCreationOptions,
         LazyIndex,
         getextra,
-        hasextra
+        hasextra,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -953,7 +956,7 @@ end
         model = create_model(
             with_plugins(some_state_space_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))
         ) do model, context
-            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = false), :y, LazyIndex(ydata)))
+            return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = false), :y, ydata))
         end
 
         @test length(collect(filter(as_node(Normal), model))) == 21
