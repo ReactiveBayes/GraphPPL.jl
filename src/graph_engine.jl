@@ -265,6 +265,11 @@ function proxylabel(::True, name::Symbol, proxied::Any, index::Any, maycreate::A
     return ProxyLabel(name, proxied, index, maycreate)
 end
 
+# In case if `proxied` is another `ProxyLabel` we take `|` operation with its `maycreate` to lift it further
+function proxylabel(::True, name::Symbol, proxied::ProxyLabel, index::Any, maycreate::Any)
+    return ProxyLabel(name, proxied, index, proxied.maycreate | maycreate)
+end
+
 Base.broadcastable(label::ProxyLabel) = Base.broadcastable(unroll(label))
 
 getname(label::ProxyLabel) = label.name
@@ -777,6 +782,9 @@ is_proxied(::Type{T}) where {T <: VariableRef} = True()
 external_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = E
 internal_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = L
 
+external_collection(ref::VariableRef) = ref.external_collection
+internal_collection(ref::VariableRef) = ref.internal_collection
+
 function VariableRef(model::Model, context::Context, name::Symbol, index, external_collection = nothing)
     return VariableRef(model, context, NodeCreationOptions(), name, index, external_collection)
 end
@@ -797,31 +805,35 @@ function VariableRef(model::Model, context::Context, options::NodeCreationOption
     return VariableRef(model, context, options, name, index, external_collection, internal_collection)
 end
 
-function unroll(::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
+function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
     if maycreate === False()
-        return getifcreated(ref.model, ref.context, ref)
+        return getifcreated(ref.model, ref.context, ref, liftedindex)
     elseif maycreate === True()
         return getorcreate!(ref.model, ref.context, ref, liftedindex)
     end
     error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
 end
 
-function getifcreated(model::Model, context::Context, var::VariableRef)
-    if !isnothing(var.internal_collection)
-        return var.internal_collection
-    elseif haskey(var.context, var.name)
-        return var.context[var.name]
+function getifcreated(model::Model, context::Context, ref::VariableRef, index)
+    if !isnothing(ref.external_collection)
+        return getorcreate!(ref.model, ref.context, ref, index)
+    elseif !isnothing(ref.internal_collection)
+        return ref.internal_collection
+    elseif haskey(ref.context, ref.name)
+        return ref.context[ref.name]
     else
         error(lazy"The variable `$var` has been used, but has not been instantiated.")
     end
 end
 
-function getorcreate!(model::Model, context::Context, var::VariableRef, index::Nothing)
-    return getorcreate!(model, context, var.options, var.name, index)
+function getorcreate!(model::Model, context::Context, ref::VariableRef, index::Nothing)
+    check_external_collection_compatibility(ref, index)
+    return getorcreate!(model, context, ref.options, ref.name, index)
 end
 
-function getorcreate!(model::Model, context::Context, var::VariableRef, index::Tuple)
-    return getorcreate!(model, context, var.options, var.name, index...)
+function getorcreate!(model::Model, context::Context, ref::VariableRef, index::Tuple)
+    check_external_collection_compatibility(ref, index)
+    return getorcreate!(model, context, ref.options, ref.name, index...)
 end
 
 Base.IteratorSize(ref::VariableRef) = Base.IteratorSize(typeof(ref))
@@ -867,63 +879,73 @@ function variableref_checked_iterator_call(f::F, fsymbol::Symbol, ref::VariableR
     error(lazy"Cannot call `$(fsymbol)` on variable reference `$(ref.name)`. The variable `$(ref.name)` has not been instantiated.")
 end
 
-# for compilation for now
-struct LazyLabel end
+"""A function for creating proxy data labels to pass into the model"""
+datalabel(model, context, options, name, collection = MissingCollection()) =
+    proxylabel(name, VariableRef(model, context, options, name, nothing, collection), nothing, True())
 
-# LazyLabel(name, model, context, index::Tuple{Nothing}) = LazyLabel(name, model, context)
-# LazyLabel(name, model, context, index::Nothing) = LazyLabel(name, model, context)
+"""
+A placeholder collection for `VariableRef` when the actual external collection is not yet available.
+"""
+struct MissingCollection end
 
-# function LazyLabel(name, model, context, index::Tuple)
-#     getorcreate!(model, context, name, index...)
-#     return LazyLabel(name, model, context)
-# end
+__err_missing_collection_missing_method(method::Symbol) =
+    error("The `$method` method is not defined for a lazy node label without data attached.")
 
-# proxylabel(name::Symbol, index::Nothing, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
-# proxylabel(name::Symbol, index::Tuple, proxied::LazyLabel) = ProxyLabel(name, index, proxied)
+Base.IteratorSize(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorSize)
+Base.IteratorEltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorEltype)
+Base.eltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:eltype)
+Base.length(::MissingCollection) = __err_missing_collection_missing_method(:length)
+Base.size(::MissingCollection, dims...) = __err_missing_collection_missing_method(:size)
+Base.firstindex(::MissingCollection) = __err_missing_collection_missing_method(:firstindex)
+Base.lastindex(::MissingCollection) = __err_missing_collection_missing_method(:lastindex)
+Base.eachindex(::MissingCollection) = __err_missing_collection_missing_method(:eachindex)
+Base.axes(::MissingCollection) = __err_missing_collection_missing_method(:axes)
 
-# proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
-# proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
-# proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyLabel}) = ProxyLabel(name, index, proxied.proxied)
+function check_external_collection_compatibility(ref::VariableRef, index)
+    if !isnothing(external_collection(ref)) && !__check_external_collection_compatibility(ref, index)
+        error(
+            """
+            The index `[$(!isnothing(index) ? join(index, ", ") : nothing)]` is not compatible with the underlying collection provided for the label `$(ref.name)`.
+            The underlying data provided for `$(ref.name)` is `$(external_collection(ref))`.
+            """
+        )
+    end
+    return nothing
+end
 
-# function __proxy_unroll(proxied::LazyLabel)
-#     return if haskey(proxied.context, proxied.name)
-#         proxied.context[proxied.name]
-#     else
-#         getorcreate!(proxied.model, proxied.context, proxied.name, nothing)
-#     end
-# end
+function __check_external_collection_compatibility(ref::VariableRef, index::Nothing)
+    # We assume that index `nothing` is always compatible with the underlying collection
+    # Eg. a matrix `Σ` can be used both as it is `Σ`, but also as `Σ[1]` or `Σ[1, 1]`
+    return true
+end
 
-# function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {T <: Tuple}
-#     return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
-# end
+function __check_external_collection_compatibility(ref::VariableRef, index::Tuple)
+    return __check_external_collection_compatibility(ref, external_collection(ref), index)
+end
 
-# # This is weird ambiguity
-# function __proxy_unroll(proxy::ProxyLabel, index::T, proxied::LazyLabel) where {N, T <: Tuple{Vararg{UnitRange, N}}}
-#     return getorcreate!(proxied.model, proxied.context, proxied.name, index...)[index...]
-# end
+# We can't really check if the data compatible or not if we get the `MissingCollection`
+__check_external_collection_compatibility(label::VariableRef, ::MissingCollection, index::Tuple) = true
+__check_external_collection_compatibility(label::VariableRef, collection::AbstractArray, indices::Tuple) =
+    checkbounds(Bool, collection, indices...)
+__check_external_collection_compatibility(label::VariableRef, collection::Tuple, indices::Tuple) =
+    length(indices) === 1 && first(indices) ∈ 1:length(collection)
+# A number cannot really be queried with non-empty indices
+__check_external_collection_compatibility(label::VariableRef, collection::Number, indices::Tuple) = false
+# For all other we simply don't know so we assume we are compatible
+__check_external_collection_compatibility(label::VariableRef, collection, indices::Tuple) = true
 
-# function Base.getindex(label::LazyLabel, indices...)
-#     if haskey(label.context, label.name)
-#         variable = label.context[label.name]
-#         return variable[indices...]
-#     else
-#         error("Cannot index a variable `$(label.name)` with an index `$(indices)`. The variable `$(label.name)` has undefined shape.")
-#     end
-# end
-
-# function Base.broadcastable(label::LazyLabel)
-#     if haskey(label.context, label.name)
-#         return Base.broadcastable(label.context[label.name])
-#     end
-#     error("Cannot broadcast a variable `$(label.name)`. The variable has undefined shape.")
-# end
-
-# function Base.size(label::LazyLabel)
-#     if haskey(label.context, label.name)
-#         return size(label.context[label.name])
-#     end
-#     error("Cannot `size` a variable `$(label.name)`. The variable has undefined shape.")
-# endß
+function Base.broadcastable(ref::VariableRef)
+    if !isnothing(external_collection(ref))
+        # If we have an underlyign collection (e.g. data), we should instantiate all variables at the point of broadcasting 
+        # in order to support something like `y .~ ` where `y` is a data label
+        return collect(Iterators.map(I -> getorcreate!(ref.model, ref.context, ref.options, ref.name, I.I), CartesianIndices(axes(ref))))
+    elseif !isnothing(internal_collection(ref))
+        return internal_collection(ref)
+    elseif haskey(ref.context, ref.name)
+        return ref.context[ref.name]
+    end
+    error("Cannot broadcast over $(ref.name). The underlying collection for `$(ref.name)` has undefined shape.")
+end
 
 """
 A structure that holds interfaces of a node in the type argument `I`. Used for dispatch.
@@ -1315,154 +1337,6 @@ getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
-
-"""
-`LazyIndex` is used to track the usage of a variable in the model without explicitly specifying its dimensions.
-`getorcreate!` function will return a `LazyNodeLabel` which will materialize itself upon first usage with the correct dimensions.
-E.g. `y[1]` will materialize vector variable `y` and `y[1, 1]` will materialize tensor variable `y`.
-Optionally the `LazyIndex` can be associated with a `collection`, in which case it not only redirects most of the common 
-collection methods to the underlying collection, but also checks that the dimensions and usage match of such labels in the model specification is correct.
-"""
-struct LazyIndex{C}
-    collection::C
-end
-
-"""
-A placeholder collection for `LazyIndex` when the actual collection is not yet available.
-"""
-struct MissingCollection end
-
-__err_missing_collection_missing_method(method::Symbol) =
-    error("The `$method` method is not defined for a lazy node label without data attached.")
-
-Base.IteratorSize(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorSize)
-Base.IteratorEltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorEltype)
-Base.eltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:eltype)
-Base.length(::MissingCollection) = __err_missing_collection_missing_method(:length)
-Base.size(::MissingCollection, dims...) = __err_missing_collection_missing_method(:size)
-Base.firstindex(::MissingCollection) = __err_missing_collection_missing_method(:firstindex)
-Base.lastindex(::MissingCollection) = __err_missing_collection_missing_method(:lastindex)
-Base.eachindex(::MissingCollection) = __err_missing_collection_missing_method(:eachindex)
-Base.axes(::MissingCollection) = __err_missing_collection_missing_method(:axes)
-
-LazyIndex() = LazyIndex(MissingCollection())
-LazyIndex(::Missing) = LazyIndex(MissingCollection())
-
-getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, index::LazyIndex) =
-    LazyNodeLabel(model, ctx, options, name, index.collection)
-
-"""
-`LazyNodeLabel` is a label that lazily creates variables upon request in the `proxylabel` function.
-"""
-struct LazyNodeLabel{O, C}
-    model::Model
-    context::Context
-    options::O
-    name::Symbol
-    collection::C
-end
-
-Base.broadcastable(label::LazyNodeLabel) = collect(__lazy_iterator(label))
-
-# Redirect some of the standard collection methods to the underlying collection
-Base.IteratorSize(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorSize(C)
-Base.IteratorEltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.IteratorEltype(C)
-Base.eltype(::Type{LazyNodeLabel{O, C}}) where {O, C} = Base.eltype(C)
-Base.length(label::LazyNodeLabel) = Base.length(label.collection)
-Base.size(label::LazyNodeLabel, dims...) = Base.size(label.collection, dims...)
-Base.firstindex(label::LazyNodeLabel) = Base.firstindex(label.collection)
-Base.lastindex(label::LazyNodeLabel) = Base.lastindex(label.collection)
-Base.eachindex(label::LazyNodeLabel) = Base.eachindex(label.collection)
-Base.axes(label::LazyNodeLabel) = Base.axes(label.collection)
-
-function __lazy_iterator(label::LazyNodeLabel)
-    return Iterators.map(I -> materialize_lazy_node_label(label, I.I), CartesianIndices(axes(label)))
-end
-
-function Base.iterate(label::LazyNodeLabel)
-    iterator = __lazy_iterator(label)
-    nextiteration = Base.iterate(iterator)
-    if isnothing(nextiteration)
-        return nothing
-    end
-    element, nextstate = nextiteration
-    return (element, (iterator, nextstate))
-end
-
-function Base.iterate(::LazyNodeLabel, state)
-    iterator, currentstate = state
-    nextiteration = Base.iterate(iterator, currentstate)
-    if isnothing(nextiteration)
-        return nothing
-    end
-    element, nextstate = nextiteration
-    return (element, (iterator, nextstate))
-end
-
-# A `ProxyLabel` with a `LazyNodeLabel` as a proxied variable unrolls to an actual variable upon usage with the `getorcreate!` function
-# This means that the `LazyNodeLabel` will materialize itself upon first usage with the correct dimensions.
-# Note: Need two methods here because of the method ambiguity
-proxylabel(name::Symbol, index::Nothing, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
-proxylabel(name::Symbol, index::Tuple, proxied::LazyNodeLabel) = ProxyLabel(name, index, proxied)
-
-proxylabel(name::Symbol, index::Any, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
-proxylabel(name::Symbol, index::Tuple, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
-proxylabel(name::Symbol, index::Nothing, proxied::ProxyLabel{Nothing, <:LazyNodeLabel}) = ProxyLabel(name, index, proxied.proxied)
-
-# We disallow that because all accesses to the `LazyNodeLabel` should create a real label instead
-getifcreated(::Model, ::Context, ::LazyNodeLabel) = error("`getifcreated` cannot be called on a `LazyNodeLabel`")
-
-materialize_interface(label::LazyNodeLabel) = materialize_lazy_node_label(label, nothing)
-
-function materialize_lazy_node_label(label, index)
-    check_data_compatibility(label, index)
-    return __materialize_lazy_node_label(label, index)
-end
-
-function __materialize_lazy_node_label(label, index::Tuple)
-    return getorcreate!(label.model, label.context, label.options, label.name, index...)[index...]
-end
-
-function __materialize_lazy_node_label(label, index::Nothing)
-    if haskey(label.context, label.name)
-        return label.context[label.name]
-    end
-    return getorcreate!(label.model, label.context, label.options, label.name, nothing)
-end
-
-function check_data_compatibility(label, index)
-    if !__check_data_compatibility(label, index)
-        error(
-            """
-      The index `[$(!isnothing(index) ? join(index, ", ") : nothing)]` is not compatible with the underlying collection provided for the label `$(label.name)`.
-      The underlying data provided for `$(label.name)` is `$(label.collection)`.
-      """
-        )
-    end
-    return nothing
-end
-
-function __check_data_compatibility(label::LazyNodeLabel, index::Nothing)
-    # We assume that no index is always compatible with the underlying collection
-    # Eg. a matrix `Σ` can be used both as it is `Σ`, but also as `Σ[1]` or `Σ[1, 1]`
-    return true
-end
-
-function __check_data_compatibility(label::LazyNodeLabel, index::Tuple)
-    return __check_data_compatibility(label, label.collection, index)
-end
-
-# We can't really check if the data compatible or not if we get the `MissingCollection`
-__check_data_compatibility(label::LazyNodeLabel, ::MissingCollection, index::Tuple) = true
-__check_data_compatibility(label::LazyNodeLabel, collection::AbstractArray, indices::Tuple) = checkbounds(Bool, collection, indices...)
-__check_data_compatibility(label::LazyNodeLabel, collection::Tuple, indices::Tuple) =
-    length(indices) === 1 && first(indices) ∈ 1:length(collection)
-# A number cannot really be queried with non-empty indices
-__check_data_compatibility(label::LazyNodeLabel, collection::Number, indices::Tuple) = false
-# For all other we simply don't know so we assume we are compatible
-__check_data_compatibility(label::LazyNodeLabel, collection, indices::Tuple) = true
-
-__proxy_unroll(::ProxyLabel, index, proxied::LazyNodeLabel) = materialize_lazy_node_label(proxied, index)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)

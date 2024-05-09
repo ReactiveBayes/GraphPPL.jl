@@ -91,7 +91,7 @@ end
 
 @testitem "Simple model with lazy data (number) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
+    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
 
     include("testutils.jl")
 
@@ -102,10 +102,10 @@ end
     end
 
     model = create_model(simple_model_3()) do model, context
-        a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
-        b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, LazyIndex(2.0))
-        c = getorcreate!(model, context, NodeCreationOptions(kind = :data), :c, LazyIndex(π))
-        d = getorcreate!(model, context, NodeCreationOptions(kind = :data), :d, LazyIndex(missing))
+        a = datalabel(model, context, NodeCreationOptions(kind = :data), :a, 1)
+        b = datalabel(model, context, NodeCreationOptions(kind = :data), :b, 2.0)
+        c = datalabel(model, context, NodeCreationOptions(kind = :data), :c, π)
+        d = datalabel(model, context, NodeCreationOptions(kind = :data), :d, missing)
         return (a = a, b = b, c = c, d = d)
     end
 
@@ -120,7 +120,17 @@ end
 
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind
+    import GraphPPL:
+        create_model,
+        getorcreate!,
+        LazyIndex,
+        NodeCreationOptions,
+        MissingCollection,
+        index,
+        getproperties,
+        is_kind,
+        VariableRef,
+        datalabel
 
     include("testutils.jl")
 
@@ -135,14 +145,11 @@ end
         end
     end
 
-    @test LazyIndex() === LazyIndex(MissingCollection())
-    @test LazyIndex(missing) === LazyIndex(MissingCollection())
-
     @testset for n in 5:10
         model = create_model(simple_model_3(n = n)) do model, ctx
-            T = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_T), :T, LazyIndex())
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_y), :y, LazyIndex())
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_Σ), :Σ, LazyIndex())
+            T = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_T), :T)
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_y), :y)
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_Σ), :Σ)
             return (T = T, y = y, Σ = Σ)
         end
 
@@ -1620,7 +1627,7 @@ end
         local c
         c[1] ~ in[1] * w[1]
         for i in 2:k
-            c[i] ~ c[i - 1] + in[i] * w[i] 
+            c[i] ~ c[i - 1] + in[i] * w[i]
         end
         out := identity(c[end])
     end
@@ -1646,9 +1653,7 @@ end
     end
 
     model = create_model(neural_net(k = 3)) do model, ctx
-        in = GraphPPL.getorcreate!(
-            model, ctx, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :in, GraphPPL.LazyIndex(randn(3))
-        )
+        in = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :in, GraphPPL.LazyIndex(randn(3)))
         out = GraphPPL.getorcreate!(
             model, ctx, GraphPPL.NodeCreationOptions(kind = :data, factorized = true), :out, GraphPPL.LazyIndex(randn(2))
         )

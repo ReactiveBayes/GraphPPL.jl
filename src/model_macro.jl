@@ -468,18 +468,7 @@ function proxy_args_rhs(rhs)
     elseif @capture(rhs, rlabel_[index__])
         return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.False()))
     elseif @capture(rhs, new(rlabel_[index__]))
-        newrhs = gensym(:force_create)
-        errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
-        return :(
-            let $newrhs = if isassigned($rlabel, $(index...))
-                    error($errmsg)
-                else
-                    GraphPPL.proxylabel($(QuoteNode(rlabel)), $newrhs, $(Expr(:tuple, index...)), GraphPPL.True())
-                    # GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
-                end
-                # GraphPPL.proxylabel($(QuoteNode(rlabel)), $newrhs, $(Expr(:tuple, index...)), True())
-            end
-        )
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.True()))
     end
     return rhs
 end
@@ -717,7 +706,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
             )
             GraphPPL.returnval!(__context__, __returnval__)
-            return __context__, GraphPPL.unroll(__lhs_interface__)
+            return __context__, __lhs_interface__
         end
 
         function GraphPPL.add_terminated_submodel!(
