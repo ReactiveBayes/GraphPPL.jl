@@ -390,7 +390,7 @@ generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create
 function generate_get_or_create(s::Symbol, index::Expr)
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(s)), $(index)) 
+            GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(s)), $(index))
         else
             $s
         end

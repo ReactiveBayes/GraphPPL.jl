@@ -840,10 +840,13 @@ end
 
 Base.show(io::IO, ref::VariableRef) = variable_ref_show(io, ref.name, ref.index)
 variable_ref_show(io::IO, name::Symbol, index::Nothing) = print(io, name)
+variable_ref_show(io::IO, name::Symbol, index::Tuple{Nothing}) = print(io, name)
 variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
-function VariableRef(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple, external_collection = nothing)
+function VariableRef(
+    model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple, external_collection = nothing
+)
     internal_collection = if !all(isnothing, index)
         getorcreate!(model, context, name, index...)
     elseif haskey(context, name)
@@ -872,7 +875,7 @@ function getifcreated(model::Model, context::Context, ref::VariableRef, index)
     elseif haskey(ref.context, ref.name)
         return ref.context[ref.name]
     else
-        error(lazy"The variable `$var` has been used, but has not been instantiated.")
+        error(lazy"The variable `$ref` has been used, but has not been instantiated.")
     end
 end
 
@@ -942,7 +945,7 @@ function datalabel(model, context, options, name, collection = MissingCollection
     if !isequal(kind, VariableKindData)
         error("`datalabel` only supports `VariableKindData` in `NodeCreationOptions`")
     end
-    return proxylabel(name, VariableRef(model, context, options, name, (nothing, ), collection), nothing, True())
+    return proxylabel(name, VariableRef(model, context, options, name, (nothing,), collection), nothing, True())
 end
 
 function postprocess_returnval(ref::VariableRef)

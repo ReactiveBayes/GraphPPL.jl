@@ -670,14 +670,14 @@ end
 end
 
 @testitem "`VariableRef` iterators interface" begin
-    import GraphPPL: VariableRef, getcontext
+    import GraphPPL: VariableRef, getcontext, NodeCreationOptions, VariableKindData
 
     include("testutils.jl")
 
     @testset "Missing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
 
         @test @inferred(Base.IteratorSize(xref)) === Base.SizeUnknown()
         @test @inferred(Base.IteratorEltype(xref)) === Base.EltypeUnknown()
@@ -687,7 +687,7 @@ end
     @testset "Existing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, (1, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1, ))
 
         @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{1}()
         @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
@@ -697,7 +697,7 @@ end
     @testset "Missing internal but existing external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, nothing, [ 1.0 1.0; 1.0, 1.0 ])
+        xref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :x, (nothing, ), [ 1.0 1.0; 1.0 1.0 ])
 
         @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{2}()
         @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
@@ -726,13 +726,13 @@ end
     @testset "Individual variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
         x = unroll(proxylabel(:p, xref, nothing, True()))
         @test x isa NodeLabel
         @test x === ctx[:x]
         @test is_kind(getproperties(model[x]), VariableKindRandom)
 
-        zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, nothing, MissingCollection())
+        zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, (nothing, ), MissingCollection())
         # Top level `False` should not play a role here really, but is also essential
         # The bottom level `True` does allow the creation of the variable and the top-level `False` should only fetch
         z = unroll(proxylabel(:r, proxylabel(:w, zref, nothing, True()), nothing, False()))
@@ -744,7 +744,7 @@ end
     @testset "Vectored variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
         for i in 1:10
             x = unroll(proxylabel(:x, xref, (i,), True()))
             @test x isa NodeLabel
@@ -760,7 +760,7 @@ end
     @testset "Tensor variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
         for i in 1:10, j in 1:10
             xij = unroll(proxylabel(:x, xref, (i, j), True()))
             @test xij isa NodeLabel
@@ -777,12 +777,12 @@ end
         model = create_test_model()
         ctx = getcontext(model)
         # `x` is not created here, should fail during `unroll`
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
         @test_throws "The variable `x` has been used, but has not been instantiated" unroll(proxylabel(:x, xref, nothing, False()))
         # Force create `x`
         getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
         # Since `x` has been created the `False` flag should not throw
-        xref = VariableRef(model, ctx, :x, nothing)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
         @test ctx[:x] === unroll(proxylabel(:x, xref, nothing, False()))
     end
 end

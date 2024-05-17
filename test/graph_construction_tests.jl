@@ -1095,7 +1095,9 @@ end
     end
 
     # The error message can be improved though
-    @test_throws "Cannot broadcast over x. The underlying collection for `x` has undefined shape." create_model(faulty_beta_bernoulli_broadcasted())
+    @test_throws "Cannot broadcast over x. The underlying collection for `x` has undefined shape." create_model(
+        faulty_beta_bernoulli_broadcasted()
+    )
 end
 
 @testitem "Broadcasting over ranges" begin
