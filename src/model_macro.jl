@@ -439,7 +439,7 @@ Converts an expression into its proxied equivalent. Used to pass variables in su
 julia> x = GraphPPL.NodeLabel(:x, 1)
 x_1
 julia> GraphPPL.proxy_args(:(y = x))
-:(y = GraphPPL.proxylabel(:x, x, nothing))
+:(y = GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False()))
 ```
 """
 function proxy_args end

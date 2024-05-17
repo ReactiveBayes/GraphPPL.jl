@@ -128,15 +128,15 @@ end
 
 ## Instantiating the model 
 
-To instantiate the model we need to pass the data `x`. We can do that with the [`GraphPPL.create_model`](@ref) function in combination with [`GraphPPL.LazyIndex`](@ref).
+To instantiate the model we need to pass the data `x`. We can do that with the [`GraphPPL.create_model`](@ref) function in combination with [`GraphPPL.datalabel`](@ref).
 
 ```@example getting-started
-xdata = [ 1.0, 0.0, 0.0, 1.0 ]
+data_for_x = [ 1.0, 0.0, 0.0, 1.0 ]
 
 model = GraphPPL.create_model(coin_toss()) do model, context
     return (; 
         # This expression creates data handle for `x` in the model using the `xdata` as the underlying collection
-        x = GraphPPL.getorcreate!(model, context, GraphPPL.NodeCreationOptions(kind = :data), :x, GraphPPL.LazyIndex(xdata))
+        x = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = GraphPPL.VariableKindData), :x, data_for_x)
     )
 end
 nothing #hide

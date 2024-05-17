@@ -119,16 +119,23 @@ GraphPPL.NodeData
 GraphPPL.NodeLabel
 GraphPPL.EdgeLabel
 GraphPPL.ProxyLabel
+GraphPPL.indexed_last
+GraphPPL.lift_index
+GraphPPL.datalabel
 GraphPPL.StaticInterfaces
-GraphPPL.LazyIndex
+GraphPPL.VariableRef
 GraphPPL.MissingCollection
 GraphPPL.VariableNodeProperties
 GraphPPL.FactorNodeProperties
 GraphPPL.VarDict
 GraphPPL.AnonymousVariable
 GraphPPL.NodeDataExtraKey
-GraphPPL.LazyNodeLabel
 GraphPPL.IndexedVariable
+
+GraphPPL.VariableKindRandom
+GraphPPL.VariableKindData
+GraphPPL.VariableKindConstant
+GraphPPL.VariableKindUnknown
 
 GraphPPL.Deterministic
 GraphPPL.Stochastic

@@ -57,11 +57,11 @@ GraphPPL.@model function beta_bernoulli(y, a, b)
     end
 end
 
-data_y = rand(Bernoulli(0.5), 100)
+data_for_y = rand(Bernoulli(0.5), 100)
 
 model = GraphPPL.create_model(beta_bernoulli(a = 1, b = 1)) do model, ctx 
     # Inject the data into the model
-    y = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, GraphPPL.LazyIndex(data_y))
+    y = GraphPPL.datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = GraphPPL.VariableKindData), :y, data_for_y)
     return (; y = y, )
 end
 

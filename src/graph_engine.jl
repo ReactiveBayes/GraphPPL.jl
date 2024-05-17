@@ -628,9 +628,13 @@ getlink(properties::VariableNodeProperties) = properties.link
 index(properties::VariableNodeProperties) = properties.index
 value(properties::VariableNodeProperties) = properties.value
 
+"Defines a `random` (or `latent`) kind for a variable in a probabilistic graphical model."
 const VariableKindRandom = :random
+"Defines a `data` kind for a variable in a probabilistic graphical model."
 const VariableKindData = :data
+"Defines a `constant` kind for a variable in a probabilistic graphical model."
 const VariableKindConstant = :constant
+"Placeholder for a variable kind in a probabilistic graphical model."
 const VariableKindUnknown = :unknown
 
 is_kind(properties::VariableNodeProperties, kind) = properties.kind === kind
