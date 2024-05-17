@@ -632,7 +632,7 @@ end
 end
 
 @testitem "Lift index" begin
-    import GraphPPL: lift_index, True, False
+    import GraphPPL: lift_index, True, False, checked_getindex
 
     @test lift_index(True(), nothing, nothing) === nothing
     @test lift_index(True(), (1,), nothing) === (1,)
@@ -653,11 +653,10 @@ end
     GraphPPL.is_proxied(::Type{LiftingTest}) = GraphPPL.True()
 
     function GraphPPL.unroll(proxy::ProxyLabel, ::LiftingTest, index, maycreate, liftedindex)
-        @test maycreate === True()
         if liftedindex === nothing
-            return "Hello"
+            return checked_getindex("Hello", index)
         else
-            return "World"
+            return checked_getindex("World", index)
         end
     end
 

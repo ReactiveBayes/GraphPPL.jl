@@ -121,7 +121,7 @@ end
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
     import GraphPPL:
-        create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind, VariableRef, datalabel
+        create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind, VariableRef, datalabel, VariableKindData
 
     include("testutils.jl")
 
@@ -138,9 +138,9 @@ end
 
     @testset for n in 5:10
         model = create_model(simple_model_3(n = n)) do model, ctx
-            T = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_T), :T)
-            y = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_y), :y)
-            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data_for_Σ), :Σ)
+            T = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :T)
+            y = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :y)
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :Σ)
             return (T = T, y = y, Σ = Σ)
         end
 
@@ -151,9 +151,9 @@ end
         @test length(collect(filter(as_variable(:y), model))) === n
 
         # test that options are preserved
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_T), collect(filter(as_variable(:T), model)))
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_y), collect(filter(as_variable(:y), model)))
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_Σ), collect(filter(as_variable(:Σ), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:T), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:y), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:Σ), model)))
 
         # test that indices are of expected shape
         Tsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:T), model)))

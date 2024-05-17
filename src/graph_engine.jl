@@ -292,7 +292,7 @@ function unroll(proxylabel::ProxyLabel, proxied::ProxyLabel, index, maycreate, l
 end
 
 function unroll(proxylabel::ProxyLabel, something::Any, index, maycreate, liftedindex)
-    return something
+    return checked_getindex(something, index)
 end
 
 checked_getindex(something, index::FunctionalIndex) = Base.getindex(something, index)
