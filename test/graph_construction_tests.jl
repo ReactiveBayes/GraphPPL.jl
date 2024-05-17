@@ -121,7 +121,17 @@ end
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
     import GraphPPL:
-        create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind, VariableRef, datalabel, VariableKindData
+        create_model,
+        getorcreate!,
+        LazyIndex,
+        NodeCreationOptions,
+        MissingCollection,
+        index,
+        getproperties,
+        is_kind,
+        VariableRef,
+        datalabel,
+        VariableKindData
 
     include("testutils.jl")
 

@@ -676,7 +676,7 @@ end
     @testset "Missing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
 
         @test @inferred(Base.IteratorSize(xref)) === Base.SizeUnknown()
         @test @inferred(Base.IteratorEltype(xref)) === Base.EltypeUnknown()
@@ -686,7 +686,7 @@ end
     @testset "Existing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1,))
 
         @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{1}()
         @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
@@ -696,7 +696,7 @@ end
     @testset "Missing internal but existing external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :x, (nothing, ), [ 1.0 1.0; 1.0 1.0 ])
+        xref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :x, (nothing,), [1.0 1.0; 1.0 1.0])
 
         @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{2}()
         @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
@@ -725,13 +725,13 @@ end
     @testset "Individual variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         x = unroll(proxylabel(:p, xref, nothing, True()))
         @test x isa NodeLabel
         @test x === ctx[:x]
         @test is_kind(getproperties(model[x]), VariableKindRandom)
 
-        zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, (nothing, ), MissingCollection())
+        zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, (nothing,), MissingCollection())
         # Top level `False` should not play a role here really, but is also essential
         # The bottom level `True` does allow the creation of the variable and the top-level `False` should only fetch
         z = unroll(proxylabel(:r, proxylabel(:w, zref, nothing, True()), nothing, False()))
@@ -743,7 +743,7 @@ end
     @testset "Vectored variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         for i in 1:10
             x = unroll(proxylabel(:x, xref, (i,), True()))
             @test x isa NodeLabel
@@ -759,7 +759,7 @@ end
     @testset "Tensor variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         for i in 1:10, j in 1:10
             xij = unroll(proxylabel(:x, xref, (i, j), True()))
             @test xij isa NodeLabel
@@ -776,12 +776,12 @@ end
         model = create_test_model()
         ctx = getcontext(model)
         # `x` is not created here, should fail during `unroll`
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test_throws "The variable `x` has been used, but has not been instantiated" unroll(proxylabel(:x, xref, nothing, False()))
         # Force create `x`
         getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
         # Since `x` has been created the `False` flag should not throw
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing, ))
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test ctx[:x] === unroll(proxylabel(:x, xref, nothing, False()))
     end
 end
@@ -1171,7 +1171,16 @@ end
 
 @testitem "haskey(::Context)" begin
     import GraphPPL:
-        Context, NodeLabel, ResizableArray, ProxyLabel, individual_variables, vector_variables, tensor_variables, proxies, children, proxylabel
+        Context,
+        NodeLabel,
+        ResizableArray,
+        ProxyLabel,
+        individual_variables,
+        vector_variables,
+        tensor_variables,
+        proxies,
+        children,
+        proxylabel
 
     ctx = Context()
     xlab = NodeLabel(:x, 1)
@@ -1748,7 +1757,7 @@ end
     @test zref === xref
 end
 
-@testitem "datalabel" begin 
+@testitem "datalabel" begin
     import GraphPPL: getcontext, datalabel, NodeCreationOptions, VariableKindData, VariableKindRandom, unroll, proxylabel
 
     include("testutils.jl")
@@ -1764,18 +1773,22 @@ end
     @test haskey(ctx, :y) && ctx[:y] === yvar
     @test GraphPPL.nv(model) === 1
 
-    yvlabel = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :yv, [ 1, 2, 3 ])
+    yvlabel = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :yv, [1, 2, 3])
     for i in 1:3
-        yvvar = unroll(proxylabel(:yv, yvlabel, (i, )))
+        yvvar = unroll(proxylabel(:yv, yvlabel, (i,)))
         @test haskey(ctx, :yv) && ctx[:yv][i] === yvvar
         @test GraphPPL.nv(model) === 1 + i
     end
     # Incompatible data indices
-    @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `yv`" unroll(proxylabel(:yv, yvlabel, (4, )))
-    @test_throws "The underlying data provided for `yv` is `[1, 2, 3]`" unroll(proxylabel(:yv, yvlabel, (4, )))
+    @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `yv`" unroll(
+        proxylabel(:yv, yvlabel, (4,))
+    )
+    @test_throws "The underlying data provided for `yv` is `[1, 2, 3]`" unroll(proxylabel(:yv, yvlabel, (4,)))
 
     @test_throws "`datalabel` only supports `VariableKindData` in `NodeCreationOptions`" datalabel(model, ctx, NodeCreationOptions(), :z)
-    @test_throws "`datalabel` only supports `VariableKindData` in `NodeCreationOptions`" datalabel(model, ctx, NodeCreationOptions(kind = VariableKindRandom), :z)
+    @test_throws "`datalabel` only supports `VariableKindData` in `NodeCreationOptions`" datalabel(
+        model, ctx, NodeCreationOptions(kind = VariableKindRandom), :z
+    )
 end
 
 @testitem "add_variable_node!" begin
@@ -2251,7 +2264,7 @@ end
     xref = getorcreate!(model, ctx, :x, nothing)
     xref = proxylabel(:x, xref, nothing)
     y = getorcreate!(model, ctx, :y, nothing)
-    y = proxylabel(:y,y,nothing)
+    y = proxylabel(:y, y, nothing)
     zref = getorcreate!(model, ctx, :z, nothing)
     node_id = make_node!(model, ctx, options, +, zref, (xref, y))
     prune!(model)
