@@ -1749,6 +1749,36 @@ end
     @test zref === xref
 end
 
+@testitem "datalabel" begin 
+    import GraphPPL: getcontext, datalabel, NodeCreationOptions, VariableKindData, VariableKindRandom, unroll, proxylabel
+
+    include("testutils.jl")
+
+    model = create_test_model()
+    ctx = getcontext(model)
+    ylabel = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :y)
+    yvar = unroll(ylabel)
+    @test haskey(ctx, :y) && ctx[:y] === yvar
+    @test GraphPPL.nv(model) === 1
+    # subsequent unroll should return the same variable
+    unroll(ylabel)
+    @test haskey(ctx, :y) && ctx[:y] === yvar
+    @test GraphPPL.nv(model) === 1
+
+    yvlabel = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :yv, [ 1, 2, 3 ])
+    for i in 1:3
+        yvvar = unroll(proxylabel(:yv, yvlabel, (i, )))
+        @test haskey(ctx, :yv) && ctx[:yv][i] === yvvar
+        @test GraphPPL.nv(model) === 1 + i
+    end
+    # Incompatible data indices
+    @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `yv`" unroll(proxylabel(:yv, yvlabel, (4, )))
+    @test_throws "The underlying data provided for `yv` is `[1, 2, 3]`" unroll(proxylabel(:yv, yvlabel, (4, )))
+
+    @test_throws "`datalabel` only supports `VariableKindData` in `NodeCreationOptions`" datalabel(model, ctx, NodeCreationOptions(), :z)
+    @test_throws "`datalabel` only supports `VariableKindData` in `NodeCreationOptions`" datalabel(model, ctx, NodeCreationOptions(kind = VariableKindRandom), :z)
+end
+
 @testitem "add_variable_node!" begin
     import GraphPPL:
         create_model,

@@ -631,6 +631,7 @@ value(properties::VariableNodeProperties) = properties.value
 const VariableKindRandom = :random
 const VariableKindData = :data
 const VariableKindConstant = :constant
+const VariableKindUnknown = :unknown
 
 is_kind(properties::VariableNodeProperties, kind) = properties.kind === kind
 is_kind(properties::VariableNodeProperties, ::Val{kind}) where {kind} = properties.kind === kind
@@ -794,6 +795,23 @@ function variable_nodes(callback::F, model::Model) where {F}
     end
 end
 
+"""
+    VariableRef(model::Model, context::Context, name::Symbol, index, external_collection = nothing)
+
+`VariableRef` implements a lazy reference to a variable in the model. 
+The reference does not create an actual variable in the model immediatelly, but postpones the creation 
+until strictly necessarily, which is hapenning inside the `unroll` function. The postponed creation allows users to define 
+pass a single variable into a submodel, e.g. `y ~ submodel(x = x)`, but use it as an array inside the submodel, 
+e.g. `y[i] ~ Normal(x[i], 1.0)`. 
+
+Optionally accepts an `external_collection`, which defines the upper limit on the shape of the underlying collection.
+For example, an external collection `[ 1, 2, 3 ]` can be used both as `y ~ ...` and `y[i] ~ ...`, but not as `y[i, j] ~ ...`.
+By default, the `MissingCollection` is used for the `external_collection`, which does not restrict the shape of the underlying collection.
+
+The `index` is always a `Tuple`. By default, `(nothing, )` is used, to indicate empty indices with no restrictions on the shape of the underlying collection. 
+If "non-nothing" index is supplied, e.g. `(1, )` the shape of the udnerlying collection will be fixed to match the index 
+(1-dimensional in case of `(1, )`, 2-dimensional in case of `(1, 1)` and so on).
+"""
 struct VariableRef{M, C, O, I, E, L}
     model::M
     context::C
@@ -909,9 +927,19 @@ function variableref_checked_iterator_call(f::F, fsymbol::Symbol, ref::VariableR
     error(lazy"Cannot call `$(fsymbol)` on variable reference `$(ref.name)`. The variable `$(ref.name)` has not been instantiated.")
 end
 
-"""A function for creating proxy data labels to pass into the model"""
-datalabel(model, context, options, name, collection = MissingCollection()) =
-    proxylabel(name, VariableRef(model, context, options, name, (nothing, ), collection), nothing, True())
+"""
+    datalabel(model, context, options, name, collection = MissingCollection())
+
+A function for creating proxy data labels to pass into the model upon creation. 
+Can be useful in combination with `ModelGenerator` and `create_model`.
+"""
+function datalabel(model, context, options, name, collection = MissingCollection())
+    kind = get(options, :kind, VariableKindUnknown)
+    if !isequal(kind, VariableKindData)
+        error("`datalabel` only supports `VariableKindData` in `NodeCreationOptions`")
+    end
+    return proxylabel(name, VariableRef(model, context, options, name, (nothing, ), collection), nothing, True())
+end
 
 function postprocess_returnval(ref::VariableRef)
     if haskey(ref.context, ref.name)
