@@ -919,7 +919,6 @@ end
         VariationalConstraintsPlugin,
         getorcreate!,
         NodeCreationOptions,
-        LazyIndex,
         getextra,
         hasextra,
         datalabel

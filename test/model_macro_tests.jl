@@ -1856,7 +1856,7 @@ end
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
     σ = getorcreate!(model, ctx, :σ, nothing)
-    make_node!(model, ctx, options, test_model, proxylabel(:μ, nothing, μ), (σ = σ,))
+    make_node!(model, ctx, options, test_model, proxylabel(:μ, μ, nothing), (σ = σ,))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 2: Test regular node creation input with vector
@@ -1873,7 +1873,7 @@ end
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
     σ = getorcreate!(model, ctx, :σ, nothing)
-    make_node!(model, ctx, options, test_model, proxylabel(:μ, nothing, μ), (σ = σ,))
+    make_node!(model, ctx, options, test_model, proxylabel(:μ, μ, nothing), (σ = σ,))
     x = ctx[test_model, 1][:x]
     for i in x
         @test isa(i, GraphPPL.NodeLabel) &&
@@ -1895,7 +1895,7 @@ end
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
     σ = getorcreate!(model, ctx, :σ, nothing)
-    @test_throws BoundsError make_node!(model, ctx, options, illegal_model, proxylabel(:μ, nothing, μ), (σ = σ,))
+    @test_throws BoundsError make_node!(model, ctx, options, illegal_model, proxylabel(:μ, μ, nothing), (σ = σ,))
 
     # Test 4: Test Composite nodes with different number of interfaces
     @model function foo(x, y)
@@ -1912,7 +1912,7 @@ end
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     y = getorcreate!(model, ctx, :y, nothing)
-    make_node!(model, ctx, options, foo, proxylabel(:x, nothing, x), (y = y,))
+    make_node!(model, ctx, options, foo, proxylabel(:x, x, nothing), (y = y,))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 5: Test deep anonymous deterministic function collapses to single node
@@ -1925,7 +1925,7 @@ end
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
     y = getorcreate!(model, ctx, :y, nothing)
-    newctx, _ = make_node!(model, ctx, options, model_with_deep_anonymous_call, proxylabel(:x, nothing, x), (y = y,))
+    newctx, _ = make_node!(model, ctx, options, model_with_deep_anonymous_call, proxylabel(:x, x, nothing), (y = y,))
 
     @test newctx isa Context
     @test newctx !== ctx
@@ -1983,7 +1983,7 @@ end
     end
     x_arr = getorcreate!(model, ctx, :x, 1)
     y = getorcreate!(model, ctx, :y, nothing)
-    make_node!(model, ctx, options, anonymous_in_loop, proxylabel(:y, nothing, y), (x = x_arr,))
+    make_node!(model, ctx, options, anonymous_in_loop, proxylabel(:y, y, nothing), (x = x_arr,))
     @test nv(model) == 67
 end
 

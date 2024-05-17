@@ -91,7 +91,7 @@ end
 
 @testitem "Simple model with lazy data (number) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
 
     include("testutils.jl")
 
@@ -123,7 +123,6 @@ end
     import GraphPPL:
         create_model,
         getorcreate!,
-        LazyIndex,
         NodeCreationOptions,
         MissingCollection,
         index,
@@ -183,7 +182,7 @@ end
 
 @testitem "Simple model with lazy data creation with attached data" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind, datalabel, MissingCollection
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel, MissingCollection
 
     include("testutils.jl")
 
@@ -1094,7 +1093,7 @@ end
 
 @testitem "Ambiguous broadcasting should give a descriptive error" begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions
 
     include("testutils.jl")
 
