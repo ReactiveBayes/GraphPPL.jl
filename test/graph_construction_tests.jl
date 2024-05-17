@@ -824,11 +824,10 @@ end
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
-        v = Matrix([v1 v2; v1 v3])
-        y ~ mixed_v(v = v)
+        y ~ mixed_v(v = [v1 v2; v1 v3])
     end
 
-    @test_throws GraphPPL.NotImplementedError local model = GraphPPL.create_model(mixed_m())
+    @test_throws GraphPPL.NotImplementedError GraphPPL.create_model(mixed_m())
 end
 
 @testitem "Model creation should throw if a `~` using with a constant on RHS" begin

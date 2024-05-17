@@ -1316,7 +1316,10 @@ add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_pa
 add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
     set!(child_context.proxies, name_in_child, object_in_parent)
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) = nothing
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{R}) where {R <: VariableRef} =
+    add_to_child_context(child_context, name_in_child, map((ref) -> getifcreated(ref.model, ref.context, ref), object_in_parent))
+
+add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) = object_in_parent
 
 throw_if_individual_variable(context::Context, name::Symbol) =
     haskey(context.individual_variables, name) ? error("Variable $name is already an individual variable in the model") : nothing
