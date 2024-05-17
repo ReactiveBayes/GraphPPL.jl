@@ -569,6 +569,31 @@ end
     end
 end
 
+@testitem "Nested model structure but with constants" begin
+    using Distributions
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
+
+    include("testutils.jl")
+
+    @model function submodel(y, x, z)
+        y ~ Normal(x, z)
+    end
+
+    @model function mainmodel(y)
+        y ~ submodel(x = 1, z = 2)
+    end
+
+    model = create_model(mainmodel()) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, 1.0)
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) === 1
+    @test length(collect(filter(as_variable(:y), model))) === 1
+    @test length(collect(filter(as_variable(:x), model))) === 0
+    @test length(collect(filter(as_variable(:z), model))) === 0
+end
+
 @testitem "Force create a new variable with the `new` syntax" begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
@@ -790,8 +815,7 @@ end
     @test haskey(context[mixed_v, 1], :v)
 end
 
-@testitem "Model that constructs a new array to pass to children" begin
-    using GraphPPL
+@testitem "Model that constructs a new vector to pass to children" begin
     include("testutils.jl")
 
     @model function mixed_v(y, v)
@@ -812,12 +836,16 @@ end
     context = GraphPPL.getcontext(model)
 
     @test haskey(context[mixed_v, 1], :v)
+end
+
+@testitem "Model that constructs a new matrix to pass to children" begin
+    include("testutils.jl")
 
     @model function mixed_v(y, v)
         for i in 1:3
             v[i] ~ Normal(0, 1)
         end
-        y ~ Normal(v[1], v[2])
+        y ~ Normal(v[1], v[3])
     end
 
     @model function mixed_m()
@@ -827,7 +855,10 @@ end
         y ~ mixed_v(v = [v1 v2; v1 v3])
     end
 
-    @test_throws GraphPPL.NotImplementedError GraphPPL.create_model(mixed_m())
+    model = GraphPPL.create_model(mixed_m())
+    context = GraphPPL.getcontext(model)
+
+    @test haskey(context[mixed_v, 1], :v)
 end
 
 @testitem "Model creation should throw if a `~` using with a constant on RHS" begin

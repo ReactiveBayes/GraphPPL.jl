@@ -1443,7 +1443,7 @@ end
 
     include("testutils.jl")
 
-    # Test 1: Copy individual variables
+    # Copy individual variables
     model = create_test_model()
     ctx = getcontext(model)
     function child end
@@ -1451,30 +1451,8 @@ end
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, nothing)
     zref = getorcreate!(model, ctx, NodeCreationOptions(), :z, nothing)
-    copy_markov_blanket_to_child_context(child_context, (in1 = xref, in2 = y, out = zref))
-    @test child_context[:in1] === xref
 
-    # Test 2: Copy vector variables
-    model = create_test_model()
-    ctx = getcontext(model)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2)
-    child_context = Context(ctx, child)
-    copy_markov_blanket_to_child_context(child_context, (in = xref,))
-    @test child_context[:in] === xref
-
-    # Test 3: Copy tensor variables
-    model = create_test_model()
-    ctx = getcontext(model)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 2)
-    xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 2)
-    child_context = Context(ctx, child)
-    copy_markov_blanket_to_child_context(child_context, (in = xref,))
-    @test child_context[:in] === xref
-
-    # Test 4: Do not copy constant variables
+    # Do not copy constant variables
     model = create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
@@ -1482,14 +1460,14 @@ end
     copy_markov_blanket_to_child_context(child_context, (in = 1,))
     @test !haskey(child_context, :in)
 
-    # Test 5: Do not copy vector valued constant variables
+    # Do not copy vector valued constant variables
     model = create_test_model()
     ctx = getcontext(model)
     child_context = Context(ctx, child)
     copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
     @test !haskey(child_context, :in)
 
-    # Test 6: Copy ProxyLabel variables to child context
+    # Copy ProxyLabel variables to child context
     model = create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
@@ -1518,120 +1496,67 @@ end
         # Test 1: Creation of regular one-dimensional variable
         model = create_test_model()
         ctx = getcontext(model)
-        x = if !@isdefined(xref)
-            getorcreate!(model, ctx, :x, nothing)
-        else
-            (check_variate_compatability(xref, :x) ? xref : getorcreate!(model, ctx, :x, nothing))
-        end
+        x = getorcreate!(model, ctx, :x, nothing)
         @test nv(model) == 1 && ne(model) == 0
 
         # Test 2: Ensure that getorcreating this variable again does not create a new node
-        x2 = if !@isdefined(x2)
-            getorcreate!(model, ctx, :x, nothing)
-        else
-            (check_variate_compatability(x2, :x) ? x2 : getorcreate!(model, ctx, :x, nothing))
-        end
+        x2 = getorcreate!(model, ctx, :x, nothing)
         @test x == x2 && nv(model) == 1 && ne(model) == 0
 
         # Test 3: Ensure that calling x another time gives us x
-        x = if !@isdefined(x)
-            getorcreate!(model, ctx, :x, nothing)
-        else
-            (check_variate_compatability(x, nothing) ? x : getorcreate!(model, ctx, :x, nothing))
-        end
+        x = getorcreate!(model, ctx, :x, nothing)
         @test x == x2 && nv(model) == 1 && ne(model) == 0
 
         # Test 4: Test that creating a vector variable creates an array of the correct size
         model = create_test_model()
         ctx = getcontext(model)
-        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y, 1) ? y : getorcreate!(model, ctx, :y, 1))
+        y = getorcreate!(model, ctx, :y, 1)
         @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
 
         # Test 5: Test that recreating the same variable changes nothing
-        y2 = !@isdefined(y2) ? getorcreate!(model, ctx, :y, 1) : (check_variate_compatability(y2, 1) ? y : getorcreate!(model, ctx, :y, 1))
+        y2 = getorcreate!(model, ctx, :y, 1)
         @test y == y2 && nv(model) == 1 && ne(model) == 0
 
         # Test 6: Test that adding a variable to this vector variable increases the size of the array
-        y = !@isdefined(y) ? getorcreate!(model, ctx, :y, 2) : (check_variate_compatability(y, 2) ? y : getorcreate!(model, ctx, :y, 2))
+        y = getorcreate!(model, ctx, :y, 2)
         @test nv(model) == 2 && y[2] isa NodeLabel && haskey(ctx.vector_variables, :y)
 
         # Test 7: Test that getting this variable without index does not work
-        @test_throws ErrorException y = if !@isdefined(y)
-            getorcreate!(model, ctx, :y, nothing)
-        else
-            (check_variate_compatability(y, nothing) ? y : getorcreate!(model, ctx, :y, nothing))
-        end
+        @test_throws ErrorException getorcreate!(model, ctx, :y, nothing)
 
         # Test 8: Test that getting this variable with an index that is too large does not work
-        @test_throws ErrorException y = if !@isdefined(y)
-            getorcreate!(model, ctx, :y, 1, 2)
-        else
-            (check_variate_compatability(y, 1, 2) ? y : getorcreate!(model, ctx, :y, 1, 2))
-        end
+        @test_throws ErrorException getorcreate!(model, ctx, :y, 1, 2)
 
         #Test 9: Test that creating a tensor variable creates a tensor of the correct size
         model = create_test_model()
         ctx = getcontext(model)
-        z = if !@isdefined(zref)
-            getorcreate!(model, ctx, :z, 1, 1)
-        else
-            (check_variate_compatability(zref, 1, 1) ? zref : getorcreate!(model, ctx, :z, 1, 1))
-        end
+        z = getorcreate!(model, ctx, :z, 1, 1)
         @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
 
         #Test 10: Test that recreating the same variable changes nothing
-        z2 = if !@isdefined(z2)
-            getorcreate!(model, ctx, :z, 1, 1)
-        else
-            (check_variate_compatability(z2, 1, 1) ? z : getorcreate!(model, ctx, :z, 1, 1))
-        end
+        z2 = getorcreate!(model, ctx, :z, 1, 1)
         @test z == z2 && nv(model) == 1 && ne(model) == 0
 
         #Test 11: Test that adding a variable to this tensor variable increases the size of the array
-        z = if !@isdefined(z)
-            getorcreate!(model, ctx, :z, 2, 2)
-        else
-            (check_variate_compatability(z, 2, 2) ? z : getorcreate!(model, ctx, :z, 2, 2))
-        end
+        z = getorcreate!(model, ctx, :z, 2, 2)
         @test nv(model) == 2 && z[2, 2] isa NodeLabel && haskey(ctx.tensor_variables, :z)
 
         #Test 12: Test that getting this variable without index does not work
-        @test_throws ErrorException z = if !@isdefined(z)
-            getorcreate!(model, ctx, :z, nothing)
-        else
-            (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, nothing))
-        end
+        @test_throws ErrorException z = getorcreate!(model, ctx, :z, nothing)
 
         #Test 13: Test that getting this variable with an index that is too small does not work
-        @test_throws ErrorException z =
-            !@isdefined(z) ? getorcreate!(model, ctx, :z, 1) : (check_variate_compatability(z, 1) ? z : getorcreate!(model, ctx, :z, 1))
+        @test_throws ErrorException z = getorcreate!(model, ctx, :z, 1)
 
         #Test 14: Test that getting this variable with an index that is too large does not work
-        @test_throws Union{AssertionError, ErrorException} z = if !@isdefined(z)
-            getorcreate!(model, ctx, :z, 1, 2, 3)
-        else
-            (check_variate_compatability(z, 1, 2, 3) ? z : getorcreate!(model, ctx, :z, 1, 2, 3))
-        end
+        @test_throws ErrorException z = getorcreate!(model, ctx, :z, 1, 2, 3)
 
         # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
         let # force local scope
             model = create_test_model()
             ctx = getcontext(model)
-            if !@isdefined(a)
-                getorcreate!(model, ctx, :a, nothing)
-            else
-                (check_variate_compatability(a, nothing) ? a : getorcreate!(model, ctx, :a, nothing))
-            end
-            @test_throws ErrorException a = if !@isdefined(a)
-                getorcreate!(model, ctx, :a, 1)
-            else
-                (check_variate_compatability(a, 1) ? a : getorcreate!(model, ctx, :a, 1))
-            end
-            @test_throws ErrorException a = if !@isdefined(a)
-                getorcreate!(model, ctx, :a, 1, 1)
-            else
-                (check_variate_compatability(a, 1, 1) ? a : getorcreate!(model, ctx, :a, 1, 1))
-            end
+            getorcreate!(model, ctx, :a, nothing)
+            @test_throws ErrorException a = getorcreate!(model, ctx, :a, 1)
+            @test_throws ErrorException a = getorcreate!(model, ctx, :a, 1, 1)
         end
 
         # Test 16. Test that the index is required to create a variable in the model

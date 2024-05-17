@@ -13,7 +13,9 @@ end
 function distributions_ext_default_parametrization(
     t::Type{<:Distributions.Distribution}, ::GraphPPL.StaticInterfaces{interfaces}, interface_values
 ) where {interfaces}
-    @assert length(interface_values) == length(interfaces) "Distribution $t has $(length(interfaces)) fields $(interfaces) but $(length(interface_values)) values were provided."
+    if !(length(interface_values) == length(interfaces)) 
+        error(lazy"Distribution $t has $(length(interfaces)) fields $(interfaces) but $(length(interface_values)) values were provided.")
+    end
     return NamedTuple{interfaces}(interface_values)
 end
 

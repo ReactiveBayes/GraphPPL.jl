@@ -1295,31 +1295,15 @@ function copy_markov_blanket_to_child_context(child_context::Context, interfaces
     end
 end
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::NodeLabel) =
-    set!(child_context.individual_variables, name_in_child, object_in_parent)
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel, V, 1}) where {V} =
-    set!(child_context.vector_variables, name_in_child, object_in_parent)
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ResizableArray{NodeLabel, V, N}) where {V, N} =
-    set!(child_context.tensor_variables, name_in_child, object_in_parent)
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{NodeLabel, 1}) =
-    set!(child_context.vector_variables, name_in_child, ResizableArray(object_in_parent))
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{NodeLabel, N}) where {N} = throw(
-    NotImplementedError(
-        "Currently it's not possible to pass a custom made matrix of random variables to a child context. Maybe you can redefine your model to implicitly create the matrix and pass it like that?"
-    )
-)
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel) =
+function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel)
     set!(child_context.proxies, name_in_child, object_in_parent)
+    return nothing
+end
 
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::AbstractArray{R}) where {R <: VariableRef} =
-    add_to_child_context(child_context, name_in_child, map((ref) -> getifcreated(ref.model, ref.context, ref), object_in_parent))
-
-add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent) = object_in_parent
+function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent)
+    # By default, we assume that `object_in_parent` is a constant, so there is no need to save it in the context
+    return nothing
+end
 
 throw_if_individual_variable(context::Context, name::Symbol) =
     haskey(context.individual_variables, name) ? error("Variable $name is already an individual variable in the model") : nothing
@@ -1739,7 +1723,11 @@ function prepare_interfaces(model::Model, fform::F, lhs_interface, rhs_interface
 end
 
 function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {I, F}
-    @assert length(I) == 1 lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))"
+    if !(length(I) == 1)
+        error(
+            lazy"Expected only one missing interface, got $I of length $(length(I)) (node $fform with interfaces $(keys(rhs_interfaces)))"
+        )
+    end
     missing_interface = first(I)
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end

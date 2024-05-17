@@ -677,6 +677,10 @@ edge case but don't know how we can resolve this, let alone efficiently. Please 
     end
 end
 
+__resolve(model::Model, label::VariableRef) = __resolve(model, getifcreated(model, label.context, label))
+__resolve(model::Model, label::AbstractArray{T}) where {T <: VariableRef} =
+    __resolve(model, map(l -> getifcreated(model, l.context, l), label))
+
 function __resolve(model::Model, label::NodeLabel)
     data = model[label]
     return __resolve(model, data, getproperties(data), index(getproperties(data)))

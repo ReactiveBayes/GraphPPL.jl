@@ -458,7 +458,9 @@ function proxy_args(arg)
 end
 
 function proxy_args_lhs_eq_rhs(lhs, rhs)
-    @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    if !(isa(lhs, Symbol))
+        error(lazy"Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol.")
+    end
     return :($lhs = $(proxy_args_rhs(rhs)))
 end
 
@@ -470,7 +472,7 @@ function proxy_args_rhs(rhs)
     elseif @capture(rhs, new(rlabel_[index__]))
         return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.True()))
     end
-    return rhs
+    return :(GraphPPL.proxylabel(:anonymous, $rhs, nothing, GraphPPL.False()))
 end
 
 """
