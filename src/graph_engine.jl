@@ -867,6 +867,10 @@ function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
     error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
 end
 
+function getifcreated(model::Model, context::Context, ref::VariableRef)
+    return getifcreated(model, context, ref, ref.index)
+end
+
 function getifcreated(model::Model, context::Context, ref::VariableRef, index)
     if !isnothing(ref.external_collection)
         return getorcreate!(ref.model, ref.context, ref, index)
@@ -1286,7 +1290,7 @@ This function copies the variables in the Markov blanket of the parent context s
 - `interfaces::NamedTuple`: A named tuple that maps child variable names to parent variable names.
 """
 function copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
-    for (name_in_child, object_in_parent) in iterator(interfaces)
+    for (name_in_child, object_in_parent) in zip(keys(interfaces), values(interfaces))
         add_to_child_context(child_context, name_in_child, object_in_parent)
     end
 end
@@ -1599,8 +1603,6 @@ function add_composite_factor_node!(model::Model, parent_context::Context, conte
     parent_context[node_id] = context
     return node_id
 end
-
-iterator(interfaces::NamedTuple) = zip(keys(interfaces), values(interfaces))
 
 function add_edge!(
     model::Model,
@@ -1994,7 +1996,7 @@ function materialize_factor_node!(model::Model, context::Context, options::NodeC
     interfaces = sort_interfaces(model, fform, interfaces)
     interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
-    for (interface_name, interface) in iterator(interfaces)
+    for (interface_name, interface) in zip(keys(interfaces), values(interfaces))
         add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
     return factor_node_id, factor_node_data, factor_node_properties

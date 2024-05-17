@@ -708,6 +708,7 @@ end
     import GraphPPL:
         VariableRef,
         getcontext,
+        getifcreated,
         unroll,
         ProxyLabel,
         NodeLabel,
@@ -726,28 +727,36 @@ end
         model = create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+        @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
         x = unroll(proxylabel(:p, xref, nothing, True()))
         @test x isa NodeLabel
         @test x === ctx[:x]
         @test is_kind(getproperties(model[x]), VariableKindRandom)
+        @test getifcreated(model, ctx, xref) === ctx[:x]
 
         zref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :z, (nothing,), MissingCollection())
+        # @test_throws "The variable `z` has been used, but has not been instantiated." getifcreated(model, ctx, zref)
+        # The label above SHOULD NOT throw, since it has been instantiated with the `MissingCollection`
+
         # Top level `False` should not play a role here really, but is also essential
         # The bottom level `True` does allow the creation of the variable and the top-level `False` should only fetch
         z = unroll(proxylabel(:r, proxylabel(:w, zref, nothing, True()), nothing, False()))
         @test z isa NodeLabel
         @test z === ctx[:z]
         @test is_kind(getproperties(model[z]), VariableKindData)
+        @test getifcreated(model, ctx, zref) === ctx[:z]
     end
 
     @testset "Vectored variable creation" begin
         model = create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+        @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
         for i in 1:10
             x = unroll(proxylabel(:x, xref, (i,), True()))
             @test x isa NodeLabel
             @test x === ctx[:x][i]
+            @test getifcreated(model, ctx, xref) === ctx[:x]
         end
         @test length(xref) === 10
         @test firstindex(xref) === 1
@@ -760,10 +769,12 @@ end
         model = create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+        @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
         for i in 1:10, j in 1:10
             xij = unroll(proxylabel(:x, xref, (i, j), True()))
             @test xij isa NodeLabel
             @test xij === ctx[:x][i, j]
+            @test getifcreated(model, ctx, xref) === ctx[:x]
         end
         @test length(xref) === 100
         @test firstindex(xref) === 1
@@ -777,12 +788,14 @@ end
         ctx = getcontext(model)
         # `x` is not created here, should fail during `unroll`
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+        @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
         @test_throws "The variable `x` has been used, but has not been instantiated" unroll(proxylabel(:x, xref, nothing, False()))
         # Force create `x`
         getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
         # Since `x` has been created the `False` flag should not throw
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test ctx[:x] === unroll(proxylabel(:x, xref, nothing, False()))
+        @test getifcreated(model, ctx, xref) === ctx[:x]
     end
 end
 
