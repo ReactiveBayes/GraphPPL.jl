@@ -576,7 +576,6 @@ end
         y[1] ~ Normal(x[1], 1)
 
         for i in 2:length(y)
-            @show i
             # `x[i]` is not defined here, so this should fail
             y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
         end

@@ -1400,8 +1400,8 @@ end
 
 function getorcreate!(model::Model, ctx::Context, options::NodeCreationOptions, name::Symbol, indices...)
     if haskey(ctx, name)
-        variable = ctx[name]
-        return variable[indices...]
+        var = ctx[name]
+        return var
     end
     error(lazy"Cannot create a variable named `$(name)` with non-standard indices $(indices)")
 end

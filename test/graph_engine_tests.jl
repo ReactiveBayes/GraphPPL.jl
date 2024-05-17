@@ -2548,7 +2548,6 @@ end
     model = create_model(with_plugins(vector_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     mktemp() do file, io
         file = file * ".jld2"
-        @show file
         savegraph(file, model)
         model2 = loadgraph(file, GraphPPL.Model)
         for (node, node2) in zip(filter(as_node(), model), filter(as_node(), model2))
