@@ -2122,7 +2122,9 @@ end
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_throws AssertionError make_node!(model, ctx, options, +, out, (in = in1, out = in2))
+    @test_throws "Expected only one missing interface, got () of length 0 (node sum with interfaces (:in, :out))" make_node!(
+        model, ctx, options, +, out, (in = in1, out = in2)
+    )
 
     # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
     model = create_test_model()

@@ -1191,18 +1191,12 @@ end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
         else
-            (
-                if GraphPPL.check_variate_compatability(x, (nothing,)...)
-                    x
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
-                end
-            )
+            x
         end
-        x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
+        x ~ (Normal(0, 1) where {(created_by = (x ~ Normal(0, 1)))})
     end
     @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
@@ -1211,10 +1205,10 @@ end
         x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (1,))
         else
-            (GraphPPL.check_variate_compatability(x, (1,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...))
+            x
         end
         x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
     end
@@ -1225,10 +1219,10 @@ end
         x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (1, 2))
         else
-            (GraphPPL.check_variate_compatability(x, (1, 2)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...))
+            x
         end
         x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
     end
@@ -1239,10 +1233,10 @@ end
         x[i] ~ Normal(0, 1) where {created_by = (x[i] ~ Normal(0, 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (i,))
         else
-            (GraphPPL.check_variate_compatability(x, (i,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...))
+            x
         end
         x[i] ~ Normal(0, 1) where {created_by = (x[i] ~ Normal(0, 1))}
     end
@@ -1253,10 +1247,10 @@ end
         x[i, j] ~ Normal(0, 1) where {created_by = (x[i, j] ~ Normal(0, 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
         else
-            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
+            x
         end
         x[i, j] ~ Normal(0, 1) where {created_by = (x[i, j] ~ Normal(0, 1))}
     end
@@ -1273,29 +1267,17 @@ end
         ) where {created_by = (x ~ Normal(Normal(0, 1), 1))}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
         else
-            (
-                if GraphPPL.check_variate_compatability(x, (nothing,)...)
-                    x
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
-                end
-            )
+            x
         end
         x ~ Normal(
             begin
-                $sym = if !@isdefined($sym)
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
+                $sym = if !(@isdefined($sym))
+                    GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(sym)), (nothing,))
                 else
-                    (
-                        if GraphPPL.check_variate_compatability($sym, (nothing,)...)
-                            $sym
-                        else
-                            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(sym)), (nothing,)...)
-                        end
-                    )
+                    $sym
                 end
                 $sym ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(Normal(0, 1), 1)}
             end,
@@ -1309,16 +1291,10 @@ end
         y ~ x where {created_by = (y := x), is_deterministic = true}
     end
     output = quote
-        y = if !@isdefined(y)
-            GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
+        y = if !(@isdefined(y))
+            GraphPPL.VariableRef(__model__, __context__, :y, (nothing,))
         else
-            (
-                if GraphPPL.check_variate_compatability(y, (nothing,)...)
-                    y
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, :y, (nothing,)...)
-                end
-            )
+            y
         end
         y ~ x where {created_by = (y := x), is_deterministic = true}
     end
@@ -1329,16 +1305,10 @@ end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {q = q(x)q(y)}), q = q(x)q(y)}
     end
     output = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
         else
-            (
-                if GraphPPL.check_variate_compatability(x, (nothing,)...)
-                    x
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
-                end
-            )
+            x
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {q = q(x)q(y)}), q = q(x)q(y)}
     end
@@ -1353,16 +1323,10 @@ end
     # Test 1: test scalar variable
     output = generate_get_or_create(:x, nothing)
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
         else
-            (
-                if GraphPPL.check_variate_compatability(x, (nothing,)...)
-                    x
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, :x, (nothing,)...)
-                end
-            )
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1370,10 +1334,10 @@ end
     # Test 2: test vector variable
     output = generate_get_or_create(:x, [1])
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (1,))
         else
-            (GraphPPL.check_variate_compatability(x, (1,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1,)...))
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1381,10 +1345,10 @@ end
     # Test 3: test matrix variable
     output = generate_get_or_create(:x, [1, 2])
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (1, 2))
         else
-            (GraphPPL.check_variate_compatability(x, (1, 2)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (1, 2)...))
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1392,10 +1356,10 @@ end
     # Test 5: test symbol-indexed variable
     output = generate_get_or_create(:x, [:i, :j])
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
         else
-            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1403,10 +1367,10 @@ end
     # Test 6: test vector of single symbol
     output = generate_get_or_create(:x, [:i])
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (i,))
         else
-            (GraphPPL.check_variate_compatability(x, (i,)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i,)...))
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1414,10 +1378,10 @@ end
     # Test 7: test vector of symbols
     output = generate_get_or_create(:x, [:i, :j])
     desired_result = quote
-        x = if !@isdefined(x)
-            GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...)
+        x = if !(@isdefined(x))
+            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
         else
-            (GraphPPL.check_variate_compatability(x, (i, j)...) ? x : GraphPPL.getorcreate!(__model__, __context__, :x, (i, j)...))
+            x
         end
     end
     @test_expression_generating output desired_result
@@ -1489,8 +1453,11 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x ~ Normal(0, 1)))),
                 sum,
-                GraphPPL.proxylabel(:x, nothing, x),
-                (0, 1)
+                GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+                (
+                    GraphPPL.proxylabel(:anonymous, 0, nothing, GraphPPL.False()),
+                    GraphPPL.proxylabel(:anonymous, 1, nothing, GraphPPL.False())
+                )
             )
             var"#var"
         end
@@ -1508,8 +1475,11 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(μ = 0, σ = 1)),)),
                 sum,
-                GraphPPL.proxylabel(:x, nothing, x),
-                (μ = 0, σ = 1)
+                GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+                (
+                    μ = GraphPPL.proxylabel(:anonymous, 0, nothing, GraphPPL.False()),
+                    σ = GraphPPL.proxylabel(:anonymous, 1, nothing, GraphPPL.False())
+                )
             )
             var"#var"
         end
@@ -1527,8 +1497,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x[i] ~ sum(μ[i], σ[i])))),
                 sum,
-                GraphPPL.proxylabel(:x, (i,), x),
-                (GraphPPL.proxylabel(:μ, (i,), μ), GraphPPL.proxylabel(:σ, (i,), σ))
+                GraphPPL.proxylabel(:x, x, (i,), GraphPPL.True()),
+                (GraphPPL.proxylabel(:μ, μ, (i,), GraphPPL.False()), GraphPPL.proxylabel(:σ, σ, (i,), GraphPPL.False()))
             )
             var"#var"
         end
@@ -1553,9 +1523,10 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(z ~ Normal(x + 1, y)))),
                 Normal,
-                GraphPPL.proxylabel(:z, nothing, z),
+                GraphPPL.proxylabel(:z, z, nothing, GraphPPL.True()),
                 (
-                    (
+                    GraphPPL.proxylabel(
+                        :anonymous,
                         let anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
                             begin
                                 var"#node2", var"#var2" = GraphPPL.make_node!(
@@ -1563,14 +1534,19 @@ end
                                     __context__,
                                     GraphPPL.NodeCreationOptions((; anonymous = true, created_by = :(z ~ Normal(x + 1, y)))),
                                     +,
-                                    GraphPPL.proxylabel(:anon_1, nothing, anon_1),
-                                    (GraphPPL.proxylabel(:x, nothing, x), 1)
+                                    GraphPPL.proxylabel(:anon_1, anon_1, nothing, GraphPPL.True()),
+                                    (
+                                        GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False()),
+                                        GraphPPL.proxylabel(:anonymous, 1, nothing, GraphPPL.False())
+                                    )
                                 )
                                 var"#var2"
                             end
-                        end
+                        end,
+                        nothing,
+                        GraphPPL.False()
                     ),
-                    GraphPPL.proxylabel(:y, nothing, y)
+                    GraphPPL.proxylabel(:y, y, nothing, GraphPPL.False())
                 )
             )
             var"#var"
@@ -1590,8 +1566,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x := y), is_deterministic = true)),
                 y,
-                GraphPPL.proxylabel(:x, nothing, x),
-                $nothing
+                GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+                GraphPPL.proxylabel(:anonymous, $nothing, nothing, GraphPPL.False())
             )
             var"#var"
         end
@@ -1610,8 +1586,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x[i] := y), is_deterministic = true)),
                 y,
-                GraphPPL.proxylabel(:x, (i,), x),
-                $nothing
+                GraphPPL.proxylabel(:x, x, (i,), GraphPPL.True()),
+                GraphPPL.proxylabel(:anonymous, $nothing, nothing, GraphPPL.False())
             )
             var"#var"
         end
@@ -1630,8 +1606,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x[i, j] := y), is_deterministic = true)),
                 y,
-                GraphPPL.proxylabel(:x, (i, j), x),
-                $nothing
+                GraphPPL.proxylabel(:x, x, (i, j), GraphPPL.True()),
+                GraphPPL.proxylabel(:anonymous, $nothing, nothing, GraphPPL.False())
             )
             var"#var"
         end
@@ -1649,8 +1625,17 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(1, 2; σ = 1, μ = 2)))),
                 sum,
-                GraphPPL.proxylabel(:x, nothing, x),
-                GraphPPL.MixedArguments((1, 2), (σ = 1, μ = 2))
+                GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+                GraphPPL.MixedArguments(
+                    (
+                        GraphPPL.proxylabel(:anonymous, 1, nothing, GraphPPL.False()),
+                        GraphPPL.proxylabel(:anonymous, 2, nothing, GraphPPL.False())
+                    ),
+                    (
+                        σ = GraphPPL.proxylabel(:anonymous, 1, nothing, GraphPPL.False()),
+                        μ = GraphPPL.proxylabel(:anonymous, 2, nothing, GraphPPL.False())
+                    )
+                )
             )
             var"#var"
         end
@@ -1668,8 +1653,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(x ~ sum(μ, σ) where {q = q(μ)q(σ)}), q = q(μ)q(σ))),
                 sum,
-                GraphPPL.proxylabel(:x, nothing, x),
-                (GraphPPL.proxylabel(:μ, nothing, μ), GraphPPL.proxylabel(:σ, nothing, σ))
+                GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+                (GraphPPL.proxylabel(:μ, μ, nothing, GraphPPL.False()), GraphPPL.proxylabel(:σ, σ, nothing, GraphPPL.False()))
             )
             var"#var"
         end
@@ -1687,8 +1672,8 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(y ~ Normal(μ = x, σ = σ)),)),
                 Normal,
-                GraphPPL.proxylabel(:y, nothing, y),
-                (μ = GraphPPL.proxylabel(:x, nothing, x), σ = GraphPPL.proxylabel(:σ, nothing, σ))
+                GraphPPL.proxylabel(:y, y, nothing, GraphPPL.True()),
+                (μ = GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False()), σ = GraphPPL.proxylabel(:σ, σ, nothing, GraphPPL.False()))
             )
             var"#var"
         end
@@ -1705,7 +1690,7 @@ end
                 __context__,
                 GraphPPL.NodeCreationOptions((; created_by = :(y ~ prior()),)),
                 prior,
-                GraphPPL.proxylabel(:y, nothing, y),
+                GraphPPL.proxylabel(:y, y, nothing, GraphPPL.True()),
                 ()
             )
             var"#var"
@@ -1720,17 +1705,18 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(eagle...))
         else
-            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
-                a
-            else
-                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
-            end
+            a
         end
         var"#rvar#" = broadcast(a, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
-                __model__, __context__, GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)), Normal, ilhs, args
+                __model__,
+                __context__,
+                GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ, σ)),)),
+                Normal,
+                ilhs,
+                GraphPPL.proxylabel(:anonymous, args, nothing, GraphPPL.False())
             )
         end
         GraphPPL.__check_vectorized_input(var"#rvar#")
@@ -1744,13 +1730,9 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
+            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(eagle...))
         else
-            if GraphPPL.check_variate_compatability(a, GraphPPL.__combine_axes(var"#broad"...)...)
-                a
-            else
-                GraphPPL.getorcreate!(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...)...)
-            end
+            a
         end
         var"#rvar" = broadcast(a, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
@@ -1759,7 +1741,7 @@ end
                 GraphPPL.NodeCreationOptions((; created_by = :(a .~ Normal(μ = μ, σ = σ)),)),
                 Normal,
                 ilhs,
-                NamedTuple{$(:μ, :σ)}(args)
+                GraphPPL.proxylabel(:anonymous, NamedTuple{$(:μ, :σ)}(args), nothing, GraphPPL.False())
             )
         end
         GraphPPL.__check_vectorized_input(var"#rvar")
@@ -1774,13 +1756,9 @@ end
     output = quote
         var"#broad" = (a, b, μ, σ)
         out = if !(@isdefined(out))
-            GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
+            GraphPPL.VariableRef(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...))
         else
-            if GraphPPL.check_variate_compatability(out, GraphPPL.__combine_axes(var"#broad"...)...)
-                out
-            else
-                GraphPPL.getorcreate!(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...)...)
-            end
+            out
         end
         var"#rvar" = broadcast(out, var"#broad"...) do ilhs, args...
             return GraphPPL.make_node!(
@@ -1790,7 +1768,8 @@ end
                 some_node,
                 ilhs,
                 GraphPPL.MixedArguments(
-                    (GraphPPL.proxylabel(:a, nothing, a), GraphPPL.proxylabel(:b, nothing, b)), NamedTuple{$(:μ, :σ)}(args)
+                    (GraphPPL.proxylabel(:a, a, nothing, GraphPPL.False()), GraphPPL.proxylabel(:b, b, nothing, GraphPPL.False())),
+                    GraphPPL.proxylabel(:anonymous, NamedTuple{$(:μ, :σ)}(args), nothing, GraphPPL.False())
                 )
             )
         end
