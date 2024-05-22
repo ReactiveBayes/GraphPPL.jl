@@ -1677,38 +1677,42 @@ end
 
     include("testutils.jl")
 
-    @model function neural_dot(out, in, w, k)
+    @model function neural_dot(out, in, w)
         local c
         c[1] ~ in[1] * w[1]
-        for i in 2:k
+        for i in 2:length(in)
             c[i] ~ c[i - 1] + in[i] * w[i]
         end
         out := identity(c[end])
     end
 
-    @model function neuron(in, out, k)
+    @model function neuron(in, out)
         local w
-        for i in 1:k
+        for i in 1:length(in)
             w[i] ~ Normal(0.0, 1.0)
         end
-        out ~ neural_dot(in = in, w = w, k = k)
+        out ~ neural_dot(in = in, w = w)
     end
 
-    @model function neural_network_layer(in, out, n, k)
+    @model function neural_network_layer(in, out, n)
         for i in 1:n
-            out[i] ~ neuron(in = in, k = k)
+            out[i] ~ neuron(in = in)
         end
     end
 
-    @model function neural_net(in, out, k)
-        h1 ~ neural_network_layer(in = in, n = 2, k = k)
-        h2 ~ neural_network_layer(in = h1, n = 2, k = 2)
-        out ~ neural_network_layer(in = h2, n = 2, k = 2)
+    @model function neural_net(in, out)
+        h1 ~ neural_network_layer(in = in, n = 10)
+        h2 ~ neural_network_layer(in = h1, n = 16)
+        out ~ neural_network_layer(in = h2, n = 2)
     end
 
-    model = create_model(neural_net(k = 3)) do model, ctx
+    model = create_model(neural_net()) do model, ctx
         in = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :in, randn(3))
         out = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :out, randn(2))
         return (in = in, out = out)
     end
+
+    @test length(collect(filter(as_node(Normal), model))) == 3 * 10 + 10 * 16 + 16 * 2
+    @test length(collect(filter(as_variable(:in), model))) == 3
+    @test length(collect(filter(as_variable(:out), model))) == 2
 end
