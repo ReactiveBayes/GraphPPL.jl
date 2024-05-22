@@ -1705,7 +1705,7 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(eagle...))
+            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...))
         else
             a
         end
@@ -1730,7 +1730,7 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(eagle...))
+            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...))
         else
             a
         end
