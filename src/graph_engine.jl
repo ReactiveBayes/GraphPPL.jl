@@ -1399,7 +1399,7 @@ end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}) where {T <: Union{NodeLabel, ProxyLabel, VariableRef}} =
+getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}} where {T <: Union{NodeLabel, ProxyLabel, VariableRef}}) =
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) =
