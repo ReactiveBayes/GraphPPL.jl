@@ -1770,7 +1770,9 @@ end
     output = quote
         var"#broad" = (a, b, μ, σ)
         out = if !(@isdefined(out))
-            GraphPPL.makevarref(some_node, __model__, __context__, GraphPPL.NodeCreationOptions(), :out, GraphPPL.__combine_axes(var"#broad"...))
+            GraphPPL.makevarref(
+                some_node, __model__, __context__, GraphPPL.NodeCreationOptions(), :out, GraphPPL.__combine_axes(var"#broad"...)
+            )
         else
             out
         end

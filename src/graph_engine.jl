@@ -893,6 +893,15 @@ variable_ref_show(io::IO, name::Symbol, index::Tuple{Nothing}) = print(io, name)
 variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
+"""
+    makevarref(fform::F, model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+
+A function that creates `VariableRef`, but takes the `fform` into account. When `fform` happens to be `Atomic` creates 
+the underlying variable immediatelly without postponing. When `fform` is `Composite` does not create the actual variable, 
+but waits until strictly necessarily.
+"""
+function makevarref end
+
 function makevarref(fform::F, model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple) where {F}
     return makevarref(NodeType(model, fform), model, context, options, name, index)
 end

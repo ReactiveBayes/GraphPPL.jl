@@ -2256,7 +2256,17 @@ end
     using Distributions
     using Graphs
     import GraphPPL:
-        getcontext, materialize_factor_node!, create_model, getorcreate!, getifcreated, proxylabel, prune!, getname, label_for, edges, NodeCreationOptions
+        getcontext,
+        materialize_factor_node!,
+        create_model,
+        getorcreate!,
+        getifcreated,
+        proxylabel,
+        prune!,
+        getname,
+        label_for,
+        edges,
+        NodeCreationOptions
 
     include("testutils.jl")
 

@@ -124,6 +124,7 @@ GraphPPL.lift_index
 GraphPPL.datalabel
 GraphPPL.StaticInterfaces
 GraphPPL.VariableRef
+GraphPPL.makevarref
 GraphPPL.MissingCollection
 GraphPPL.VariableNodeProperties
 GraphPPL.FactorNodeProperties
