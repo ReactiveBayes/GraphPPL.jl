@@ -16,6 +16,37 @@ end
 showerror(io::IO, e::NotImplementedError) = print(io, "NotImplementedError: " * e.message)
 
 """
+Type stable iterator over NamedTuples. Only supports `Base.foreach`.
+
+```jldoctest
+julia> named_tuple = (a = 1, b = 2)
+
+julia> foreach(GraphPPL.NamedTupleIterator(named_tuple)) do key, value
+    println(key, " ", value)
+end
+a 1
+b 2
+```
+"""
+struct NamedTupleIterator{T}
+    namedtuple::T
+end
+
+function Base.foreach(f::F, iterator::NamedTupleIterator) where {F}
+    return named_tuple_iterator_foreach(f, keys(iterator.namedtuple), values(iterator.namedtuple))
+end
+
+function named_tuple_iterator_foreach(f::F, keys::K, values::V) where {F, K, V}
+    if length(keys) === 0
+        return nothing
+    end
+    first_key, remaining_keys = Base.first(keys), Base.tail(keys)
+    first_value, remaining_values = Base.first(values), Base.tail(values)
+    f(first_key, first_value)
+    return named_tuple_iterator_foreach(f, remaining_keys, remaining_values)
+end
+
+"""
     FunctionalIndex
 
 A special type of an index that represents a function that can be used only in pair with a collection. 
@@ -137,6 +168,56 @@ Base.show(io::IO, variable::IndexedVariable{Nothing}) = print(io, variable.name)
 Base.show(io::IO, variable::IndexedVariable) = print(io, variable.name, "[", variable.index, "]")
 
 """
+    NodeType
+
+Abstract type representing either `Composite` or `Atomic` trait for a given object. By default is `Atomic` unless specified otherwise.
+"""
+abstract type NodeType end
+
+"""
+    Composite
+
+`Composite` object used as a trait of structs and functions that are composed of multiple nodes and therefore implement `make_node!`.
+"""
+struct Composite <: NodeType end
+
+"""
+    Atomic
+`Atomic` object used as a trait of structs and functions that are composed of a single node and are therefore materialized as a single node in the factor graph.
+"""
+struct Atomic <: NodeType end
+
+NodeType(backend, fform) = error("Backend $backend must implement a method for `NodeType` for `$(fform)`.")
+
+"""
+    NodeBehaviour
+
+Abstract type representing either `Deterministic` or `Stochastic` for a given object. By default is `Deterministic` unless specified otherwise.
+"""
+abstract type NodeBehaviour end
+
+"""
+    Stochastic
+
+`Stochastic` object used to parametrize factor node object with stochastic type of relationship between variables.
+"""
+struct Stochastic <: NodeBehaviour end
+
+"""
+    Deterministic
+
+`Deterministic` object used to parametrize factor node object with determinstic type of relationship between variables.
+"""
+struct Deterministic <: NodeBehaviour end
+
+"""
+    NodeBehaviour(backend, fform)
+
+Returns a `NodeBehaviour` object for a given `backend` and `fform`.
+"""
+NodeBehaviour(backend, fform) = error("Backend $backend must implement a method for `NodeBehaviour` for `$(fform)`.")
+
+"""
     FactorID(fform, index)
 
 A unique identifier for a factor node in a probabilistic graphical model.
@@ -183,6 +264,9 @@ setcounter!(model::Model, value) = model.counter[] = value
 
 Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
 Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
+
+NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
+NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
 
 """
     NodeLabel(name, global_counter::Int64)
@@ -834,27 +918,50 @@ internal_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O
 external_collection(ref::VariableRef) = ref.external_collection
 internal_collection(ref::VariableRef) = ref.internal_collection
 
-function VariableRef(model::Model, context::Context, name::Symbol, index, external_collection = nothing)
-    return VariableRef(model, context, NodeCreationOptions(), name, index, external_collection)
-end
-
 Base.show(io::IO, ref::VariableRef) = variable_ref_show(io, ref.name, ref.index)
 variable_ref_show(io::IO, name::Symbol, index::Nothing) = print(io, name)
 variable_ref_show(io::IO, name::Symbol, index::Tuple{Nothing}) = print(io, name)
 variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", join(index, ","), "]")
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
-function VariableRef(
-    model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple, external_collection = nothing
-)
+function makevarref(fform::F, model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple) where {F}
+    return makevarref(NodeType(model, fform), model, context, options, name, index)
+end
+
+function makevarref(::Atomic, model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+    # In the case of `Atomic` variable reference, we always create the variable 
+    # (unless the index is empty, which may happen during broadcasting)
+    internal_collection = isempty(index) ? nothing : getorcreate!(model, context, name, index...)
+    return VariableRef(model, context, options, name, index, nothing, internal_collection)
+end
+
+function makevarref(::Composite, model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+    # In the case of `Composite` variable reference, we create it immediatelly only when the variable is instantiated 
+    # with indexing operation
     internal_collection = if !all(isnothing, index)
         getorcreate!(model, context, name, index...)
-    elseif haskey(context, name)
-        context[name]
     else
         nothing
     end
-    return VariableRef(model, context, options, name, index, external_collection, internal_collection)
+    return VariableRef(model, context, options, name, index, nothing, internal_collection)
+end
+
+function VariableRef(
+    model::Model,
+    context::Context,
+    options::NodeCreationOptions,
+    name::Symbol,
+    index::Tuple,
+    external_collection = nothing,
+    internal_collection = nothing
+)
+    M = typeof(model)
+    C = typeof(context)
+    O = typeof(options)
+    I = typeof(index)
+    E = typeof(external_collection)
+    L = typeof(internal_collection)
+    return VariableRef{M, C, O, I, E, L}(model, context, options, name, index, external_collection, internal_collection)
 end
 
 function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
@@ -1197,58 +1304,6 @@ Base.getindex(context::Context, ivar::IndexedVariable{Nothing}) = context[getnam
 Base.getindex(context::Context, ivar::IndexedVariable) = context[getname(ivar)][index(ivar)]
 
 """
-    NodeType
-
-Abstract type representing either `Composite` or `Atomic` trait for a given object. By default is `Atomic` unless specified otherwise.
-"""
-abstract type NodeType end
-
-"""
-    Composite
-
-`Composite` object used as a trait of structs and functions that are composed of multiple nodes and therefore implement `make_node!`.
-"""
-struct Composite <: NodeType end
-
-"""
-    Atomic
-`Atomic` object used as a trait of structs and functions that are composed of a single node and are therefore materialized as a single node in the factor graph.
-"""
-struct Atomic <: NodeType end
-
-NodeType(backend, fform) = error("Backend $backend must implement a method for `NodeType` for `$(fform)`.")
-NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
-
-"""
-    NodeBehaviour
-
-Abstract type representing either `Deterministic` or `Stochastic` for a given object. By default is `Deterministic` unless specified otherwise.
-"""
-abstract type NodeBehaviour end
-
-"""
-    Stochastic
-
-`Stochastic` object used to parametrize factor node object with stochastic type of relationship between variables.
-"""
-struct Stochastic <: NodeBehaviour end
-
-"""
-    Deterministic
-
-`Deterministic` object used to parametrize factor node object with determinstic type of relationship between variables.
-"""
-struct Deterministic <: NodeBehaviour end
-
-"""
-    NodeBehaviour(backend, fform)
-
-Returns a `NodeBehaviour` object for a given `backend` and `fform`.
-"""
-NodeBehaviour(backend, fform) = error("Backend $backend must implement a method for `NodeBehaviour` for `$(fform)`.")
-NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
-
-"""
     aliases(backend, fform)
 
 Returns a collection of aliases for `fform` depending on the `backend`.
@@ -1290,7 +1345,7 @@ This function copies the variables in the Markov blanket of the parent context s
 - `interfaces::NamedTuple`: A named tuple that maps child variable names to parent variable names.
 """
 function copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
-    for (name_in_child, object_in_parent) in zip(keys(interfaces), values(interfaces))
+    foreach(NamedTupleIterator(interfaces)) do name_in_child, object_in_parent
         add_to_child_context(child_context, name_in_child, object_in_parent)
     end
 end
@@ -1732,10 +1787,12 @@ function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
-materialize_interface(interface) = interface
+function materialize_interface(model, context, interface)
+    return getifcreated(model, context, unroll(interface))
+end
 
-function materialze_interfaces(interfaces::NamedTuple)
-    return map(materialize_interface, interfaces)
+function materialze_interfaces(model, context, interfaces)
+    return map(interface -> materialize_interface(model, context, interface), interfaces)
 end
 
 """
@@ -1970,8 +2027,9 @@ function make_node!(
         NamedTuple, interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
     )
     aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
-    interfaces = materialze_interfaces(prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
-    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
+    interfaces = materialze_interfaces(model, context, prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
+    sorted_interfaces = sort_interfaces(model, aliased_fform, interfaces)
+    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, sorted_interfaces)
     return nodeid, unroll(lhs_interface)
 end
 
@@ -1984,10 +2042,8 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
 end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where {F}
-    interfaces = sort_interfaces(model, fform, interfaces)
-    interfaces = map(interface -> getifcreated(model, context, unroll(interface)), interfaces)
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
-    for (interface_name, interface) in zip(keys(interfaces), values(interfaces))
+    foreach(NamedTupleIterator(interfaces)) do interface_name, interface
         add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
     return factor_node_id, factor_node_data, factor_node_properties

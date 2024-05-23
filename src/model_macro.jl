@@ -350,7 +350,7 @@ function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         @capture(lhs, (var_[index__]) | (var_))
         return quote
-            $(generate_get_or_create(var, index))
+            $(generate_get_or_create(var, index, rhs))
             $e
         end
     end
@@ -371,7 +371,7 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::Nothing) = generate_get_or_create(s, :((nothing,)))
+generate_get_or_create(s::Symbol, index::Nothing, rhs) = generate_get_or_create(s, :((nothing,)), rhs)
 
 """
     generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
@@ -385,12 +385,13 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create(s, :(($(index...),)))
+generate_get_or_create(s::Symbol, index::AbstractArray, rhs) = generate_get_or_create(s, :(($(index...),)), rhs)
 
-function generate_get_or_create(s::Symbol, index::Expr)
+function generate_get_or_create(s::Symbol, index::Expr, rhs)
+    type = @capture(rhs, (f_()) | (f_(args__) | (f_(; kwargs__)) | (f_(args__; kwargs__)))) ? f : :(GraphPPL.Composite())
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(s)), $(index))
+            GraphPPL.makevarref($type, __model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), $(index))
         else
             $s
         end
@@ -597,7 +598,7 @@ function convert_tilde_expression(e::Expr)
         combinable_args = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         combinablesym = gensym()
-        getorcreate_lhs = generate_get_or_create(var, :(GraphPPL.__combine_axes($combinablesym...)))
+        getorcreate_lhs = generate_get_or_create(var, :(GraphPPL.__combine_axes($combinablesym...)), :(($fform)()))
         returnvalsym = gensym()
         return quote
             $combinablesym = ($(combinable_args...),)

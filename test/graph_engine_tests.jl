@@ -1,3 +1,23 @@
+@testitem "NamedTupleIterator" begin 
+    values = Dict()
+
+    foreach(GraphPPL.NamedTupleIterator((a = 1, b = 2.0))) do key, value
+        values[key] = value
+    end
+
+    @test values[:a] === 1
+    @test values[:b] === 2.0
+
+    foreach(GraphPPL.NamedTupleIterator((c = 1, d = 2.0))) do key, value
+        values[key] = value
+    end
+
+    @test values[:a] === 1
+    @test values[:b] === 2.0
+    @test values[:c] === 1
+    @test values[:d] === 2.0
+end
+
 @testitem "IndexedVariable" begin
     import GraphPPL: IndexedVariable, CombinedRange, SplittedRange, getname, index
 
@@ -707,6 +727,7 @@ end
 @testitem "`VariableRef` in combination with `ProxyLabel` should create variables in the model" begin
     import GraphPPL:
         VariableRef,
+        makevarref,
         getcontext,
         getifcreated,
         unroll,
@@ -720,6 +741,8 @@ end
         is_kind,
         MissingCollection,
         getorcreate!
+
+    using Distributions
 
     include("testutils.jl")
 
@@ -796,6 +819,17 @@ end
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test ctx[:x] === unroll(proxylabel(:x, xref, nothing, False()))
         @test getifcreated(model, ctx, xref) === ctx[:x]
+    end
+
+    @testset "Variable should be created if the `Atomic` fform is used as a first argument with `makevarref`" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        # `x` is not created here, but `makevarref` takes into account the `Atomic/Composite`
+        # we always create a variable when used with `Atomic`
+        xref = makevarref(Normal, model, ctx, NodeCreationOptions(), :x, (nothing,))
+        # `@inferred` here is important for simple use cases like `x ~ Normal(0, 1)`, so 
+        # `x` can be inferred properly
+        @test ctx[:x] === @inferred(unroll(proxylabel(:x, xref, nothing, False())))
     end
 end
 
