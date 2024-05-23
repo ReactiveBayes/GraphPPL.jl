@@ -16,37 +16,6 @@ end
 showerror(io::IO, e::NotImplementedError) = print(io, "NotImplementedError: " * e.message)
 
 """
-Type stable iterator over NamedTuples. Only supports `Base.foreach`.
-
-```jldoctest
-julia> named_tuple = (a = 1, b = 2)
-
-julia> foreach(GraphPPL.NamedTupleIterator(named_tuple)) do key, value
-    println(key, " ", value)
-end
-a 1
-b 2
-```
-"""
-struct NamedTupleIterator{T}
-    namedtuple::T
-end
-
-function Base.foreach(f::F, iterator::NamedTupleIterator) where {F}
-    return named_tuple_iterator_foreach(f, keys(iterator.namedtuple), values(iterator.namedtuple))
-end
-
-function named_tuple_iterator_foreach(f::F, keys::K, values::V) where {F, K, V}
-    if length(keys) === 0
-        return nothing
-    end
-    first_key, remaining_keys = Base.first(keys), Base.tail(keys)
-    first_value, remaining_values = Base.first(values), Base.tail(values)
-    f(first_key, first_value)
-    return named_tuple_iterator_foreach(f, remaining_keys, remaining_values)
-end
-
-"""
     FunctionalIndex
 
 A special type of an index that represents a function that can be used only in pair with a collection. 
@@ -1345,7 +1314,7 @@ This function copies the variables in the Markov blanket of the parent context s
 - `interfaces::NamedTuple`: A named tuple that maps child variable names to parent variable names.
 """
 function copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
-    foreach(NamedTupleIterator(interfaces)) do name_in_child, object_in_parent
+    foreach(pairs(interfaces)) do (name_in_child, object_in_parent)
         add_to_child_context(child_context, name_in_child, object_in_parent)
     end
 end
@@ -2027,9 +1996,10 @@ function make_node!(
         NamedTuple, interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
     )
     aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
-    interfaces = materialze_interfaces(model, context, prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces))
-    sorted_interfaces = sort_interfaces(model, aliased_fform, interfaces)
-    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, sorted_interfaces)
+    prepared_interfaces = prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces)
+    sorted_interfaces = sort_interfaces(model, aliased_fform, prepared_interfaces)
+    interfaces = materialze_interfaces(model, context, sorted_interfaces)
+    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
 
@@ -2043,7 +2013,7 @@ end
 
 function materialize_factor_node!(model::Model, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple) where {F}
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
-    foreach(NamedTupleIterator(interfaces)) do interface_name, interface
+    foreach(pairs(interfaces)) do (interface_name, interface)
         add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
     end
     return factor_node_id, factor_node_data, factor_node_properties

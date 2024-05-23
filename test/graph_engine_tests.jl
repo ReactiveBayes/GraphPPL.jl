@@ -1,23 +1,3 @@
-@testitem "NamedTupleIterator" begin 
-    values = Dict()
-
-    foreach(GraphPPL.NamedTupleIterator((a = 1, b = 2.0))) do key, value
-        values[key] = value
-    end
-
-    @test values[:a] === 1
-    @test values[:b] === 2.0
-
-    foreach(GraphPPL.NamedTupleIterator((c = 1, d = 2.0))) do key, value
-        values[key] = value
-    end
-
-    @test values[:a] === 1
-    @test values[:b] === 2.0
-    @test values[:c] === 1
-    @test values[:d] === 2.0
-end
-
 @testitem "IndexedVariable" begin
     import GraphPPL: IndexedVariable, CombinedRange, SplittedRange, getname, index
 
@@ -689,7 +669,7 @@ end
 end
 
 @testitem "`VariableRef` iterators interface" begin
-    import GraphPPL: VariableRef, getcontext, NodeCreationOptions, VariableKindData
+    import GraphPPL: VariableRef, getcontext, NodeCreationOptions, VariableKindData, getorcreate!
 
     include("testutils.jl")
 
@@ -706,7 +686,8 @@ end
     @testset "Existing internal and external collections" begin
         model = create_test_model()
         ctx = getcontext(model)
-        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1,))
+        xcollection = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1,), xcollection)
 
         @test @inferred(Base.IteratorSize(xref)) === Base.HasShape{1}()
         @test @inferred(Base.IteratorEltype(xref)) === Base.HasEltype()
@@ -2275,17 +2256,19 @@ end
     using Distributions
     using Graphs
     import GraphPPL:
-        getcontext, materialize_factor_node!, create_model, getorcreate!, proxylabel, prune!, getname, label_for, edges, NodeCreationOptions
+        getcontext, materialize_factor_node!, create_model, getorcreate!, getifcreated, proxylabel, prune!, getname, label_for, edges, NodeCreationOptions
 
     include("testutils.jl")
 
     model = create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
-    xref = getorcreate!(model, ctx, :x, nothing)
+    xref = getorcreate!(model, ctx, options, :x, nothing)
+    μref = getifcreated(model, ctx, 0)
+    σref = getifcreated(model, ctx, 1)
 
     # Test 1: Stochastic atomic call returns a new node
-    node_id, _, _ = materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = 0, σ = 1))
+    node_id, _, _ = materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = μref, σ = σref))
     @test nv(model) == 4
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
@@ -2295,7 +2278,9 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = 0, σ = 1))
+    μref = getifcreated(model, ctx, 0)
+    σref = getifcreated(model, ctx, 1)
+    materialize_factor_node!(model, ctx, options, Normal, (out = xref, μ = μref, σ = σref))
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node

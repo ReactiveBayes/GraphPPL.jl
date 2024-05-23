@@ -1192,11 +1192,25 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (nothing,))
         else
             x
         end
         x ~ (Normal(0, 1) where {(created_by = (x ~ Normal(0, 1)))})
+    end
+    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+
+    #Test 1.1: test scalar variable
+    input = quote
+        x ~ Gamma(0, 1) where {created_by = (x ~ Gamma(0, 1))}
+    end
+    output = quote
+        x = if !(@isdefined(x))
+            GraphPPL.makevarref(Gamma, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (nothing,))
+        else
+            x
+        end
+        x ~ (Gamma(0, 1) where {(created_by = (x ~ Gamma(0, 1)))})
     end
     @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
@@ -1206,7 +1220,7 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (1,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (1,))
         else
             x
         end
@@ -1220,7 +1234,7 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (1, 2))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (1, 2))
         else
             x
         end
@@ -1234,7 +1248,7 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (i,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (i,))
         else
             x
         end
@@ -1248,7 +1262,7 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (i, j))
         else
             x
         end
@@ -1268,14 +1282,14 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (nothing,))
         else
             x
         end
         x ~ Normal(
             begin
                 $sym = if !(@isdefined($sym))
-                    GraphPPL.VariableRef(__model__, __context__, $(QuoteNode(sym)), (nothing,))
+                    GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(sym)), (nothing,))
                 else
                     $sym
                 end
@@ -1292,7 +1306,7 @@ end
     end
     output = quote
         y = if !(@isdefined(y))
-            GraphPPL.VariableRef(__model__, __context__, :y, (nothing,))
+            GraphPPL.makevarref(GraphPPL.Composite(), __model__, __context__, GraphPPL.NodeCreationOptions(), :y, (nothing,))
         else
             y
         end
@@ -1306,7 +1320,7 @@ end
     end
     output = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (nothing,))
         else
             x
         end
@@ -1321,10 +1335,10 @@ end
     include("testutils.jl")
 
     # Test 1: test scalar variable
-    output = generate_get_or_create(:x, nothing)
+    output = generate_get_or_create(:x, nothing, :(Normal(0, 1)))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (nothing,))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (nothing,))
         else
             x
         end
@@ -1332,10 +1346,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 2: test vector variable
-    output = generate_get_or_create(:x, [1])
+    output = generate_get_or_create(:x, [1], :(Gamma(0, 1)))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (1,))
+            GraphPPL.makevarref(Gamma, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (1,))
         else
             x
         end
@@ -1343,10 +1357,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 3: test matrix variable
-    output = generate_get_or_create(:x, [1, 2])
+    output = generate_get_or_create(:x, [1, 2], :(unknownsymbol))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (1, 2))
+            GraphPPL.makevarref(GraphPPL.Composite(), __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (1, 2))
         else
             x
         end
@@ -1354,10 +1368,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 5: test symbol-indexed variable
-    output = generate_get_or_create(:x, [:i, :j])
+    output = generate_get_or_create(:x, [:i, :j], :(unknownsymbol))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
+            GraphPPL.makevarref(GraphPPL.Composite(), __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (i, j))
         else
             x
         end
@@ -1365,10 +1379,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 6: test vector of single symbol
-    output = generate_get_or_create(:x, [:i])
+    output = generate_get_or_create(:x, [:i], :(f(argument)))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (i,))
+            GraphPPL.makevarref(f, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (i,))
         else
             x
         end
@@ -1376,10 +1390,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 7: test vector of symbols
-    output = generate_get_or_create(:x, [:i, :j])
+    output = generate_get_or_create(:x, [:i, :j], :(f(keyword = 1)))
     desired_result = quote
         x = if !(@isdefined(x))
-            GraphPPL.VariableRef(__model__, __context__, :x, (i, j))
+            GraphPPL.makevarref(f, __model__, __context__, GraphPPL.NodeCreationOptions(), :x, (i, j))
         else
             x
         end
@@ -1387,10 +1401,10 @@ end
     @test_expression_generating output desired_result
 
     # Test 8: test error if un-unrollable index
-    @test_throws MethodError generate_get_or_create(:x, 2)
+    @test_throws MethodError generate_get_or_create(:x, 2, :(Normal()))
 
     # Test 9: test error if un-unrollable index
-    @test_throws MethodError generate_get_or_create(:x, prod(0, 1))
+    @test_throws MethodError generate_get_or_create(:x, prod(0, 1), :(Normal()))
 end
 
 @testitem "keyword_expressions_to_named_tuple" begin
@@ -1705,7 +1719,7 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :a, GraphPPL.__combine_axes(var"#broad"...))
         else
             a
         end
@@ -1730,7 +1744,7 @@ end
     output = quote
         var"#broad" = (μ, σ)
         a = if !(@isdefined(a))
-            GraphPPL.VariableRef(__model__, __context__, :a, GraphPPL.__combine_axes(var"#broad"...))
+            GraphPPL.makevarref(Normal, __model__, __context__, GraphPPL.NodeCreationOptions(), :a, GraphPPL.__combine_axes(var"#broad"...))
         else
             a
         end
@@ -1756,7 +1770,7 @@ end
     output = quote
         var"#broad" = (a, b, μ, σ)
         out = if !(@isdefined(out))
-            GraphPPL.VariableRef(__model__, __context__, :out, GraphPPL.__combine_axes(var"#broad"...))
+            GraphPPL.makevarref(some_node, __model__, __context__, GraphPPL.NodeCreationOptions(), :out, GraphPPL.__combine_axes(var"#broad"...))
         else
             out
         end
