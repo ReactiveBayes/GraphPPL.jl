@@ -119,16 +119,24 @@ GraphPPL.NodeData
 GraphPPL.NodeLabel
 GraphPPL.EdgeLabel
 GraphPPL.ProxyLabel
+GraphPPL.indexed_last
+GraphPPL.lift_index
+GraphPPL.datalabel
 GraphPPL.StaticInterfaces
-GraphPPL.LazyIndex
+GraphPPL.VariableRef
+GraphPPL.makevarref
 GraphPPL.MissingCollection
 GraphPPL.VariableNodeProperties
 GraphPPL.FactorNodeProperties
 GraphPPL.VarDict
 GraphPPL.AnonymousVariable
 GraphPPL.NodeDataExtraKey
-GraphPPL.LazyNodeLabel
 GraphPPL.IndexedVariable
+
+GraphPPL.VariableKindRandom
+GraphPPL.VariableKindData
+GraphPPL.VariableKindConstant
+GraphPPL.VariableKindUnknown
 
 GraphPPL.Deterministic
 GraphPPL.Stochastic
@@ -151,7 +159,6 @@ GraphPPL.add_variable_node!
 GraphPPL.add_composite_factor_node!
 GraphPPL.copy_markov_blanket_to_child_context
 GraphPPL.generate_nodelabel
-GraphPPL.check_variate_compatability
 
 GraphPPL.FunctionalIndex
 GraphPPL.FunctionalRange

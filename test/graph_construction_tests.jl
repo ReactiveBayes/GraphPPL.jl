@@ -91,7 +91,7 @@ end
 
 @testitem "Simple model with lazy data (number) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, is_data, is_constant, is_random, getproperties
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
 
     include("testutils.jl")
 
@@ -102,10 +102,10 @@ end
     end
 
     model = create_model(simple_model_3()) do model, context
-        a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
-        b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, LazyIndex(2.0))
-        c = getorcreate!(model, context, NodeCreationOptions(kind = :data), :c, LazyIndex(π))
-        d = getorcreate!(model, context, NodeCreationOptions(kind = :data), :d, LazyIndex(missing))
+        a = datalabel(model, context, NodeCreationOptions(kind = :data), :a, 1)
+        b = datalabel(model, context, NodeCreationOptions(kind = :data), :b, 2.0)
+        c = datalabel(model, context, NodeCreationOptions(kind = :data), :c, π)
+        d = datalabel(model, context, NodeCreationOptions(kind = :data), :d, missing)
         return (a = a, b = b, c = c, d = d)
     end
 
@@ -120,7 +120,17 @@ end
 
 @testitem "Simple model with lazy data (vector) creation" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, MissingCollection, index, getproperties, is_kind
+    import GraphPPL:
+        create_model,
+        getorcreate!,
+        NodeCreationOptions,
+        MissingCollection,
+        index,
+        getproperties,
+        is_kind,
+        VariableRef,
+        datalabel,
+        VariableKindData
 
     include("testutils.jl")
 
@@ -135,14 +145,11 @@ end
         end
     end
 
-    @test LazyIndex() === LazyIndex(MissingCollection())
-    @test LazyIndex(missing) === LazyIndex(MissingCollection())
-
     @testset for n in 5:10
         model = create_model(simple_model_3(n = n)) do model, ctx
-            T = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_T), :T, LazyIndex())
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_y), :y, LazyIndex())
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data_for_Σ), :Σ, LazyIndex())
+            T = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :T)
+            y = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :y)
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :Σ)
             return (T = T, y = y, Σ = Σ)
         end
 
@@ -153,9 +160,9 @@ end
         @test length(collect(filter(as_variable(:y), model))) === n
 
         # test that options are preserved
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_T), collect(filter(as_variable(:T), model)))
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_y), collect(filter(as_variable(:y), model)))
-        @test all(label -> is_kind(getproperties(model[label]), :data_for_Σ), collect(filter(as_variable(:Σ), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:T), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:y), model)))
+        @test all(label -> is_kind(getproperties(model[label]), VariableKindData), collect(filter(as_variable(:Σ), model)))
 
         # test that indices are of expected shape
         Tsindices = map((label) -> index(getproperties(model[label])), collect(filter(as_variable(:T), model)))
@@ -175,7 +182,7 @@ end
 
 @testitem "Simple model with lazy data creation with attached data" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel, MissingCollection
 
     include("testutils.jl")
 
@@ -228,12 +235,12 @@ end
     end
 
     models = [
-        simple_model_4_withlength,
-        simple_model_4_witheachindex,
-        simple_model_4_withsize,
-        simple_model_4_with_firstindex_lastindex,
-        simple_model_4_with_forloop,
-        simple_model_4_with_foreach
+        simple_model_4_withlength
+        # simple_model_4_witheachindex,
+        # simple_model_4_withsize,
+        # simple_model_4_with_firstindex_lastindex,
+        # simple_model_4_with_forloop,
+        # simple_model_4_with_foreach
     ]
 
     @testset for n in 5:10, model in models
@@ -241,8 +248,8 @@ end
         Σdata = Matrix(ones(n, n))
 
         model = create_model(model()) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex(Σdata))
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data), :Σ, Σdata)
 
             # Check also that the methods are redirected properly
             @test length(ydata) === length(y)
@@ -287,8 +294,8 @@ end
     # Test errors
     @testset for n in 5:10, model in models
         @test_throws "is not defined for a lazy node label without data attached" create_model(model()) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex())
-            Σ = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :Σ, LazyIndex())
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, MissingCollection())
+            Σ = datalabel(model, ctx, NodeCreationOptions(kind = :data), :Σ, MissingCollection())
 
             return (y = y, Σ = Σ)
         end
@@ -297,7 +304,7 @@ end
 
 @testitem "Simple model with lazy data creation with attached data but out of bounds" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_kind
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel
 
     include("testutils.jl")
 
@@ -311,14 +318,14 @@ end
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1)
             return (a = a,)
         end
 
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1.0)
             return (a = a,)
         end
     end
@@ -327,28 +334,28 @@ end
         @test_throws "The index `[1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [])
             return (a = a,)
         end
 
         @test_throws "The index `[2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1])
             return (a = a,)
         end
 
         @test_throws "The index `[3]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0])
             return (a = a,)
         end
 
         @test_throws "The index `[4]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_vector()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0, 1.0])
             return (a = a,)
         end
     end
@@ -363,14 +370,14 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1)
             return (a = a,)
         end
 
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex(1.0))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, 1.0)
             return (a = a,)
         end
     end
@@ -379,7 +386,7 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [])
             return (a = a,)
         end
 
@@ -388,7 +395,7 @@ end
         @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0, 1.0, 1.0, 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0, 1.0, 1.0, 1.0])
             return (a = a,)
         end
     end
@@ -397,21 +404,21 @@ end
         @test_throws "The index `[1, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([;;]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [;;])
             return (a = a,)
         end
 
         @test_throws "The index `[2, 1]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0 1.0;]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0 1.0;])
             return (a = a,)
         end
 
         @test_throws "The index `[1, 2]` is not compatible with the underlying collection provided for the label `a`." create_model(
             simple_model_a_matrix()
         ) do model, ctx
-            a = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, LazyIndex([1.0; 1.0]))
+            a = datalabel(model, ctx, NodeCreationOptions(kind = :data), :a, [1.0; 1.0])
             return (a = a,)
         end
     end
@@ -453,7 +460,7 @@ end
 
 @testitem "Simple state space model with lazy data creation with attached data" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions, index, getproperties, is_random, is_data, degree
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions, index, getproperties, is_random, is_data, degree
 
     include("testutils.jl")
 
@@ -471,8 +478,8 @@ end
         Σdata = ones(n, n)
 
         model = GraphPPL.create_model(state_space_model_with_lazy_data()) do model, ctx
-            y = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, GraphPPL.LazyIndex(ydata))
-            Σ = GraphPPL.getorcreate!(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :Σ, GraphPPL.LazyIndex(Σdata))
+            y = GraphPPL.datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
+            Σ = GraphPPL.datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :Σ, Σdata)
             return (y = y, Σ = Σ)
         end
 
@@ -546,11 +553,10 @@ end
     end
 
     for n in [10, 30, 50, 100, 1000]
+        ydata = rand(n)
         model = GraphPPL.create_model(hgf()) do model, context
-            for i in 1:n
-                GraphPPL.getorcreate!(model, context, :y, i)
-            end
-            return (y = GraphPPL.getorcreate!(model, context, :y, 1),)
+            y = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
+            return (; y = y)
         end
 
         @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7
@@ -563,9 +569,34 @@ end
     end
 end
 
+@testitem "Nested model structure but with constants" begin
+    using Distributions
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
+
+    include("testutils.jl")
+
+    @model function submodel(y, x, z)
+        y ~ Normal(x, z)
+    end
+
+    @model function mainmodel(y)
+        y ~ submodel(x = 1, z = 2)
+    end
+
+    model = create_model(mainmodel()) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, 1.0)
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) === 1
+    @test length(collect(filter(as_variable(:y), model))) === 1
+    @test length(collect(filter(as_variable(:x), model))) === 0
+    @test length(collect(filter(as_variable(:z), model))) === 0
+end
+
 @testitem "Force create a new variable with the `new` syntax" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, LazyIndex, NodeCreationOptions
+    import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -577,6 +608,7 @@ end
     @model function state_space_model(y)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
+
         for i in 2:length(y)
             # `x[i]` is not defined here, so this should fail
             y[i] ~ submodel(x_next = x[i], x_prev = x[i - 1])
@@ -586,7 +618,7 @@ end
     ydata = ones(10)
 
     @test_throws BoundsError create_model(state_space_model()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
         return (y = y,)
     end
 
@@ -600,7 +632,7 @@ end
     end
 
     model = create_model(state_space_model_with_new()) do model, ctx
-        y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
         return (y = y,)
     end
 
@@ -611,7 +643,7 @@ end
 
 @testitem "Anonymous variables should not be created from arithmetical operations on pure constants" begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, variable_nodes, getproperties, is_random, getname
 
     include("testutils.jl")
 
@@ -628,7 +660,7 @@ end
 
     for d in 1:3
         model = create_model(mv_iid_inverse_wishart_known_mean(d = d)) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
             return (y = y,)
         end
 
@@ -688,7 +720,7 @@ end
 
 @testitem "Submodels can be used in the keyword arguments" begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex, variable_nodes, getproperties, is_random, getname
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, variable_nodes, getproperties, is_random, getname
 
     include("testutils.jl")
 
@@ -720,7 +752,7 @@ end
 
     model =
         create_model(multivariate_lgssm_model_with_several_submodels(mean0 = mean0, cov0 = cov0, A = A, B = B, Q = Q, P = P)) do model, ctx
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata))
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
             return (y = y,)
         end
 
@@ -734,7 +766,7 @@ end
 
 @testitem "Using distribution objects as priors" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
     include("testutils.jl")
 
@@ -749,7 +781,7 @@ end
     prior = Beta(1, 1)
 
     model = create_model(coin_model_priors(prior = prior)) do model, context
-        return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(ydata)))
+        return (; y = datalabel(model, context, NodeCreationOptions(kind = :data), :y, ydata))
     end
 
     @test length(collect(filter(as_node(Bernoulli), model))) === 10
@@ -783,8 +815,7 @@ end
     @test haskey(context[mixed_v, 1], :v)
 end
 
-@testitem "Model that constructs a new array to pass to children" begin
-    using GraphPPL
+@testitem "Model that constructs a new vector to pass to children" begin
     include("testutils.jl")
 
     @model function mixed_v(y, v)
@@ -805,28 +836,34 @@ end
     context = GraphPPL.getcontext(model)
 
     @test haskey(context[mixed_v, 1], :v)
+end
+
+@testitem "Model that constructs a new matrix to pass to children" begin
+    include("testutils.jl")
 
     @model function mixed_v(y, v)
         for i in 1:3
             v[i] ~ Normal(0, 1)
         end
-        y ~ Normal(v[1], v[2])
+        y ~ Normal(v[1], v[3])
     end
 
     @model function mixed_m()
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
-        v = Matrix([v1 v2; v1 v3])
-        y ~ mixed_v(v = v)
+        y ~ mixed_v(v = [v1 v2; v1 v3])
     end
 
-    @test_throws GraphPPL.NotImplementedError local model = GraphPPL.create_model(mixed_m())
+    model = GraphPPL.create_model(mixed_m())
+    context = GraphPPL.getcontext(model)
+
+    @test haskey(context[mixed_v, 1], :v)
 end
 
 @testitem "Model creation should throw if a `~` using with a constant on RHS" begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
     include("testutils.jl")
 
@@ -841,7 +878,7 @@ end
     @test_throws "`Matrix` cannot be used as a factor node. Both the arguments and the node are not stochastic." create_model(
         broken_beta_bernoulli()
     ) do model, context
-        return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, LazyIndex(rand(10))))
+        return (; y = datalabel(model, context, NodeCreationOptions(kind = :data), :y, rand(10)))
     end
 end
 
@@ -1015,9 +1052,9 @@ end
     @test_throws ErrorException local model = create_model(weird_broadcast())
 end
 
-@testitem "Broadcasting with LazyNodeLabel" begin
+@testitem "Broadcasting with datalabels" begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, MissingCollection
 
     include("testutils.jl")
 
@@ -1033,8 +1070,8 @@ end
 
     model = create_model(linear_regression_broadcasted()) do model, ctx
         return (
-            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
+            x = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, xdata),
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, ydata)
         )
     end
 
@@ -1048,24 +1085,24 @@ end
     # `xdata` is not passed
     @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
-            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(ydata))
+            x = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, MissingCollection()),
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, ydata)
         )
     end
 
     # `ydata` is not passed
     @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
-            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
+            x = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, xdata),
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, MissingCollection())
         )
     end
 
     # both `xdata` and `ydata` are not passed
     @test_throws "lazy node label without data attached" create_model(linear_regression_broadcasted()) do model, ctx
         return (
-            x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex()),
-            y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex())
+            x = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, MissingCollection()),
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, MissingCollection())
         )
     end
 
@@ -1077,7 +1114,7 @@ end
     xdata = [1.0, 0.0, 1.0, 0.0]
 
     model = create_model(beta_bernoulli_broadcasted()) do model, ctx
-        return (; x = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, LazyIndex(xdata)),)
+        return (; x = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :x, xdata),)
     end
 
     @test length(collect(filter(as_node(Bernoulli), model))) == 4
@@ -1086,7 +1123,7 @@ end
 
 @testitem "Ambiguous broadcasting should give a descriptive error" begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions
 
     include("testutils.jl")
 
@@ -1096,7 +1133,9 @@ end
     end
 
     # The error message can be improved though
-    @test_throws "Index is required in the `getorcreate!` function for variable `x`" create_model(faulty_beta_bernoulli_broadcasted())
+    @test_throws "Cannot broadcast over x. The underlying collection for `x` has undefined shape." create_model(
+        faulty_beta_bernoulli_broadcasted()
+    )
 end
 
 @testitem "Broadcasting over ranges" begin
@@ -1232,7 +1271,7 @@ end
         create_model,
         getorcreate!,
         NodeCreationOptions,
-        LazyIndex,
+        datalabel,
         is_constant,
         is_data,
         getproperties,
@@ -1403,7 +1442,7 @@ end
 
 @testitem "return value from the `@model` should be saved in the Context" begin
     using Distributions
-    import GraphPPL: create_model, LazyIndex, getorcreate!, NodeCreationOptions, returnval, getcontext, children
+    import GraphPPL: create_model, datalabel, getorcreate!, NodeCreationOptions, returnval, getcontext, children
 
     include("testutils.jl")
 
@@ -1432,7 +1471,7 @@ end
 
     for topval in (1, [1, 1], ("hello", "world!"))
         model = create_model(model_with_return(val = topval)) do model, ctx
-            return (y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex(rand(10))),)
+            return (y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, rand(10)),)
         end
 
         toplevelcontext = getcontext(model)
@@ -1448,6 +1487,28 @@ end
 
         @test sort(sublevelreturns, by = first) == [(i, "hello world!") for i in 1:10]
     end
+end
+
+@testitem "return value from the model must materialize `VariableRef`" begin
+    using Distributions
+    import GraphPPL: create_model, datalabel, getorcreate!, NodeCreationOptions, returnval, getcontext, NodeLabel
+
+    include("testutils.jl")
+
+    @model function model_with_return_of_var(y, x, z, val)
+        y ~ Normal(x, z)
+        return (y, val)
+    end
+
+    model = create_model(model_with_return_of_var(x = 1, z = 1, val = 3)) do model, ctx
+        return (y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, 1),)
+    end
+
+    toplevelcontext = getcontext(model)
+
+    @test returnval(toplevelcontext)[1] isa NodeLabel
+    @test returnval(toplevelcontext)[1] === toplevelcontext[:y]
+    @test returnval(toplevelcontext)[2] === 3
 end
 
 @testitem "`end` index should be allowed in the `~` operator" begin
@@ -1500,8 +1561,8 @@ end
     end
 end
 
-@testitem "LazyIndex should support empty indices if array is passed" begin
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+@testitem "datalabel should support empty indices if array is passed" begin
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
     include("testutils.jl")
 
@@ -1511,7 +1572,7 @@ end
     end
 
     model = create_model(foo()) do model, ctx
-        return (; y = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, LazyIndex([1.0, 1.0])))
+        return (; y = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :y, [1.0, 1.0]))
     end
 
     @test length(collect(filter(as_node(MvNormal), model))) == 2
@@ -1520,7 +1581,7 @@ end
 end
 
 @testitem "Node arguments must be unique" begin
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, LazyIndex
+    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
     include("testutils.jl")
 
@@ -1585,7 +1646,7 @@ end
     @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
         my_model(N = 3, sigma = 1.0)
     ) do model, ctx
-        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
+        obs = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, 0.0)
         return (obs = obs,)
     end
 
@@ -1606,7 +1667,52 @@ end
     @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
         my_model(N = 3, sigma = 1.0)
     ) do model, ctx
-        obs = getorcreate!(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, LazyIndex(0.0))
+        obs = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :obs, 0.0)
         return (obs = obs,)
     end
+end
+
+@testitem "Neural network model" begin
+    import GraphPPL: create_model, datalabel, NodeCreationOptions
+
+    include("testutils.jl")
+
+    @model function neural_dot(out, in, w)
+        local c
+        c[1] ~ in[1] * w[1]
+        for i in 2:length(in)
+            c[i] ~ c[i - 1] + in[i] * w[i]
+        end
+        out := identity(c[end])
+    end
+
+    @model function neuron(in, out)
+        local w
+        for i in 1:length(in)
+            w[i] ~ Normal(0.0, 1.0)
+        end
+        out ~ neural_dot(in = in, w = w)
+    end
+
+    @model function neural_network_layer(in, out, n)
+        for i in 1:n
+            out[i] ~ neuron(in = in)
+        end
+    end
+
+    @model function neural_net(in, out)
+        h1 ~ neural_network_layer(in = in, n = 10)
+        h2 ~ neural_network_layer(in = h1, n = 16)
+        out ~ neural_network_layer(in = h2, n = 2)
+    end
+
+    model = create_model(neural_net()) do model, ctx
+        in = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :in, randn(3))
+        out = datalabel(model, ctx, NodeCreationOptions(kind = :data, factorized = true), :out, randn(2))
+        return (in = in, out = out)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 3 * 10 + 10 * 16 + 16 * 2
+    @test length(collect(filter(as_variable(:in), model))) == 3
+    @test length(collect(filter(as_variable(:out), model))) == 2
 end

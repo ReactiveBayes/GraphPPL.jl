@@ -68,7 +68,9 @@ function recursive_size(::Val{N}, vector::Vector{T}) where {N, T <: Vector}
 end
 
 function setindex!(array::ResizableArray{T, V, N}, value, index...) where {T, V, N}
-    @assert N === length(index) "Invalid index $(index) for $(array)"
+    if !(N === length(index))
+        error(lazy"Invalid index $(index) for $(array)")
+    end
     recursive_setindex!(Val(N), array.data, value, index...)
     return array
 end
@@ -128,7 +130,9 @@ function getindex(array::ResizableArray{T, V, N}, index::Vararg{UnitRange}) wher
 end
 
 function getindex(array::ResizableArray{T, V, N}, index::Vararg{Int}) where {T, V, N}
-    @assert N >= length(index) "Invalid index $(index) for $(array) of shape $(size(array)))"
+    if !(N >= length(index))
+        error(lazy"Invalid index $(index) for $(array) of shape $(size(array)))")
+    end
     return recursive_getindex(Val(length(index)), array.data, index...)
 end
 

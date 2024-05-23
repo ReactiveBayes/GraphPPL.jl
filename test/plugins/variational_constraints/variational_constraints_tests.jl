@@ -337,7 +337,8 @@ end
         getproperties,
         PluginsCollection,
         VariationalConstraintsPlugin,
-        with_plugins
+        with_plugins,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -364,7 +365,7 @@ end
             model = create_model(
                 with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
             ) do model, context
-                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+                return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
             end
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
@@ -393,7 +394,7 @@ end
             model = create_model(
                 with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
             ) do model, context
-                return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+                return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
             end
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
@@ -489,7 +490,8 @@ end
         getproperties,
         PluginsCollection,
         VariationalConstraintsPlugin,
-        with_plugins
+        with_plugins,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -559,7 +561,7 @@ end
         model = create_model(
             with_plugins(random_walk(a = 1, b = 2), PluginsCollection(VariationalConstraintsPlugin(constraints)))
         ) do model, context
-            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
+            return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = true), :y, 1:n))
         end
 
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
@@ -917,9 +919,9 @@ end
         VariationalConstraintsPlugin,
         getorcreate!,
         NodeCreationOptions,
-        LazyIndex,
         getextra,
-        hasextra
+        hasextra,
+        datalabel
 
     include("../../testutils.jl")
 
@@ -953,7 +955,7 @@ end
         model = create_model(
             with_plugins(some_state_space_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))
         ) do model, context
-            return (; y = getorcreate!(model, context, NodeCreationOptions(kind = :data, factorized = false), :y, LazyIndex(ydata)))
+            return (; y = datalabel(model, context, NodeCreationOptions(kind = :data, factorized = false), :y, ydata))
         end
 
         @test length(collect(filter(as_node(Normal), model))) == 21
@@ -1039,5 +1041,69 @@ end
         node_data = model[node]
         @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
             Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
+    end
+end
+
+@testitem "Constraint over a mixture model" begin
+    import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
+
+    include("../../testutils.jl")
+
+    @model function mixture()
+        m1 ~ Normal(0, 1)
+        m2 ~ Normal(0, 1)
+        m3 ~ Normal(0, 1)
+        m4 ~ Normal(0, 1)
+        t1 ~ Normal(0, 1)
+        t2 ~ Normal(0, 1)
+        t3 ~ Normal(0, 1)
+        t4 ~ Normal(0, 1)
+        y ~ Mixture(m = [m1, m2, m3, m4], τ = [t1, t2, t3, t4])
+    end
+
+    @testset "Full joint constraints" begin
+        constraints_1 = @constraints begin
+            # q(m1, m2, m3, m4, t1, t2, t3, t4, y) = BetheFactorization()
+        end
+
+        constraints_2 = @constraints begin
+            q(m1, m2, m3, m4, t1, t2, t3, t4, y) = q(m1, m2, m3, m4, t1, t2, t3, t4, y)
+        end
+
+        for constraints in [constraints_1, constraints_2]
+            model = create_model(with_plugins(mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))))
+
+            @test length(collect(filter(as_node(Mixture), model))) === 1
+            for node in filter(as_node(Mixture), model)
+                node_data = model[node]
+                @test Tuple.(GraphPPL.getextra(node_data, :factorization_constraint_indices)) == ((1, 2, 3, 4, 5, 6, 7, 8, 9),)
+            end
+        end
+    end
+
+    @testset "Mean-field constraints" begin
+        constraints_1 = @constraints begin
+            q(m1, m2, m3, m4, t1, t2, t3, t4, y) = MeanField()
+        end
+
+        constraints_2 = @constraints begin
+            q(m1, m2, m3, m4, t1, t2, t3, t4, y) = q(m1)q(m2)q(m3)q(m4)q(t1)q(t2)q(t3)q(t4)q(y)
+        end
+
+        for constraints in [constraints_1, constraints_2]
+            model = create_model(with_plugins(mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))))
+            for node in filter(as_node(), model)
+                node_data = model[node]
+                @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
+                    Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
+            end
+
+            @test length(collect(filter(as_node(Mixture), model))) === 1
+            for node in filter(as_node(Mixture), model)
+                node_data = model[node]
+                @test Tuple.(GraphPPL.getextra(node_data, :factorization_constraint_indices)) ==
+                    ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,))
+            end
+        end
     end
 end

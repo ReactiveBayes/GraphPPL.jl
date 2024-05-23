@@ -350,7 +350,7 @@ function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
         @capture(lhs, (var_[index__]) | (var_))
         return quote
-            $(generate_get_or_create(var, index))
+            $(generate_get_or_create(var, index, rhs))
             $e
         end
     end
@@ -371,7 +371,7 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::Nothing) = generate_get_or_create(s, :((nothing,)))
+generate_get_or_create(s::Symbol, index::Nothing, rhs) = generate_get_or_create(s, :((nothing,)), rhs)
 
 """
     generate_get_or_create(s::Symbol, lhs::Expr, index::AbstractArray)
@@ -385,20 +385,15 @@ Generates code to get or create a variable in the graph. This function is used t
 # Returns
 A `quote` block with the code to get or create the variable in the graph.
 """
-generate_get_or_create(s::Symbol, index::AbstractArray) = generate_get_or_create(s, :(($(index...),)))
+generate_get_or_create(s::Symbol, index::AbstractArray, rhs) = generate_get_or_create(s, :(($(index...),)), rhs)
 
-function generate_get_or_create(s::Symbol, index::Expr)
+function generate_get_or_create(s::Symbol, index::Expr, rhs)
+    type = @capture(rhs, (f_()) | (f_(args__) | (f_(; kwargs__)) | (f_(args__; kwargs__)))) ? f : :(GraphPPL.Composite())
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
+            GraphPPL.makevarref($type, __model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), $(index))
         else
-            (
-                if GraphPPL.check_variate_compatability($s, $(index)...)
-                    $s
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(s)), $(index)...)
-                end
-            )
+            $s
         end
     end
 end
@@ -445,7 +440,7 @@ Converts an expression into its proxied equivalent. Used to pass variables in su
 julia> x = GraphPPL.NodeLabel(:x, 1)
 x_1
 julia> GraphPPL.proxy_args(:(y = x))
-:(y = GraphPPL.proxylabel(:x, nothing, x))
+:(y = GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False()))
 ```
 """
 function proxy_args end
@@ -464,29 +459,21 @@ function proxy_args(arg)
 end
 
 function proxy_args_lhs_eq_rhs(lhs, rhs)
-    @assert isa(lhs, Symbol) "Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol."
+    if !(isa(lhs, Symbol))
+        error(lazy"Cannot wrap a ProxyLabel of `$lhs = $rhs` expression. The LHS must be a Symbol.")
+    end
     return :($lhs = $(proxy_args_rhs(rhs)))
 end
 
 function proxy_args_rhs(rhs)
     if isa(rhs, Symbol)
-        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), nothing, $rhs))
+        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), $rhs, nothing, GraphPPL.False()))
     elseif @capture(rhs, rlabel_[index__])
-        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $rlabel))
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.False()))
     elseif @capture(rhs, new(rlabel_[index__]))
-        newrhs = gensym(:force_create)
-        errmsg = "Cannot force create a new label with the `new($rlabel[$(index...)])`. The label already exists."
-        return :(
-            let $newrhs = if isassigned($rlabel, $(index...))
-                    error($errmsg)
-                else
-                    GraphPPL.getorcreate!(__model__, __context__, $(QuoteNode(rlabel)), $(index...))
-                end
-                GraphPPL.proxylabel($(QuoteNode(rlabel)), $(Expr(:tuple, index...)), $newrhs)
-            end
-        )
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.True()))
     end
-    return rhs
+    return :(GraphPPL.proxylabel(:anonymous, $rhs, nothing, GraphPPL.False()))
 end
 
 """
@@ -553,10 +540,10 @@ end
 combine_broadcast_args(args::Nothing, kwargs::Nothing) = nothing
 
 generate_lhs_proxylabel(var, index::Nothing) = quote
-    GraphPPL.proxylabel($(QuoteNode(var)), nothing, $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), $var, nothing, GraphPPL.True())
 end
 generate_lhs_proxylabel(var, index::AbstractArray) = quote
-    GraphPPL.proxylabel($(QuoteNode(var)), $(Expr(:tuple, index...)), $var)
+    GraphPPL.proxylabel($(QuoteNode(var)), $var, $(Expr(:tuple, index...)), GraphPPL.True())
 end
 
 __combine_axes() = Base.OneTo(1)
@@ -611,7 +598,7 @@ function convert_tilde_expression(e::Expr)
         combinable_args = kwargs === nothing ? args : vcat(args, [kwarg.args[2] for kwarg in kwargs])
         @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
         combinablesym = gensym()
-        getorcreate_lhs = generate_get_or_create(var, :(GraphPPL.__combine_axes($combinablesym...)))
+        getorcreate_lhs = generate_get_or_create(var, :(GraphPPL.__combine_axes($combinablesym...)), :(($fform)()))
         returnvalsym = gensym()
         return quote
             $combinablesym = ($(combinable_args...),)
@@ -710,7 +697,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             __parent_context__::GraphPPL.Context,
             __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
-            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel},
+            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.VariableRef},
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
@@ -722,7 +709,7 @@ function get_make_node_function(ms_body, ms_args, ms_name)
                 __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
             )
             GraphPPL.returnval!(__context__, __returnval__)
-            return __context__, GraphPPL.unroll(__lhs_interface__)
+            return __context__, __lhs_interface__
         end
 
         function GraphPPL.add_terminated_submodel!(
