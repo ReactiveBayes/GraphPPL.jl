@@ -1461,8 +1461,6 @@ function add_variable_node!(model::Model, context::Context, name::Symbol, index)
 end
 
 function add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
-
-    # In theory plugins are able to overwrite this
     label = __add_variable_node!(model, context, options, name, index)
     context[name, index] = label
 end
@@ -1473,6 +1471,7 @@ function add_constant_node!(model::Model, context::Context, options::NodeCreatio
 end
 
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
+    # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
     potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options))
     label, nodedata = preprocess_plugins(
