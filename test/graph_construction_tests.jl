@@ -1678,7 +1678,6 @@ end
     include("testutils.jl")
 
     @model function neural_dot(out, in, w)
-        local c
         c[1] ~ in[1] * w[1]
         for i in 2:length(in)
             c[i] ~ c[i - 1] + in[i] * w[i]
