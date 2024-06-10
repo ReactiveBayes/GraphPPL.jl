@@ -4,7 +4,7 @@ using Static
 using NamedTupleTools
 using Dictionaries
 
-import Base: put!, haskey, gensym, getindex, getproperty, setproperty!, setindex!, vec, iterate, showerror, Exception
+import Base: put!, haskey, getindex, getproperty, setproperty!, setindex!, vec, iterate, showerror, Exception
 import MetaGraphsNext.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
@@ -1257,11 +1257,6 @@ Arguments:
 function generate_nodelabel(model::Model, name)
     nextcounter = setcounter!(model, getcounter(model) + 1)
     return NodeLabel(name, nextcounter)
-end
-
-function Base.gensym(model::Model, name::Symbol)
-    nextcounter = setcounter!(model, getcounter(model) + 1)
-    return Symbol(string(name, "_", nextcounter))
 end
 
 """
