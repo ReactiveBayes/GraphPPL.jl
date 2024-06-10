@@ -1436,7 +1436,7 @@ getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}}
     map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
 getifcreated(model::Model, context::Context, var) =
-    add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(model, :constvar), nothing)
+    add_constant_node!(model, context, NodeCreationOptions(value = var, kind = :constant), :constvar, nothing)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -1463,12 +1463,21 @@ end
 function add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
 
     # In theory plugins are able to overwrite this
+    label = __add_variable_node!(model, context, options, name, index)
+    context[name, index] = label
+end
+
+function add_constant_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
+    label = __add_variable_node!(model, context, options, name, index)
+    context[to_symbol(label), index] = label
+end
+
+function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     potential_label = generate_nodelabel(model, name)
     potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options))
     label, nodedata = preprocess_plugins(
         UnionPluginType(VariableNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
-    context[name, index] = label
     add_vertex!(model, label, nodedata)
     return label
 end
