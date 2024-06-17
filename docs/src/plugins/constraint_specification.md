@@ -69,6 +69,19 @@ We can specify constraints over the first `toy_model` submodel using the followi
 end
 ```
 
+## Stacked functional form constraints
+In the constraints macro, we can specify multiple functional form constraints over the same variable. For example, suppose we have the following model:
+```@example constraints
+@constraints begin 
+    q(x) :: Normal :: Beta
+end
+```
+In this constraint the posterior over `x` will first be constrained to be a normal distribution, and then the result with be constrained to be a beta distribution.
+This might be useful to create a chain of constraints that are applied in order. The resulting constraint is a tuple of constraints.
+
+!!! note 
+    The inference backend must support stacked constraints for this feature to work. Some combinations of stacked constraints might not be supported or theoretically sound.
+
 ## Default constraints
 While we can specify constraints over all instances of a submodel at a specific layer of the hierarchy, we're not guaranteed to have all instances of a submodel at a specific layer of the hierarchy. To this extent, we can specify default constraints that apply to all instances of a specific submodel. For example, we can define the following model, where we have a `recursive_model` instance at every layer of the hierarchy:
 ```@example constraints
