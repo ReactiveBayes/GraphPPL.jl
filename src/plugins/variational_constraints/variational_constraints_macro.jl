@@ -66,9 +66,14 @@ function create_submodel_constraints(e::Expr)
     end
 end
 
+stack_constraints(a, b) = (a, b)
+stack_constraints(a, b::Tuple) = (a, b...)
+stack_constraints(a::Tuple, b) = (a..., b)
+stack_constraints(a::Tuple, b::Tuple) = (a..., b...)
+
 function rewrite_stacked_constraints(e::Expr)
     if @capture(e, (a_::b_::c_))
-        return :($a::($b + $c))
+        return :($a::(GraphPPL.stack_constraints($b, $c)))
     else
         return e
     end

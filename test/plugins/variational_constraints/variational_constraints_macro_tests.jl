@@ -170,7 +170,7 @@ end
     end
     output = quote
         q(x, y) = q(x)q(y)
-        q(x)::(PointMass() + SampleList())
+        q(x)::GraphPPL.stack_constraints(PointMass(), SampleList())
     end
     @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
 
@@ -181,9 +181,18 @@ end
     end
     output = quote
         q(x, y) = q(x)q(y)
-        q(x)::((PointMass() + Sample) + SampleList())
+        q(x)::GraphPPL.stack_constraints(GraphPPL.stack_constraints(PointMass(), Sample), SampleList())
     end
     @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
+end
+
+@testitem "stack_constraints" begin 
+    import GraphPPL: stack_constraints
+
+    @test stack_constraints(1, 2) == (1, 2)
+    @test stack_constraints(1, (2, 1)) == (1, 2, 1)
+    @test stack_constraints((1, 2), 3) == (1, 2, 3)
+    @test stack_constraints((1, 3), (2, 1)) == (1, 3, 2, 1)
 end
 
 @testitem "replace_begin_end" begin
