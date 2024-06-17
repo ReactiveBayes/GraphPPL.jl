@@ -189,10 +189,10 @@ end
 @testitem "stack_constraints" begin 
     import GraphPPL: stack_constraints
 
-    @test stack_constraints(1, 2) = (1, 2)
-    @test stack_constraints(1, (2, 1)) = (1, 2, 1)
-    @test stack_constraints((1, 2), 3) = (1, 2, 3)
-    @test stack_constraints((1, 3), (2, 1)) = (1, 3, 2, 1)
+    @test stack_constraints(1, 2) == (1, 2)
+    @test stack_constraints(1, (2, 1)) == (1, 2, 1)
+    @test stack_constraints((1, 2), 3) == (1, 2, 3)
+    @test stack_constraints((1, 3), (2, 1)) == (1, 3, 2, 1)
 end
 
 @testitem "replace_begin_end" begin
