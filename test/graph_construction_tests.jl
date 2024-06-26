@@ -1715,3 +1715,64 @@ end
     @test length(collect(filter(as_variable(:in), model))) == 3
     @test length(collect(filter(as_variable(:out), model))) == 2
 end
+
+@testitem "Comparing variables throws warning" begin
+    import GraphPPL: create_model, getorcreate!
+
+    include("testutils.jl")
+    @model function test_model(y)
+        x ~ Normal(0.0, 1.0)
+        if x == 0
+            z ~ Normal(0.0, 1.0)
+        else
+            z ~ Normal(1.0, 1.0)
+        end
+    end
+
+    @test_logs (
+        :warn,
+        "Comparing Factor Graph variable (x) with a value. This is not possible as the value of x is not known at model construction time."
+    ) create_model(test_model(y = 1))
+
+    @model function test_model(y)
+        x ~ Normal(0.0, 1.0)
+        if x > 0
+            z ~ Normal(0.0, 1.0)
+        else
+            z ~ Normal(1.0, 1.0)
+        end
+    end
+
+    @test_logs (
+        :warn,
+        "Comparing Factor Graph variable (x) with a value. This is not possible as the value of x is not known at model construction time."
+    ) create_model(test_model(y = 1))
+
+    @model function test_model(y)
+        x ~ Normal(0.0, 1.0)
+        if x < 0
+            z ~ Normal(0.0, 1.0)
+        else
+            z ~ Normal(1.0, 1.0)
+        end
+    end
+
+    @test_logs (
+        :warn,
+        "Comparing Factor Graph variable (x) with a value. This is not possible as the value of x is not known at model construction time."
+    ) create_model(test_model(y = 1))
+
+    @model function test_model(y)
+        x ~ Normal(0.0, 1.0)
+        if 0 >= x
+            z ~ Normal(0.0, 1.0)
+        else
+            z ~ Normal(1.0, 1.0)
+        end
+    end
+
+    @test_logs (
+        :warn,
+        "Comparing Factor Graph variable (x) with a value. This is not possible as the value of x is not known at model construction time."
+    ) create_model(test_model(y = 1))
+end
