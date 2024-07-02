@@ -814,6 +814,90 @@ end
     end
 end
 
+@testitem "`VariableRef` comparison" begin
+    import GraphPPL:
+        VariableRef,
+        makevarref,
+        getcontext,
+        getifcreated,
+        unroll,
+        ProxyLabel,
+        NodeLabel,
+        proxylabel,
+        NodeCreationOptions,
+        VariableKindRandom,
+        VariableKindData,
+        getproperties,
+        is_kind,
+        MissingCollection,
+        getorcreate!
+
+    using Distributions
+
+    include("testutils.jl")
+
+    model = create_test_model()
+    ctx = getcontext(model)
+    xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+    @test xref == xref
+    @test_throws(
+        "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time.",
+        xref != 1
+    )
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 1 !=
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." xref ==
+        1
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 1 ==
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." xref >
+        0
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 0 <
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." "something" ==
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 10 >
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." xref <
+        10
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 0 <=
+        xref
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." xref >=
+        0
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." xref <=
+        0
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." 0 >=
+        xref
+
+    xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1, 2))
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref !=
+        1
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 1 !=
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref ==
+        1
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 1 ==
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref >
+        0
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 0 <
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." "something" ==
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 10 >
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref <
+        10
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 0 <=
+        xref
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref >=
+        0
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." xref <=
+        0
+    @test_throws "Comparing Factor Graph variable `x[1,2]` with a value. This is not possible as the value of `x[1,2]` is not known at model construction time." 0 >=
+        xref
+end
+
 @testitem "NodeLabel properties" begin
     import GraphPPL: NodeLabel
 

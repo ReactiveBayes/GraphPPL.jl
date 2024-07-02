@@ -879,6 +879,25 @@ struct VariableRef{M, C, O, I, E, L}
     internal_collection::L
 end
 
+Base.:(==)(left::VariableRef, right::VariableRef) =
+    left.model == right.model && left.context == right.context && left.name == right.name && left.index == right.index
+
+function Base.:(==)(left::VariableRef, right)
+    error(
+        "Comparing Factor Graph variable `$left` with a value. This is not possible as the value of `$left` is not known at model construction time."
+    )
+end
+Base.:(==)(left, right::VariableRef) = right == left
+
+Base.:(>)(left::VariableRef, right) = left == right
+Base.:(>)(left, right::VariableRef) = left == right
+Base.:(<)(left::VariableRef, right) = left == right
+Base.:(<)(left, right::VariableRef) = left == right
+Base.:(>=)(left::VariableRef, right) = left == right
+Base.:(>=)(left, right::VariableRef) = left == right
+Base.:(<=)(left::VariableRef, right) = left == right
+Base.:(<=)(left, right::VariableRef) = left == right
+
 is_proxied(::Type{T}) where {T <: VariableRef} = True()
 
 external_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = E
@@ -1647,11 +1666,20 @@ function add_edge!(
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, 1)
 end
 
+add_edge!(
+    model::Model,
+    factor_node_id::NodeLabel,
+    factor_node_propeties::FactorNodeProperties,
+    variable_node_id::Union{ProxyLabel, VariableRef},
+    interface_name::Symbol,
+    index
+) = add_edge!(model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index)
+
 function add_edge!(
     model::Model,
     factor_node_id::NodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel, VariableRef},
+    variable_node_id::Union{NodeLabel},
     interface_name::Symbol,
     index
 )
