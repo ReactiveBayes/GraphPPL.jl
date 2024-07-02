@@ -883,8 +883,9 @@ Base.:(==)(left::VariableRef, right::VariableRef) =
     left.model == right.model && left.context == right.context && left.name == right.name && left.index == right.index
 
 function Base.:(==)(left::VariableRef, right)
-    @warn "Comparing Factor Graph variable `$left` with a value. This is not possible as the value of `$left` is not known at model construction time."
-    return false
+    error(
+        "Comparing Factor Graph variable `$left` with a value. This is not possible as the value of `$left` is not known at model construction time."
+    )
 end
 Base.:(==)(left, right::VariableRef) = right == left
 

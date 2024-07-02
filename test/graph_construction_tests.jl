@@ -1729,10 +1729,9 @@ end
         end
     end
 
-    @test_logs (
-        :warn,
-        "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time."
-    ) create_model(test_model(y = 1))
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." create_model(
+        test_model(y = 1)
+    )
 
     @model function test_model(y)
         x ~ Normal(0.0, 1.0)
@@ -1743,11 +1742,9 @@ end
         end
     end
 
-    @test_logs (
-        :warn,
-        "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time."
-    ) create_model(test_model(y = 1))
-
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." create_model(
+        test_model(y = 1)
+    )
     @model function test_model(y)
         x ~ Normal(0.0, 1.0)
         if x < 0
@@ -1757,10 +1754,9 @@ end
         end
     end
 
-    @test_logs (
-        :warn,
-        "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time."
-    ) create_model(test_model(y = 1))
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." create_model(
+        test_model(y = 1)
+    )
 
     @model function test_model(y)
         x ~ Normal(0.0, 1.0)
@@ -1771,8 +1767,7 @@ end
         end
     end
 
-    @test_logs (
-        :warn,
-        "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time."
-    ) create_model(test_model(y = 1))
+    @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." create_model(
+        test_model(y = 1)
+    )
 end
