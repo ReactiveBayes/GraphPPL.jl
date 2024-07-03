@@ -54,3 +54,4 @@ examples/*Compiled
 statprof
 profile.pb.gz
 .swp
+*.info
