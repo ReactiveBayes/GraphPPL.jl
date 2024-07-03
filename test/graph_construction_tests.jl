@@ -1771,3 +1771,47 @@ end
         test_model(y = 1)
     )
 end
+
+@testitem "Multivariate input to function" begin
+    using GraphPPL
+    import GraphPPL: create_model, getorcreate!, datalabel
+
+    include("testutils.jl")
+    function dot end
+    function relu end
+
+    @model function neuron(in, out)
+        local w
+        for i in 1:(length(in))
+            w[i] ~ Normal(0.0, 1.0)
+        end
+        bias ~ Normal(0.0, 1.0)
+        unactivated := dot(in, w) + bias
+        out := relu(unactivated)
+    end
+
+    @model function neural_network_layer(in, out, n)
+        for i in 1:n
+            out[i] ~ neuron(in = in)
+        end
+    end
+
+    @model function neural_net(in, out)
+        local softin
+        for i in 1:length(in)
+            softin[i] ~ Normal(in[i], 1.0)
+        end
+        h1 ~ neural_network_layer(in = softin, n = 10)
+        h2 ~ neural_network_layer(in = h1, n = 16)
+        out ~ neural_network_layer(in = h2, n = 2)
+    end
+
+    model = create_model(neural_net()) do model, ctx
+        in = datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :in, rand(3))
+        out = datalabel(model, ctx, GraphPPL.NodeCreationOptions(kind = :data), :out, randn(2))
+        return (in = in, out = out)
+    end
+    @test length(collect(filter(as_node(Normal), model))) == 253
+    @test length(collect(filter(as_node(dot), model))) == 28
+    @test length(collect(filter(as_variable(:in), model))) == 3
+end
