@@ -259,7 +259,7 @@ iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 
 to_symbol(label::NodeLabel) = to_symbol(label.name, label.global_counter)
-to_symbol(name::D, index::Int) where {D} = Symbol(String(name) * "_" * string(index))
+to_symbol(name::Any, index::Int) = Symbol(string(name, "_", index))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
