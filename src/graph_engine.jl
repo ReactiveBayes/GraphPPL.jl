@@ -262,7 +262,7 @@ to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.glo
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
-Base.hash(label::NodeLabel, h::UInt) = hash(label.name, hash(label.global_counter, h))
+Base.hash(label::NodeLabel, h::UInt) = hash(label.global_counter, h)
 
 """
     EdgeLabel(symbol, index)
@@ -1481,7 +1481,8 @@ end
 
 function add_constant_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     label = __add_variable_node!(model, context, options, name, index)
-    context[to_symbol(label), index] = label
+    context[Symbol(String(name) * "_" * string(label.global_counter)), index] = label
+    return label
 end
 
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -2130,9 +2131,9 @@ Calls a plugin specific logic after the model has been created. By default does 
 """
 postprocess_plugin(plugin, model) = nothing
 
-function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label, nodedata, options)
+function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options)
     plugins = filter(type, getplugins(model))
     return foldl(plugins; init = (label, nodedata)) do (label, nodedata), plugin
         return preprocess_plugin(plugin, model, context, label, nodedata, options)
-    end
+    end::Tuple{NodeLabel, NodeData}
 end
