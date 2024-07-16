@@ -191,8 +191,8 @@ NodeBehaviour(backend, fform) = error("Backend $backend must implement a method 
 
 A unique identifier for a factor node in a probabilistic graphical model.
 """
-mutable struct FactorID
-    const fform::Any
+mutable struct FactorID{F}
+    const fform::F
     const index::Int64
 end
 
@@ -200,7 +200,7 @@ fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
 
 Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
-Base.:(==)(id1::FactorID, id2::FactorID) = id1.fform == id2.fform && id1.index == id2.index
+Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.fform == id2.fform && id1.index == id2.index
 Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
 
 """
@@ -258,11 +258,12 @@ getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 
-to_symbol(label::NodeLabel) = Symbol(String(label.name) * "_" * string(label.global_counter))
+to_symbol(label::NodeLabel) = to_symbol(label.name, label.global_counter)
+to_symbol(name::Any, index::Int) = Symbol(string(name, "_", index))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
 Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
-Base.hash(label::NodeLabel, h::UInt) = hash(label.name, hash(label.global_counter, h))
+Base.hash(label::NodeLabel, h::UInt) = hash(label.global_counter, h)
 
 """
     EdgeLabel(symbol, index)
@@ -1481,7 +1482,8 @@ end
 
 function add_constant_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     label = __add_variable_node!(model, context, options, name, index)
-    context[to_symbol(label), index] = label
+    context[to_symbol(name, label.global_counter), index] = label   # to_symbol(label) is type unstable and we know the type of label.name here from name
+    return label
 end
 
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -2130,9 +2132,9 @@ Calls a plugin specific logic after the model has been created. By default does 
 """
 postprocess_plugin(plugin, model) = nothing
 
-function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label, nodedata, options)
+function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options)::Tuple{NodeLabel, NodeData}
     plugins = filter(type, getplugins(model))
     return foldl(plugins; init = (label, nodedata)) do (label, nodedata), plugin
-        return preprocess_plugin(plugin, model, context, label, nodedata, options)
-    end
+        return preprocess_plugin(plugin, model, context, label, nodedata, options)::Tuple{NodeLabel, NodeData}
+    end::Tuple{NodeLabel, NodeData}
 end
