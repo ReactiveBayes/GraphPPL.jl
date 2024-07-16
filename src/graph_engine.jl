@@ -2135,6 +2135,6 @@ postprocess_plugin(plugin, model) = nothing
 function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options)::Tuple{NodeLabel, NodeData}
     plugins = filter(type, getplugins(model))
     return foldl(plugins; init = (label, nodedata)) do (label, nodedata), plugin
-        return preprocess_plugin(plugin, model, context, label, nodedata, options)
+        return preprocess_plugin(plugin, model, context, label, nodedata, options)::Tuple{NodeLabel, NodeData}
     end::Tuple{NodeLabel, NodeData}
 end
