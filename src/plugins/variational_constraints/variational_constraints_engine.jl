@@ -803,7 +803,8 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
     end
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
     rhs = map(
-        variable -> ResolvedFactorizationConstraintEntry((resolve(model, context, context[getname(variable)], MeanField()),)), vfiltered
+        variable -> ResolvedFactorizationConstraintEntry((resolve(model, context, unroll(context[getname(variable)]), MeanField()),)),
+        vfiltered
     )
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
 end
