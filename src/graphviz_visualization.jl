@@ -1,27 +1,43 @@
+module GPPLGViz
+
+export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
+
+using GraphPPL
+using MetaGraphsNext
+using GraphViz
+
 
 """
-These abstract types are used as arguments in the respective generate_dot methods
-and are used by Julia's multiple dispatch system to decide which method of generate_dot to call. 
+This abstract type represents a node traversal strategy for use with the `generate_dot` function.
 
+This abstract type is used to define various strategies for traversing nodes in the graph when generating a DOT representation. 
+Each concrete subtype specifies a different traversal approach, which is selected by Julia's multiple dispatch system 
+when calling `generate_dot`.
+
+Concrete subtypes:
+- `SimpleIteration`: Represents a simple iteration of the graph's vertex/node set.
+- `BFSTraversal`: Represents a breadth-first search traversal strategy, from the initially created node.
+
+These types afford a trade-off between a relatively fast and a relatively 'principled' iteration strategy (respectfully).
 """
 abstract type TraversalStrategy end
 struct SimpleIteration <: TraversalStrategy end
 struct BFSTraversal <: TraversalStrategy end
 
 """
-    get_node_properties(model::GraphPPL.Model, vertex)
+    get_node_properties(model::GraphPPL.Model, vertex::Int64)
 
-Get the properties of a node in a GraphPPL model.
+Extracts the properties of a specific node in a `GraphPPL.Model` and returns them as a dictionary.
 
 # Arguments
-- `model::GraphPPL.Model`: The GraphPPL model.
-- `vertex`: The vertex representing the node.
+- `model::GraphPPL.Model`: The model from which the node's properties will be retrieved.
+- `vertex::Int64`: The integer index representing the node in the model's graph.
 
 # Returns
-A dictionary containing the properties of the node, including the label and field names.
-
+- A `Dict{Symbol, Any}` where each key is a symbol corresponding to the node's property names 
+(including the `label`), and the value is the corresponding property value.
 """
-function get_node_properties(model::GraphPPL.Model, vertex)
+function get_node_properties(model::GraphPPL.Model, vertex::Int64)
     # Set up return value
     namespace_variables = Dict{Symbol, Any}()
 
@@ -43,6 +59,20 @@ function get_node_properties(model::GraphPPL.Model, vertex)
     return namespace_variables
 end
 
+"""
+    get_node_properties(properties::GraphPPL.FactorNodeProperties)
+
+Extracts the properties of a factor node from a `GraphPPL.FactorNodeProperties` struct 
+and returns them as a dictionary.
+
+# Arguments
+- `properties::GraphPPL.FactorNodeProperties`: A struct containing the factor node properties 
+of a factor node in a probabilistic graphical model.
+
+# Returns
+- A `Dict{Symbol, Any}` where each key is the name of a field in the `properties` 
+object (as a symbol), and the corresponding value is the value of that field.
+"""
 function get_node_properties(properties::GraphPPL.FactorNodeProperties)
     # Set up return value
     namespace_variables = Dict{Symbol, Any}()
@@ -58,6 +88,19 @@ function get_node_properties(properties::GraphPPL.FactorNodeProperties)
     return namespace_variables
 end
 
+"""
+    get_node_properties(properties::GraphPPL.VariableNodeProperties)
+
+Extracts the properties of a variable node from a `GraphPPL.VariableNodeProperties` struct 
+and returns them as a dictionary.
+
+# Arguments
+- `properties::GraphPPL.VariableNodeProperties`: A struct containing the variable node properties.
+
+# Returns
+- A `Dict{Symbol, Any}` where each key is the name of a field in the `properties` 
+object (as a symbol), and the corresponding value is the value of that field.
+"""
 function get_node_properties(properties::GraphPPL.VariableNodeProperties)
     # Set up return value
     namespace_variables = Dict{Symbol, Any}()
@@ -74,11 +117,21 @@ function get_node_properties(properties::GraphPPL.VariableNodeProperties)
 end
 
 """
-Returns a dict of dicts where each key is the unique 
-GraphPPL.NodeLabel.global_counter value for each node.
-Each value is a dictionary containing the namespace for 
-the node with ID == Key. 
+    get_namespace_variables_dict(model::GraphPPL.Model)
 
+Creates a dictionary mapping each node's global counter ID to its corresponding 
+properties within a `GraphPPL.Model`.
+
+# Arguments
+- `model::GraphPPL.Model`: The probabilistic graphical model from which node 
+properties will be extracted.
+
+# Returns
+- A `Dict{Int64, Dict{Symbol, Any}}` where:
+  - The keys are the global counter IDs (`Int64`) of the nodes within the model. 
+    This is the GraphPPL.NodeLabel.global_counter value.
+  - The values are all dictionaries (`Dict{Symbol, Any}`), containing the properties 
+  of the corresponding nodes.
 """
 function get_namespace_variables_dict(model::GraphPPL.Model)
     
@@ -97,12 +150,26 @@ function get_namespace_variables_dict(model::GraphPPL.Model)
 end
 
 """
-Input: the namespace dictionary for a particular variable node. 
+    get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
 
-Return value: a string containing the variable node name, variable node ID
-and variable node value. These three fields are to be the default variable node
+Generates a sanitized string representation of a variable node's name, ID, and value.
+
+# Arguments
+- `var_namespace_dict::Dict{Symbol, Any}`: The namespace dictionary for a particular 
+   variable node. 
+
+# Returns
+- A `String` that concatenates the variable node's name (label) and its value. 
+If the value is `nothing`, the string `"nothing"` is used instead. The format 
+of the returned string is `"<variable_name>:<variable_value>"`.
+
+# Details
+This function extracts the `label` (which serves as the variable node's name - for now) 
+and `value` from the input dictionary and constructs a string in the format 
+`"<label>:<value>"`. If the value is `nothing`, the string `"nothing"` is used 
+in place of the value.
 """
-function get_sanitized_variable_node_name(var_namespace_dict)
+function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
     
     san_str_name_var = string(var_namespace_dict[:label]) # was :name
     
@@ -118,12 +185,25 @@ function get_sanitized_variable_node_name(var_namespace_dict)
 end
 
 """
-Input: the namespace dictionary for a particular factor node. 
+    get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
 
-Return value: a string containing only the name for the input factor node 
-namespace dictionary. 
+Generates a sanitized string representation of a factor node's name.
+
+# Arguments
+- `fac_namespace_dict::Dict{Symbol, Any}`: A dictionary containing the properties 
+of a factor node, specifically its label.
+
+# Returns
+- A `String` containing the sanitized name of the factor node, derived from the 
+`label` field in the input dictionary.
+
+# Details
+This function extracts the `label` from the input dictionary, which serves as 
+the name of the factor node. It then converts the label to a string and returns 
+it as the sanitized name of the factor node.
+
 """
-function get_sanitized_factor_node_name(fac_namespace_dict)
+function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
 
     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
     
@@ -131,12 +211,32 @@ function get_sanitized_factor_node_name(fac_namespace_dict)
 end
 
 """
-Input: a namespace dictionary for an arbitrary node (variable node or factor node).
+    get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
 
-Return value: a string cotaining either the return value of 
-get_sanitized_variable_node_name or get_sanitized_factor_node_name.
+Generates a sanitized name for a node (either a variable node or a factor node) 
+based on its properties.
+
+# Arguments
+- `single_node_namespace_dict::Dict{Symbol, Any}`: A dictionary containing the 
+properties of a node, which is either a variable node or a factor node.
+
+# Returns
+- A `String` representing the sanitized name of the node. This is determined 
+by calling either `get_sanitized_variable_node_name` for variable nodes, or 
+`get_sanitized_factor_node_name` for factor nodes.
+
+# Details
+This function determines whether the input dictionary represents a variable 
+node or a factor node by checking the presence of specific keys:
+- If the dictionary contains the `:name` key, the node is considered a variable 
+  node, and `get_sanitized_variable_node_name` is called.
+- If the dictionary contains the `:fform` key, the node is considered a factor 
+  node, and `get_sanitized_factor_node_name` is called.
+
+If neither key is found, the function throws an error indicating that the 
+dictionary is missing the necessary information to determine the node type.
 """
-function get_sanitized_node_name(single_node_namespace_dict)
+function get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
     if haskey(single_node_namespace_dict, :name)
         san_node_name_str = get_sanitized_variable_node_name(single_node_namespace_dict)
     elseif haskey(single_node_namespace_dict, :fform)
@@ -149,11 +249,26 @@ function get_sanitized_node_name(single_node_namespace_dict)
 end
 
 """
-Input: a string containing the DOT code corresponding to a GraphPPL.Model
+    strip_dot_wrappers(dot_string::String)
 
-Return value: returns the input string, stripped of the leading and 
-trailing non-DOT syntax.
+Strips non-DOT syntax from the beginning and end of a GraphViz.jl DOT code string.
 
+# Arguments
+- `dot_string::String`: A string containing the DOT code generated for a 
+`GraphPPL.Model`, including the GraphViz.jl wrapper code (non-DOT syntax) at the 
+beginning and end.
+
+# Returns
+- A `String` with the leading and trailing non-DOT syntax removed, leaving 
+only the valid DOT code.
+
+# Details
+This function is designed to clean up GraphViz.jl DOT code strings by removing the specific 
+wrapper syntax that may is present at the beginning and end of such a string. It removes:
+- The leading 'dot...' sequence at the start.
+- The trailing '...n' sequence at the end.
+
+The resulting string is ready for use in DOT-compatible tools.
 """
 function strip_dot_wrappers(dot_string::String)
     stripped_string = replace(dot_string, r"^dot\"\"\"\n" => "")
@@ -163,18 +278,24 @@ function strip_dot_wrappers(dot_string::String)
 end
 
 """
-Writes the given DOT string to a file specified by file_path.
+    write_to_dot_file(dot_string::String, file_path::String) :: Bool
 
-# Arguments:
-- dot_string: The DOT format string to write to the file.
-- file_path: The path of the file where the DOT string should be written.
+Writes the given DOT format string to a file specified by `file_path`.
 
-# Returns:
-- Bool: Returns true if the file was written successfully, otherwise false.
+# Arguments
+- `dot_string::String`: The DOT format string to be written to the file.
+- `file_path::String`: The path of the file where the DOT string will be written.
 
-# Throws:
-- SystemError: If there is an error in opening/writing to the file.
+# Returns
+- `Bool`: Returns `true` if the file was written successfully; otherwise, returns `false`.
 
+# Throws
+- `SystemError`: If there is an error in opening or writing to the file.
+
+# Details
+Attempts to write a DOT string to the specified file path. 
+If the operation is successful, it returns `true`. If an error occurs, it logs 
+the error and returns `false`.
 """
 function write_to_dot_file(dot_string::String, file_path::String) :: Bool
     try
@@ -189,15 +310,22 @@ function write_to_dot_file(dot_string::String, file_path::String) :: Bool
 end
 
 """
-Generate a PDF file from a DOT file using Graphviz's dot command.
+    generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String) :: Bool
+
+Generates a PDF file from a DOT file using Graphviz's `dot` command.
 
 # Arguments
-- src_dot_file_path: The path to the source DOT file.
-- dst_pdf_file_path_name: The desired path and name for the output PDF file.
+- `src_dot_file_path::String`: The path to the source DOT file.
+- `dst_pdf_file_path_name::String`: The desired path and name for the output PDF file.
 
 # Returns
-- Bool: true if the PDF generation is successful, false otherwise.
+- `Bool`: Returns `true` if the PDF generation is successful; otherwise, returns `false`.
 
+# Details
+This function takes a DOT file specified by `src_dot_file_path` and converts it to a PDF 
+file using the Graphviz `dot` command. The resulting PDF is saved to the path 
+specified by `dst_pdf_file_path_name`. The function returns `true` upon successful generation 
+of the PDF, and `false` if any error occurs during the process.
 """
 function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String) :: Bool
     try
@@ -209,19 +337,27 @@ function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name
 end
 
 """
-Convert a DOT string to a PDF file.
+    dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
 
-This function encapsulates the process of stripping unnecessary wrappers from the DOT string,
-writing it to a temporary DOT file, converting it to a PDF using Graphviz, and cleaning up the 
-temporary file.
+Converts a DOT string to a PDF file via the following steps:
+1. Strips unnecessary wrappers from the DOT string.
+2. Writes the cleaned DOT string to a temporary DOT file.
+3. Converts the temporary DOT file to a PDF using Graphviz's `dot` command.
+4. Cleans up the temporary DOT file.
 
-# Arguments:
-- dot_string: The DOT format string to be converted.
-- dst_pdf_file: The desired path and name for the output PDF file.
+# Arguments
+- `dot_string::String`: The DOT format string to be converted into a PDF.
+- `dst_pdf_file::String`: The path and filename where the output PDF should be saved.
 
-# Returns:
-- Bool: true if the PDF generation is successful, false otherwise.
+# Returns
+- `Bool`: Returns `true` if the PDF generation is successful, `false` otherwise.
 
+# Details
+The function first processes the input DOT string to remove any non-DOT syntax wrappers. 
+It then writes the cleaned string to a temporary file named `"tmp.dot"`. 
+After generating the PDF using Graphviz, the temporary file is removed. 
+The function returns `true` if all operations complete successfully, and `false` 
+if an error occurs during any step.
 """
 function dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
     tmp_dot_file = "tmp.dot"
@@ -240,21 +376,26 @@ function dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
 end
 
 """
-Responsible for contructing the portion of the final DOT string which
-specifies the nodes in the eventual GraphViz visualization. 
+Constructs the portion of the DOT string that specifies the nodes in the GraphViz visualization.
+Specifically, by means of the simple iteration strategy specified by the `SimpleIteration` subtype. 
 
-This method of add_nodes! simply iterates over the set of verticies from the constituent 
-MetaGraphsNext.MetaGraph contained in model_graph. 
-
-Raises an error if the type of any vertex is not recognized. 
+This function iterates over the vertices of the graph contained in the `model_graph`, 
+which is an instance of `GraphPPL.Model`. It writes the appropriate DOT notation for each 
+node to the provided `io_buffer`. The function handles two types of nodes:
+- `GraphPPL.FactorNodeProperties`: Represented as squares with a light gray fill color.
+- `GraphPPL.VariableNodeProperties`: Represented as circles.
 
 # Arguments:
-- io_buffer: an IOBuffer is used to perform iterative writes as opposed to string concatenation. 
-- model_graph: the GraphPPL.Model structure containing the raw factor graph. 
-- global_namespace_dict: the namespace dictionary for all nodes in the model_graph. 
-  Otherwise known as the global namespace dictionary. 
-- ::SimpleIteration: identifies the desired iteration strategy as SimpleIteration. 
+- `io_buffer::IOBuffer`: The buffer to which DOT string segments are written. 
+  Used for efficient iterative writes rather than string concatenation.
+- `model_graph::GraphPPL.Model`: The GraphPPL model containing the factor graph. 
+  This provides the raw graph structure from which nodes are extracted.
+- `global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}`: A dictionary mapping vertex IDs to their 
+  namespace dictionaries. This global namespace dictionary provides node-specific metadata.
+- `::SimpleIteration`: Specifies the iteration strategy to use, here set to `SimpleIteration`.
 
+# Raises:
+- `Error`: If a vertex's properties are of an unrecognized type.
 """
 function add_nodes!(
         io_buffer::IOBuffer, 
@@ -283,21 +424,27 @@ function add_nodes!(
 end
 
 """
-Responsible for contructing the portion of the final DOT string which
-specifies the nodes in the eventual GraphViz visualization. 
+Constructs the portion of the DOT string that specifies the nodes in the GraphViz visualization.
+Specifically, by means of a Breadth First Search (BFS) from the initially-created 
+node of the 'model_graph'.
 
-This method of add_nodes! conducts a Breadth First Search (BFS) from the initially-created 
-node of the model_graph. 
-
-Raises an error if the type of any vertex is not recognized. 
+This function iterates over the vertices of the graph contained in the `model_graph`, 
+which is an instance of `GraphPPL.Model`. It writes the appropriate DOT notation for each 
+node to the provided `io_buffer`. The function handles two types of nodes:
+- `GraphPPL.FactorNodeProperties`: Represented as squares with a light gray fill color.
+- `GraphPPL.VariableNodeProperties`: Represented as circles.
 
 # Arguments:
-- io_buffer: an IOBuffer is used to perform iterative writes as opposed to string concatenation. 
-- model_graph: the GraphPPL.Model structure containing the raw factor graph. 
-- global_namespace_dict: the namespace dictionary for all nodes in the model_graph. 
-  Otherwise known as the global namespace dictionary. 
-- ::BFSTraversal: identifies the desired iteration strategy as BFSTraversal. 
+- `io_buffer::IOBuffer`: The buffer to which DOT string segments are written. 
+  Used for efficient iterative writes rather than string concatenation.
+- `model_graph::GraphPPL.Model`: The GraphPPL model containing the factor graph. 
+  This provides the raw graph structure from which nodes are extracted.
+- `global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}`: A dictionary mapping vertex IDs to their 
+  namespace dictionaries. This global namespace dictionary provides node-specific metadata.
+- `::BFSTraversal`: Specifies the BFS iteration strategy. The search is carried out from the initially created node.
 
+# Raises:
+- `Error`: If a vertex's properties are of an unrecognized type.
 """
 function add_nodes!(
         io_buffer::IOBuffer, 
@@ -306,7 +453,7 @@ function add_nodes!(
         ::BFSTraversal
     )
     
-    n = nv(model_graph) # number of nodes in the 
+    n = nv(model_graph) # number of nodes in the model_graph
     visited = falses(n) # array of visited nodes
     cur_level = Vector{Int}() # current level of nodes processed in BFS/current layer of the BFS iteration
     next_level = Vector{Int}() # next level of nodes for BFS iteration
@@ -349,21 +496,21 @@ function add_nodes!(
 end
 
 """
-Responsible for contructing the portion of the final DOT string which
-specifies the edges between the included nodes in the eventual GraphViz visualization. 
-
-This method of add_edges! simply iterates over the set of edges from the constituent 
-MetaGraphsNext.MetaGraph contained in model_graph.
+Constructs the portion of the DOT string that specifies the edges between nodes in a 
+GraphViz visualization. This function iterates over the edges in the `model_graph`  via 
+the `SimpleIteration` strategy and generates the corresponding DOT syntax to represent these 
+edges. Each edge connects two nodes, and the `edge_length` parameter controls the visual 
+length of these edges in the final graph.
 
 # Arguments:
-- io_buffer: an IOBuffer is used to perform iterative writes as opposed to string concatenation. 
-- model_graph: the GraphPPL.Model structure containing the raw factor graph. 
-- global_namespace_dict: the namespace dictionary for all nodes in the model_graph. 
-  Otherwise known as the global namespace dictionary. 
-- ::SimpleIteration: identifies the desired iteration strategy as SimpleIteration. 
-- edge_length: a floating point value to control the length of the edges. 
-
-
+- `io_buffer::IOBuffer`: An IOBuffer used for efficient iterative writing of the DOT string. 
+- `model_graph::GraphPPL.Model`: The GraphPPL model containing the raw factor graph from 
+   which edges are extracted.
+- `global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}`: A dictionary mapping vertex IDs 
+   to their namespace dictionaries. This global namespace provides metadata for each node.
+- `::SimpleIteration`: Specifies the iteration strategy, here set to `SimpleIteration`.
+- `edge_length::Float64`: A floating-point value that specifies the length of the edges in 
+   the visualization.
 """
 function add_edges!(
         io_buffer::IOBuffer, 
@@ -387,20 +534,21 @@ function add_edges!(
 end
 
 """
-Responsible for contructing the portion of the final DOT string which
-specifies the edges between the included nodes in the eventual GraphViz visualization. 
-
-This method of add_edges! conducts a Breadth First Search (BFS) from the initially-created 
-node of the model_graph. 
+Constructs the portion of the DOT string that specifies the edges between nodes in a 
+GraphViz visualization. This function iterates over the edges in the `model_graph`  via 
+the `BFSTraversal` strategy and generates the corresponding DOT syntax to represent these 
+edges. Each edge connects two nodes, and the `edge_length` parameter controls the visual 
+length of these edges in the final graph.
 
 # Arguments:
-- io_buffer: an IOBuffer is used to perform iterative writes as opposed to string concatenation. 
-- model_graph: the GraphPPL.Model structure containing the raw factor graph. 
-- global_namespace_dict: the namespace dictionary for all nodes in the model_graph. 
-  Otherwise known as the global namespace dictionary. 
-- ::BFSTraversal: identifies the desired iteration strategy as BFSTraversal. 
-- edge_length: a floating point value to control the length of the edges. 
-
+- `io_buffer::IOBuffer`: An IOBuffer used for efficient iterative writing of the DOT string. 
+- `model_graph::GraphPPL.Model`: The GraphPPL model containing the raw factor graph from 
+   which edges are extracted.
+- `global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}`: A dictionary mapping vertex IDs 
+   to their namespace dictionaries. This global namespace provides metadata for each node.
+- `::BFSTraversal`: Specifies the iteration strategy, here set to `BFSTraversal`.
+- `edge_length::Float64`: A floating-point value that specifies the length of the edges in 
+   the visualization.
 """
 function add_edges!(
         io_buffer::IOBuffer, 
@@ -456,22 +604,24 @@ function add_edges!(
 end
 
 """
-Constructs the DOT string from an input GraphPPL.Model.
+Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
+The DOT string includes configuration options for node appearance, edge length, layout, and more.
 
 # Arguments:
-- model_graph: the GraphPPL.Model structure containing the raw factor graph. 
-- strategy: the abstract type which specifies the particular traversal strategy. 
-Either SimpleIteration() or BFSTraversal().
-- font_size: the font size of the node fields. 
-- edge_length: a floating point value to control the length of the edges. 
-- layout: layout engine for the eventual display. Default is "neato".  
-- width: width of the display window.
-- height: height of the display window.
+- `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
+   graph to be visualized.
+- `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal. 
+   Either `SimpleIteration()` or `BFSTraversal()`.
+- `font_size::Int`: The font size of the node labels.
+- `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
+- `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
+   arranging the nodes.
+- `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
+- `width::Float64` (default is `10.0`): The width of the display window in inches.
+- `height::Float64` (default is `10.0`): The height of the display window in inches.
 
 # Returns:
-- String: a string containing the DOT code which can then be executed 
-to yield a GraphViz visualization. 
-
+- `String`: A DOT format string that can be used to generate a GraphViz visualization.
 """
 function generate_dot(;
         model_graph::GraphPPL.Model, 
@@ -510,10 +660,22 @@ function generate_dot(;
 end
 
 """
-Executes the DOT string returned by generate_dot.
+    show_gv(dot_code_graph::String)
+
+Executes the DOT string to display the graph using Graphviz.
+
+This function evaluates the DOT string generated by the `generate_dot` 
+function, and displays the graph visualization. It uses  Julia's `eval` 
+and `Meta.parse` functions to interpret and execute the DOT code.
 
 # Arguments:
-- dot_code_graph: the DOT string returned by generate_dot. 
+- `dot_code_graph::String`: The DOT format string representing the graph to be 
+visualized. This string is expected to be valid DOT code generated by the 
+`generate_dot` function, as per the convention used in GraphViz.jl.
+
+# Throws:
+- `ErrorException`: If there is an error while evaluating the DOT string, an 
+exception will be raised with a message indicating the problem.
 """
 function show_gv(dot_code_graph::String)
     try
@@ -521,4 +683,6 @@ function show_gv(dot_code_graph::String)
     catch e
         error("Could not evaluate the input DOT string: ", e)
     end
+end
+
 end
