@@ -13,7 +13,7 @@ using Compose # necessary for draw PDF...
 
 using GraphPlot
 
-include("../src/graphviz_visualization.jl")  # Include your module
+include("../ext/GraphvizVisualization.jl")  # Include your module
 
 using .GPPLGViz: generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
