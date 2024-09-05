@@ -1,7 +1,7 @@
 name = "GraphPPL"
 uuid = "b3f8163a-e979-4e85-b43e-1f63d8c8b42c"
 authors = ["Wouter Nuijten <wouternuijten@gmail.com>", "Dmitry Bagaev <bvdmitri@gmail.com>"]
-version = "4.3.2"
+version = "4.3.3"
 
 [deps]
 BitSetTuples = "0f2f92aa-23a3-4d05-b791-88071d064721"

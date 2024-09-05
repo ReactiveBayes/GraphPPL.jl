@@ -1815,3 +1815,61 @@ end
     @test length(collect(filter(as_node(dot), model))) == 28
     @test length(collect(filter(as_variable(:in), model))) == 3
 end
+
+@testitem "Constraints over nested models" begin
+    using GraphPPL
+    import GraphPPL:
+        create_model,
+        getorcreate!,
+        datalabel,
+        NodeCreationOptions,
+        VariationalConstraintsPlugin,
+        PluginsCollection,
+        with_plugins,
+        hasextra,
+        getextra
+
+    include("testutils.jl")
+
+    @model function inner_model(x, y)
+        θ ~ Normal(0.0, 1.0)
+        y ~ Normal(x, θ)
+    end
+
+    @model function outer_model(y)
+        x ~ Normal(0.0, 1.0)
+        y ~ inner_model(x = x)
+    end
+
+    constraints = @constraints begin
+        for q in inner_model
+            q(x, y, θ) = MeanField()
+        end
+    end
+
+    model = create_model(with_plugins(outer_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, 1.0)
+        return (y = y,)
+    end
+
+    context = GraphPPL.getcontext(model)
+    node = context[inner_model, 1][NormalMeanVariance, 2]
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+
+    constraints = @constraints begin
+        for q in inner_model
+            q(x, y, θ) = q(x)q(y)q(θ)
+        end
+    end
+
+    model = create_model(with_plugins(outer_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, 1.0)
+        return (y = y,)
+    end
+
+    context = GraphPPL.getcontext(model)
+    node = context[inner_model, 1][NormalMeanVariance, 2]
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
+end
