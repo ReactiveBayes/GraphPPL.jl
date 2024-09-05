@@ -7,13 +7,14 @@ using Graphs
 using MetaGraphsNext
 # using GraphViz
 using Dictionaries
-using Cairo # necessary for draw PDF...
-using Fontconfig # necessary for draw PDF...
-using Compose # necessary for draw PDF...
+
+using Cairo
+using Fontconfig
+using Compose
 
 using GraphPlot
 
-include("../src/graphviz_visualization.jl")  # Include your module
+include("../src/graphviz_visualization.jl")
 
 using .GPPLGViz: generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
@@ -43,13 +44,12 @@ gppl_model = RxInfer.getmodel(rxi_model)
 # Extract the MetaGraphsNext graph
 meta_graph = gppl_model.graph
 
-# println("typeof(gppl_model): $(typeof(gppl_model))")
+
 
 @testset "GPPLGViz Tests" begin
 
-    @testset "generate_dot/show_gv" begin
+    @testset "generate_dot/show_gv Function" begin
 
-        ## GENERATE DOT
         gen_dot_result = generate_dot(
             model_graph = gppl_model,
             strategy = SimpleIteration(),
@@ -63,33 +63,144 @@ meta_graph = gppl_model.graph
 
         @test !isempty(gen_dot_result)
 
-        # Check if the result is a string
         @test typeof(gen_dot_result) == String
 
-        # Test for specific content in the DOT string
         @test occursin("dot\"\"\"\n", gen_dot_result)
         @test occursin("\n\"\"\"", gen_dot_result)
 
-
-        ## SHOW GV
         result = show_gv(gen_dot_result)
 
-        # Check that `show_gv` does not return nothing
         @test result !== nothing
 
     end
 
-    # TEST FOR SHOW GV WAS HERE - ADD MORE TESTS BELOW
-    # @testset "show_gv" begin
-    #     # Ensure `gen_dot_result` is valid for `show_gv`
-    #     @test !isempty(gen_dot_result)
+    @testset "get_node_properties Functions" begin
 
-    #     # Test the `show_gv` function
-    #     result = show_gv(gen_dot_result)
+        vertex_labels = collect(labels(meta_graph))
 
-    #     # Check that `show_gv` does not return nothing
-    #     @test result !== nothing
+        for (vindex, vlabel) in enumerate(vertex_labels)
+            vcode = code_for(meta_graph, vlabel)
+            vprops = GPPLGViz.get_node_properties(gppl_model, vcode)
 
-    # end
+            @test typeof(vprops) == Dict{Symbol, Any}
+        end
+
+    end
+
+    @testset "get_namespace_variables_dict Function" begin
+        gppl_model_namespace_dict = GPPLGViz.get_namespace_variables_dict(gppl_model)
+
+        @test length(gppl_model_namespace_dict) == nv(meta_graph)
+    end
+
+    @testset "get_sanitized_variable_node_name Function" begin
+
+        model_namespace_dict = GPPLGViz.get_namespace_variables_dict(gppl_model)
+
+        # match any string - including those with Greek letters - followed by an underscore 
+        # and then an integer (excluding 0) followed by a colon and then terminated with 
+        # either "nothing" or any floating point value
+        var_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_\d{1,}:(nothing|-?\d+\.?\d*([eE][+-]?\d+)?)$"
+
+        for (key, val) in model_namespace_dict
+            if haskey(val, :name)
+                san_node_name_str = GPPLGViz.get_sanitized_variable_node_name(val)
+                # println("VAR: $(san_node_name_str)")
+                @test occursin(var_regex, san_node_name_str)
+            end
+        end
+    end
+
+    @testset "get_sanitized_factor_node_name Function" begin
+
+        model_namespace_dict = GPPLGViz.get_namespace_variables_dict(gppl_model)
+
+        # match any string - including those with Greek letters - followed by an underscore 
+        # and then an integer (excluding 0) followed by a colon and then terminated with 
+        # either "nothing" or any floating point value
+        fac_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_[1-9]\d*$"
+
+        for (key, val) in model_namespace_dict
+            if haskey(val, :fform)
+                san_node_name_str = GPPLGViz.get_sanitized_factor_node_name(val)
+                # println("VAR: $(san_node_name_str)")
+                @test san_node_name_str == string(val[:label])
+                @test occursin(fac_regex, san_node_name_str)
+            end
+        end
+    end
+
+    @testset "get_sanitized_node_name Function" begin
+
+        model_namespace_dict = GPPLGViz.get_namespace_variables_dict(gppl_model)
+
+        fac_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_[1-9]\d*$"
+        var_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_\d{1,}:(nothing|-?\d+\.?\d*([eE][+-]?\d+)?)$"
+
+        for (key, val) in model_namespace_dict
+            san_node_name_str = GPPLGViz.get_sanitized_node_name(val)
+
+            if haskey(val, :fform)
+                san_node_name_str = GPPLGViz.get_sanitized_factor_node_name(val)
+                # println("VAR: $(san_node_name_str)")
+                @test san_node_name_str == string(val[:label])
+                @test occursin(fac_regex, san_node_name_str)
+            end
+
+            if haskey(val, :name)
+                san_node_name_str = GPPLGViz.get_sanitized_variable_node_name(val)
+                # println("VAR: $(san_node_name_str)")
+                @test occursin(var_regex, san_node_name_str)
+            end
+
+        end
+    end
+
+    @testset "strip_dot_wrappers Function" begin
+
+        model_namespace_dict = GPPLGViz.get_namespace_variables_dict(gppl_model)
+
+        gen_dot_result = generate_dot(
+            model_graph = gppl_model,
+            strategy = SimpleIteration(),
+            font_size = 12,
+            edge_length = 1.0,
+            layout = "neato",
+            overlap = false,
+            width = 10.0, 
+            height = 10.0 
+        )
+
+        gen_dot_result_stripped = GPPLGViz.strip_dot_wrappers(gen_dot_result)
+
+        @test !occursin(r"^dot\"\"\"\n" , gen_dot_result_stripped)
+        @test !occursin(r"\n\"\"\"$", gen_dot_result_stripped)
+
+    end
+
+    @testset "write_to_dot_file Function" begin
+
+        gen_dot_result = generate_dot(
+            model_graph = gppl_model,
+            strategy = SimpleIteration(),
+            font_size = 12,
+            edge_length = 1.0,
+            layout = "neato",
+            overlap = false,
+            width = 10.0, 
+            height = 10.0 
+        )
+
+        success = GPPLGViz.write_to_dot_file(gen_dot_result, "test_output.txt")
+
+        if success
+            if isfile("test_output.txt")
+                rm("test_output.txt")
+            end
+        end
+
+        @test success == true
+
+    end
 
 end

@@ -53,6 +53,8 @@ function get_node_properties(model::GraphPPL.Model, vertex::Int64)
 
     # Add field names and values to the dictionary
     for field_name in field_names
+
+        # It might be wise to add GraphPPL.NodeData to this also. 
         namespace_variables[field_name] = getproperty(properties, field_name)
     end
 
