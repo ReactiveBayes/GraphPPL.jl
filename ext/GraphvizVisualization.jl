@@ -1,11 +1,8 @@
-module GPPLGViz
+module GraphvizVisualization
 
 export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
-using GraphPPL
-using MetaGraphsNext
-using GraphViz
-
+using GraphPPL, MetaGraphsNext, GraphViz
 
 """
 This abstract type represents a node traversal strategy for use with the `generate_dot` function.
