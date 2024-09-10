@@ -1,4 +1,4 @@
-module GraphvizVisualization
+module GraphPPLGraphVizExt
 
 export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 

@@ -14,9 +14,9 @@ using Compose
 
 using GraphPlot
 
-include("../ext/GraphvizVisualization.jl")  # Include your module
+include("../ext/GraphPPLGraphVizExt.jl")  # Include your module
 
-using .GraphvizVisualization: generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
+using .GraphPPLGraphVizExt: generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
 ## CREATE AN RXINFER.JL MODEL:
 # GraphPPL.jl export `@model` macro for model specification
@@ -46,7 +46,7 @@ meta_graph = gppl_model.graph
 
 
 
-@testset "GraphvizVisualization Tests" begin
+@testset "GraphPPLGraphVizExt Tests" begin
 
     @testset "generate_dot/show_gv Function" begin
 
@@ -80,7 +80,7 @@ meta_graph = gppl_model.graph
 
         for (vindex, vlabel) in enumerate(vertex_labels)
             vcode = code_for(meta_graph, vlabel)
-            vprops = GraphvizVisualization.get_node_properties(gppl_model, vcode)
+            vprops = GraphPPLGraphVizExt.get_node_properties(gppl_model, vcode)
 
             @test typeof(vprops) == Dict{Symbol, Any}
         end
@@ -88,14 +88,14 @@ meta_graph = gppl_model.graph
     end
 
     @testset "get_namespace_variables_dict Function" begin
-        gppl_model_namespace_dict = GraphvizVisualization.get_namespace_variables_dict(gppl_model)
+        gppl_model_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
 
         @test length(gppl_model_namespace_dict) == nv(meta_graph)
     end
 
     @testset "get_sanitized_variable_node_name Function" begin
 
-        model_namespace_dict = GraphvizVisualization.get_namespace_variables_dict(gppl_model)
+        model_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
 
         # match any string - including those with Greek letters - followed by an underscore 
         # and then an integer (excluding 0) followed by a colon and then terminated with 
@@ -104,7 +104,7 @@ meta_graph = gppl_model.graph
 
         for (key, val) in model_namespace_dict
             if haskey(val, :name)
-                san_node_name_str = GraphvizVisualization.get_sanitized_variable_node_name(val)
+                san_node_name_str = GraphPPLGraphVizExt.get_sanitized_variable_node_name(val)
                 # println("VAR: $(san_node_name_str)")
                 @test occursin(var_regex, san_node_name_str)
             end
@@ -113,7 +113,7 @@ meta_graph = gppl_model.graph
 
     @testset "get_sanitized_factor_node_name Function" begin
 
-        model_namespace_dict = GraphvizVisualization.get_namespace_variables_dict(gppl_model)
+        model_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
 
         # match any string - including those with Greek letters - followed by an underscore 
         # and then an integer (excluding 0) followed by a colon and then terminated with 
@@ -122,7 +122,7 @@ meta_graph = gppl_model.graph
 
         for (key, val) in model_namespace_dict
             if haskey(val, :fform)
-                san_node_name_str = GraphvizVisualization.get_sanitized_factor_node_name(val)
+                san_node_name_str = GraphPPLGraphVizExt.get_sanitized_factor_node_name(val)
                 # println("VAR: $(san_node_name_str)")
                 @test san_node_name_str == string(val[:label])
                 @test occursin(fac_regex, san_node_name_str)
@@ -132,23 +132,23 @@ meta_graph = gppl_model.graph
 
     @testset "get_sanitized_node_name Function" begin
 
-        model_namespace_dict = GraphvizVisualization.get_namespace_variables_dict(gppl_model)
+        model_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
 
         fac_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_[1-9]\d*$"
         var_regex = r"^[a-zA-Z_α-ωΑ-Ω]+_\d{1,}:(nothing|-?\d+\.?\d*([eE][+-]?\d+)?)$"
 
         for (key, val) in model_namespace_dict
-            san_node_name_str = GraphvizVisualization.get_sanitized_node_name(val)
+            san_node_name_str = GraphPPLGraphVizExt.get_sanitized_node_name(val)
 
             if haskey(val, :fform)
-                san_node_name_str = GraphvizVisualization.get_sanitized_factor_node_name(val)
+                san_node_name_str = GraphPPLGraphVizExt.get_sanitized_factor_node_name(val)
                 # println("VAR: $(san_node_name_str)")
                 @test san_node_name_str == string(val[:label])
                 @test occursin(fac_regex, san_node_name_str)
             end
 
             if haskey(val, :name)
-                san_node_name_str = GraphvizVisualization.get_sanitized_variable_node_name(val)
+                san_node_name_str = GraphPPLGraphVizExt.get_sanitized_variable_node_name(val)
                 # println("VAR: $(san_node_name_str)")
                 @test occursin(var_regex, san_node_name_str)
             end
@@ -158,7 +158,7 @@ meta_graph = gppl_model.graph
 
     @testset "strip_dot_wrappers Function" begin
 
-        model_namespace_dict = GraphvizVisualization.get_namespace_variables_dict(gppl_model)
+        model_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
 
         gen_dot_result = generate_dot(
             model_graph = gppl_model,
@@ -171,7 +171,7 @@ meta_graph = gppl_model.graph
             height = 10.0 
         )
 
-        gen_dot_result_stripped = GraphvizVisualization.strip_dot_wrappers(gen_dot_result)
+        gen_dot_result_stripped = GraphPPLGraphVizExt.strip_dot_wrappers(gen_dot_result)
 
         @test !occursin(r"^dot\"\"\"\n" , gen_dot_result_stripped)
         @test !occursin(r"\n\"\"\"$", gen_dot_result_stripped)
@@ -191,7 +191,7 @@ meta_graph = gppl_model.graph
             height = 10.0 
         )
 
-        success = GraphvizVisualization.write_to_dot_file(gen_dot_result, "test_output.txt")
+        success = GraphPPLGraphVizExt.write_to_dot_file(gen_dot_result, "test_output.txt")
 
         if success
             if isfile("test_output.txt")
