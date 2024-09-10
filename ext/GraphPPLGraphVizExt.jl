@@ -3,6 +3,8 @@ module GraphPPLGraphVizExt
 export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
 using GraphPPL, MetaGraphsNext, GraphViz
+using GraphPPL.MetaGraphsNext
+import MetaGraphsNext: nv
 
 """
 This abstract type represents a node traversal strategy for use with the `generate_dot` function.
@@ -44,7 +46,7 @@ function get_node_properties(model::GraphPPL.Model, vertex::Int64)
 
     # Add label to the dictionary
     namespace_variables[:label] = label
-    
+
     # Get field names
     field_names = fieldnames(typeof(properties))
 
@@ -75,7 +77,7 @@ object (as a symbol), and the corresponding value is the value of that field.
 function get_node_properties(properties::GraphPPL.FactorNodeProperties)
     # Set up return value
     namespace_variables = Dict{Symbol, Any}()
-    
+
     # Get field names
     field_names = fieldnames(typeof(properties))
 
@@ -103,7 +105,7 @@ object (as a symbol), and the corresponding value is the value of that field.
 function get_node_properties(properties::GraphPPL.VariableNodeProperties)
     # Set up return value
     namespace_variables = Dict{Symbol, Any}()
-    
+
     # Get field names
     field_names = fieldnames(typeof(properties))
 
@@ -133,18 +135,16 @@ properties will be extracted.
   of the corresponding nodes.
 """
 function get_namespace_variables_dict(model::GraphPPL.Model)
-    
     node_properties_dict = Dict{Int64, Dict{Symbol, Any}}()
-    
+
     for vertex in MetaGraphsNext.vertices(model.graph)
-        
         node_properties = get_node_properties(model, vertex)
-        
+
         global_counter_id = node_properties[:label].global_counter
-        
+
         node_properties_dict[global_counter_id] = node_properties
     end
-    
+
     return node_properties_dict
 end
 
@@ -169,15 +169,14 @@ and `value` from the input dictionary and constructs a string in the format
 in place of the value.
 """
 function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
-    
     san_str_name_var = string(var_namespace_dict[:label]) # was :name
-    
+
     if var_namespace_dict[:value] == nothing
         str_val_var = "nothing"
     else
         str_val_var = string(var_namespace_dict[:value])
     end
-    
+
     final_str = string(san_str_name_var, ":", str_val_var)
 
     return final_str
@@ -203,9 +202,8 @@ it as the sanitized name of the factor node.
 
 """
 function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
-
     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
-    
+
     return san_str_name_fac
 end
 
@@ -243,7 +241,7 @@ function get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
     else
         error("Input single-node namespace dictionary has neither :name nor :fform as a key.")
     end
-    
+
     return san_node_name_str
 end
 
@@ -272,7 +270,7 @@ The resulting string is ready for use in DOT-compatible tools.
 function strip_dot_wrappers(dot_string::String)
     stripped_string = replace(dot_string, r"^dot\"\"\"\n" => "")
     stripped_string = replace(stripped_string, r"\n\"\"\"$" => "")
-    
+
     return stripped_string
 end
 
@@ -296,7 +294,7 @@ Attempts to write a DOT string to the specified file path.
 If the operation is successful, it returns `true`. If an error occurs, it logs 
 the error and returns `false`.
 """
-function write_to_dot_file(dot_string::String, file_path::String) :: Bool
+function write_to_dot_file(dot_string::String, file_path::String)::Bool
     try
         open(file_path, "w") do file
             write(file, dot_string)
@@ -326,7 +324,7 @@ file using the Graphviz `dot` command. The resulting PDF is saved to the path
 specified by `dst_pdf_file_path_name`. The function returns `true` upon successful generation 
 of the PDF, and `false` if any error occurs during the process.
 """
-function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String) :: Bool
+function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String)::Bool
     try
         run(`dot -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
         return true
@@ -358,7 +356,7 @@ After generating the PDF using Graphviz, the temporary file is removed.
 The function returns `true` if all operations complete successfully, and `false` 
 if an error occurs during any step.
 """
-function dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
+function dot_string_to_pdf(dot_string::String, dst_pdf_file::String)::Bool
     tmp_dot_file = "tmp.dot"
     try
         pure_dot_string = strip_dot_wrappers(dot_string)
@@ -397,21 +395,17 @@ node to the provided `io_buffer`. The function handles two types of nodes:
 - `Error`: If a vertex's properties are of an unrecognized type.
 """
 function add_nodes!(
-        io_buffer::IOBuffer, 
-        model_graph::GraphPPL.Model, 
-        global_namespace_dict::Dict{Int64, Dict{Symbol, Any}},
-        ::SimpleIteration
-    )
-    
+    io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}, ::SimpleIteration
+)
     for vertex in MetaGraphsNext.vertices(model_graph.graph)
-        
+
         # index the label of model_namespace_variables with "vertex"
         san_label = get_sanitized_node_name(global_namespace_dict[vertex])
-        
+
         label = MetaGraphsNext.label_for(model_graph.graph, vertex)
-        
+
         properties = model_graph[label].properties
-        
+
         if isa(properties, GraphPPL.FactorNodeProperties)
             write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray];\n")
         elseif isa(properties, GraphPPL.VariableNodeProperties)
@@ -445,34 +439,27 @@ node to the provided `io_buffer`. The function handles two types of nodes:
 # Raises:
 - `Error`: If a vertex's properties are of an unrecognized type.
 """
-function add_nodes!(
-        io_buffer::IOBuffer, 
-        model_graph::GraphPPL.Model, 
-        global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}, 
-        ::BFSTraversal
-    )
-    
+function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}, ::BFSTraversal)
     n = nv(model_graph) # number of nodes in the model_graph
     visited = falses(n) # array of visited nodes
     cur_level = Vector{Int}() # current level of nodes processed in BFS/current layer of the BFS iteration
     next_level = Vector{Int}() # next level of nodes for BFS iteration
-    
+
     s = 1 # always start at the initially created node of model_graph
     if !visited[s]
         visited[s] = true
         push!(cur_level, s)
     end
-    
+
     while !isempty(cur_level)
-        
         for v in cur_level # iterate over the verticies in the current level
-            
+
             # we use the sanitized vertex label in the visualization
             san_label = get_sanitized_node_name(global_namespace_dict[v])
-            
+
             label = MetaGraphsNext.label_for(model_graph.graph, v)
             properties = model_graph[label].properties
-            
+
             if isa(properties, GraphPPL.FactorNodeProperties)
                 write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray];\n")
             elseif isa(properties, GraphPPL.VariableNodeProperties)
@@ -480,7 +467,7 @@ function add_nodes!(
             else
                 error("Unknown node type for label $(san_label)")
             end
-            
+
             for v_neighb in MetaGraphsNext.neighbors(model_graph.graph, v)
                 if !visited[v_neighb]
                     visited[v_neighb] = true
@@ -512,22 +499,20 @@ length of these edges in the final graph.
    the visualization.
 """
 function add_edges!(
-        io_buffer::IOBuffer, 
-        model_graph::GraphPPL.Model, 
-        global_namespace_dict::Dict{Int64, Dict{Symbol, Any}},
-        ::SimpleIteration, 
-        edge_length::Float64
-    )
-    
+    io_buffer::IOBuffer,
+    model_graph::GraphPPL.Model,
+    global_namespace_dict::Dict{Int64, Dict{Symbol, Any}},
+    ::SimpleIteration,
+    edge_length::Float64
+)
     for edge in MetaGraphsNext.edges(model_graph.graph)
-        
         source_vertex = MetaGraphsNext.label_for(model_graph.graph, edge.src)
         dest_vertex = MetaGraphsNext.label_for(model_graph.graph, edge.dst)
-        
+
         # we use the sanitized names of the vertices in the final visualization
         source_san_name = get_sanitized_node_name(global_namespace_dict[source_vertex.global_counter])
         dest_san_name = get_sanitized_node_name(global_namespace_dict[dest_vertex.global_counter])
-        
+
         write(io_buffer, "    \"$(source_san_name)\" -- \"$(dest_san_name)\" [len=$(edge_length)];\n")
     end
 end
@@ -550,26 +535,25 @@ length of these edges in the final graph.
    the visualization.
 """
 function add_edges!(
-        io_buffer::IOBuffer, 
-        model_graph::GraphPPL.Model, 
-        global_namespace_dict::Dict{Int64, Dict{Symbol, Any}},
-        ::BFSTraversal, 
-        edge_length::Float64
-    )
-    
+    io_buffer::IOBuffer,
+    model_graph::GraphPPL.Model,
+    global_namespace_dict::Dict{Int64, Dict{Symbol, Any}},
+    ::BFSTraversal,
+    edge_length::Float64
+)
     edge_set = Set{Tuple{Int, Int}}()
-    
+
     n = nv(model_graph)
     visited = falses(n)
     cur_level = Vector{Int}()
     next_level = Vector{Int}()
-    
+
     s = 1
     if !visited[s]
         visited[s] = true
         push!(cur_level, s)
     end
-    
+
     while !isempty(cur_level)
         for v in cur_level
             for v_neighb in MetaGraphsNext.neighbors(model_graph.graph, v)
@@ -577,19 +561,15 @@ function add_edges!(
                 if !(edge in edge_set)
                     source_vertex = MetaGraphsNext.label_for(model_graph.graph, v)
                     dest_vertex = MetaGraphsNext.label_for(model_graph.graph, v_neighb)
-                    
-                    source_san_name = get_sanitized_node_name(
-                        global_namespace_dict[source_vertex.global_counter]
-                    )
 
-                    dest_san_name = get_sanitized_node_name(
-                        global_namespace_dict[dest_vertex.global_counter]
-                    )
-                    
+                    source_san_name = get_sanitized_node_name(global_namespace_dict[source_vertex.global_counter])
+
+                    dest_san_name = get_sanitized_node_name(global_namespace_dict[dest_vertex.global_counter])
+
                     write(io_buffer, "    \"$(source_san_name)\" -- \"$(dest_san_name)\" [len=$(edge_length)];\n")
                     push!(edge_set, edge)
                 end
-                
+
                 if !visited[v_neighb]
                     visited[v_neighb] = true
                     push!(next_level, v_neighb)
@@ -623,38 +603,38 @@ The DOT string includes configuration options for node appearance, edge length, 
 - `String`: A DOT format string that can be used to generate a GraphViz visualization.
 """
 function generate_dot(;
-        model_graph::GraphPPL.Model, 
-        strategy::TraversalStrategy,
-        font_size::Int, 
-        edge_length::Float64 = 1.0, 
-        layout::String = "neato", 
-        overlap::Bool,
-        width::Float64 = 10.0, 
-        height::Float64 = 10.0
-    )
-    
+    model_graph::GraphPPL.Model,
+    strategy::TraversalStrategy,
+    font_size::Int,
+    edge_length::Float64 = 1.0,
+    layout::String = "neato",
+    overlap::Bool,
+    width::Float64 = 10.0,
+    height::Float64 = 10.0
+)
+
     # get the entire namespace dict
     global_namespace_dict = get_namespace_variables_dict(model_graph)
-    
+
     # use Base.IOBuffer instead of string concatenation
     io_buffer = IOBuffer()
-    
+
     write(io_buffer, "dot\"\"\"\ngraph G {\n")
     write(io_buffer, "    layout=$(layout);\n")
     write(io_buffer, "    overlap =$(string(overlap));\n") # control if allowing node overlaps
     write(io_buffer, "    size=\"$(width),$(height)!\";\n")
     write(io_buffer, "    node [shape=circle, fontsize=$(font_size)];\n")
-    
+
     # Nodes
     add_nodes!(io_buffer, model_graph, global_namespace_dict, strategy)
-    
+
     # Edges
     add_edges!(io_buffer, model_graph, global_namespace_dict, strategy, edge_length)
-    
+
     write(io_buffer, "}\n\"\"\"")
-    
+
     final_dot = String(take!(io_buffer))
-    
+
     return final_dot
 end
 
