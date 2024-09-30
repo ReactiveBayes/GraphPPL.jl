@@ -1873,3 +1873,30 @@ end
     @test hasextra(model[node], :factorization_constraint_indices)
     @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
 end
+
+@testitem "Inference with DataArray" begin
+    using Distributions
+    using GraphPPL
+    import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
+
+    @model function data_array_model(y)
+        σ ~ Gamma(1.0, 1.0)
+        for i in 1:10
+            y[i + 10] ~ Normal(y[i], σ)
+        end
+    end
+
+    model = create_model(data_array_model()) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand(20))
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 10
+    @test length(collect(filter(as_variable(:y), model))) == 20
+
+    y = model[][:y]
+
+    for i in 1:10
+        @test (y[i + 10] ∈ stack(neighbors.(Ref(model), collect(neighbors(model, y[i])))))
+    end
+end
