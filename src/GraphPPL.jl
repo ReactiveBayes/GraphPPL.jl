@@ -50,4 +50,20 @@ macro model(model_specification)
     return esc(GraphPPL.model_macro_interior(DefaultBackend, model_specification))
 end
 
+function __init__()
+    if isdefined(Base.Experimental, :register_error_hint)
+        Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs
+            if any(x -> x <: VariableRef, argtypes)
+                print(io, "\nOne of the arguments to ")
+                printstyled(io, "`$(exc.f)`", color = :cyan)
+                print(io, " is of type ")
+                printstyled(io, "`GraphPPL.VariableRef`", color = :cyan)
+                print(io, ". Did you mean to create a new random variable with ")
+                printstyled(io, "`:=`", color = :cyan)
+                print(io, " operator instead?")
+            end
+        end
+    end
+end
+
 end # module
