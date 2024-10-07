@@ -472,6 +472,8 @@ function proxy_args_rhs(rhs)
         return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.False()))
     elseif @capture(rhs, new(rlabel_[index__]))
         return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.True()))
+    elseif @capture(rhs, rlabel_...)
+        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), GraphPPL.Splat($rlabel), nothing, GraphPPL.False())...)
     end
     return :(GraphPPL.proxylabel(:anonymous, $rhs, nothing, GraphPPL.False()))
 end

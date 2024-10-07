@@ -1900,3 +1900,34 @@ end
         @test (y[i + 10] ∈ stack(neighbors.(Ref(model), collect(neighbors(model, y[i])))))
     end
 end
+
+@testitem "Splatting in the `~` operator" begin
+    using GraphPPL
+    using Distributions
+    import GraphPPL: create_model, datalabel, NodeCreationOptions, @model
+
+    @model function splatting_model(y)
+        x[1] ~ Normal(0.0, 1.0)
+        x[2] ~ InverseGamma(1.0, 1.0)
+        y ~ Normal(x...)
+    end
+
+    model = create_model(splatting_model()) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand())
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 2
+    @test length(collect(filter(as_variable(:y), model))) == 1
+    @test length(collect(filter(as_variable(:x), model))) == 2
+    context = GraphPPL.getcontext(model)
+    x = context[:x]
+    y = context[:y]
+    normal_node = context[Normal, 2]
+    @test x[1] ∈ GraphPPL.neighbors(model, normal_node)
+    @test x[2] ∈ GraphPPL.neighbors(model, normal_node)
+    @test y ∈ GraphPPL.neighbors(model, normal_node)
+    @test GraphPPL.getname(model[normal_node, x[1]]) == :μ
+    @test GraphPPL.getname(model[normal_node, x[2]]) == :σ
+    @test GraphPPL.getname(model[normal_node, y]) == :out
+end

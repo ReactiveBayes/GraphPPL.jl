@@ -1792,6 +1792,23 @@ end
         GraphPPL.__check_vectorized_input(var"#rvar")
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+    # Test 14: Test node creation with splatting inside
+    input = quote
+        x ~ Normal(v...) where {created_by = :(x ~ Normal(v...))}
+    end
+    output = quote
+        var"#node", var"#var" = GraphPPL.make_node!(
+            __model__,
+            __context__,
+            GraphPPL.NodeCreationOptions((; created_by = :(x ~ Normal(v...)),)),
+            Normal,
+            GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+            (GraphPPL.proxylabel(:v, GraphPPL.Splat(v), nothing, GraphPPL.False())...,)
+        )
+        var"#var"
+    end
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end
 
 @testitem "options_vector_to_factoroptions" begin
