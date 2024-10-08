@@ -186,7 +186,7 @@ end
     @test_expression_generating apply_pipeline(input, rewrite_stacked_constraints) output
 end
 
-@testitem "stack_constraints" begin 
+@testitem "stack_constraints" begin
     import GraphPPL: stack_constraints
 
     @test stack_constraints(1, 2) == (1, 2)
