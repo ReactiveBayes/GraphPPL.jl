@@ -20,8 +20,8 @@
 
     @model function simple_model_1()
         x ~ Normal(0, 1)
-        y ~ Gamma(1, 1)
-        z ~ Normal(x, y)
+        b ~ Gamma(1, 1)
+        z ~ Normal(x, b)
     end
 
     model = create_model(simple_model_1())
@@ -97,8 +97,8 @@ end
 
     @model function simple_model_3(a, b, c, d)
         x ~ Beta(a, b)
-        y ~ Gamma(c, d)
-        z ~ Normal(x, y)
+        b ~ Gamma(c, d)
+        z ~ Normal(x, b)
     end
 
     model = create_model(simple_model_3()) do model, context
@@ -310,8 +310,8 @@ end
 
     @model function simple_model_a_vector(a)
         x ~ Beta(a[1], a[2]) # In the test the provided `a` will either a scalar or a vector of length 1
-        y ~ Gamma(a[3], a[4])
-        z ~ Normal(x, y)
+        b ~ Gamma(a[3], a[4])
+        z ~ Normal(x, b)
     end
 
     @testset "simple_model_a_vector: `a` is a scalar" begin
@@ -362,8 +362,8 @@ end
 
     @model function simple_model_a_matrix(a)
         x ~ Beta(a[1, 1], a[1, 2]) # In the test the provided `a` will either a scalar or a matrix of smaller size
-        y ~ Gamma(a[2, 1], a[2, 2])
-        z ~ Normal(x, y)
+        b ~ Gamma(a[2, 1], a[2, 2])
+        z ~ Normal(x, b)
     end
 
     @testset "simple_model_a_matrix: `a` is a scalar" begin
@@ -434,10 +434,10 @@ end
     @model function state_space_model(n)
         γ ~ Gamma(1, 1)
         x[1] ~ Normal(0, 1)
-        y[1] ~ Normal(x[1], γ)
+        b[1] ~ Normal(x[1], γ)
         for i in 2:n
             x[i] ~ Normal(x[i - 1], 1)
-            y[i] ~ Normal(x[i], γ)
+            b[i] ~ Normal(x[i], γ)
         end
     end
     for n in [10, 30, 50, 100, 1000]
@@ -806,7 +806,7 @@ end
                 m[i, j] ~ Normal(0, 1)
             end
         end
-        y ~ mixed_v(v = m[:, 1])
+        b ~ mixed_v(v = m[:, 1])
     end
 
     model = GraphPPL.create_model(mixed_m())
@@ -829,7 +829,7 @@ end
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
-        y ~ mixed_v(v = [v1, v2, v3])
+        b ~ mixed_v(v = [v1, v2, v3])
     end
 
     model = GraphPPL.create_model(mixed_m())
@@ -852,7 +852,7 @@ end
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
-        y ~ mixed_v(v = [v1 v2; v1 v3])
+        b ~ mixed_v(v = [v1 v2; v1 v3])
     end
 
     model = GraphPPL.create_model(mixed_m())
@@ -890,9 +890,9 @@ end
 
     @model function condition_based_initialization(condition)
         if condition
-            y ~ Normal(0.0, 1.0)
+            b ~ Normal(0.0, 1.0)
         else
-            y ~ Gamma(1.0, 1.0)
+            b ~ Gamma(1.0, 1.0)
         end
     end
 
@@ -919,14 +919,14 @@ end
     # The idea of this test is to double check that `@model` parser and Julia in particular 
     # does not confuse the undefined `y` variable with the `y` variable defined in the model
     @model function tricky_model_1()
-        y ~ Normal(0.0, 1.0)
+        b ~ Normal(0.0, 1.0)
         if false
             y = nothing
         end
     end
 
     @model function tricky_model_2()
-        y ~ Normal(0.0, 1.0)
+        b ~ Normal(0.0, 1.0)
         if false
             y = nothing
         end
@@ -964,9 +964,9 @@ end
     global boolean = true
     @model function model_that_uses_global_variables_1()
         if boolean
-            y ~ Normal(0.0, 1.0)
+            b ~ Normal(0.0, 1.0)
         else
-            y ~ Gamma(1.0, 1.0)
+            b ~ Gamma(1.0, 1.0)
         end
     end
 
@@ -979,7 +979,7 @@ end
     global m = 0.0
     global v = 1.0
     @model function model_that_uses_global_variables_2()
-        y ~ Normal(m, v)
+        b ~ Normal(m, v)
     end
 
     model_5 = create_model(model_that_uses_global_variables_1())
@@ -1006,7 +1006,7 @@ end
         x .~ Normal(fill(0, 10), 1)
         a .~ Normal(fill(0, 10), 1)
         b .~ Normal(fill(0, 10), 1)
-        y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
+        b .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
     end
 
     model = create_model(linreg())
@@ -1017,7 +1017,7 @@ end
     @model function nested_normal()
         x .~ Normal(fill(0, 10), 1)
         a .~ Gamma(fill(0, 10), 1)
-        y .~ Normal(Normal.(Normal.(x, 1), a), 1)
+        b .~ Normal(Normal.(Normal.(x, 1), a), 1)
     end
 
     model = create_model(nested_normal())
@@ -1183,8 +1183,8 @@ end
 
     @model function complex_ranges_with_begin_end_1()
         c = [1.0, 2.0]
-        y[1] ~ Normal(0.0, c[begin + 1])
-        y[2] ~ Normal(0.0, c[end - 1])
+        b[1] ~ Normal(0.0, c[begin + 1])
+        b[2] ~ Normal(0.0, c[end - 1])
     end
 
     @testset "Test case 1" begin
@@ -1203,22 +1203,22 @@ end
 
     @model function complex_ranges_with_begin_end_2()
         c = [1.0, 2.0]
-        y .~ Normal(0.0, c[1:(end - 1 + 1)])
+        b .~ Normal(0.0, c[1:(end - 1 + 1)])
     end
 
     @model function complex_ranges_with_begin_end_3()
         c = [1.0, 2.0]
-        y .~ Normal(0.0, c[(begin + 1 - 1):2])
+        b .~ Normal(0.0, c[(begin + 1 - 1):2])
     end
 
     @model function complex_ranges_with_begin_end_4()
         c = [1.0, 2.0]
-        y .~ Normal(0.0, c[(begin + 1 - 1):(end - 1 + 1)])
+        b .~ Normal(0.0, c[(begin + 1 - 1):(end - 1 + 1)])
     end
 
     @model function complex_ranges_with_begin_end_5()
         c = [1.0, 2.0]
-        y .~ Normal(0.0, c[begin:end])
+        b .~ Normal(0.0, c[begin:end])
     end
 
     @testset "Test case 2" for modelfn in [
@@ -1245,7 +1245,7 @@ end
 
     # Test whether generic anonymous variables are created correctly
     @model function anonymous_variables()
-        y ~ Normal(Normal(0, 1), 1)
+        b ~ Normal(Normal(0, 1), 1)
     end
 
     model = create_model(anonymous_variables())
@@ -1257,8 +1257,8 @@ end
     function foo end
 
     @model function det_anonymous_variables()
-        y .~ Bernoulli(fill(0.5, 10))
-        x ~ foo(foo(in = y))
+        b .~ Bernoulli(fill(0.5, 10))
+        x ~ foo(foo(in = b))
     end
 
     model = create_model(det_anonymous_variables())
@@ -1282,11 +1282,11 @@ end
     include("testutils.jl")
 
     @model function fold_datavars_1(f, a, b)
-        y ~ Normal(f(a, b), 0.5)
+        b ~ Normal(f(a, b), 0.5)
     end
 
     @model function fold_datavars_2(f, a, b)
-        y ~ Normal(f(f(a, b), f(a, b)), 0.5)
+        b ~ Normal(f(f(a, b), f(a, b)), 0.5)
     end
 
     for f in (+, *, (a, b) -> a + b, (a, b) -> a * b)
@@ -1518,8 +1518,8 @@ end
 
     @model function begin_end_in_rhs()
         s[1] ~ Beta(0.0, 1.0)
-        y[1] ~ Normal(s[begin], 1.0)
-        y[2] ~ Normal(s[end], 1.0)
+        b[1] ~ Normal(s[begin], 1.0)
+        b[2] ~ Normal(s[end], 1.0)
     end
 
     @testset let model = create_model(begin_end_in_rhs())
@@ -1587,23 +1587,23 @@ end
 
     @model function simple_model_duplicate_1()
         x ~ Normal(0.0, 1.0)
-        y ~ x + x
+        b ~ x + x
     end
 
     @model function simple_model_duplicate_2()
         x ~ Normal(0.0, 1.0)
-        y ~ x + x + x
+        b ~ x + x + x
     end
 
     @model function simple_model_duplicate_3()
         x ~ Normal(0.0, 1.0)
-        y ~ Normal(x, x)
+        b ~ Normal(x, x)
     end
 
     @model function simple_model_duplicate_4()
         x ~ Normal(0.0, 1.0)
         hide_x = x
-        y ~ Normal(hide_x, x)
+        b ~ Normal(hide_x, x)
     end
 
     @model function simple_model_duplicate_5()
@@ -1906,28 +1906,56 @@ end
     using Distributions
     import GraphPPL: create_model, datalabel, NodeCreationOptions, @model
 
-    @model function splatting_model(y)
-        x[1] ~ Normal(0.0, 1.0)
-        x[2] ~ InverseGamma(1.0, 1.0)
+    @model function splatting_model_1(y)
+        a ~ Normal(0.0, 1.0)
+        b ~ InverseGamma(1.0, 1.0)
+        x = [a, b]
         y ~ Normal(x...)
     end
 
-    model = create_model(splatting_model()) do model, ctx
-        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand())
-        return (y = y,)
+    @model function splatting_model_2(y)
+        a ~ Normal(0.0, 1.0)
+        b ~ InverseGamma(1.0, 1.0)
+        x = [b]
+        y ~ Normal(a, x...)
     end
 
-    @test length(collect(filter(as_node(Normal), model))) == 2
-    @test length(collect(filter(as_variable(:y), model))) == 1
-    @test length(collect(filter(as_variable(:x), model))) == 2
-    context = GraphPPL.getcontext(model)
-    x = context[:x]
-    y = context[:y]
-    normal_node = context[Normal, 2]
-    @test x[1] ∈ GraphPPL.neighbors(model, normal_node)
-    @test x[2] ∈ GraphPPL.neighbors(model, normal_node)
-    @test y ∈ GraphPPL.neighbors(model, normal_node)
-    @test GraphPPL.getname(model[normal_node, x[1]]) == :μ
-    @test GraphPPL.getname(model[normal_node, x[2]]) == :σ
-    @test GraphPPL.getname(model[normal_node, y]) == :out
+    @model function splatting_model_3(y)
+        a ~ Normal(0.0, 1.0)
+        b ~ InverseGamma(1.0, 1.0)
+        x = [a]
+        y ~ Normal(x..., b)
+    end
+
+    @model function splatting_model_4(y)
+        a ~ Normal(0.0, 1.0)
+        b ~ InverseGamma(1.0, 1.0)
+        x_1 = [a]
+        x_2 = [b]
+        y ~ Normal(x_1..., x_2...)
+    end
+
+    for modelfn in [splatting_model_1, splatting_model_2, splatting_model_3, splatting_model_4]
+        model = create_model(modelfn()) do model, ctx
+            y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand())
+            return (y = y,)
+        end
+
+        @test length(collect(filter(as_node(Normal), model))) == 2
+        @test length(collect(filter(as_variable(:y), model))) == 1
+        @test length(collect(filter(as_variable(:a), model))) == 1
+        @test length(collect(filter(as_variable(:b), model))) == 1
+        @test length(collect(filter(as_variable(:x), model))) == 0
+        context = GraphPPL.getcontext(model)
+        a = context[:a]
+        b = context[:b]
+        y = context[:y]
+        normal_node = context[Normal, 2]
+        @test a ∈ GraphPPL.neighbors(model, normal_node)
+        @test b ∈ GraphPPL.neighbors(model, normal_node)
+        @test y ∈ GraphPPL.neighbors(model, normal_node)
+        @test GraphPPL.getname(model[normal_node, a]) == :μ
+        @test GraphPPL.getname(model[normal_node, b]) == :σ
+        @test GraphPPL.getname(model[normal_node, y]) == :out
+    end
 end
