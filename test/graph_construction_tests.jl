@@ -1958,4 +1958,29 @@ end
         @test GraphPPL.getname(model[normal_node, b]) == :σ
         @test GraphPPL.getname(model[normal_node, y]) == :out
     end
+
+    @model function splatting_model_5(y)
+        x[1] ~ Normal(0.0, 1.0)
+        x[2] ~ InverseGamma(1.0, 1.0)
+        y ~ Normal(x...)
+    end
+
+    model = create_model(splatting_model_5()) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand())
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 2
+    @test length(collect(filter(as_variable(:y), model))) == 1
+    @test length(collect(filter(as_variable(:x), model))) == 2
+    context = GraphPPL.getcontext(model)
+    x = context[:x]
+    y = context[:y]
+    normal_node = context[Normal, 2]
+    @test x[1] ∈ GraphPPL.neighbors(model, normal_node)
+    @test x[2] ∈ GraphPPL.neighbors(model, normal_node)
+    @test y ∈ GraphPPL.neighbors(model, normal_node)
+    @test GraphPPL.getname(model[normal_node, x[1]]) == :μ
+    @test GraphPPL.getname(model[normal_node, x[2]]) == :σ
+    @test GraphPPL.getname(model[normal_node, y]) == :out
 end
