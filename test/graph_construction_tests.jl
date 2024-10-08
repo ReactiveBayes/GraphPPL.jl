@@ -20,8 +20,8 @@
 
     @model function simple_model_1()
         x ~ Normal(0, 1)
-        b ~ Gamma(1, 1)
-        z ~ Normal(x, b)
+        y ~ Gamma(1, 1)
+        z ~ Normal(x, y)
     end
 
     model = create_model(simple_model_1())
@@ -97,8 +97,8 @@ end
 
     @model function simple_model_3(a, b, c, d)
         x ~ Beta(a, b)
-        b ~ Gamma(c, d)
-        z ~ Normal(x, b)
+        y ~ Gamma(c, d)
+        z ~ Normal(x, y)
     end
 
     model = create_model(simple_model_3()) do model, context
@@ -434,10 +434,10 @@ end
     @model function state_space_model(n)
         γ ~ Gamma(1, 1)
         x[1] ~ Normal(0, 1)
-        b[1] ~ Normal(x[1], γ)
+        y[1] ~ Normal(x[1], γ)
         for i in 2:n
             x[i] ~ Normal(x[i - 1], 1)
-            b[i] ~ Normal(x[i], γ)
+            y[i] ~ Normal(x[i], γ)
         end
     end
     for n in [10, 30, 50, 100, 1000]
@@ -890,9 +890,9 @@ end
 
     @model function condition_based_initialization(condition)
         if condition
-            b ~ Normal(0.0, 1.0)
+            y ~ Normal(0.0, 1.0)
         else
-            b ~ Gamma(1.0, 1.0)
+            y ~ Gamma(1.0, 1.0)
         end
     end
 
@@ -921,21 +921,21 @@ end
     @model function tricky_model_1()
         b ~ Normal(0.0, 1.0)
         if false
-            y = nothing
+            b = nothing
         end
     end
 
     @model function tricky_model_2()
         b ~ Normal(0.0, 1.0)
         if false
-            y = nothing
+            b = nothing
         end
-        local y
+        local b
     end
 
     for modelfn in [tricky_model_1, tricky_model_2]
         model_3 = create_model(modelfn())
-        @test length(collect(filter(as_variable(:y), model_3))) == 1
+        @test length(collect(filter(as_variable(:b), model_3))) == 1
         @test length(collect(filter(as_node(Normal), model_3))) == 1
     end
 
@@ -972,7 +972,7 @@ end
 
     model_4 = create_model(model_that_uses_global_variables_1())
 
-    @test length(collect(filter(as_variable(:y), model_4))) == 1
+    @test length(collect(filter(as_variable(:b), model_4))) == 1
     @test length(collect(filter(as_node(Normal), model_4))) == 1
     @test length(collect(filter(as_node(Gamma), model_4))) == 0
 
@@ -984,7 +984,7 @@ end
 
     model_5 = create_model(model_that_uses_global_variables_1())
 
-    @test length(collect(filter(as_variable(:y), model_5))) == 1
+    @test length(collect(filter(as_variable(:b), model_5))) == 1
     @test length(collect(filter(as_node(Normal), model_5))) == 1
     @test length(collect(filter(as_node(Gamma), model_5))) == 0
 
@@ -1282,11 +1282,11 @@ end
     include("testutils.jl")
 
     @model function fold_datavars_1(f, a, b)
-        b ~ Normal(f(a, b), 0.5)
+        y ~ Normal(f(a, b), 0.5)
     end
 
     @model function fold_datavars_2(f, a, b)
-        b ~ Normal(f(f(a, b), f(a, b)), 0.5)
+        y ~ Normal(f(f(a, b), f(a, b)), 0.5)
     end
 
     for f in (+, *, (a, b) -> a + b, (a, b) -> a * b)

@@ -119,6 +119,7 @@ GraphPPL.NodeData
 GraphPPL.NodeLabel
 GraphPPL.EdgeLabel
 GraphPPL.ProxyLabel
+GraphPPL.Splat
 GraphPPL.indexed_last
 GraphPPL.lift_index
 GraphPPL.datalabel
