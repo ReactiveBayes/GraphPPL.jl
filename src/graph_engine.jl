@@ -287,6 +287,15 @@ Base.:(==)(label1::EdgeLabel, label2::EdgeLabel) = label1.name == label2.name &&
 Base.hash(label::EdgeLabel, h::UInt) = hash(label.name, hash(label.index, h))
 
 """
+    Splat{T}
+
+A type used to represent splatting in the model macro. Any call on the right hand side of ~ that uses splatting will be wrapped in this type.
+"""
+struct Splat{T}
+    collection::T
+end
+
+"""
     ProxyLabel(name, index, proxied)
 
 A label that proxies another label in a probabilistic graphical model. 
@@ -305,6 +314,9 @@ is_proxied(::Type) = False()
 is_proxied(::Type{T}) where {T <: NodeLabel} = True()
 is_proxied(::Type{T}) where {T <: ProxyLabel} = True()
 is_proxied(::Type{T}) where {T <: AbstractArray} = is_proxied(eltype(T))
+
+proxylabel(name::Symbol, proxied::Splat{T}, index, maycreate) where {T} =
+    [proxylabel(name, proxiedelement, index, maycreate) for proxiedelement in proxied.collection]
 
 # By default, `proxylabel` set `maycreate` to `False`
 proxylabel(name::Symbol, proxied, index) = proxylabel(name, proxied, index, False())
@@ -1114,6 +1126,28 @@ __check_external_collection_compatibility(label::VariableRef, collection::Tuple,
 __check_external_collection_compatibility(label::VariableRef, collection::Number, indices::Tuple) = false
 # For all other we simply don't know so we assume we are compatible
 __check_external_collection_compatibility(label::VariableRef, collection, indices::Tuple) = true
+
+function Base.iterate(ref::VariableRef, state)
+    if !isnothing(external_collection(ref))
+        return iterate(external_collection(ref), state)
+    elseif !isnothing(internal_collection(ref))
+        return iterate(internal_collection(ref), state)
+    elseif haskey(ref.context, ref.name)
+        return iterate(ref.context[ref.name], state)
+    end
+    error("Cannot iterate over $(ref.name). The underlying collection for `$(ref.name)` has undefined shape.")
+end
+
+function Base.iterate(ref::VariableRef)
+    if !isnothing(external_collection(ref))
+        return iterate(external_collection(ref))
+    elseif !isnothing(internal_collection(ref))
+        return iterate(internal_collection(ref))
+    elseif haskey(ref.context, ref.name)
+        return iterate(ref.context[ref.name])
+    end
+    error("Cannot iterate over $(ref.name). The underlying collection for `$(ref.name)` has undefined shape.")
+end
 
 function Base.broadcastable(ref::VariableRef)
     if !isnothing(external_collection(ref))
@@ -2132,7 +2166,9 @@ Calls a plugin specific logic after the model has been created. By default does 
 """
 postprocess_plugin(plugin, model) = nothing
 
-function preprocess_plugins(type::AbstractPluginTraitType, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options)::Tuple{NodeLabel, NodeData}
+function preprocess_plugins(
+    type::AbstractPluginTraitType, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options
+)::Tuple{NodeLabel, NodeData}
     plugins = filter(type, getplugins(model))
     return foldl(plugins; init = (label, nodedata)) do (label, nodedata), plugin
         return preprocess_plugin(plugin, model, context, label, nodedata, options)::Tuple{NodeLabel, NodeData}

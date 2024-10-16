@@ -1792,6 +1792,23 @@ end
         GraphPPL.__check_vectorized_input(var"#rvar")
     end
     @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+
+    # Test 14: Test node creation with splatting inside
+    input = quote
+        x ~ Normal(v...) where {created_by = :(x ~ Normal(v...))}
+    end
+    output = quote
+        var"#node", var"#var" = GraphPPL.make_node!(
+            __model__,
+            __context__,
+            GraphPPL.NodeCreationOptions((; created_by = :(x ~ Normal(v...)),)),
+            Normal,
+            GraphPPL.proxylabel(:x, x, nothing, GraphPPL.True()),
+            (GraphPPL.proxylabel(:v, GraphPPL.Splat(v), nothing, GraphPPL.False())...,)
+        )
+        var"#var"
+    end
+    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end
 
 @testitem "options_vector_to_factoroptions" begin
@@ -2029,4 +2046,17 @@ end
     end
 
     @test !isnothing(GraphPPL.create_model(somemodel(a = 1, b = 2)))
+end
+
+@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin 
+    using GraphPPL, Distributions
+    import GraphPPL: @model
+
+    @model function somemodel()
+        a ~ Normal(0, 1)
+        t = exp(a)
+        y ~ Normal(0, t)
+    end
+
+    @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(somemodel())
 end

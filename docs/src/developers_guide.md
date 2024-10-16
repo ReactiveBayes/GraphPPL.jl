@@ -13,6 +13,9 @@ GraphPPL.is_variable
 GraphPPL.is_factor
 ```
 
+!!! note 
+    The representation of a `GraphPPL.Model` is a bipartite graph where both variables and factor functions are represented as nodes. The internal representation is therefore not a Forney-style factor graph.
+
 ## Contexts, Submodels and retrieving NodeLabels
 After creating a `GraphPPL.Model` structure, it is important to know about the attached `Context`. The `Context` structure contains all variable and factor nodes in the scope of the model, and contains a `Context` stucture for all submodels. The context of a model can be accessed by the `GraphPPL.getcontext()` function:
 ```@docs
@@ -119,6 +122,7 @@ GraphPPL.NodeData
 GraphPPL.NodeLabel
 GraphPPL.EdgeLabel
 GraphPPL.ProxyLabel
+GraphPPL.Splat
 GraphPPL.indexed_last
 GraphPPL.lift_index
 GraphPPL.datalabel
