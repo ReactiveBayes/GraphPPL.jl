@@ -52,7 +52,8 @@ meta_graph = gppl_model.graph
 
         gen_dot_result = generate_dot(
             model_graph = gppl_model,
-            strategy = SimpleIteration(),
+            # strategy = SimpleIteration(),
+            strategy = :simple,
             font_size = 12,
             edge_length = 1.0,
             layout = "neato",
@@ -162,7 +163,7 @@ meta_graph = gppl_model.graph
 
         gen_dot_result = generate_dot(
             model_graph = gppl_model,
-            strategy = SimpleIteration(),
+            strategy = :simple,
             font_size = 12,
             edge_length = 1.0,
             layout = "neato",
@@ -182,7 +183,7 @@ meta_graph = gppl_model.graph
 
         gen_dot_result = generate_dot(
             model_graph = gppl_model,
-            strategy = SimpleIteration(),
+            strategy = :simple,
             font_size = 12,
             edge_length = 1.0,
             layout = "neato",
