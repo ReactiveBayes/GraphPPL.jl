@@ -1181,6 +1181,43 @@ end
     @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 end
 
+@testitem "proxy_args_rhs" begin
+    import GraphPPL: proxy_args_rhs, apply_pipeline, recursive_rhs_indexing
+
+    include("testutils.jl")
+
+    # Test 1: Input expression with a function call in rhs arguments
+    input = :x
+    output = quote
+        GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False())
+    end
+    @test_expression_generating proxy_args_rhs(input) output
+
+    input = quote
+        x[1]
+    end
+    output = quote
+        GraphPPL.proxylabel(:x, x, (1,), GraphPPL.False())
+    end
+    @test_expression_generating proxy_args_rhs(input) output
+
+    input = quote
+        x[1, 2]
+    end
+    output = quote
+        GraphPPL.proxylabel(:x, x, (1, 2), GraphPPL.False())
+    end
+    @test_expression_generating proxy_args_rhs(input) output
+
+    input = quote
+        x[1][1]
+    end
+    output = quote
+        GraphPPL.proxylabel(:x, GraphPPL.proxylabel(:x, x, (1,), GraphPPL.False()), (1,), GraphPPL.False())
+    end
+    @test_expression_generating proxy_args_rhs(input) output
+end
+
 @testitem "add_get_or_create_expression" begin
     import GraphPPL: add_get_or_create_expression, apply_pipeline
 
@@ -2048,7 +2085,7 @@ end
     @test !isnothing(GraphPPL.create_model(somemodel(a = 1, b = 2)))
 end
 
-@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin 
+@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin
     using GraphPPL, Distributions
     import GraphPPL: @model
 
@@ -2058,5 +2095,7 @@ end
         y ~ Normal(0, t)
     end
 
-    @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(somemodel())
+    @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(
+        somemodel()
+    )
 end

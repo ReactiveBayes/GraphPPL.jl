@@ -465,17 +465,28 @@ function proxy_args_lhs_eq_rhs(lhs, rhs)
     return :($lhs = $(proxy_args_rhs(rhs)))
 end
 
-function proxy_args_rhs(rhs)
+function recursive_rhs_indexing(rhs)
+    name = rhs
+    while @capture(name, rlabel_[index__] | new(rlabel_[index__]))
+        name = rlabel
+    end
     if isa(rhs, Symbol)
-        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), $rhs, nothing, GraphPPL.False()))
+        return rhs
     elseif @capture(rhs, rlabel_[index__])
-        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.False()))
+        return :(GraphPPL.proxylabel($(QuoteNode(name)), $(recursive_rhs_indexing(rlabel)), $(Expr(:tuple, index...)), GraphPPL.False()))
     elseif @capture(rhs, new(rlabel_[index__]))
-        return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), $rlabel, $(Expr(:tuple, index...)), GraphPPL.True()))
+        return :(GraphPPL.proxylabel($(QuoteNode(name)), $(recursive_rhs_indexing(rlabel)), $(Expr(:tuple, index...)), GraphPPL.True()))
     elseif @capture(rhs, rlabel_...)
         return :(GraphPPL.proxylabel($(QuoteNode(rlabel)), GraphPPL.Splat($rlabel), nothing, GraphPPL.False())...)
     end
     return :(GraphPPL.proxylabel(:anonymous, $rhs, nothing, GraphPPL.False()))
+end
+
+function proxy_args_rhs(rhs)
+    if isa(rhs, Symbol)
+        return :(GraphPPL.proxylabel($(QuoteNode(rhs)), $rhs, nothing, GraphPPL.False()))
+    end
+    return recursive_rhs_indexing(rhs)
 end
 
 """
