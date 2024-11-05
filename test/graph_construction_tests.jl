@@ -1984,3 +1984,22 @@ end
     @test GraphPPL.getname(model[normal_node, x[2]]) == :σ
     @test GraphPPL.getname(model[normal_node, y]) == :out
 end
+
+@testitem "Multiple indices in rhs statement" begin
+    using Distributions
+    using GraphPPL
+    import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
+
+    @model function multiple_indices(prior_params, y)
+        x ~ Normal(prior_params[1][1], prior_params[1][2])
+        y ~ Normal(x, 1.0)
+    end
+    model = create_model(multiple_indices(prior_params = [[1, 2]])) do model, ctx
+        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, rand())
+        return (y = y,)
+    end
+
+    @test length(collect(filter(as_node(Normal), model))) == 2
+    @test length(collect(filter(as_variable(:y), model))) == 1
+    @test length(collect(filter(as_variable(:x), model))) == 1
+end
