@@ -1,3 +1,5 @@
+GraphPPL
+
 using Test
 
 using RxInfer
@@ -14,7 +16,7 @@ using Compose
 
 using GraphPlot
 
-include("../ext/GraphPPLGraphVizExt.jl")  # Include your module
+include("../ext/GraphPPLGraphVizExt.jl") # ??
 
 using .GraphPPLGraphVizExt: generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 

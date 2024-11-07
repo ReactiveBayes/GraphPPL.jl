@@ -5,7 +5,6 @@ export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 using GraphPPL, MetaGraphsNext, GraphViz
 using GraphPPL.MetaGraphsNext
 import MetaGraphsNext: nv
-
 """
 This abstract type represents a node traversal strategy for use with the `generate_dot` function.
 
@@ -177,10 +176,28 @@ function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
         str_val_var = string(var_namespace_dict[:value])
     end
 
+    println("san_str_name_var: $(san_str_name_var)") # transpose this 
+    println("str_val_var: $(str_val_var)") # get rid of this
+
     final_str = string(san_str_name_var, ":", str_val_var)
 
     return final_str
 end
+
+# # OG VERSION
+# function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
+#     san_str_name_var = string(var_namespace_dict[:label]) # was :name
+
+#     if var_namespace_dict[:value] == nothing
+#         str_val_var = "nothing"
+#     else
+#         str_val_var = string(var_namespace_dict[:value])
+#     end
+
+#     final_str = string(san_str_name_var, ":", str_val_var)
+
+#     return final_str
+# end
 
 """
     get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
@@ -204,8 +221,17 @@ it as the sanitized name of the factor node.
 function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
 
+    # println("san_str_name_fac: $(san_str_name_fac)") # transpose this
+
     return san_str_name_fac
 end
+
+# # OG VERSION
+# function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
+#     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
+
+#     return san_str_name_fac
+# end
 
 """
     get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
@@ -644,27 +670,26 @@ function generate_dot(;
 end
 
 
-
 """
-# Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
-# The DOT string includes configuration options for node appearance, edge length, layout, and more.
+Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
+The DOT string includes configuration options for node appearance, edge length, layout, and more.
 
-# # Arguments:
-# - `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
-#    graph to be visualized.
-# - `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal.
-     Either `SimpleIteration()` or `BFSTraversal()`
-# - `font_size::Int`: The font size of the node labels.
-# - `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
-# - `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
-#    arranging the nodes.
-# - `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
-# - `width::Float64` (default is `10.0`): The width of the display window in inches.
-# - `height::Float64` (default is `10.0`): The height of the display window in inches.
+# Arguments:
+- `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
+graph to be visualized.
+- `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal.
+ Either `SimpleIteration()` or `BFSTraversal()`
+- `font_size::Int`: The font size of the node labels.
+- `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
+- `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
+arranging the nodes.
+- `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
+- `width::Float64` (default is `10.0`): The width of the display window in inches.
+- `height::Float64` (default is `10.0`): The height of the display window in inches.
 
-# # Returns:
-# - `String`: A DOT format string that can be used to generate a GraphViz visualization.
-# """
+# Returns:
+- `Str ing`: A DOT format string that can be used to generate a GraphViz visualization.
+ """
 function _generate_dot(;
     model_graph::GraphPPL.Model,
     strategy::TraversalStrategy,
@@ -700,63 +725,49 @@ function _generate_dot(;
     return final_dot
 end
 
+"""
+    load(gppl_model::GraphPPL.Model; strategy::Symbol = :simple, kwargs...)
 
-# # OG VERSION
-# """
-# Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
-# The DOT string includes configuration options for node appearance, edge length, layout, and more.
+Generates a GraphViz-compatible DOT string representation of a probabilistic graphical model specified by `GraphPPL.Model`. 
+This function overloads the `GraphViz.load` function to work specifically with `GraphPPL.Model` objects.
 
-# # Arguments:
-# - `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
-#    graph to be visualized.
-# - `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal. 
-#    Either `SimpleIteration()` or `BFSTraversal()`.
-# - `font_size::Int`: The font size of the node labels.
-# - `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
-# - `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
-#    arranging the nodes.
-# - `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
-# - `width::Float64` (default is `10.0`): The width of the display window in inches.
-# - `height::Float64` (default is `10.0`): The height of the display window in inches.
+# Arguments
+- `gppl_model::GraphPPL.Model`: The GraphPPL model to be visualized.
 
-# # Returns:
-# - `String`: A DOT format string that can be used to generate a GraphViz visualization.
-# """
-# function generate_dot(;
-#     model_graph::GraphPPL.Model,
-#     strategy::TraversalStrategy,
-#     font_size::Int,
-#     edge_length::Float64 = 1.0,
-#     layout::String = "neato",
-#     overlap::Bool,
-#     width::Float64 = 10.0,
-#     height::Float64 = 10.0
-# )
+# Keyword Arguments
+- `strategy::Symbol = :simple`: Specifies the node traversal strategy for generating the DOT representation.
+    - Options:
+      - `:simple`: Simple iteration over the graph's vertices (default).
+      - `:bfs`: Breadth-first search traversal from the initially-created node.
+    - The chosen strategy is converted internally into a corresponding traversal type using the `convert_strategy` method.
+- `kwargs...`: These additional arguments are passed to the internal `generate_dot` function. Available options:
+    - `font_size::Int = 12`: Font size for node labels in the DOT output.
+    - `edge_length::Float64 = 1.0`: Control over the visual length of edges in the graph.
+    - `layout::String = "neato"`: Specifies the GraphViz layout engine to use. Options include "dot", "neato", "fdp", etc.
+    - `overlap::Bool = false`: Determines whether node overlap is allowed in the layout.
+    - `width::Float64 = 10.0`: Width of the display window in inches.
+    - `height::Float64 = 10.0`: Height of the display window in inches.
 
-#     # get the entire namespace dict
-#     global_namespace_dict = get_namespace_variables_dict(model_graph)
+# Returns
+- `String`: A DOT format string that can be used by GraphViz for visualization of the `gppl_model`.
+"""
+function GraphViz.load(gppl_model::GraphPPL.Model; strategy::Symbol = :simple, kwargs...)
 
-#     # use Base.IOBuffer instead of string concatenation
-#     io_buffer = IOBuffer()
-
-#     write(io_buffer, "dot\"\"\"\ngraph G {\n")
-#     write(io_buffer, "    layout=$(layout);\n")
-#     write(io_buffer, "    overlap =$(string(overlap));\n") # control if allowing node overlaps
-#     write(io_buffer, "    size=\"$(width),$(height)!\";\n")
-#     write(io_buffer, "    node [shape=circle, fontsize=$(font_size)];\n")
-
-#     # Nodes
-#     add_nodes!(io_buffer, model_graph, global_namespace_dict, strategy)
-
-#     # Edges
-#     add_edges!(io_buffer, model_graph, global_namespace_dict, strategy, edge_length)
-
-#     write(io_buffer, "}\n\"\"\"")
-
-#     final_dot = String(take!(io_buffer))
-
-#     return final_dot
-# end
+    # Convert symbolic strategy to the correct traversal type
+    traversal_strategy = convert_strategy(strategy)
+    
+    # Call `generate_dot` with the converted strategy and other keyword arguments
+    return generate_dot(
+        model_graph = gppl_model,
+        strategy = traversal_strategy,
+        font_size = get(kwargs, :font_size, 12),
+        edge_length = get(kwargs, :edge_length, 1.0),
+        layout = get(kwargs, :layout, "neato"),
+        overlap = get(kwargs, :overlap, false),
+        width = get(kwargs, :width, 10.0),
+        height = get(kwargs, :height, 10.0)
+    )
+end
 
 """
     show_gv(dot_code_graph::String)

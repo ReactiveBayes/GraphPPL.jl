@@ -7,7 +7,7 @@ using Distributions
 using Random
 using Graphs
 using MetaGraphsNext
-using GraphViz
+# using GraphViz
 using Dictionaries
 
 using Cairo
@@ -16,9 +16,9 @@ using Compose
 
 using GraphPlot
 
-# include("../ext/GraphPPLGraphVizExt.jl") # ??
+include("../ext/GraphPPLGraphVizExt.jl") # ??
 
-# using .GraphPPLGraphVizExt: generate_dot, show_gv, dot_string_to_pdf
+using .GraphPPLGraphVizExt: generate_dot, show_gv, dot_string_to_pdf
 
 
 ## CREATE AN RXINFER.JL MODEL:
@@ -44,19 +44,8 @@ rxi_model = RxInfer.create_model(conditioned)
 
 gppl_model = RxInfer.getmodel(rxi_model)
 
-
-gen_dot_result_coin_simple = GraphViz.load(
-    gppl_model;
-    strategy = :simple,
-    font_size = 12,
-    edge_length = 1.0,
-    layout = "neato",
-    overlap = false,
-    width = 10.0,
-    height = 10.0
-)
-
-println(gen_dot_result_coin_simple)
+# Extract the MetaGraphsNext graph
+meta_graph = gppl_model.graph
 
 
 # gen_dot_result_coin_simple = generate_dot(
@@ -81,5 +70,32 @@ println(gen_dot_result_coin_simple)
 #     height = 10.0 
 # )
 
-# dot_string_to_pdf(gen_dot_result_coin_simple, "test_imgs/coin_model_simple_itr.pdf")
-# dot_string_to_pdf(gen_dot_result_coin_bfs, "test_imgs/coin_model_bfs_itr.pdf")
+
+global_namespace_dict = GraphPPLGraphVizExt.get_namespace_variables_dict(gppl_model)
+
+for vertex in MetaGraphsNext.vertices(meta_graph)
+
+    # index the label of model_namespace_variables with "vertex"
+    if haskey(global_namespace_dict[vertex], :name)
+
+        san_node_name_str = GraphPPLGraphVizExt.get_sanitized_variable_node_name(global_namespace_dict[vertex])
+        # println("VAR: $(san_node_name_str)")
+
+    elseif haskey(global_namespace_dict[vertex], :fform)
+
+        san_node_name_str = GraphPPLGraphVizExt.get_sanitized_factor_node_name(global_namespace_dict[vertex])
+        # println("FAC: $(san_node_name_str)")
+
+    end
+
+    # san_label = GraphPPLGraphVizExt.get_sanitized_node_name(global_namespace_dict[vertex])
+	# println(san_label)
+
+	"""
+	Check the order of DOT code creation in the case of DOT layout with BFS or simple_iter traversal strat. 
+	This may have something to do with the differential visualization. 
+
+    We want {node_id}_{node_name} as the new name for all nodes. 
+	"""
+
+end
