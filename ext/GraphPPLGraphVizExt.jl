@@ -1,6 +1,7 @@
 module GraphPPLGraphVizExt
 
-export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
+# export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
+export show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
 
 using GraphPPL, MetaGraphsNext, GraphViz
 using GraphPPL.MetaGraphsNext
@@ -176,9 +177,6 @@ function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
         str_val_var = string(var_namespace_dict[:value])
     end
 
-    println("san_str_name_var: $(san_str_name_var)") # transpose this 
-    println("str_val_var: $(str_val_var)") # get rid of this
-
     final_str = string(san_str_name_var, ":", str_val_var)
 
     return final_str
@@ -220,8 +218,6 @@ it as the sanitized name of the factor node.
 """
 function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
-
-    # println("san_str_name_fac: $(san_str_name_fac)") # transpose this
 
     return san_str_name_fac
 end
@@ -753,13 +749,9 @@ This function overloads the `GraphViz.load` function to work specifically with `
 """
 function GraphViz.load(gppl_model::GraphPPL.Model; strategy::Symbol = :simple, kwargs...)
 
-    # Convert symbolic strategy to the correct traversal type
-    traversal_strategy = convert_strategy(strategy)
-    
-    # Call `generate_dot` with the converted strategy and other keyword arguments
     return generate_dot(
         model_graph = gppl_model,
-        strategy = traversal_strategy,
+        strategy = strategy,
         font_size = get(kwargs, :font_size, 12),
         edge_length = get(kwargs, :edge_length, 1.0),
         layout = get(kwargs, :layout, "neato"),
@@ -792,6 +784,26 @@ function show_gv(dot_code_graph::String)
         eval(Meta.parse(dot_code_graph))
     catch e
         error("Could not evaluate the input DOT string: ", e)
+    end
+end
+
+# # THIS IS NOT CORRECT!
+# function GraphViz.render(dot_string::String, save_to_file::Bool = false, format::String = "pdf", out_file::String = "rendered_graph_output.pdf")
+#     if save_to_file
+#         # Call the original GraphViz.render to save the file
+#         GraphViz.render(dot_string, format, out_file)
+#     else
+#         # Display the graph using show_gv
+#         show_gv(dot_string)
+#     end
+# end
+
+# not working properly just yet
+function GraphViz.render(dot_string::String, dst_pdf_file::String, save_to_file = true)
+    if save_to_file
+        dot_string_to_pdf(dot_string, dst_pdf_file)
+    else
+        show_gv(dot_string)
     end
 end
 

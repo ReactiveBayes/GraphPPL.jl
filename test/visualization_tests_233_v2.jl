@@ -17,8 +17,13 @@ using Compose
 using GraphPlot
 
 # include("../ext/GraphPPLGraphVizExt.jl") # ??
-
 # using .GraphPPLGraphVizExt: generate_dot, show_gv, dot_string_to_pdf
+
+# Add ext directory to the LOAD_PATH so GraphPPLGraphVizExt can be found
+push!(LOAD_PATH, joinpath(@__DIR__, "../ext"))
+
+# using .GraphPPLGraphVizExt: GraphViz  # use the overloaded GraphViz.load
+using GraphPPLGraphVizExt: GraphViz  # use the overloaded GraphViz.load and GraphViz.render
 
 
 ## CREATE AN RXINFER.JL MODEL:
@@ -57,6 +62,8 @@ gen_dot_result_coin_simple = GraphViz.load(
 )
 
 println(gen_dot_result_coin_simple)
+
+# GraphViz.render(gen_dot_result_coin_simple, "test_imgs/coin_model_simple_itr.pdf")
 
 
 # gen_dot_result_coin_simple = generate_dot(
