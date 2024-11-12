@@ -641,7 +641,8 @@ function GraphViz.load(model_graph::GraphPPL.Model;
     overlap::Bool = false,
     width::Float64 = 10.0,
     height::Float64 = 10.0,
-    show::Bool = false
+    show::Bool = false,
+    save_to::String = nothing
 )
     traversal_strategy = convert_strategy(strategy)
 
@@ -666,6 +667,13 @@ function GraphViz.load(model_graph::GraphPPL.Model;
     write(io_buffer, "}\n\"\"\"")
 
     final_dot = String(take!(io_buffer))
+
+    if !isnothing(save_to)
+        @info "Saving the DOT string to file: $(save_to)"
+        if !dot_string_to_pdf(final_dot, save_to)
+            @warn "Failed to save the DOT string to file: $(save_to)"
+        end
+    end
 
     if show
         return show_gv(final_dot)
