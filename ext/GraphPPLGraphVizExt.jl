@@ -375,7 +375,7 @@ function dot_string_to_pdf(dot_string::String, dst_pdf_file::String)::Bool
 end
 
 function get_displayed_label(properties::GraphPPL.FactorNodeProperties)
-    return GraphPPL.getname(properties)
+    return GraphPPL.prettyname(properties)
 end
 
 function get_displayed_label(properties::GraphPPL.VariableNodeProperties)
@@ -476,11 +476,12 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
 
             label = MetaGraphsNext.label_for(model_graph.graph, v)
             properties = model_graph[label].properties
-
+            displayed_label = get_displayed_label(properties)
+            
             if isa(properties, GraphPPL.FactorNodeProperties)
-                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray];\n")
+                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=$(displayed_label)];\n")
             elseif isa(properties, GraphPPL.VariableNodeProperties)
-                write(io_buffer, "    \"$(san_label)\" [shape=circle];\n")
+                write(io_buffer, "    \"$(san_label)\" [shape=circle, label=$(displayed_label)];\n")
             else
                 error("Unknown node type for label $(san_label)")
             end

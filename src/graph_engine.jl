@@ -740,6 +740,9 @@ function Base.convert(::Type{FactorNodeProperties}, fform, options::NodeCreation
 end
 
 getname(properties::FactorNodeProperties) = string(properties.fform)
+prettyname(properties::FactorNodeProperties) = prettyname(properties.fform)
+prettyname(fform::Any) = string(fform) # Can be overloaded for custom pretty names
+
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
 addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) =
