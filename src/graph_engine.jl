@@ -739,6 +739,7 @@ function Base.convert(::Type{FactorNodeProperties}, fform, options::NodeCreation
     return FactorNodeProperties(fform = fform, neighbors = get(options, :neighbors, Tuple{NodeLabel, EdgeLabel, NodeData}[]))
 end
 
+getname(properties::FactorNodeProperties) = string(properties.fform)
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
 addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) =
