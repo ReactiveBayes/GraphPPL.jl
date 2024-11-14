@@ -477,7 +477,7 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
             label = MetaGraphsNext.label_for(model_graph.graph, v)
             properties = model_graph[label].properties
             displayed_label = get_displayed_label(properties)
-            
+
             if isa(properties, GraphPPL.FactorNodeProperties)
                 write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=$(displayed_label)];\n")
             elseif isa(properties, GraphPPL.VariableNodeProperties)
@@ -643,7 +643,7 @@ function GraphViz.load(model_graph::GraphPPL.Model;
     width::Float64 = 10.0,
     height::Float64 = 10.0,
     show::Bool = false,
-    save_to::String = nothing
+    save_to::Union{String, Nothing} = nothing
 )
     traversal_strategy = convert_strategy(strategy)
 
