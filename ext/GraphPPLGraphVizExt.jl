@@ -1,7 +1,4 @@
 module GraphPPLGraphVizExt
-
-export generate_dot, show_gv, dot_string_to_pdf, SimpleIteration, BFSTraversal
-
 using GraphPPL, MetaGraphsNext, GraphViz
 using GraphPPL.MetaGraphsNext
 import MetaGraphsNext: nv
@@ -9,26 +6,28 @@ import MetaGraphsNext: nv
 import GraphViz: load
 
 """
-This abstract type represents a node traversal strategy for use with the `generate_dot` function.
+This abstract type represents a node traversal strategy for use with the `GraphViz.load` function.
 
 This abstract type is used to define various strategies for traversing nodes in the graph when generating a DOT representation. 
 Each concrete subtype specifies a different traversal approach, which is selected by Julia's multiple dispatch system 
-when calling `generate_dot`.
+when calling `GraphViz.load`.
 
 Concrete subtypes:
 - `SimpleIteration`: Represents a simple iteration of the graph's vertex/node set.
 - `BFSTraversal`: Represents a breadth-first search traversal strategy, from the initially created node.
 
-These types afford a trade-off between a relatively fast and a relatively 'principled' iteration strategy (respectfully).
+These types afford a trade-off between a relatively fast and a relatively 'principled' iteration strategy (respectfully), 
+in addition to affecting the layout of the final visualization.
 """
 abstract type TraversalStrategy end
 struct SimpleIteration <: TraversalStrategy end
 struct BFSTraversal <: TraversalStrategy end
 
+
 """
     get_node_properties(model::GraphPPL.Model, vertex::Int64)
 
-Extracts the properties of a specific node in a `GraphPPL.Model` and returns them as a dictionary.
+Extracts the properties of a specific node in a `GraphPPL.Model` and returns these as a dictionary.
 
 # Arguments
 - `model::GraphPPL.Model`: The model from which the node's properties will be retrieved.
@@ -95,7 +94,7 @@ end
     get_node_properties(properties::GraphPPL.VariableNodeProperties)
 
 Extracts the properties of a variable node from a `GraphPPL.VariableNodeProperties` struct 
-and returns them as a dictionary.
+and returns these as a dictionary.
 
 # Arguments
 - `properties::GraphPPL.VariableNodeProperties`: A struct containing the variable node properties.
@@ -118,6 +117,7 @@ function get_node_properties(properties::GraphPPL.VariableNodeProperties)
 
     return namespace_variables
 end
+
 
 """
     get_namespace_variables_dict(model::GraphPPL.Model)
@@ -149,6 +149,7 @@ function get_namespace_variables_dict(model::GraphPPL.Model)
 
     return node_properties_dict
 end
+
 
 """
     get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
@@ -184,6 +185,7 @@ function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
     return final_str
 end
 
+
 """
     get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
 
@@ -208,6 +210,7 @@ function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
 
     return san_str_name_fac
 end
+
 
 """
     get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
@@ -247,6 +250,7 @@ function get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
     return san_node_name_str
 end
 
+
 """
     strip_dot_wrappers(dot_string::String)
 
@@ -275,6 +279,7 @@ function strip_dot_wrappers(dot_string::String)
 
     return stripped_string
 end
+
 
 """
     write_to_dot_file(dot_string::String, file_path::String) :: Bool
@@ -308,6 +313,7 @@ function write_to_dot_file(dot_string::String, file_path::String)::Bool
     end
 end
 
+
 """
     generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String) :: Bool
 
@@ -327,13 +333,19 @@ specified by `dst_pdf_file_path_name`. The function returns `true` upon successf
 of the PDF, and `false` if any error occurs during the process.
 """
 function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String)::Bool
+    # dot file.dot -Tpng -o image.png
     try
-        run(`dot -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
+        if Sys.iswindows()
+            run(`dot.exe -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
+        else
+            run(`dot -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
+        end
         return true
     catch
         return false
     end
 end
+
 
 """
     dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
@@ -374,19 +386,66 @@ function dot_string_to_pdf(dot_string::String, dst_pdf_file::String)::Bool
     end
 end
 
+
+"""
+    get_displayed_label(properties::GraphPPL.FactorNodeProperties) :: String
+
+Extracts and returns the displayed label for a `FactorNode` in a GraphPPL.Model. The label is generated 
+using the `prettyname` function and is enclosed in double quotes for consistent formatting.
+
+# Arguments
+- `properties::GraphPPL.FactorNodeProperties`: The properties of the factor node from which the label is extracted.
+
+# Returns
+- `String`: A string containing the label of the factor node, enclosed in double quotes.
+
+# Details
+This function calls the `GraphPPL.prettyname` method to generate a "pretty" label for the factor node. The resulting label
+is then enclosed in quotes for consistency in visualization or formatting.
+"""
 function get_displayed_label(properties::GraphPPL.FactorNodeProperties)
-    return GraphPPL.prettyname(properties)
+    # Ensure that the result of prettyname is enclosed in quotes
+    label = GraphPPL.prettyname(properties)
+    return "\"" * label * "\""
 end
 
+"""
+    get_displayed_label(properties::GraphPPL.VariableNodeProperties) :: String
+
+Extracts and returns the displayed label for a `VariableNode` in a GraphPPL.Model. The format of the label
+depends on whether the node is a constant or has an index. Constants are displayed as string values enclosed
+in quotes, while indexed variables are displayed in HTML format with a subscript. Other variable nodes are displayed
+with their name in quotes.
+
+# Arguments
+- `properties::GraphPPL.VariableNodeProperties`: The properties of the variable node from which the label is extracted.
+
+# Returns
+- `String`: A string containing the label of the variable node - varying as described above, depending on the node's properties:
+  - For constants, the label is the string representation of the constant value enclosed in quotes.
+  - For indexed variables, the label is in HTML format with the variable name and index as a subscript.
+  - For other variables, the label is simply the name of the variable enclosed in quotes.
+
+# Details
+The function handles three cases:
+1. If the node is a constant (checked by `GraphPPL.is_constant`), the value is displayed in quotes.
+2. If the node has an index, the label is displayed in HTML format with a subscript showing the index.
+3. If neither condition is true, the label is the node's name enclosed in quotes.
+"""
 function get_displayed_label(properties::GraphPPL.VariableNodeProperties)
     if GraphPPL.is_constant(properties)
-        return GraphPPL.value(properties)
+        # Ensure constants are returned as strings enclosed in quotes
+        return "\"" * string(GraphPPL.value(properties)) * "\""
+
     elseif !isnothing(GraphPPL.index(properties))
+        # HTML format for labels with indices
         return string("<", GraphPPL.getname(properties), "<SUB><FONT POINT-SIZE=\"6\">", GraphPPL.index(properties), "</FONT></SUB>", ">")
     else
-        return GraphPPL.getname(properties)
+        # For non-HTML labels, ensure it's enclosed in quotes
+        return "\"" * string(GraphPPL.getname(properties)) * "\""
     end
 end
+
 
 """
 Constructs the portion of the DOT string that specifies the nodes in the GraphViz visualization.
@@ -499,6 +558,7 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
     end
 end
 
+
 """
 Constructs the portion of the DOT string that specifies the edges between nodes in a 
 GraphViz visualization. This function iterates over the edges in the `model_graph`  via 
@@ -600,6 +660,7 @@ function add_edges!(
     end
 end
 
+
 """
 A 'wrapper' arround a user-specified Symbolic expression which returns 
 the associated traversal type. 
@@ -614,27 +675,41 @@ function convert_strategy(strategy::Symbol)
     end
 end
 
+
 """
-# Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
-# The DOT string includes configuration options for node appearance, edge length, layout, and more.
+This is the crucial function in the GraphPPLGraphVizExt.jl extension. 
+Constructs a DOT string from a `GraphPPL.Model` for visualization with GraphViz.jl. 
+The DOT string includes configuration options for node appearance, edge length, layout, and other 
+visualization parameters. The generated graph is saved as a PDF to the specified `save_to` file path.
 
-# # Arguments:
-# - `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
-#    graph to be visualized.
-# - `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal.
-     Either `SimpleIteration()` or `BFSTraversal()`
-# - `font_size::Int`: The font size of the node labels.
-# - `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
-# - `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
-#    arranging the nodes.
-# - `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
-# - `width::Float64` (default is `10.0`): The width of the display window in inches.
-# - `height::Float64` (default is `10.0`): The height of the display window in inches.
+# Arguments:
+- `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
+   graph to be visualized.
+- `strategy::Symbol`: Specifies the traversal strategy for graph traversal. This is a symbolic value 
+   that will be converted to a valid traversal strategy used by the `GraphPPL.Model`.
+- `font_size::Int`: The font size of the node labels. Default is `12`.
+- `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
+- `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
+   arranging the nodes. Common options include `"dot"`, `"neato"`, `"fdp"`, etc.
+- `overlap::Bool`: Controls whether node overlap is allowed in the visualization. Default is `false`.
+- `width::Float64` (default is `10.0`): The width of the display window in inches.
+- `height::Float64` (default is `10.0`): The height of the display window in inches.
+- `save_to::String`: If provided, this is the file path where the generated PDF of the visualized will be saved.
 
-# # Returns:
-# - `String`: A DOT format string that can be used to generate a GraphViz visualization.
-# """
-function GraphViz.load(model_graph::GraphPPL.Model;
+# Returns:
+- `String`: A DOT format string representing the graph, which can be used to generate a GraphViz visualization.
+
+# Details:
+This function generates a DOT string based on the input `GraphPPL.Model`, affording the visualization 
+of an arbitrary GraphPPL.Model with GraphViz.jl. The DOT string includes options for controlling the layout, node 
+properties, edge length, and other appearance-related attributes.
+
+The resulting graph is saved as a PDF file using GraphViz's `dot` command. The file is saved to the path 
+specified by the `save_to` argument. If the file cannot be saved (e.g., due to permission issues), a warning 
+will be logged.
+"""
+function GraphViz.load(
+    model_graph::GraphPPL.Model;
     strategy::Symbol,
     font_size::Int = 12,
     edge_length::Float64 = 1.0,
@@ -642,9 +717,8 @@ function GraphViz.load(model_graph::GraphPPL.Model;
     overlap::Bool = false,
     width::Float64 = 10.0,
     height::Float64 = 10.0,
-    show::Bool = false,
     save_to::Union{String, Nothing} = nothing
-)
+)::String
     traversal_strategy = convert_strategy(strategy)
 
     # get the entire namespace dict
@@ -676,95 +750,7 @@ function GraphViz.load(model_graph::GraphPPL.Model;
         end
     end
 
-    if show
-        return show_gv(final_dot)
-    end
-
     return final_dot
-end
-
-
-# # OG VERSION
-# """
-# Constructs a DOT string from an input `GraphPPL.Model` for visualization with GraphViz.jl. 
-# The DOT string includes configuration options for node appearance, edge length, layout, and more.
-
-# # Arguments:
-# - `model_graph::GraphPPL.Model`: The `GraphPPL.Model` structure containing the raw factor 
-#    graph to be visualized.
-# - `strategy::TraversalStrategy`: Specifies the traversal strategy for graph traversal. 
-#    Either `SimpleIteration()` or `BFSTraversal()`.
-# - `font_size::Int`: The font size of the node labels.
-# - `edge_length::Float64` (default is `1.0`): Controls the visual length of edges in the graph.
-# - `layout::String` (default is `"neato"`): The layout engine to be used by GraphViz for 
-#    arranging the nodes.
-# - `overlap::Bool`: Controls whether node overlap is allowed in the visualization.
-# - `width::Float64` (default is `10.0`): The width of the display window in inches.
-# - `height::Float64` (default is `10.0`): The height of the display window in inches.
-
-# # Returns:
-# - `String`: A DOT format string that can be used to generate a GraphViz visualization.
-# """
-# function generate_dot(;
-#     model_graph::GraphPPL.Model,
-#     strategy::TraversalStrategy,
-#     font_size::Int,
-#     edge_length::Float64 = 1.0,
-#     layout::String = "neato",
-#     overlap::Bool,
-#     width::Float64 = 10.0,
-#     height::Float64 = 10.0
-# )
-
-#     # get the entire namespace dict
-#     global_namespace_dict = get_namespace_variables_dict(model_graph)
-
-#     # use Base.IOBuffer instead of string concatenation
-#     io_buffer = IOBuffer()
-
-#     write(io_buffer, "dot\"\"\"\ngraph G {\n")
-#     write(io_buffer, "    layout=$(layout);\n")
-#     write(io_buffer, "    overlap =$(string(overlap));\n") # control if allowing node overlaps
-#     write(io_buffer, "    size=\"$(width),$(height)!\";\n")
-#     write(io_buffer, "    node [shape=circle, fontsize=$(font_size)];\n")
-
-#     # Nodes
-#     add_nodes!(io_buffer, model_graph, global_namespace_dict, strategy)
-
-#     # Edges
-#     add_edges!(io_buffer, model_graph, global_namespace_dict, strategy, edge_length)
-
-#     write(io_buffer, "}\n\"\"\"")
-
-#     final_dot = String(take!(io_buffer))
-
-#     return final_dot
-# end
-
-"""
-    show_gv(dot_code_graph::String)
-
-Executes the DOT string to display the graph using Graphviz.
-
-This function evaluates the DOT string generated by the `generate_dot` 
-function, and displays the graph visualization. It uses  Julia's `eval` 
-and `Meta.parse` functions to interpret and execute the DOT code.
-
-# Arguments:
-- `dot_code_graph::String`: The DOT format string representing the graph to be 
-visualized. This string is expected to be valid DOT code generated by the 
-`generate_dot` function, as per the convention used in GraphViz.jl.
-
-# Throws:
-- `ErrorException`: If there is an error while evaluating the DOT string, an 
-exception will be raised with a message indicating the problem.
-"""
-function show_gv(dot_code_graph::String)
-    try
-        eval(Meta.parse(dot_code_graph))
-    catch e
-        error("Could not evaluate the input DOT string: ", e)
-    end
 end
 
 end
