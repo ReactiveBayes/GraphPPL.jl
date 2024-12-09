@@ -70,17 +70,25 @@ export PointMass, ArbitraryNode, NormalMeanVariance, NormalMeanPrecision, GammaS
 
 struct PointMass end
 
+GraphPPL.prettyname(::Type{PointMass}) = "δ"
+
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{PointMass}) = GraphPPL.Deterministic()
 
 struct ArbitraryNode end
+
+GraphPPL.prettyname(::Type{ArbitraryNode}) = "ArbitraryNode"
 
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
 struct NormalMeanVariance end
 
+GraphPPL.prettyname(::Type{NormalMeanVariance}) = "𝓝(μ, σ^2)"
+
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
 
 struct NormalMeanPrecision end
+
+GraphPPL.prettyname(::Type{NormalMeanPrecision}) = "𝓝(μ, σ^-2)"
 
 GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
@@ -371,7 +379,15 @@ end
     end
 end
 
+@model function coin_toss_model()
+    θ ~ Beta(1, 2)
+    for i in 1:5
+        y[i] ~ Bernoulli(θ)
+    end
+end
+
 const ModelsInTheZooWithoutArguments = [
+    coin_toss_model,
     simple_model,
     vector_model,
     tensor_model,

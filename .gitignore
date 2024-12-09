@@ -55,3 +55,4 @@ statprof
 profile.pb.gz
 .swp
 *.info
+test/ext/graphviz_test_imgs
