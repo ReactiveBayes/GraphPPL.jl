@@ -23,7 +23,6 @@ abstract type TraversalStrategy end
 struct SimpleIteration <: TraversalStrategy end
 struct BFSTraversal <: TraversalStrategy end
 
-
 """
     get_node_properties(model::GraphPPL.Model, vertex::Int64)
 
@@ -118,7 +117,6 @@ function get_node_properties(properties::GraphPPL.VariableNodeProperties)
     return namespace_variables
 end
 
-
 """
     get_namespace_variables_dict(model::GraphPPL.Model)
 
@@ -149,7 +147,6 @@ function get_namespace_variables_dict(model::GraphPPL.Model)
 
     return node_properties_dict
 end
-
 
 """
     get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
@@ -185,7 +182,6 @@ function get_sanitized_variable_node_name(var_namespace_dict::Dict{Symbol, Any})
     return final_str
 end
 
-
 """
     get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
 
@@ -207,10 +203,9 @@ it as the sanitized name of the factor node.
 """
 function get_sanitized_factor_node_name(fac_namespace_dict::Dict{Symbol, Any})
     san_str_name_fac = string(fac_namespace_dict[:label]) # was :fform
-
+    san_str_name_fac = replace(san_str_name_fac, "\"" => "", "#" => "")
     return san_str_name_fac
 end
-
 
 """
     get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
@@ -246,146 +241,22 @@ function get_sanitized_node_name(single_node_namespace_dict::Dict{Symbol, Any})
     else
         error("Input single-node namespace dictionary has neither :name nor :fform as a key.")
     end
-
     return san_node_name_str
 end
 
-
 """
-    strip_dot_wrappers(dot_string::String)
+    dot_string_to_svg(dot_string::String, dst_pdf_file::String) :: Bool
 
-Strips non-DOT syntax from the beginning and end of a GraphViz.jl DOT code string.
-
-# Arguments
-- `dot_string::String`: A string containing the DOT code generated for a 
-`GraphPPL.Model`, including the GraphViz.jl wrapper code (non-DOT syntax) at the 
-beginning and end.
-
-# Returns
-- A `String` with the leading and trailing non-DOT syntax removed, leaving 
-only the valid DOT code.
-
-# Details
-This function is designed to clean up GraphViz.jl DOT code strings by removing the specific 
-wrapper syntax that may is present at the beginning and end of such a string. It removes:
-- The leading 'dot...' sequence at the start.
-- The trailing '...n' sequence at the end.
-
-The resulting string is ready for use in DOT-compatible tools.
+Converts a DOT string to a SVG file via the following steps:
 """
-function strip_dot_wrappers(dot_string::String)
-    stripped_string = replace(dot_string, r"^dot\"\"\"\n" => "")
-    stripped_string = replace(stripped_string, r"\n\"\"\"$" => "")
-
-    return stripped_string
-end
-
-
-"""
-    write_to_dot_file(dot_string::String, file_path::String) :: Bool
-
-Writes the given DOT format string to a file specified by `file_path`.
-
-# Arguments
-- `dot_string::String`: The DOT format string to be written to the file.
-- `file_path::String`: The path of the file where the DOT string will be written.
-
-# Returns
-- `Bool`: Returns `true` if the file was written successfully; otherwise, returns `false`.
-
-# Throws
-- `SystemError`: If there is an error in opening or writing to the file.
-
-# Details
-Attempts to write a DOT string to the specified file path. 
-If the operation is successful, it returns `true`. If an error occurs, it logs 
-the error and returns `false`.
-"""
-function write_to_dot_file(dot_string::String, file_path::String)::Bool
-    try
-        open(file_path, "w") do file
-            write(file, dot_string)
-        end
-        return true
-    catch e
-        @error "Failed to write to file $file_path" exception = (e, catch_backtrace())
-        return false
+function buffer_to_svg(dot_string::String, dst_svg_file::String)::Bool
+    # pure_dot_string = strip_dot_wrappers(dot_string)
+    loaded = GraphViz.load(IOBuffer(dot_string))
+    open(dst_svg_file, "w") do io
+        show(io, MIME"image/svg+xml"(), loaded)
     end
+    return true
 end
-
-
-"""
-    generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String) :: Bool
-
-Generates a PDF file from a DOT file using Graphviz's `dot` command.
-
-# Arguments
-- `src_dot_file_path::String`: The path to the source DOT file.
-- `dst_pdf_file_path_name::String`: The desired path and name for the output PDF file.
-
-# Returns
-- `Bool`: Returns `true` if the PDF generation is successful; otherwise, returns `false`.
-
-# Details
-This function takes a DOT file specified by `src_dot_file_path` and converts it to a PDF 
-file using the Graphviz `dot` command. The resulting PDF is saved to the path 
-specified by `dst_pdf_file_path_name`. The function returns `true` upon successful generation 
-of the PDF, and `false` if any error occurs during the process.
-"""
-function generate_pdf_from_dot(src_dot_file_path::String, dst_pdf_file_path_name::String)::Bool
-    # dot file.dot -Tpng -o image.png
-    try
-        if Sys.iswindows()
-            run(`dot.exe -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
-        else
-            run(`dot -Tpdf $src_dot_file_path -o $dst_pdf_file_path_name`)
-        end
-        return true
-    catch
-        return false
-    end
-end
-
-
-"""
-    dot_string_to_pdf(dot_string::String, dst_pdf_file::String) :: Bool
-
-Converts a DOT string to a PDF file via the following steps:
-1. Strips unnecessary wrappers from the DOT string.
-2. Writes the cleaned DOT string to a temporary DOT file.
-3. Converts the temporary DOT file to a PDF using Graphviz's `dot` command.
-4. Cleans up the temporary DOT file.
-
-# Arguments
-- `dot_string::String`: The DOT format string to be converted into a PDF.
-- `dst_pdf_file::String`: The path and filename where the output PDF should be saved.
-
-# Returns
-- `Bool`: Returns `true` if the PDF generation is successful, `false` otherwise.
-
-# Details
-The function first processes the input DOT string to remove any non-DOT syntax wrappers. 
-It then writes the cleaned string to a temporary file named `"tmp.dot"`. 
-After generating the PDF using Graphviz, the temporary file is removed. 
-The function returns `true` if all operations complete successfully, and `false` 
-if an error occurs during any step.
-"""
-function dot_string_to_pdf(dot_string::String, dst_pdf_file::String)::Bool
-    tmp_dot_file = "tmp.dot"
-    try
-        pure_dot_string = strip_dot_wrappers(dot_string)
-        write_to_dot_file(pure_dot_string, tmp_dot_file)
-        success = generate_pdf_from_dot(tmp_dot_file, dst_pdf_file)
-        return success
-    catch
-        return false
-    finally
-        if isfile(tmp_dot_file)
-            rm(tmp_dot_file)
-        end
-    end
-end
-
 
 """
     get_displayed_label(properties::GraphPPL.FactorNodeProperties) :: String
@@ -446,7 +317,6 @@ function get_displayed_label(properties::GraphPPL.VariableNodeProperties)
     end
 end
 
-
 """
 Constructs the portion of the DOT string that specifies the nodes in the GraphViz visualization.
 Specifically, by means of the simple iteration strategy specified by the `SimpleIteration` subtype. 
@@ -473,7 +343,6 @@ function add_nodes!(
     io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_namespace_dict::Dict{Int64, Dict{Symbol, Any}}, ::SimpleIteration
 )
     for vertex in MetaGraphsNext.vertices(model_graph.graph)
-
         san_label = get_sanitized_node_name(global_namespace_dict[vertex])
 
         # index the label of model_namespace_variables with "vertex"
@@ -483,7 +352,8 @@ function add_nodes!(
         displayed_label = get_displayed_label(properties)
 
         if isa(properties, GraphPPL.FactorNodeProperties)
-            write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=$(displayed_label)];\n")
+            displayed_label = replace(displayed_label, "\"" => "", "#" => "")
+            write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=\"$(displayed_label)\"];\n")
         elseif isa(properties, GraphPPL.VariableNodeProperties)
             write(io_buffer, "    \"$(san_label)\" [shape=circle, label=$(displayed_label)];\n")
         else
@@ -538,7 +408,8 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
             displayed_label = get_displayed_label(properties)
 
             if isa(properties, GraphPPL.FactorNodeProperties)
-                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=$(displayed_label)];\n")
+                displayed_label = replace(displayed_label, "\"" => "", "#" => "")
+                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=\"$(displayed_label)\"];\n")
             elseif isa(properties, GraphPPL.VariableNodeProperties)
                 write(io_buffer, "    \"$(san_label)\" [shape=circle, label=$(displayed_label)];\n")
             else
@@ -557,7 +428,6 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
         sort!(cur_level)
     end
 end
-
 
 """
 Constructs the portion of the DOT string that specifies the edges between nodes in a 
@@ -660,7 +530,6 @@ function add_edges!(
     end
 end
 
-
 """
 A 'wrapper' arround a user-specified Symbolic expression which returns 
 the associated traversal type. 
@@ -674,7 +543,6 @@ function convert_strategy(strategy::Symbol)
         error("Unknown traversal strategy: $strategy")
     end
 end
-
 
 """
 This is the crucial function in the GraphPPLGraphVizExt.jl extension. 
@@ -704,9 +572,9 @@ This function generates a DOT string based on the input `GraphPPL.Model`, afford
 of an arbitrary GraphPPL.Model with GraphViz.jl. The DOT string includes options for controlling the layout, node 
 properties, edge length, and other appearance-related attributes.
 
-The resulting graph is saved as a PDF file using GraphViz's `dot` command. The file is saved to the path 
-specified by the `save_to` argument. If the file cannot be saved (e.g., due to permission issues), a warning 
-will be logged.
+The resulting graph is saved as a SVG file. The file is saved to the path 
+specified by the `save_to` argument. 
+If the file cannot be saved (e.g., due to permission issues), a warning will be logged.
 """
 function GraphViz.load(
     model_graph::GraphPPL.Model;
@@ -718,7 +586,7 @@ function GraphViz.load(
     width::Float64 = 10.0,
     height::Float64 = 10.0,
     save_to::Union{String, Nothing} = nothing
-)::String
+)
     traversal_strategy = convert_strategy(strategy)
 
     # get the entire namespace dict
@@ -727,7 +595,7 @@ function GraphViz.load(
     # use Base.IOBuffer instead of string concatenation
     io_buffer = IOBuffer()
 
-    write(io_buffer, "dot\"\"\"\ngraph G {\n")
+    write(io_buffer, "graph G {\n")
     write(io_buffer, "    layout=$(layout);\n")
     write(io_buffer, "    overlap =$(string(overlap));\n") # control if allowing node overlaps
     write(io_buffer, "    size=\"$(width),$(height)!\";\n")
@@ -739,14 +607,14 @@ function GraphViz.load(
     # Edges
     add_edges!(io_buffer, model_graph, global_namespace_dict, traversal_strategy, edge_length)
 
-    write(io_buffer, "}\n\"\"\"")
+    write(io_buffer, "}")
 
-    final_dot = String(take!(io_buffer))
+    final_string = String(take!(io_buffer))
+    final_dot = GraphViz.Graph(final_string)
 
     if !isnothing(save_to)
-        @info "Saving the DOT string to file: $(save_to)"
-        if !dot_string_to_pdf(final_dot, save_to)
-            @warn "Failed to save the DOT string to file: $(save_to)"
+        open(save_to, "w") do io
+            show(io, MIME"image/svg+xml"(), final_dot)
         end
     end
 
