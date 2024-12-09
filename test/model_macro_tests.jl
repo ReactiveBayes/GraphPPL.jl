@@ -2048,7 +2048,7 @@ end
     @test !isnothing(GraphPPL.create_model(somemodel(a = 1, b = 2)))
 end
 
-@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin 
+@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin
     using GraphPPL, Distributions
     import GraphPPL: @model
 
@@ -2058,5 +2058,7 @@ end
         y ~ Normal(0, t)
     end
 
-    @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(somemodel())
+    @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(
+        somemodel()
+    )
 end
