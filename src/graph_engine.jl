@@ -255,6 +255,7 @@ Base.broadcastable(label::NodeLabel) = Ref(label)
 
 getname(label::NodeLabel) = label.name
 getname(labels::ResizableArray{T, V, N} where {T <: NodeLabel, V, N}) = getname(first(labels))
+getid(label::NodeLabel) = label.global_counter
 iterate(label::NodeLabel) = (label, nothing)
 iterate(label::NodeLabel, any) = nothing
 
@@ -765,9 +766,10 @@ mutable struct NodeData
     const context    :: Context
     const properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
     const extra      :: UnorderedDictionary{Symbol, Any}
+    const id         :: Int
 end
 
-NodeData(context, properties) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}())
+NodeData(context, properties, id) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}(), id)
 
 function Base.show(io::IO, nodedata::NodeData)
     context = getcontext(nodedata)
@@ -1529,7 +1531,7 @@ end
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
-    potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options))
+    potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options), getid(potential_label))
     label, nodedata = preprocess_plugins(
         UnionPluginType(VariableNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
@@ -1643,7 +1645,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     factornode_id = generate_factor_nodelabel(context, fform)
 
     potential_label = generate_nodelabel(model, fform)
-    potential_nodedata = NodeData(context, convert(FactorNodeProperties, fform, options))
+    potential_nodedata = NodeData(context, convert(FactorNodeProperties, fform, options), getid(potential_label))
 
     label, nodedata = preprocess_plugins(
         UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options

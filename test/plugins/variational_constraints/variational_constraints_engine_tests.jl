@@ -862,35 +862,35 @@ end
     ])
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2), 2)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, 2:3, context)
-    node_data = GraphPPL.NodeData(GraphPPL.Context(), VariableNodeProperties(name = :w, index = 2))
+    node_data = GraphPPL.NodeData(GraphPPL.Context(), VariableNodeProperties(name = :w, index = 2), 2)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:w, 2, context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2), 2)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(2, 3), context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2), 2)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:w, SplittedRange(10, 15), context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :w, index = 2), 2)
     @test !(node_data ∈ variable)
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = 2))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = 2), 2)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:x, nothing, context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = nothing))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :x, index = nothing), 1)
     @test node_data ∈ variable
 
     variable = ResolvedIndexedVariable(:prec, 3, context)
-    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :prec, index = (1, 3)))
+    node_data = GraphPPL.NodeData(context, VariableNodeProperties(name = :prec, index = (1, 3)), 2)
     @test node_data ∈ variable
 end
 
