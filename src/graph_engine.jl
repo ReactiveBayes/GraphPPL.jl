@@ -784,6 +784,8 @@ getcontext(node::NodeData)    = node.context
 getproperties(node::NodeData) = node.properties
 getextra(node::NodeData)      = node.extra
 
+is_constant(node::NodeData) = is_constant(getproperties(node))
+
 """
     hasextra(node::NodeData, key::Symbol)
 
