@@ -6,14 +6,14 @@ GraphPPL provides a built-in plugin to mark factor nodes with a specific ID for 
 GraphPPL.NodeIdPlugin
 ```
 
-The plugin allows to specify the `id` in the `where { ... }` block during the node construction. Here how it works:
+The plugin sets a field in the `GraphPPL.NodeData` for every factor node that acts as a unique identified. Here how it works:
 
 ```@example plugin-node-id
 using GraphPPL, Distributions, Test #hide
 import GraphPPL: @model #hide
 
 @model function submodel(y, x, z)
-    y ~ Normal(x, z) where { id = "from submodel" }
+    y ~ Normal(x, z)
 end
 
 @model function mainmodel() 
@@ -23,7 +23,7 @@ end
 end
 ```
 
-In this example we have created three `Normal` factor nodes and would like to access the one which has been created within the `submodel`.
+In this example we have created three `Normal` factor nodes and would like to discern between them using only the `NodeData`.
 To do that, we need to instantiate our model with the [`GraphPPL.NodeIdPlugin`](@ref) plugin.
 
 ```@example plugin-node-id
@@ -36,18 +36,12 @@ model = GraphPPL.create_model(
 nothing #hide
 ```
 
-After, we can fetch all the nodes with a specific id using the [`GraphPPL.by_nodeid`](@ref) function.
-
-```@docs
-GraphPPL.by_nodeid
-```
+After, we can fetch all the node ids.
 
 ```@example plugin-node-id
-labels = collect(filter(GraphPPL.by_nodeid("from submodel"), model))
-@test all(label -> GraphPPL.getname(label) == Normal, labels) #hide
-@test length(labels) === 1 #hide
+labels = collect(filter(GraphPPL.as_node(), model))
 foreach(labels) do label
-    println(GraphPPL.getname(label))
+    println(GraphPPL.getextra(model[label], :id))
 end
 nothing #hide
 ```
