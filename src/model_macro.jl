@@ -19,7 +19,7 @@ struct walk_until_occurrence{E}
 end
 
 not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
-not_created_by = guarded_walk((x) -> (x isa Expr && length(x.args) > 0 && x.args[1] == :created_by))
+not_created_by = guarded_walk((x) -> (x isa Expr && !isempty(x.args) && x.args[1] == :created_by))
 
 function (w::walk_until_occurrence{E})(f, x) where {E <: Tuple}
     return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
