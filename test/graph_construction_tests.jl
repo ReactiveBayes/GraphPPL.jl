@@ -2003,3 +2003,18 @@ end
     @test length(collect(filter(as_variable(:y), model))) == 1
     @test length(collect(filter(as_variable(:x), model))) == 1
 end
+
+@testitem "Create empty array" begin
+    using Distributions
+    using GraphPPL
+    import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
+
+    @model function empty_array_model()
+        x = []
+    end
+
+    model = create_model(empty_array_model()) do model, ctx
+        return (;)
+    end
+    @test model isa GraphPPL.Model
+end
