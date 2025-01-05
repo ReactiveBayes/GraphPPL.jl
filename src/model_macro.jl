@@ -19,6 +19,7 @@ struct walk_until_occurrence{E}
 end
 
 not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
+not_created_by = guarded_walk((x) -> (x isa Expr && !isempty(x.args) && x.args[1] == :created_by))
 
 function (w::walk_until_occurrence{E})(f, x) where {E <: Tuple}
     return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
@@ -265,7 +266,7 @@ function convert_to_kwargs_expression(e::Expr)
 end
 
 # This is necessary to ensure that we don't change the `created_by` option as well. 
-what_walk(::typeof(convert_to_kwargs_expression)) = guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
+what_walk(::typeof(convert_to_kwargs_expression)) = not_created_by
 
 """
     convert_to_anonymous(e::Expr, created_by)
@@ -357,7 +358,7 @@ function add_get_or_create_expression(e::Expr)
     return e
 end
 
-what_walk(::typeof(add_get_or_create_expression)) = guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
+what_walk(::typeof(add_get_or_create_expression)) = not_created_by
 
 """
     generate_get_or_create(s::Symbol, lhs::Symbol, index::Nothing)
@@ -626,7 +627,7 @@ function convert_tilde_expression(e::Expr)
     end
 end
 
-what_walk(::typeof(convert_tilde_expression)) = guarded_walk((x) -> (x isa Expr && x.args[1] == :created_by))
+what_walk(::typeof(convert_tilde_expression)) = not_created_by
 
 """
     options_vector_to_named_tuple(options::AbstractArray)
