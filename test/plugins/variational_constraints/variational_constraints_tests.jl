@@ -1107,3 +1107,32 @@ end
         end
     end
 end
+
+@testitem "Issue 262, factorization constraint should not attempt to create a variable from submodels" begin
+    import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
+
+    include("../../testutils.jl")
+
+    @model function submodel(y, x)
+        for i in 1:10
+            y[i] ~ Normal(x, 1)
+        end
+    end
+
+    @model function main_model()
+        x ~ Normal(0, 1)
+        y ~ submodel(x = x)
+    end
+
+    model = create_model(with_plugins(main_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))))
+
+    constraints = @constraints begin
+        for q in submodel
+            q(x, y) = q(x)q(y)
+        end
+    end
+
+    model = create_model(with_plugins(main_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))))
+
+    @test length(collect(filter(as_node(Normal), model))) == 11
+end

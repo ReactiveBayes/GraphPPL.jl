@@ -341,6 +341,12 @@ end
 getname(label::ProxyLabel) = label.name
 index(label::ProxyLabel) = label.index
 
+# This function allows to overwrite the `maycreate` flag on a proxy label, might be useful for situations where code should
+# definitely not create a new variable, e.g in the variational constraints plugin
+set_maycreate(proxylabel::ProxyLabel, maycreate::Union{True, False}) =
+    ProxyLabel(proxylabel.name, proxylabel.proxied, proxylabel.index, maycreate)
+set_maycreate(something, maycreate::Union{True, False}) = something
+
 function unroll(something)
     return something
 end

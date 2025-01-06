@@ -754,13 +754,17 @@ function resolve(model::Model, context::Context, variable::IndexedVariable{<:Spl
     )
 end
 
+# The variational constraints plugin should not attempt to create new variables in the model
+# Even if the `maycreate` flag was set to `True` at this point we assume that the variable has been created already
+unroll_nocreate(something) = unroll(set_maycreate(something, False()))
+
 function resolve(model::Model, context::Context, variable::IndexedVariable{Nothing})
-    global_label = unroll(context[getname(variable)])
+    global_label = unroll_nocreate(context[getname(variable)])
     return __resolve(model, global_label)
 end
 
 function resolve(model::Model, context::Context, variable::IndexedVariable)
-    global_label = unroll(context[getname(variable)])[index(variable)...]
+    global_label = unroll_nocreate(context[getname(variable)])[index(variable)...]
     return __resolve(model, global_label)
 end
 
@@ -768,7 +772,7 @@ resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{
     throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
-    global_label = view(unroll(context[getname(variable)]), firstindex(index(variable)):lastindex(index(variable)))
+    global_label = view(unroll_nocreate(context[getname(variable)]), firstindex(index(variable)):lastindex(index(variable)))
     return __resolve(model, global_label)
 end
 
@@ -803,7 +807,8 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
     end
     lhs = map(variable -> resolve(model, context, variable), vfiltered)
     rhs = map(
-        variable -> ResolvedFactorizationConstraintEntry((resolve(model, context, unroll(context[getname(variable)]), MeanField()),)),
+        variable ->
+            ResolvedFactorizationConstraintEntry((resolve(model, context, unroll_nocreate(context[getname(variable)]), MeanField()),)),
         vfiltered
     )
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
@@ -930,7 +935,7 @@ end
 function apply_constraints!(
     model::Model, context::Context, marginal_constraint::MarginalFormConstraint{T, F} where {T <: IndexedVariable, F}
 )
-    applicable_nodes = unroll(context[getvariables(marginal_constraint)])
+    applicable_nodes = unroll_nocreate(context[getvariables(marginal_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
             @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
@@ -945,7 +950,7 @@ function apply_constraints!(model::Model, context::Context, marginal_constraint:
 end
 
 function apply_constraints!(model::Model, context::Context, message_constraint::MessageFormConstraint)
-    applicable_nodes = unroll(context[getvariables(message_constraint)])
+    applicable_nodes = unroll_nocreate(context[getvariables(message_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
             @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
