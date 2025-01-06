@@ -1124,8 +1124,6 @@ end
         y ~ submodel(x = x)
     end
 
-    model = create_model(with_plugins(main_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))))
-
     constraints = @constraints begin
         for q in submodel
             q(x, y) = q(x)q(y)
