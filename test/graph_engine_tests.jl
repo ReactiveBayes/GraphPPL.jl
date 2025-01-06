@@ -712,6 +712,7 @@ end
         getcontext,
         getifcreated,
         unroll,
+        set_maycreate,
         ProxyLabel,
         NodeLabel,
         proxylabel,
@@ -811,6 +812,27 @@ end
         # `@inferred` here is important for simple use cases like `x ~ Normal(0, 1)`, so 
         # `x` can be inferred properly
         @test ctx[:x] === @inferred(unroll(proxylabel(:x, xref, nothing, False())))
+    end
+
+    @testset "It should be possible to toggle `maycreate` flag" begin
+        model = create_test_model()
+        ctx = getcontext(model)
+        xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
+        # The first time should throw since the variable has not been instantiated yet
+        @test_throws "The variable `x` has been used, but has not been instantiated." unroll(proxylabel(:x, xref, nothing, False()))
+        # Even though the `maycreate` flag is set to `True`, the `set_maycreate` should overwrite it with `False`
+        @test_throws "The variable `x` has been used, but has not been instantiated." unroll(
+            set_maycreate(proxylabel(:x, xref, nothing, True()), False())
+        )
+
+        # Even though the `maycreate` flag is set to `False`, the `set_maycreate` should overwrite it with `True`
+        @test unroll(set_maycreate(proxylabel(:x, xref, nothing, False()), True())) === ctx[:x]
+        # At this point the variable should be created
+        @test unroll(proxylabel(:x, xref, nothing, False())) === ctx[:x]
+        @test unroll(proxylabel(:x, xref, nothing, True())) === ctx[:x]
+
+        @test set_maycreate(1, True()) === 1
+        @test set_maycreate(1, False()) === 1
     end
 end
 
