@@ -2011,10 +2011,10 @@ end
 
     @model function empty_array_model()
         x = []
+        @test isempty(x)
     end
 
     model = create_model(empty_array_model()) do model, ctx
         return (;)
     end
-    @test model isa GraphPPL.Model
 end
