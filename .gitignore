@@ -49,6 +49,7 @@ Coverage.ipynb
 
 benchmark/tune.json
 benchmark_*md
+**/benchmark_logs
 
 examples/*Compiled
 statprof
