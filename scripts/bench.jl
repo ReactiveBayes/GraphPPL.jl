@@ -11,6 +11,6 @@ if isempty(ARGS)
     export_markdown("./benchmark_logs/last.md", result)
 else
     name = first(ARGS)
-    BenchmarkTools.judge(GraphPPL, name; judgekwargs = Dict(:time_tolerance => 0.1, :memory_tolerance => 0.05))
-    export_markdown("benchmark_vs_$(name)_result.md", result)
+    result = BenchmarkTools.judge(GraphPPL, name; judgekwargs = Dict(:time_tolerance => 0.1, :memory_tolerance => 0.05))
+    export_markdown("./benchmark_logs/benchmark_vs_$(name)_result.md", result)
 end
