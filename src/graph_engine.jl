@@ -2205,10 +2205,11 @@ source_code(backend, model_function, n_interfaces::StaticInt) = error("Backend $
 Returns the source code of the model function. The `n_interfaces` argument can be either an `Integer` or a `StaticInt` 
 specifying the total number of interfaces expected by the model.
 
-# Examples
+!!! note
+    The example below uses `DefaultBackend`, which is not necessarily the backend that is currently active.
 
 ```jldoctest
-julia> import GraphPPL: @model
+julia> import GraphPPL: @model, DefaultBackend
 
 julia> @model function beta_bernoulli(y)
            θ ~ Beta(1, 1)
@@ -2217,7 +2218,7 @@ julia> @model function beta_bernoulli(y)
            end
        end
 
-julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, 1)
+julia> println(GraphPPL.source_code(DefaultBackend(), beta_bernoulli, 1))
 function beta_bernoulli(y)
     θ ~ Beta(1, 1)
     for i = eachindex(y)
@@ -2225,7 +2226,7 @@ function beta_bernoulli(y)
     end
 end
 
-julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, GraphPPL.static(1))
+julia> println(GraphPPL.source_code(DefaultBackend(), beta_bernoulli, GraphPPL.static(1)))
 function beta_bernoulli(y)
     θ ~ Beta(1, 1)
     for i = eachindex(y)

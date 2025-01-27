@@ -109,31 +109,31 @@ julia> import GraphPPL: @model
 
 julia> @model function beta_bernoulli(y)
            θ ~ Beta(1, 1)
-           for i in eachindex(y)
+           for i = eachindex(y)
                y[i] ~ Bernoulli(θ)
            end
        end
 
-julia> GraphPPL.source_code(beta_bernoulli(y = 1))
-@model function beta_bernoulli(y)
+julia> println(GraphPPL.source_code(beta_bernoulli(y = 1)))
+function beta_bernoulli(y)
     θ ~ Beta(1, 1)
-    for i in eachindex(y)
+    for i = eachindex(y)
         y[i] ~ Bernoulli(θ)
     end
 end
 
-julia> GraphPPL.source_code(beta_bernoulli(), 1)
-@model function beta_bernoulli(y)
+julia> println(GraphPPL.source_code(beta_bernoulli(), 1))
+function beta_bernoulli(y)
     θ ~ Beta(1, 1)
-    for i in eachindex(y)
+    for i = eachindex(y)
         y[i] ~ Bernoulli(θ)
     end
 end
 
-julia> GraphPPL.source_code(beta_bernoulli(), GraphPPL.static(1))
-@model function beta_bernoulli(y)
+julia> println(GraphPPL.source_code(beta_bernoulli(), GraphPPL.static(1)))
+function beta_bernoulli(y)
     θ ~ Beta(1, 1)
-    for i in eachindex(y)
+    for i = eachindex(y)
         y[i] ~ Bernoulli(θ)
     end
 end

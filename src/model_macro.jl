@@ -759,6 +759,11 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     return make_node_function
 end
 
+"""
+    get_source_code_function(backend_type, model_specification, ms_name, num_interfaces)
+
+Creates a function that returns the source code string of a model specification.
+"""
 function get_source_code_function(backend_type, model_specification, ms_name, num_interfaces) 
     ms_string = string(MacroTools.prewalk(MacroTools.rmlines, model_specification))
     return quote 
