@@ -2126,3 +2126,30 @@ end
         end
     end"""
 end
+
+@testitem "source code should fail for non-model functions" begin
+    import GraphPPL: DefaultBackend
+    function f end
+    function g end
+    @test_throws "`source_code` for `f`" GraphPPL.source_code(DefaultBackend(), f, 1)
+    @test_throws "`source_code` for `f`" GraphPPL.source_code(DefaultBackend(), f, 2)
+    @test_throws "`source_code` for `g`" GraphPPL.source_code(DefaultBackend(), g, 1)
+    @test_throws "`source_code` for `g`" GraphPPL.source_code(DefaultBackend(), g, 2)
+end
+
+@testitem "source code should fail for unknown backend" begin
+    import GraphPPL: @model, DefaultBackend
+
+    @model function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    struct OtherBackend end
+
+    @test_throws r"Backend .*OtherBackend.* must implement a method for `source_code` for `beta_bernoulli`" GraphPPL.source_code(
+        OtherBackend(), beta_bernoulli, 1
+    )
+end
