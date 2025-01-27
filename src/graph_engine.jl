@@ -2189,41 +2189,49 @@ end
 
 
 """
-    source_code(backend, modelf, argsval)
+    source_code(backend, model_function, n_interfaces)
 
-Returns the source code (verbatim) for the model function `modelf` specified with `backend` given arguments in `argsval`.
-`argsval` must be an iterable of Symbols with all the input arguments of the model, e.g. [ :x, :y ] (use `Val((:x, :y))` for efficiency).
+Returns the source code of the model function. The `n_interfaces` argument can be either an `Integer` or a `StaticInt` 
+specifying the total number of interfaces expected by the model.
+"""
+function source_code end
+
+source_code(backend, model_function, n_interfaces::Integer) = source_code(backend, model_function, GraphPPL.static(n_interfaces))
+source_code(backend, model_function, n_interfaces::StaticInt) = error("Backend $backend must implement a method for `source_code` for `$(model_function)` with $(n_interfaces) interfaces.")
+
+"""
+    source_code(backend, model_function, n_interfaces)
+  
+Returns the source code of the model function. The `n_interfaces` argument can be either an `Integer` or a `StaticInt` 
+specifying the total number of interfaces expected by the model.
+
+# Examples
 
 ```jldoctest
 julia> import GraphPPL: @model
 
 julia> @model function beta_bernoulli(y)
            θ ~ Beta(1, 1)
-           for i in eachindex(y)
+           for i = eachindex(y)
                y[i] ~ Bernoulli(θ)
            end
        end
 
-julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, [ :y ])
-       @model function beta_bernoulli(y)
-           θ ~ Beta(1, 1)
-           for i in eachindex(y)
-               y[i] ~ Bernoulli(θ)
-           end
-       end
+julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, 1)
+function beta_bernoulli(y)
+    θ ~ Beta(1, 1)
+    for i = eachindex(y)
+        y[i] ~ Bernoulli(θ)
+    end
+end
 
-julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, Val((:y, )))
-       @model function beta_bernoulli(y)
-           θ ~ Beta(1, 1)
-           for i in eachindex(y)
-               y[i] ~ Bernoulli(θ)
-           end
-       end
+julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, GraphPPL.static(1))
+function beta_bernoulli(y)
+    θ ~ Beta(1, 1)
+    for i = eachindex(y)
+        y[i] ~ Bernoulli(θ)
+    end
+end
 ```
 """
-function source_code end
-
-# Un-optimized function for convenience
-function source_code(backend, model, args::AbstractArray{Symbol})
-    return source_code(backend, model, Val(Tuple(args)))
-end
+  function source_code end

@@ -315,7 +315,7 @@ end
         end
     end
 
-    @test GraphPPL.source_code(beta_bernoulli(), [ :y ]) === """
+    @test GraphPPL.source_code(beta_bernoulli(), 1) === """
     function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i = eachindex(y)

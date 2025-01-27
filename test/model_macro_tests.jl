@@ -2110,7 +2110,7 @@ end
         end
     end
 
-    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, [:y]) === """
+    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, 1) === """
     function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i = eachindex(y)
@@ -2118,7 +2118,7 @@ end
         end
     end"""
 
-    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, Val((:y,))) === """
+    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, GraphPPL.static(1)) === """
     function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i = eachindex(y)
