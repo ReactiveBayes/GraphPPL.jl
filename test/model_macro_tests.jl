@@ -2099,3 +2099,31 @@ end
         somemodel()
     )
 end
+
+@testitem "source code retrieval #1" begin
+    import GraphPPL: @model, DefaultBackend
+
+    @model function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i = eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, [:y]) === """
+    function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i = eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end"""
+
+    @test GraphPPL.source_code(DefaultBackend(), beta_bernoulli, Val((:y,))) === """
+    function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i = eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end"""
+
+end

@@ -690,7 +690,6 @@ function preprocess_interface_expression(arg::Expr; warn = true)
 end
 
 function get_make_node_function(ms_body, ms_args, ms_name)
-    # TODO (bvdmitri): prettify
     ms_arg_names = map((arg) -> preprocess_interface_expression(arg; warn = false), ms_args)
     init_input_arguments = map(zip(ms_args, ms_arg_names)) do (arg, arg_name)
         error_msg = "Missing interface $(arg_name)"
@@ -760,6 +759,17 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     return make_node_function
 end
 
+function get_source_code_function(backend_type, model_specification, ms_name, ms_args) 
+    ms_args     = map(arg -> preprocess_interface_expression(arg), ms_args)
+    ms_args_val = :(Val{(($ms_args...), )})
+    ms_string   = string(MacroTools.prewalk(MacroTools.rmlines, model_specification))
+    return quote 
+        function GraphPPL.source_code(::$backend_type, ::typeof($ms_name), ::$(ms_args_val))
+            return $ms_string
+        end
+    end
+end
+
 """
     default_backend(model_function)
 
@@ -798,9 +808,11 @@ function model_macro_interior(backend_type, model_specification)
     ms_body = apply_pipeline_collection(ms_body, pipeline_collection)
 
     make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
+    source_code_function = get_source_code_function(backend_type, model_specification, ms_name, ms_args)
     result = quote
         $boilerplate_functions
         $make_node_function
+        $source_code_function
         nothing
     end
     return result

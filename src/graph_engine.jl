@@ -2186,3 +2186,44 @@ function preprocess_plugins(
         return preprocess_plugin(plugin, model, context, label, nodedata, options)::Tuple{NodeLabel, NodeData}
     end::Tuple{NodeLabel, NodeData}
 end
+
+
+"""
+    source_code(backend, modelf, argsval)
+
+Returns the source code (verbatim) for the model function `modelf` specified with `backend` given arguments in `argsval`.
+`argsval` must be an iterable of Symbols with all the input arguments of the model, e.g. [ :x, :y ] (use `Val((:x, :y))` for efficiency).
+
+```jldoctest
+julia> import GraphPPL: @model
+
+julia> @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+
+julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, [ :y ])
+       @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+
+julia> GraphPPL.source_code(DefaultBackend(), beta_bernoulli, Val((:y, )))
+       @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+```
+"""
+function source_code end
+
+# Un-optimized function for convenience
+function source_code(backend, model, args::AbstractArray{Symbol})
+    return source_code(backend, model, Val(Tuple(args)))
+end

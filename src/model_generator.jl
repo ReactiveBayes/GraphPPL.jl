@@ -98,3 +98,50 @@ function create_model(callback, generator::ModelGenerator)
 
     return model
 end
+
+"""
+    source_code(::ModelGenerator, [ extra_args ])
+
+A variant of the `GraphPPL.source_code` that accepts `GraphPPL.ModelGenerator`.
+Optionally accepts `extra_args` in case if `ModelGenerator` does not specify all the input arguments, e.g. `[ :y ]` (use `Val((:y, ))` for better efficiency).
+
+```jldoctest
+julia> import GraphPPL: @model
+
+julia> @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+
+julia> GraphPPL.source_code(beta_bernoulli(y = 1))
+       @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+
+julia> GraphPPL.source_code(beta_bernoulli(), [ :y ])
+       @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+
+julia> GraphPPL.source_code(beta_bernoulli(), Val((:y, )))
+       @model function beta_bernoulli(y)
+           θ ~ Beta(1, 1)
+           for i in eachindex(y)
+               y[i] ~ Bernoulli(θ)
+           end
+       end
+```
+"""
+source_code(g::ModelGenerator) = source_code(g, Val(()))
+source_code(g::ModelGenerator, extra_args) = source_code(g, Val(Tuple(extra_args)))
+source_code(g::ModelGenerator, extra_args::Val) = model_generator_source_code(g, extra_args, NamedTuple(getkwargs(g)))
+
+model_generator_source_code(g::ModelGenerator, ::Val{E}, ::NamedTuple{N}) where {E, N} = source_code(getbackend(g), getmodel(g), Val((E..., N...)))
