@@ -241,7 +241,7 @@ end
 
     @model function beta_bernoulli(y)
         θ ~ Beta(1, 1)
-        for i = eachindex(y)
+        for i in eachindex(y)
             y[i] ~ Bernoulli(θ)
         end
     end
@@ -269,7 +269,7 @@ end
     # Define a second model with different structure
     @model function another_model(μ, σ)
         x ~ Normal(μ, σ)
-        y := x ^ 2
+        y := x^2
         z ~ Gamma(y, 1)
     end
 
@@ -310,7 +310,7 @@ end
 
     @model function beta_bernoulli(y)
         θ ~ Beta(1, 1)
-        for i = eachindex(y)
+        for i in eachindex(y)
             y[i] ~ Bernoulli(θ)
         end
     end

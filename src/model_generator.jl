@@ -99,10 +99,15 @@ function create_model(callback, generator::ModelGenerator)
 end
 
 """
-    source_code(::ModelGenerator, [ extra_args ])
+    source_code(::ModelGenerator, [extra_args])
 
 A variant of the `GraphPPL.source_code` that accepts `GraphPPL.ModelGenerator`.
-Optionally accepts number of extra arguments in case if `ModelGenerator` does not specify all the input arguments, e.g. `1` (use `GraphPPL.static(1)` for better efficiency).
+Optionally accepts number of extra arguments in case if `ModelGenerator` does not specify all the input arguments.
+
+# Arguments
+- `extra_args`: Number of additional interfaces needed (use `GraphPPL.static(n)` for better efficiency)
+
+# Examples
 
 ```jldoctest
 julia> import GraphPPL: @model

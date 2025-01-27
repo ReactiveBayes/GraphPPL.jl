@@ -764,9 +764,9 @@ end
 
 Creates a function that returns the source code string of a model specification.
 """
-function get_source_code_function(backend_type, model_specification, ms_name, num_interfaces) 
+function get_source_code_function(backend_type, model_specification, ms_name, num_interfaces)
     ms_string = string(MacroTools.prewalk(MacroTools.rmlines, model_specification))
-    return quote 
+    return quote
         function GraphPPL.source_code(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces})
             return $ms_string
         end

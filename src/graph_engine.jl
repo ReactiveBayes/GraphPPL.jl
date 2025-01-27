@@ -2187,7 +2187,6 @@ function preprocess_plugins(
     end::Tuple{NodeLabel, NodeData}
 end
 
-
 """
     source_code(backend, model_function, n_interfaces)
 
@@ -2197,7 +2196,8 @@ specifying the total number of interfaces expected by the model.
 function source_code end
 
 source_code(backend, model_function, n_interfaces::Integer) = source_code(backend, model_function, GraphPPL.static(n_interfaces))
-source_code(backend, model_function, n_interfaces::StaticInt) = error("Backend $backend must implement a method for `source_code` for `$(model_function)` with $(n_interfaces) interfaces.")
+source_code(backend, model_function, n_interfaces::StaticInt) =
+    error("Backend $backend must implement a method for `source_code` for `$(model_function)` with $(n_interfaces) interfaces.")
 
 """
     source_code(backend, model_function, n_interfaces)
@@ -2235,4 +2235,4 @@ function beta_bernoulli(y)
 end
 ```
 """
-  function source_code end
+function source_code end

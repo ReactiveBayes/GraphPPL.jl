@@ -2105,7 +2105,7 @@ end
 
     @model function beta_bernoulli(y)
         θ ~ Beta(1, 1)
-        for i = eachindex(y)
+        for i in eachindex(y)
             y[i] ~ Bernoulli(θ)
         end
     end
@@ -2125,5 +2125,4 @@ end
             y[i] ~ Bernoulli(θ)
         end
     end"""
-
 end
