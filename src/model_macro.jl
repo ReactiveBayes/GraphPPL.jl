@@ -689,7 +689,7 @@ function preprocess_interface_expression(arg::Expr; warn = true)
     end
 end
 
-function get_make_node_function(ms_body, ms_args, ms_name)
+function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
     ms_arg_names = map((arg) -> preprocess_interface_expression(arg; warn = false), ms_args)
     init_input_arguments = map(zip(ms_args, ms_arg_names)) do (arg, arg_name)
         error_msg = "Missing interface $(arg_name)"
@@ -703,6 +703,11 @@ function get_make_node_function(ms_body, ms_args, ms_name)
     unsupported_positional_arguments_errmsg = """
     The `$(ms_name)` model macro does not support positional arguments. Use keyword arguments `$(ms_name)($(join(map(a -> string(a, " = ..."), ms_arg_names), ", ")))` instead.
     """
+
+    # ModelGenerator saves the source code of the function
+    ms_string = string(MacroTools.prewalk(MacroTools.rmlines, model_specification))
+    ms_string_symbol = gensym(string(ms_name, :source_code))
+
     make_node_function = quote
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
@@ -748,8 +753,12 @@ function get_make_node_function(ms_body, ms_args, ms_name)
             error("Model $(__fform__) is not defined for $(N) interfaces ($(keys(__interfaces__))).")
         end
 
+        const $(ms_string_symbol)::String = $(ms_string)
+
         function ($ms_name)(; kwargs...)
-            return GraphPPL.ModelGenerator($ms_name, kwargs)
+            generator = GraphPPL.ModelGenerator($ms_name, kwargs)
+            generator = GraphPPL.with_source(generator, $(ms_string_symbol))
+            return generator
         end
 
         function ($ms_name)(args...; kwargs...)
@@ -757,20 +766,6 @@ function get_make_node_function(ms_body, ms_args, ms_name)
         end
     end
     return make_node_function
-end
-
-"""
-    get_source_code_function(backend_type, model_specification, ms_name, num_interfaces)
-
-Creates a function that returns the source code string of a model specification.
-"""
-function get_source_code_function(backend_type, model_specification, ms_name, num_interfaces)
-    ms_string = string(MacroTools.prewalk(MacroTools.rmlines, model_specification))
-    return quote
-        function GraphPPL.source_code(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces})
-            return $ms_string
-        end
-    end
 end
 
 """
@@ -810,12 +805,10 @@ function model_macro_interior(backend_type, model_specification)
     pipeline_collection = GraphPPL.model_macro_interior_pipelines(instantiate(backend_type))
     ms_body = apply_pipeline_collection(ms_body, pipeline_collection)
 
-    make_node_function = get_make_node_function(ms_body, ms_args, ms_name)
-    source_code_function = get_source_code_function(backend_type, model_specification, ms_name, num_interfaces)
+    make_node_function = get_make_node_function(model_specification, ms_body, ms_args, ms_name)
     result = quote
         $boilerplate_functions
         $make_node_function
-        $source_code_function
         nothing
     end
     return result

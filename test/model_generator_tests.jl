@@ -246,7 +246,7 @@ end
         end
     end
 
-    @test GraphPPL.source_code(beta_bernoulli(y = 1)) === """
+    @test GraphPPL.getsource(beta_bernoulli(y = 1)) === """
     function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i = eachindex(y)
@@ -278,8 +278,8 @@ end
     model2 = another_model(μ = 0, σ = 1)
 
     # Get source codes
-    source1 = GraphPPL.source_code(model1)
-    source2 = GraphPPL.source_code(model2)
+    source1 = GraphPPL.getsource(model1)
+    source2 = GraphPPL.getsource(model2)
 
     # Expected source code (normalized whitespace)
     expected1 = """
@@ -315,7 +315,7 @@ end
         end
     end
 
-    @test GraphPPL.source_code(beta_bernoulli(), 1) === """
+    @test GraphPPL.getsource(beta_bernoulli()) === """
     function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i = eachindex(y)
