@@ -67,8 +67,11 @@ end
         q(x, y) = q(x)q(y)
         q(x)::PointMass
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __constraints__ = GraphPPL.Constraints()
+        $(sourcesym)::String = $(source)
+        let __constraints__ = GraphPPL.Constraints($(sourcesym))
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             __constraints__
@@ -85,8 +88,11 @@ end
             q(x)::PointMass
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __constraints__ = GraphPPL.Constraints()
+        $(sourcesym)::String = $(source)
+        let __constraints__ = GraphPPL.Constraints($(sourcesym))
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             for q in submodel
@@ -105,9 +111,12 @@ end
             q(x)::PointMass
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function some_constraints(;)
-            __constraints__ = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints($(sourcesym))
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             return __constraints__
@@ -122,9 +131,12 @@ end
             q(x)::PointMass
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function some_constraints(x, y;)
-            __constraints__ = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints($(sourcesym))
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             return __constraints__
@@ -139,9 +151,12 @@ end
             q(x)::PointMass
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function some_constraints(x, y; z = 1)
-            __constraints__ = GraphPPL.Constraints()
+            __constraints__ = GraphPPL.Constraints($(sourcesym))
             q(x, y) = q(x)q(y)
             q(x)::PointMass
             return __constraints__
@@ -640,8 +655,11 @@ end
             q(w, a, b) = q(a, b)q(w)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __constraints__ = GraphPPL.Constraints()
+        $(sourcesym)::String = $(source)
+        let __constraints__ = GraphPPL.Constraints($(sourcesym))
             push!(__constraints__, GraphPPL.MarginalFormConstraint(GraphPPL.IndexedVariable(:x, nothing), Normal))
             let __outer_constraints__ = __constraints__
                 let __constraints__ = GraphPPL.GeneralSubModelConstraints(second_submodel)
