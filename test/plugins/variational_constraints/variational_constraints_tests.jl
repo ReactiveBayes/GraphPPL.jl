@@ -1095,7 +1095,7 @@ end
             for node in filter(as_node(), model)
                 node_data = model[node]
                 @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
-                    Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))]])
+                    Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
             end
 
             @test length(collect(filter(as_node(Mixture), model))) === 1
