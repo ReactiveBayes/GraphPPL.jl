@@ -1134,3 +1134,33 @@ end
 
     @test length(collect(filter(as_node(Normal), model))) == 11
 end
+
+@testitem "`@constraints` should save the source code #1" begin 
+    using GraphPPL
+
+    constraints = @constraints begin
+        q(x, y) = q(x)q(y)
+    end
+
+    # There are small discrepancies due to how Julia parses expressions 
+    # These are equivalent though
+    @test GraphPPL.source_code(constraints) == """
+    q(x, y) = begin
+            q(x) * q(y)
+        end"""
+
+    @constraints function make_constraints(a, b, c)
+        q(x, y) = q(x)q(y)
+    end
+
+    constraints_from_function = make_constraints(1, 2, 3)
+
+    # There are small discrepancies due to how Julia parses expressions 
+    # These are equivalent though
+    @test GraphPPL.source_code(constraints_from_function) == """
+    function make_constraints(a, b, c)
+        q(x, y) = begin
+                q(x) * q(y)
+            end
+    end"""
+end

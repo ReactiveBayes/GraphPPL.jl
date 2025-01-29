@@ -18,6 +18,10 @@ end
 check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 
 function add_constraints_construction(e::Expr)
+
+    c_body_string = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, e)))
+    c_body_string_symbol = gensym(:constraints_source_code)
+
     if @capture(e, (function c_name_(c_args__; c_kwargs__)
         c_body_
     end) | (function c_name_(c_args__)
@@ -25,15 +29,17 @@ function add_constraints_construction(e::Expr)
     end))
         c_kwargs = c_kwargs === nothing ? [] : c_kwargs
         return quote
+            const $(c_body_string_symbol)::String = $(c_body_string)
             function $c_name($(c_args...); $(c_kwargs...))
-                __constraints__ = GraphPPL.Constraints()
+                __constraints__ = GraphPPL.Constraints($(c_body_string_symbol))
                 $c_body
                 return __constraints__
             end
         end
     else
         return quote
-            let __constraints__ = GraphPPL.Constraints()
+            const $(c_body_string_symbol)::String = $(c_body_string)
+            let __constraints__ = GraphPPL.Constraints($(c_body_string_symbol))
                 $e
                 __constraints__
             end

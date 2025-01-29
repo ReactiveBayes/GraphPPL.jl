@@ -306,12 +306,13 @@ getconstraint(c::SpecificSubModelConstraints) = c.constraints
 
 An instance of `Constraints` represents a set of constraints to be applied to a variational posterior in a factor graph model.
 """
-struct Constraints{F, P, M, G, S}
+struct Constraints{F, P, M, G, S, C}
     factorization_constraints::F
     marginal_form_constraints::P
     message_form_constraints::M
     general_submodel_constraints::G
     specific_submodel_constraints::S
+    source_code::C
 end
 
 factorization_constraints(c::Constraints) = c.factorization_constraints
@@ -319,16 +320,19 @@ marginal_form_constraints(c::Constraints) = c.marginal_form_constraints
 message_form_constraints(c::Constraints) = c.message_form_constraints
 general_submodel_constraints(c::Constraints) = c.general_submodel_constraints
 specific_submodel_constraints(c::Constraints) = c.specific_submodel_constraints
+source_code(c::Constraints) = c.source_code
 
-function Constraints()
-    return Constraints(
-        Vector{FactorizationConstraint}(),
-        Vector{MarginalFormConstraint}(),
-        Vector{MessageFormConstraint}(),
-        Dict{Function, GeneralSubModelConstraints}(),
-        Dict{FactorID, SpecificSubModelConstraints}()
-    )
-end
+# By default `Constraints` are being created with an empty source code
+Constraints() = Constraints("")
+
+Constraints(source_code::String) = Constraints(
+    Vector{FactorizationConstraint}(),
+    Vector{MarginalFormConstraint}(),
+    Vector{MessageFormConstraint}(),
+    Dict{Function, GeneralSubModelConstraints}(),
+    Dict{FactorID, SpecificSubModelConstraints}(),
+    source_code
+)
 
 Constraints(constraints::Vector) = begin
     c = Constraints()

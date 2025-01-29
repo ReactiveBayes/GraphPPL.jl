@@ -31,7 +31,7 @@ struct VariationalConstraintsPlugin{C}
     constraints::C
 end
 
-const UnspecifiedConstraints = Constraints((), (), (), (;), (;))
+const UnspecifiedConstraints = Constraints((), (), (), (;), (;), "UnspecifiedConstraints")
 
 default_constraints(::Any) = UnspecifiedConstraints
 
