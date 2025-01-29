@@ -58,10 +58,10 @@ end
 
 export create_test_model
 
-function create_test_model(; fform = identity, plugins = GraphPPL.PluginsCollection(), backend = TestGraphPPLBackend())
-    # `identity` is not really a probabilistic model and also does not have a backend
+function create_test_model(; fform = identity, plugins = GraphPPL.PluginsCollection(), backend = TestGraphPPLBackend(), source = nothing)
+    # `identity` is not really a probabilistic model and also does not have a backend nor a source code
     # for testing purposes however it should be fine
-    return GraphPPL.Model(fform, plugins, backend)
+    return GraphPPL.Model(fform, plugins, backend, source)
 end
 
 # Node zoo fo tests 

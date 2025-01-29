@@ -116,7 +116,6 @@ GraphPPL.ResizableArray
 
 ```@docs
 GraphPPL.Context
-GraphPPL.ModelGenerator
 GraphPPL.FactorID
 GraphPPL.NodeData
 GraphPPL.NodeLabel
@@ -155,6 +154,11 @@ GraphPPL.missing_interfaces
 GraphPPL.hasextra
 GraphPPL.getextra
 GraphPPL.setextra!
+
+GraphPPL.ModelGenerator
+GraphPPL.with_plugins
+GraphPPL.with_backend
+GraphPPL.with_source
 
 GraphPPL.make_node!
 GraphPPL.add_atomic_factor_node!

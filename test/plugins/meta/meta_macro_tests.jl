@@ -27,8 +27,11 @@ end
         NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
         x -> MySecondCustomMetaObject(arg3)
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __meta__ = GraphPPL.MetaSpecification()
+        $(sourcesym)::String = $(source)
+        let __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             $input
             __meta__
         end
@@ -46,8 +49,11 @@ end
             x -> MySecondCustomMetaObject(arg3)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __meta__ = GraphPPL.MetaSpecification()
+        $(sourcesym)::String = $(source)
+        let __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             $input
             __meta__
         end
@@ -62,9 +68,12 @@ end
             x -> MySecondCustomMetaObject(arg3)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function somemeta(;)
-            __meta__ = GraphPPL.MetaSpecification()
+            __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
             x -> MySecondCustomMetaObject(arg3)
@@ -81,9 +90,12 @@ end
             x -> MySecondCustomMetaObject(arg3)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function somemeta(x, y;)
-            __meta__ = GraphPPL.MetaSpecification()
+            __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
             x -> MySecondCustomMetaObject(arg3)
@@ -100,9 +112,12 @@ end
             x -> MySecondCustomMetaObject(arg3)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function somemeta(x, y; z)
-            __meta__ = GraphPPL.MetaSpecification()
+            __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
             x -> MySecondCustomMetaObject(arg3)
@@ -119,9 +134,12 @@ end
             x -> MySecondCustomMetaObject(arg3)
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
+        $(sourcesym)::String = $(source)
         function somemeta(; z)
-            __meta__ = GraphPPL.MetaSpecification()
+            __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             GCV(x, k, w) -> GCVMetadata(GaussHermiteCubature(20))
             NormalMeanVariance() -> MyCustomMetaObject(arg1, arg2)
             x -> MySecondCustomMetaObject(arg3)
@@ -292,8 +310,11 @@ end
     input = quote
         x -> some_meta()
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __meta__ = GraphPPL.MetaSpecification()
+        $(sourcesym)::String = $(source)
+        let __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
             __meta__
         end
@@ -305,8 +326,11 @@ end
         x -> some_meta()
         Normal(x, y) -> some_other_meta()
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __meta__ = GraphPPL.MetaSpecification()
+        $(sourcesym)::String = $(source)
+        let __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
             push!(
                 __meta__,
@@ -329,8 +353,11 @@ end
             Normal(x, y) -> some_other_meta()
         end
     end
+    source = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, input)))
+    sourcesym = gensym(:source)
     output = quote
-        let __meta__ = GraphPPL.MetaSpecification()
+        $(sourcesym)::String = $(source)
+        let __meta__ = GraphPPL.MetaSpecification($(sourcesym))
             push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
             push!(
                 __meta__,

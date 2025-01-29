@@ -234,3 +234,92 @@ end
     @test model_with_a_different_backend isa GraphPPL.Model
     @test getbackend(model_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
 end
+
+@testitem "source code retrieval from ModelGenerator #1" begin
+    import GraphPPL: @model
+    using Distributions
+
+    @model function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    @test GraphPPL.getsource(beta_bernoulli(y = 1)) === """
+    function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i = eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end"""
+end
+
+@testitem "source code retrieval from ModelGenerator #2" begin
+    import GraphPPL: @model
+    using Distributions
+
+    # Define a model with some random variables and deterministic statements
+    @model function test_model(x, y)
+        z ~ Normal(x, 1)
+        w := z + y
+        q ~ Normal(w, 1)
+    end
+
+    # Define a second model with different structure
+    @model function another_model(μ, σ)
+        x ~ Normal(μ, σ)
+        y := x^2
+        z ~ Gamma(y, 1)
+    end
+
+    # Create model instances
+    model1 = test_model(x = 1, y = 2)
+    model2 = another_model(μ = 0, σ = 1)
+
+    # Get source codes
+    source1 = GraphPPL.getsource(model1)
+    source2 = GraphPPL.getsource(model2)
+
+    # Expected source code (normalized whitespace)
+    expected1 = """
+    function test_model(x, y)
+        z ~ Normal(x, 1)
+        w := z + y 
+        q ~ Normal(w, 1)
+    end"""
+
+    expected2 = """
+    function another_model(μ, σ)
+        x ~ Normal(μ, σ)
+        y := x ^ 2
+        z ~ Gamma(y, 1)
+    end"""
+
+    # Compare normalized strings (remove extra whitespace)
+    @test replace(source1, r"\s+" => " ") == replace(expected1, r"\s+" => " ")
+    @test replace(source2, r"\s+" => " ") == replace(expected2, r"\s+" => " ")
+
+    # Verify that different models return different source code
+    @test source1 != source2
+end
+
+@testitem "source code retrieval from ModelGenerator #3 partial kwargs" begin
+    import GraphPPL: @model
+    using Distributions
+
+    @model function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i in eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end
+
+    @test GraphPPL.getsource(beta_bernoulli()) === """
+    function beta_bernoulli(y)
+        θ ~ Beta(1, 1)
+        for i = eachindex(y)
+            y[i] ~ Bernoulli(θ)
+        end
+    end"""
+end

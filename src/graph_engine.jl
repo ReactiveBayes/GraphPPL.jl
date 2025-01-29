@@ -214,12 +214,14 @@ Fields:
 - `graph`: A `MetaGraph` object representing the factor graph.
 - `plugins`: A `PluginsCollection` object representing the plugins enabled in the model.
 - `backend`: A `Backend` object representing the backend used in the model.
+- `source`: A `Source` object representing the original source code of the model (typically a `String` object).
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, P, B}
+struct Model{G, P, B, S}
     graph::G
     plugins::P
     backend::B
+    source::S
     counter::Base.RefValue{Int64}
 end
 
@@ -228,6 +230,7 @@ Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
 getbackend(model::Model) = model.backend
+getsource(model::Model) = model.source
 getcounter(model::Model) = model.counter[]
 setcounter!(model::Model, value) = model.counter[] = value
 
@@ -1190,20 +1193,20 @@ function Base.convert(::Type{NamedTuple}, ::StaticInterfaces{I}, t::Tuple) where
     return NamedTuple{I}(t)
 end
 
-function Model(graph::MetaGraph, plugins::PluginsCollection, backend)
-    return Model(graph, plugins, backend, Base.RefValue(0))
+function Model(graph::MetaGraph, plugins::PluginsCollection, backend, source)
+    return Model(graph, plugins, backend, source, Base.RefValue(0))
 end
 
 function Model(fform::F, plugins::PluginsCollection) where {F}
-    return Model(fform, plugins, default_backend(fform))
+    return Model(fform, plugins, default_backend(fform), nothing)
 end
 
-function Model(fform::F, plugins::PluginsCollection, backend) where {F}
+function Model(fform::F, plugins::PluginsCollection, backend, source) where {F}
     label_type = NodeLabel
     edge_data_type = EdgeLabel
     vertex_data_type = NodeData
     graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
-    model = Model(graph, plugins, backend)
+    model = Model(graph, plugins, backend, source)
     return model
 end
 

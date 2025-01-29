@@ -24,11 +24,7 @@ The following plugins are available by default in `GraphPPL`:
 
 ## Using a plugin
 
-To use a plugin, call the `with_plugins` function when constructing a model:
-
-```@docs 
-GraphPPL.with_plugins
-```
+To use a plugin, call the [`GraphPPL.with_plugins`](@ref) function when constructing a model:
 
 The `PluginsCollection` is a collection of plugins that will be applied to the model. The order of plugins in the collection is important, as the `preprocess_plugin` and `postprocess_plugin` functions are called in the order of the plugins in the collection.
 

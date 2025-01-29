@@ -95,3 +95,29 @@ end
 
     @test GraphPPL.getextra(node, :meta) == "Hello, world!"
 end
+
+@testitem "Meta should save source code " begin
+    include("../../testutils.jl")
+
+    meta = @meta begin
+        Normal(in, out) -> 1
+    end
+
+    source = GraphPPL.source_code(meta)
+    # Test key components rather than exact string match
+    @test occursin("Normal(in, out)", source)
+    @test occursin("1", source)
+    @test occursin("->", source)
+
+    @meta function make_meta(a, b, c)
+        Normal(in, out) -> 1
+    end
+
+    meta_from_function = make_meta(1, 2, 3)
+    source = GraphPPL.source_code(meta_from_function)
+    # Test key components rather than exact string match
+    @test occursin("function make_meta(a, b, c)", source)
+    @test occursin("Normal(in, out)", source)
+    @test occursin("1", source)
+    @test occursin("->", source)
+end

@@ -1134,3 +1134,30 @@ end
 
     @test length(collect(filter(as_node(Normal), model))) == 11
 end
+
+@testitem "`@constraints` should save the source code #1" begin
+    using GraphPPL
+
+    constraints = @constraints begin
+        q(x, y) = q(x)q(y)
+    end
+
+    source = GraphPPL.source_code(constraints)
+    # Test key components rather than exact string match
+    @test occursin("q(x, y)", source)
+    @test occursin("q(x)", source)
+    @test occursin("q(y)", source)
+
+    @constraints function make_constraints(a, b, c)
+        q(x, y) = q(x)q(y)
+    end
+
+    constraints_from_function = make_constraints(1, 2, 3)
+
+    source = GraphPPL.source_code(constraints_from_function)
+    # Test key components rather than exact string match
+    @test occursin("function make_constraints(a, b, c)", source)
+    @test occursin("q(x, y)", source)
+    @test occursin("q(x)", source)
+    @test occursin("q(y)", source)
+end
