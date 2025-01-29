@@ -29,7 +29,7 @@ function add_constraints_construction(e::Expr)
     end))
         c_kwargs = c_kwargs === nothing ? [] : c_kwargs
         return quote
-            const $(c_body_string_symbol)::String = $(c_body_string)
+            $(c_body_string_symbol)::String = $(c_body_string)
             function $c_name($(c_args...); $(c_kwargs...))
                 __constraints__ = GraphPPL.Constraints($(c_body_string_symbol))
                 $c_body
@@ -38,7 +38,7 @@ function add_constraints_construction(e::Expr)
         end
     else
         return quote
-            const $(c_body_string_symbol)::String = $(c_body_string)
+            $(c_body_string_symbol)::String = $(c_body_string)
             let __constraints__ = GraphPPL.Constraints($(c_body_string_symbol))
                 $e
                 __constraints__

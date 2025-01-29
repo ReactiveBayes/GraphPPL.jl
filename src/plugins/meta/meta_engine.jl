@@ -37,6 +37,7 @@ getmetainfo(m::MetaObject) = m.meta_object
 struct MetaSpecification
     meta_objects::Vector
     submodel_meta::Vector
+    source_code::String
 end
 
 function Base.show(io::IO, c::MetaSpecification)
@@ -67,6 +68,8 @@ getgeneralsubmodelmeta(m::MetaSpecification) = filter(m -> is_generalsubmodelmet
 # TODO experiment with `findfirst` instead of `get` in benchmarks
 getspecificsubmodelmeta(m::MetaSpecification, tag::Any) = get(filter(m -> getsubmodel(m) == tag, getsubmodelmeta(m)), 1, nothing)
 getgeneralsubmodelmeta(m::MetaSpecification, fform::Any) = get(filter(m -> getsubmodel(m) == fform, getsubmodelmeta(m)), 1, nothing)
+
+source_code(m::MetaSpecification) = m.source_code
 
 struct SpecificSubModelMeta
     tag::FactorID
@@ -106,7 +109,8 @@ function Base.show(io::IO, constraint::SubModelMeta)
     )
 end
 
-MetaSpecification() = MetaSpecification(Vector{MetaObject}(), Vector{SubModelMeta}())
+MetaSpecification() = MetaSpecification("")
+MetaSpecification(source_code::String) = MetaSpecification(Vector{MetaObject}(), Vector{SubModelMeta}(), source_code)
 
 Base.push!(m::MetaSpecification, o::MetaObject) = push!(m.meta_objects, o)
 Base.push!(m::MetaSpecification, o::SubModelMeta) = push!(m.submodel_meta, o)

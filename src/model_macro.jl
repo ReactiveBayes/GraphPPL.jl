@@ -753,7 +753,7 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
             error("Model $(__fform__) is not defined for $(N) interfaces ($(keys(__interfaces__))).")
         end
 
-        const $(ms_string_symbol)::String = $(ms_string)
+        $(ms_string_symbol)::String = $(ms_string)
 
         function ($ms_name)(; kwargs...)
             generator = GraphPPL.ModelGenerator($ms_name, kwargs)

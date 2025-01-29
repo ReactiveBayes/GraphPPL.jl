@@ -17,6 +17,10 @@ and assigns it to the `__meta__` variable. It then evaluates the given expressio
 - `e::Expr`: The expression that will generate the `GraphPPL.MetaSpecification` object.
 """
 function add_meta_construction(e::Expr)
+
+    c_body_string = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, e)))
+    c_body_string_symbol = gensym(:meta_source_code)
+
     if @capture(e, (function m_name_(m_args__; m_kwargs__)
         c_body_
     end) | (function m_name_(m_args__)
@@ -24,15 +28,17 @@ function add_meta_construction(e::Expr)
     end))
         m_kwargs = m_kwargs === nothing ? [] : m_kwargs
         return quote
+            $(c_body_string_symbol)::String = $(c_body_string)
             function $m_name($(m_args...); $(m_kwargs...))
-                __meta__ = GraphPPL.MetaSpecification()
+                __meta__ = GraphPPL.MetaSpecification($(c_body_string_symbol))
                 $c_body
                 return __meta__
             end
         end
     else
         return quote
-            let __meta__ = GraphPPL.MetaSpecification()
+            $(c_body_string_symbol)::String = $(c_body_string)
+            let __meta__ = GraphPPL.MetaSpecification($(c_body_string_symbol))
                 $e
                 __meta__
             end
