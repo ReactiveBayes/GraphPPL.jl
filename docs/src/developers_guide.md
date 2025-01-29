@@ -112,19 +112,10 @@ GraphPPL.ResizableArray
 ```
 `ResizableArray` is a subtype of `AbstractArray`, and implements all the functions that are expected from an array. Note that `size` returns the largest size of the array across each dimension, so an array of size `(2, 3)` does not necessarily has to have an element stored at index `(2, 3)`, instead there exists a vector of length 3 along the second dimension.
 
-## Source code of the model
-
-The source code of a model can be accessed using the `source_code` function. This function returns a string representation of the model specification, which can be useful for debugging or documentation purposes.
-
-```@docs
-GraphPPL.source_code
-```
-
 ## Model creation engine internal 
 
 ```@docs
 GraphPPL.Context
-GraphPPL.ModelGenerator
 GraphPPL.FactorID
 GraphPPL.NodeData
 GraphPPL.NodeLabel
@@ -164,6 +155,11 @@ GraphPPL.hasextra
 GraphPPL.getextra
 GraphPPL.setextra!
 
+GraphPPL.ModelGenerator
+GraphPPL.with_plugins
+GraphPPL.with_backend
+GraphPPL.with_source
+
 GraphPPL.make_node!
 GraphPPL.add_atomic_factor_node!
 GraphPPL.add_toplevel_model!
@@ -200,7 +196,6 @@ GraphPPL.apply_pipeline
 GraphPPL.options_vector_to_named_tuple
 GraphPPL.get_created_by
 GraphPPL.convert_to_anonymous
-GraphPPL.get_source_code_function
 ```
 
 ## Auxiliary functionality 

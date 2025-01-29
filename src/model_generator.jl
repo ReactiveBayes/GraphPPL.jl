@@ -29,19 +29,14 @@ julia> @model function beta_bernoulli(y)
            end
        end
 
-# Create basic generator
-julia> generator = beta_bernoulli(y = rand(10))
+julia> generator = beta_bernoulli(y = rand(10));
 
-# Define custom backend
 julia> struct CustomBackend end
 
-# Create generator with custom backend
-julia> generator_with_backend = GraphPPL.with_backend(generator, CustomBackend())
+julia> generator_with_backend = GraphPPL.with_backend(generator, CustomBackend());
 
-# Create generator with additional plugins
-julia> generator_with_plugins = GraphPPL.with_plugins(generator, PluginsCollection())
+julia> generator_with_plugins = GraphPPL.with_plugins(generator, GraphPPL.PluginsCollection());
 
-# Retrieve source code
 julia> println(GraphPPL.getsource(generator))
 function beta_bernoulli(y)
     θ ~ Beta(1, 1)
@@ -50,15 +45,13 @@ function beta_bernoulli(y)
     end
 end
 
-# Override source code
-julia> generator_with_source = GraphPPL.with_source(generator, "Hello, world!")
+julia> generator_with_source = GraphPPL.with_source(generator, "Hello, world!");
 
-# Retrieve modified source code
-julia> println(GraphPPL.getsource(generator))
+julia> println(GraphPPL.getsource(generator_with_source))
 Hello, world!
 ```
 
-See also: [`with_plugins`](@ref), [`with_backend`](@ref), [`with_source`](@ref), [`source_code`](@ref)
+See also: [`with_plugins`](@ref), [`with_backend`](@ref), [`with_source`](@ref)
 """
 struct ModelGenerator{G, K, P, B, S}
     model::G
