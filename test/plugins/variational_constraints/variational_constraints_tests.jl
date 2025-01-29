@@ -1135,7 +1135,7 @@ end
     @test length(collect(filter(as_node(Normal), model))) == 11
 end
 
-@testitem "`@constraints` should save the source code #1" begin 
+@testitem "`@constraints` should save the source code #1" begin
     using GraphPPL
 
     constraints = @constraints begin

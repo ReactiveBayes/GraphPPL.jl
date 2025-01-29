@@ -96,10 +96,10 @@ end
     @test GraphPPL.getextra(node, :meta) == "Hello, world!"
 end
 
-@testitem "Meta should save source code " begin 
+@testitem "Meta should save source code " begin
     include("../../testutils.jl")
 
-    meta = @meta begin 
+    meta = @meta begin
         Normal(in, out) -> 1
     end
 

@@ -18,7 +18,6 @@ end
 check_for_returns_constraints = (x) -> check_for_returns(x; tag = "constraints")
 
 function add_constraints_construction(e::Expr)
-
     c_body_string = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, e)))
     c_body_string_symbol = gensym(:constraints_source_code)
 

@@ -17,7 +17,6 @@ and assigns it to the `__meta__` variable. It then evaluates the given expressio
 - `e::Expr`: The expression that will generate the `GraphPPL.MetaSpecification` object.
 """
 function add_meta_construction(e::Expr)
-
     c_body_string = string(MacroTools.unblock(MacroTools.prewalk(MacroTools.rmlines, e)))
     c_body_string_symbol = gensym(:meta_source_code)
 
