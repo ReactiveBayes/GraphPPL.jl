@@ -69,7 +69,8 @@ struct ModelGenerator{G, K, P, B, S}
 end
 
 ModelGenerator(model, kwargs) = ModelGenerator(model, kwargs, PluginsCollection())
-ModelGenerator(model, kwargs, plugins) = ModelGenerator(model, kwargs, plugins, default_backend(model), nothing)
+ModelGenerator(model, kwargs, plugins) = ModelGenerator(model, kwargs, plugins, default_backend(model))
+ModelGenerator(model, kwargs, plugins, backend) = ModelGenerator(model, kwargs, plugins, backend, nothing)
 
 getmodel(generator::ModelGenerator) = generator.model
 getkwargs(generator::ModelGenerator) = generator.kwargs
