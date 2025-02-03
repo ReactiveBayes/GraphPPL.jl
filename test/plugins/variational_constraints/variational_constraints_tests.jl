@@ -1160,4 +1160,10 @@ end
     @test occursin("q(x, y)", source)
     @test occursin("q(x)", source)
     @test occursin("q(y)", source)
+
+    mf_constraints = GraphPPL.MeanField()
+
+    source = GraphPPL.source_code(mf_constraints)
+
+    @test occursin("MeanField", source)
 end
