@@ -17,7 +17,11 @@ See also: [`BetheFactorization`](@ref)
 """
 struct MeanField end
 
+source_code(::MeanField) = "MeanField"
+
 struct NoConstraints end
+
+source_code(::NoConstraints) = "NoConstraints"
 
 include("variational_constraints_macro.jl")
 include("variational_constraints_engine.jl")
