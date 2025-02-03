@@ -1162,8 +1162,10 @@ end
     @test occursin("q(y)", source)
 
     mf_constraints = GraphPPL.MeanField()
-
     source = GraphPPL.source_code(mf_constraints)
-
     @test occursin("MeanField", source)
+
+    nc_constraints = GraphPPL.NoConstraints()
+    source = GraphPPL.source_code(nc_constraints)
+    @test occursin("NoConstraints", source)
 end
