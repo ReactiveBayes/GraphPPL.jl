@@ -469,9 +469,11 @@ by limiting the available display formats to SVG and plain text.
 
 # Fields
 - `graph::GraphViz.Graph`: The wrapped GraphViz graph object
+- `dot_string::String`: The DOT string representation of the graph
 """
 struct GraphVizGraphWrapper
     graph::GraphViz.Graph
+    dot_string::String
 end
 
 # Override showable to only allow SVG and text display
@@ -488,7 +490,7 @@ function Base.show(io::IO, mime::MIME"image/svg+xml", x::GraphVizGraphWrapper)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", x::GraphVizGraphWrapper)
-    show(io, mime, x.graph)
+    show(io, mime, x.dot_string)
 end
 
 """
@@ -506,7 +508,9 @@ Converts a GraphPPL.Model to a DOT string for visualization with GraphViz.jl.
 - `save_to::String=nothing`: Optional path to save SVG output
 
 # Returns
-- `GraphVizGraphWrapper`: A wrapper around the GraphViz.Graph object that restricts display capabilities to SVG and text formats only. Use `.graph` property to access the GraphViz.Graph object directly.
+- `GraphVizGraphWrapper`: A wrapper around the GraphViz.Graph object that restricts display capabilities to SVG and text formats only. 
+Use `.graph` property to access the GraphViz.Graph object directly.
+Use `.dot_string` property to access the DOT string representation of the graph.
 
 # Details
 Generates a DOT string visualization of a GraphPPL.Model with configurable layout and styling options.
@@ -554,7 +558,7 @@ function GraphViz.load(
         end
     end
 
-    return GraphVizGraphWrapper(final_graph)
+    return GraphVizGraphWrapper(final_graph, final_string)
 end
 
 end
