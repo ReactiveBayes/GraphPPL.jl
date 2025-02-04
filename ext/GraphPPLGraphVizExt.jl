@@ -460,6 +460,40 @@ function convert_strategy(strategy::Symbol)
 end
 
 """
+    GraphVizGraphWrapper
+
+A wrapper type for GraphViz.Graph that restricts display capabilities to SVG and text formats only.
+
+This wrapper is designed to prevent display issues that can occur with PNG format on some systems
+by limiting the available display formats to SVG and plain text.
+
+# Fields
+- `graph::GraphViz.Graph`: The wrapped GraphViz graph object
+- `dot_string::String`: The DOT string representation of the graph
+"""
+struct GraphVizGraphWrapper
+    graph::GraphViz.Graph
+    dot_string::String
+end
+
+# Override showable to only allow SVG and text display
+function Base.showable(mime::MIME, x::GraphVizGraphWrapper)
+    if mime isa MIME"image/svg+xml" || mime isa MIME"text/plain"
+        return showable(mime, x.graph)
+    end
+    return false
+end
+
+# Delegate show methods to the wrapped graph
+function Base.show(io::IO, mime::MIME"image/svg+xml", x::GraphVizGraphWrapper)
+    show(io, mime, x.graph)
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", x::GraphVizGraphWrapper)
+    show(io, mime, x.dot_string)
+end
+
+"""
 Converts a GraphPPL.Model to a DOT string for visualization with GraphViz.jl.
 
 # Arguments
@@ -474,7 +508,9 @@ Converts a GraphPPL.Model to a DOT string for visualization with GraphViz.jl.
 - `save_to::String=nothing`: Optional path to save SVG output
 
 # Returns
-- `String`: DOT format string representing the graph
+- `GraphVizGraphWrapper`: A wrapper around the GraphViz.Graph object that restricts display capabilities to SVG and text formats only. 
+Use `.graph` property to access the GraphViz.Graph object directly.
+Use `.dot_string` property to access the DOT string representation of the graph.
 
 # Details
 Generates a DOT string visualization of a GraphPPL.Model with configurable layout and styling options.
@@ -514,15 +550,15 @@ function GraphViz.load(
     write(io_buffer, "}")
 
     final_string = String(take!(io_buffer))
-    final_dot = GraphViz.Graph(final_string)
+    final_graph = GraphViz.Graph(final_string)
 
     if !isnothing(save_to)
         open(save_to, "w") do io
-            show(io, MIME"image/svg+xml"(), final_dot)
+            show(io, MIME"image/svg+xml"(), final_graph)
         end
     end
 
-    return final_dot
+    return GraphVizGraphWrapper(final_graph, final_string)
 end
 
 end
