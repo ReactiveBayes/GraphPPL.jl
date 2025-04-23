@@ -245,9 +245,9 @@ NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model
 
 Unique identifier for a node (factor or variable) in a probabilistic graphical model.
 """
-mutable struct NodeLabel
-    const name::Any
-    const global_counter::Int64
+struct NodeLabel
+    name::Any
+    global_counter::Int64
 end
 
 Base.length(label::NodeLabel) = 1
@@ -273,9 +273,9 @@ Base.hash(label::NodeLabel, h::UInt) = hash(label.global_counter, h)
 
 A unique identifier for an edge in a probabilistic graphical model.
 """
-mutable struct EdgeLabel
-    const name::Symbol
-    const index::Int
+struct EdgeLabel
+    name::Symbol
+    index::Int
 end
 
 getname(label::EdgeLabel) = label.name
