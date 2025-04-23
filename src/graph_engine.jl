@@ -275,15 +275,13 @@ A unique identifier for an edge in a probabilistic graphical model.
 """
 mutable struct EdgeLabel
     const name::Symbol
-    const index::Union{Int, Nothing}
+    const index::Int
 end
 
 getname(label::EdgeLabel) = label.name
 getname(labels::Tuple) = map(group -> getname(group), labels)
 
-to_symbol(label::EdgeLabel) = to_symbol(label, label.index)
-to_symbol(label::EdgeLabel, ::Nothing) = label.name
-to_symbol(label::EdgeLabel, ::Int64) = Symbol(string(label.name) * "[" * string(label.index) * "]")
+to_symbol(label::EdgeLabel) = iszero(label.index) ? label.name : Symbol(label.name, '[', label.index, ']')
 
 Base.show(io::IO, label::EdgeLabel) = print(io, to_symbol(label))
 Base.:(==)(label1::EdgeLabel, label2::EdgeLabel) = label1.name == label2.name && label1.index == label2.index
@@ -1704,7 +1702,7 @@ function add_edge!(
     variable_node_id::Union{ProxyLabel, NodeLabel, VariableRef},
     interface_name::Symbol
 )
-    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
+    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, 0)
 end
 
 function add_edge!(
@@ -1759,9 +1757,10 @@ function add_edge!(
     interface_name::Symbol,
     index
 )
-    for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, index)
-        index += increase_index(variable_node)
+    _index = index
+    foreach(variable_nodes) do variable_node
+        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, _index)
+        _index += increase_index(variable_node)
     end
 end
 
