@@ -1757,10 +1757,9 @@ function add_edge!(
     interface_name::Symbol,
     index
 )
-    _index = index
-    foreach(variable_nodes) do variable_node
-        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, _index)
-        _index += increase_index(variable_node)
+    for variable_node in variable_nodes
+        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, index)
+        index += increase_index(variable_node)
     end
 end
 
