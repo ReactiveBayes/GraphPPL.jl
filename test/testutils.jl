@@ -28,7 +28,7 @@ end
 # We use a custom backend for testing purposes, instead of using the `DefaultBackend`
 # The `TestGraphPPLBackend` is a simple backend that specifies how to handle objects from `Distributions.jl`
 # It does use the default pipeline collection for the `@model` macro
-struct TestGraphPPLBackend end
+struct TestGraphPPLBackend <: GraphPPL.AbstractBackend end
 
 GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
 

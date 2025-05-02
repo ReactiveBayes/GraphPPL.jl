@@ -3,7 +3,7 @@
 
 A default backend that is used in the `GraphPPL.@model` macro when no backend is specified explicitly.
 """
-struct DefaultBackend end
+struct DefaultBackend <: AbstractBackend end
 
 function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
     return (
