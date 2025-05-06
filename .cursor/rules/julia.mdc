@@ -76,6 +76,7 @@ Performance Optimization
 Testing
 - For each file in the source code create a test file with the `_tests.jl` suffix, e.g. `src/folder/subfoldeer/file.jl` -> `test/folder/subfolder/file_tests.jl`
 - Create small individual tests in `@testitem` blocks
+- test files should only contain `@testitem` blocks and no extra code. All code within `@testitem` blocks are self-contained scopes.
 - Write test cases of increasing difficulty with comments explaining what is being tested.
 - Use individual `@test` calls for each assertion, not for blocks.
 - Example:
