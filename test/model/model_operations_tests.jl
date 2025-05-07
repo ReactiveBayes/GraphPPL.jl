@@ -1,9 +1,7 @@
-@testitem "getindex(::Model, ::NodeLabel)" begin
+@testitem "getindex(::Model, ::NodeLabel)" setup = [TestUtils] begin
     import GraphPPL: create_model, getcontext, NodeLabel, NodeData, VariableNodeProperties, getproperties
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     label = NodeLabel(:x, 1)
     model[label] = NodeData(ctx, VariableNodeProperties(name = :x, index = nothing))
@@ -13,14 +11,12 @@
     @test_throws MethodError model[0]
 end
 
-@testitem "copy_markov_blanket_to_child_context" begin
+@testitem "copy_markov_blanket_to_child_context" setup = [TestUtils] begin
     import GraphPPL:
         create_model, copy_markov_blanket_to_child_context, Context, getorcreate!, proxylabel, unroll, getcontext, NodeCreationOptions
 
-    include("testutils.jl")
-
     # Copy individual variables
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     function child end
     child_context = Context(ctx, child)
@@ -29,7 +25,7 @@ end
     zref = getorcreate!(model, ctx, NodeCreationOptions(), :z, nothing)
 
     # Do not copy constant variables
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     child_context = Context(ctx, child)
@@ -37,14 +33,14 @@ end
     @test !haskey(child_context, :in)
 
     # Do not copy vector valued constant variables
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     child_context = Context(ctx, child)
     copy_markov_blanket_to_child_context(child_context, (in = [1, 2, 3],))
     @test !haskey(child_context, :in)
 
     # Copy ProxyLabel variables to child context
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     xref = proxylabel(:x, xref, nothing)
@@ -53,7 +49,7 @@ end
     @test child_context[:in] == xref
 end
 
-@testitem "getorcreate!" begin
+@testitem "getorcreate!" setup = [TestUtils] begin
     using Graphs
     import GraphPPL:
         create_model,
@@ -66,11 +62,9 @@ end
         getproperties,
         is_kind
 
-    include("testutils.jl")
-
     let # let block to suppress the scoping warnings
         # Test 1: Creation of regular one-dimensional variable
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         x = getorcreate!(model, ctx, :x, nothing)
         @test nv(model) == 1 && ne(model) == 0
@@ -84,7 +78,7 @@ end
         @test x == x2 && nv(model) == 1 && ne(model) == 0
 
         # Test 4: Test that creating a vector variable creates an array of the correct size
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         y = getorcreate!(model, ctx, :y, 1)
         @test nv(model) == 1 && ne(model) == 0 && y isa ResizableArray && y[1] isa NodeLabel
@@ -104,7 +98,7 @@ end
         @test_throws ErrorException getorcreate!(model, ctx, :y, 1, 2)
 
         #Test 9: Test that creating a tensor variable creates a tensor of the correct size
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         z = getorcreate!(model, ctx, :z, 1, 1)
         @test nv(model) == 1 && ne(model) == 0 && z isa ResizableArray && z[1, 1] isa NodeLabel
@@ -128,7 +122,7 @@ end
 
         # Test 15: Test that creating a variable that exists in the model scope but not in local scope still throws an error
         let # force local scope
-            model = create_test_model()
+            model = TestUtils.create_test_model()
             ctx = getcontext(model)
             getorcreate!(model, ctx, :a, nothing)
             @test_throws ErrorException a = getorcreate!(model, ctx, :a, 1)
@@ -136,7 +130,7 @@ end
         end
 
         # Test 16. Test that the index is required to create a variable in the model
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         @test_throws ErrorException getorcreate!(model, ctx, :a)
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(), :a)
@@ -144,13 +138,13 @@ end
         @test_throws ErrorException getorcreate!(model, ctx, NodeCreationOptions(kind = :constant, value = 2), :a)
 
         # Test 17. Range based getorcreate!
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, :a, 1:2)
         @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
 
         # Test 17.1 Range based getorcreate! should use the same options
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2)
         @test nv(model) == 2 && var[1] isa NodeLabel && var[2] isa NodeLabel
@@ -158,7 +152,7 @@ end
         @test is_kind(getproperties(model[var[1]]), :data)
 
         # Test 18. Range x2 based getorcreate!
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, :a, 1:2, 1:3)
         @test nv(model) == 6
@@ -167,7 +161,7 @@ end
         end
 
         # Test 18. Range x2 based getorcreate! should use the same options
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         var = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :a, 1:2, 1:3)
         @test nv(model) == 6
@@ -178,7 +172,7 @@ end
     end
 end
 
-@testitem "getifcreated" begin
+@testitem "getifcreated" setup = [TestUtils] begin
     using Graphs
     import GraphPPL:
         create_model,
@@ -193,9 +187,7 @@ end
         value,
         NodeCreationOptions
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
 
     # Test case 1: check that getifcreated  the variable created by getorcreate
@@ -228,20 +220,20 @@ end
     @test output[1] == xref && value(getproperties(model[output[2]])) == 1
 
     # Test case 10: check that getifcreated returns the variable node if we create a variable and call it by symbol in a vector
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     zref = getorcreate!(model, ctx, NodeCreationOptions(), :z, 1)
     z_fetched = getifcreated(model, ctx, zref[1])
     @test z_fetched == zref[1]
 
     # Test case 11: Test that getifcreated returns a constant node when we call it with a symbol
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     zref = getifcreated(model, ctx, :Bernoulli)
     @test value(getproperties(model[zref])) == :Bernoulli
 
     # Test case 12: Test that getifcreated returns a vector of NodeLabels if called with a vector of NodeLabels
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     y = getorcreate!(model, ctx, NodeCreationOptions(), :y, nothing)
@@ -249,7 +241,7 @@ end
     @test zref == [xref, y]
 
     # Test case 13: Test that getifcreated returns a ResizableArray tensor of NodeLabels if called with a ResizableArray tensor of NodeLabels
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1, 1)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, 2, 1)
@@ -257,13 +249,13 @@ end
     @test zref == xref
 
     # Test case 14: Test that getifcreated returns multiple variables if called with a tuple of constants
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     zref = getifcreated(model, ctx, ([1, 1], 2))
     @test nv(model) == 2 && value(getproperties(model[zref[1]])) == [1, 1] && value(getproperties(model[zref[2]])) == 2
 
     # Test case 15: Test that getifcreated returns a ProxyLabel if called with a ProxyLabel
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = getorcreate!(model, ctx, NodeCreationOptions(), :x, nothing)
     xref = proxylabel(:x, xref, nothing)
@@ -271,7 +263,7 @@ end
     @test zref === xref
 end
 
-@testitem "make_node!(::Atomic)" begin
+@testitem "make_node!(::Atomic)" setup = [TestUtils] begin
     using Graphs, BitSetTuples
     import GraphPPL:
         getcontext,
@@ -290,10 +282,8 @@ end
         NodeCreationOptions,
         getproperties
 
-    include("testutils.jl")
-
     # Test 1: Deterministic call returns result of deterministic function and does not create new node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = AnonymousVariable(model, ctx)
@@ -313,7 +303,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
@@ -321,7 +311,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -331,7 +321,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 5: Deterministic atomic call with nodelabels should create the actual node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -341,7 +331,7 @@ end
     @test nv(model) == 4
 
     # Test 6: Stochastic node with default arguments
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
@@ -351,7 +341,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 7: Stochastic node with instantiated object
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     uprior = Normal(0, 1)
@@ -360,7 +350,7 @@ end
     @test nv(model) == 2
 
     # Test 8: Deterministic node with nodelabel objects where all interfaces are already defined (no missing interfaces)
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -371,19 +361,19 @@ end
     )
 
     # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    nodeid, _ = make_node!(model, ctx, options, ArbitraryNode, out, (in = [0, 1],))
+    nodeid, _ = make_node!(model, ctx, options, TestUtils.ArbitraryNode, out, (in = [0, 1],))
     @test nv(model) == 3 && value(getproperties(model[ctx[:constvar_2]])) == [0, 1]
 
     # Test 9: Stochastic node with all interfaces defined as constants
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
-    nodeid, _ = make_node!(model, ctx, options, ArbitraryNode, out, (1, 1))
+    nodeid, _ = make_node!(model, ctx, options, TestUtils.ArbitraryNode, out, (1, 1))
     @test nv(model) == 4
     @test getname.(edges(model, nodeid)) == [:out, :in, :in]
     @test getname.(edges(model, nodeid)) == [:out, :in, :in]
@@ -392,7 +382,7 @@ end
     function abc(; a = 1, b = 2)
         return a + b
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = AnonymousVariable(model, ctx)
@@ -402,14 +392,14 @@ end
     function abc(a; b = 2)
         return a + b
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = AnonymousVariable(model, ctx)
     @test make_node!(model, ctx, options, abc, out, MixedArguments((2,), (b = 2,))) == (nothing, 4)
 
     # Test 12: Deterministic node with mixed arguments that has to be materialized should throw error
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     out = getorcreate!(model, ctx, :out, nothing)
@@ -417,32 +407,32 @@ end
     @test_throws ErrorException make_node!(model, ctx, options, abc, out, MixedArguments((a,), (b = 2,)))
 
     # Test 13: Make stochastic node with aliases
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, options, Normal, xref, (μ = 0, τ = 1))
-    @test any((key) -> fform(key) == NormalMeanPrecision, keys(ctx.factor_nodes))
+    @test any((key) -> fform(key) == TestUtils.NormalMeanPrecision, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, options, Normal, xref, (μ = 0, σ = 1))
-    @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
+    @test any((key) -> fform(key) == TestUtils.NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
     node_id = make_node!(model, ctx, options, Normal, xref, (0, 1))
-    @test any((key) -> fform(key) == NormalMeanVariance, keys(ctx.factor_nodes))
+    @test any((key) -> fform(key) == TestUtils.NormalMeanVariance, keys(ctx.factor_nodes))
     @test nv(model) == 4
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
@@ -455,7 +445,7 @@ end
     @test nv(model) == 4
 
     # Test 15.1: Make stochastic node with aliased interfaces
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -463,12 +453,12 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     for keys in [(:mean, :variance), (:m, :variance), (:mean, :v)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, σ)))
-        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanVariance
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === TestUtils.NormalMeanVariance
         @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
     end
 
     # Test 15.2: Make stochastic node with aliased interfaces
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -476,12 +466,12 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     for keys in [(:mean, :precision), (:m, :precision), (:mean, :p)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, p)))
-        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === NormalMeanPrecision
+        @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === TestUtils.NormalMeanPrecision
         @test GraphPPL.neighbors(model, node_id) == [out, μ, p]
     end
 end
 
-@testitem "materialize_factor_node!" begin
+@testitem "materialize_factor_node!" setup = [TestUtils] begin
     using Distributions
     using Graphs
     import GraphPPL:
@@ -497,9 +487,7 @@ end
         edges,
         NodeCreationOptions
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, options, :x, nothing)
@@ -513,7 +501,7 @@ end
     @test getname.(edges(model, node_id)) == [:out, :μ, :σ]
 
     # Test 3: Stochastic atomic call with an AbstractArray as rhs_interfaces
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
@@ -523,7 +511,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 4: Deterministic atomic call with nodelabels should create the actual node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     in1 = getorcreate!(model, ctx, :in1, nothing)
@@ -533,7 +521,7 @@ end
     @test nv(model) == 4 && ne(model) == 3
 
     # Test 14: Make deterministic node with ProxyLabels as arguments
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
@@ -546,46 +534,36 @@ end
     @test nv(model) == 4
 end
 
-@testitem "make_node!(::Composite)" begin
+@testitem "make_node!(::Composite)" setup = [TestUtils] begin
     using MetaGraphsNext, Graphs
     import GraphPPL: getcontext, make_node!, create_model, getorcreate!, proxylabel, NodeCreationOptions
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
     #test make node for priors
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, prior, proxylabel(:x, xref, nothing), ())
+    make_node!(model, ctx, options, TestUtils.ModelZoo.prior, proxylabel(:x, xref, nothing), ())
     @test nv(model) == 4
-    @test ctx[prior, 1][:a] == proxylabel(:x, xref, nothing)
+    @test ctx[TestUtils.ModelZoo.prior, 1][:a] == proxylabel(:x, xref, nothing)
 
     #test make node for other composite models
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, gcv, proxylabel(:x, xref, nothing), (0, 1))
+    @test_throws ErrorException make_node!(model, ctx, options, TestUtils.ModelZoo.gcv, proxylabel(:x, xref, nothing), (0, 1))
 
     # test make node of broadcastable composite model
-    model = create_test_model()
-    ctx = getcontext(model)
-    options = NodeCreationOptions()
-    out = getorcreate!(model, ctx, :out, nothing)
-    model = create_model(broadcaster())
+    model = create_model(TestUtils.ModelZoo.broadcaster())
     @test nv(model) == 103
 end
 
-@testitem "broadcast" begin
+@testitem "broadcast" setup = [TestUtils] begin
     import GraphPPL: NodeLabel, ResizableArray, create_model, getcontext, getorcreate!, make_node!, NodeCreationOptions
 
-    include("testutils.jl")
-
     # Test 1: Broadcast a vector node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, 1)
@@ -600,7 +578,7 @@ end
     @test size(zref) == (2,)
 
     # Test 2: Broadcast a matrix node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, 1, 1)
@@ -624,7 +602,7 @@ end
     @test size(zref) == (2, 2)
 
     # Test 3: Broadcast a vector node with a matrix node
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, 1)

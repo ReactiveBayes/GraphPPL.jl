@@ -1,9 +1,7 @@
-@testitem "NodeData constructor" begin
+@testitem "NodeData constructor" setup = [TestUtils] begin
     import GraphPPL: create_model, getcontext, NodeData, FactorNodeProperties, VariableNodeProperties, getproperties
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     context = getcontext(model)
 
     @testset "FactorNodeProperties" begin
@@ -42,7 +40,7 @@
     end
 end
 
-@testitem "NodeDataExtraKey" begin
+@testitem "NodeDataExtraKey" setup = [TestUtils] begin
     import GraphPPL: NodeDataExtraKey, getkey
 
     @test NodeDataExtraKey{:a, Int}() isa NodeDataExtraKey
@@ -54,7 +52,7 @@ end
     @test getkey(NodeDataExtraKey{:b, Float64}()) === :b
 end
 
-@testitem "NodeData extra properties" begin
+@testitem "NodeData extra properties" setup = [TestUtils] begin
     import GraphPPL:
         create_model,
         getcontext,
@@ -67,9 +65,7 @@ end
         hasextra,
         NodeDataExtraKey
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     context = getcontext(model)
 
     @testset for properties in (FactorNodeProperties(fform = String), VariableNodeProperties(name = :x, index = 1))
@@ -115,10 +111,8 @@ end
     end
 end
 
-@testitem "NodeCreationOptions" begin
+@testitem "NodeCreationOptions" setup = [TestUtils] begin
     import GraphPPL: NodeCreationOptions, withopts, withoutopts
-
-    include("testutils.jl")
 
     @test NodeCreationOptions() == NodeCreationOptions()
     @test keys(NodeCreationOptions()) === ()
@@ -158,14 +152,10 @@ end
     @test @inferred(withoutopts(NodeCreationOptions(a = 1, b = 2), Val((:c,)))) == NodeCreationOptions(a = 1, b = 2)
 end
 
-@testitem "is_constant" begin
+@testitem "is_constant" setup = [TestUtils] begin
     import GraphPPL: create_model, is_constant, variable_nodes, getname, getproperties
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(model_fn())
         for label in variable_nodes(model)
             node = model[label]
@@ -179,20 +169,16 @@ end
     end
 end
 
-@testitem "is_data" begin
+@testitem "is_data" setup = [TestUtils] begin
     import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
 
-    include("testutils.jl")
-
-    m = create_test_model()
+    m = TestUtils.create_test_model()
     ctx = getcontext(m)
     xref = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
     @test is_data(getproperties(m[xref]))
 
-    using .TestUtils.ModelZoo
-
     # Since the models here are without top arguments they cannot create `data` labels
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(model_fn())
         for label in variable_nodes(model)
             @test !is_data(getproperties(model[label]))
@@ -200,13 +186,11 @@ end
     end
 end
 
-@testitem "Predefined kinds of variable nodes" begin
+@testitem "Predefined kinds of variable nodes" setup = [TestUtils] begin
     import GraphPPL: VariableKindRandom, VariableKindData, VariableKindConstant
     import GraphPPL: getcontext, getorcreate!, NodeCreationOptions, getproperties
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     context = getcontext(model)
     xref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindRandom), :x, nothing)
     y = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindData), :y, nothing)

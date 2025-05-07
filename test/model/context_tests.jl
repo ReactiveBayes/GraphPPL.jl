@@ -115,52 +115,44 @@ end
     @test ctx[FactorID(sum, 2)] == ctx.factor_nodes[FactorID(sum, 2)]
 end
 
-@testitem "getcontext(::Model)" begin
+@testitem "getcontext(::Model)" setup = [TestUtils] begin
     import GraphPPL: Context, getcontext, create_model, add_variable_node!, NodeCreationOptions
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     @test getcontext(model) == model.graph[]
     add_variable_node!(model, getcontext(model), NodeCreationOptions(), :x, nothing)
     @test getcontext(model)[:x] == model.graph[][:x]
 end
 
-@testitem "path_to_root(::Context)" begin
+@testitem "path_to_root(::Context)" setup = [TestUtils] begin
     import GraphPPL: create_model, Context, path_to_root, getcontext
-
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
 
     ctx = Context()
     @test path_to_root(ctx) == [ctx]
 
-    model = create_model(outer())
+    model = create_model(TestUtils.outer())
     ctx = getcontext(model)
-    inner_context = ctx[inner, 1]
-    inner_inner_context = inner_context[inner_inner, 1]
+    inner_context = ctx[TestUtils.inner, 1]
+    inner_inner_context = inner_context[TestUtils.inner_inner, 1]
     @test path_to_root(inner_inner_context) == [inner_inner_context, inner_context, ctx]
 end
 
-@testitem "VarDict" begin
+@testitem "VarDict" setup = [TestUtils] begin
     using Distributions
     import GraphPPL:
         Context, VarDict, create_model, getorcreate!, datalabel, NodeCreationOptions, getcontext, is_random, is_data, getproperties
-
-    include("testutils.jl")
 
     ctx = Context()
     vardict = VarDict(ctx)
     @test isa(vardict, VarDict)
 
-    @model function submodel(y, x_prev, x_next)
+    TestUtils.@model function submodel(y, x_prev, x_next)
         γ ~ Gamma(1, 1)
         x_next ~ Normal(x_prev, γ)
         y ~ Normal(x_next, 1)
     end
 
-    @model function state_space_model_with_new(y)
+    TestUtils.@model function state_space_model_with_new(y)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
         for i in 2:length(y)

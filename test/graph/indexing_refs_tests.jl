@@ -135,13 +135,11 @@ end
     ) === 'o'
 end
 
-@testitem "`VariableRef` iterators interface" begin
+@testitem "`VariableRef` iterators interface" setup = [TestUtils] begin
     import GraphPPL: VariableRef, getcontext, NodeCreationOptions, VariableKindData, getorcreate!
 
-    include("testutils.jl")
-
     @testset "Missing internal and external collections" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
 
@@ -151,7 +149,7 @@ end
     end
 
     @testset "Existing internal and external collections" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xcollection = getorcreate!(model, ctx, NodeCreationOptions(), :x, 1)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (1,), xcollection)
@@ -162,7 +160,7 @@ end
     end
 
     @testset "Missing internal but existing external collections" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(kind = VariableKindData), :x, (nothing,), [1.0 1.0; 1.0 1.0])
 
@@ -172,7 +170,7 @@ end
     end
 end
 
-@testitem "`VariableRef` in combination with `ProxyLabel` should create variables in the model" begin
+@testitem "`VariableRef` in combination with `ProxyLabel` should create variables in the model" setup = [TestUtils] begin
     import GraphPPL:
         VariableRef,
         makevarref,
@@ -191,12 +189,10 @@ end
         MissingCollection,
         getorcreate!
 
-    using Distributions
-
-    include("testutils.jl")
+    using Distributions, Static
 
     @testset "Individual variable creation" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
@@ -220,7 +216,7 @@ end
     end
 
     @testset "Vectored variable creation" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
@@ -238,7 +234,7 @@ end
     end
 
     @testset "Tensor variable creation" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         @test_throws "The variable `x` has been used, but has not been instantiated." getifcreated(model, ctx, xref)
@@ -256,7 +252,7 @@ end
     end
 
     @testset "Variable should not be created if the `creation` flag is set to `False`" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         # `x` is not created here, should fail during `unroll`
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
@@ -271,7 +267,7 @@ end
     end
 
     @testset "Variable should be created if the `Atomic` fform is used as a first argument with `makevarref`" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         # `x` is not created here, but `makevarref` takes into account the `Atomic/Composite`
         # we always create a variable when used with `Atomic`
@@ -282,7 +278,7 @@ end
     end
 
     @testset "It should be possible to toggle `maycreate` flag" begin
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
         xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
         # The first time should throw since the variable has not been instantiated yet
@@ -303,7 +299,7 @@ end
     end
 end
 
-@testitem "`VariableRef` comparison" begin
+@testitem "`VariableRef` comparison" setup = [TestUtils] begin
     import GraphPPL:
         VariableRef,
         makevarref,
@@ -323,9 +319,7 @@ end
 
     using Distributions
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     xref = VariableRef(model, ctx, NodeCreationOptions(), :x, (nothing,))
     @test xref == xref

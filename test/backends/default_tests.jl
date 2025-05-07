@@ -4,13 +4,9 @@
     @test instantiate(DefaultBackend) == DefaultBackend()
 end
 
-@testitem "NodeBehaviour" begin
+@testitem "NodeBehaviour" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: DefaultBackend, NodeBehaviour, Stochastic, Deterministic
-
-    include("../testutils.jl")
-
-    using .TestUtils.ModelZoo
 
     # The `DefaultBackend` defines `Stochastic` behaviour for objects from the `Distributions` module
     @test NodeBehaviour(DefaultBackend(), Normal) == Stochastic()

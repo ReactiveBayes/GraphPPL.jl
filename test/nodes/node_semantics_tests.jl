@@ -1,54 +1,46 @@
-@testitem "NodeType" begin
+@testitem "NodeType" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: NodeType, Composite, Atomic
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     @test NodeType(model, Composite) == Atomic()
     @test NodeType(model, Atomic) == Atomic()
     @test NodeType(model, abs) == Atomic()
     @test NodeType(model, Normal) == Atomic()
-    @test NodeType(model, NormalMeanVariance) == Atomic()
-    @test NodeType(model, NormalMeanPrecision) == Atomic()
+    @test NodeType(model, TestUtils.NormalMeanVariance) == Atomic()
+    @test NodeType(model, TestUtils.NormalMeanPrecision) == Atomic()
 
     # Could test all here 
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         @test NodeType(model, model_fn) == Composite()
     end
 end
 
-@testitem "NodeBehaviour" begin
+@testitem "NodeBehaviour" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: NodeBehaviour, Deterministic, Stochastic
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     @test NodeBehaviour(model, () -> 1) == Deterministic()
     @test NodeBehaviour(model, Matrix) == Deterministic()
     @test NodeBehaviour(model, abs) == Deterministic()
     @test NodeBehaviour(model, Normal) == Stochastic()
-    @test NodeBehaviour(model, NormalMeanVariance) == Stochastic()
-    @test NodeBehaviour(model, NormalMeanPrecision) == Stochastic()
+    @test NodeBehaviour(model, TestUtils.NormalMeanVariance) == Stochastic()
+    @test NodeBehaviour(model, TestUtils.NormalMeanPrecision) == Stochastic()
 
     # Could test all here 
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         @test NodeBehaviour(model, model_fn) == Stochastic()
     end
 end
 
-@testitem "interface_alias" begin
-    using GraphPPL
+@testitem "interface_alias" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: interface_aliases, StaticInterfaces
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :τ)))) === StaticInterfaces((:out, :μ, :τ))
     @test @inferred(interface_aliases(model, Normal, StaticInterfaces((:out, :mean, :precision)))) === StaticInterfaces((:out, :μ, :τ))
@@ -87,10 +79,8 @@ end
     @test @allocated(interface_aliases(model, Normal, StaticInterfaces((:out, :μ, :variance)))) === 0
 end
 
-@testitem "factor_alias" begin
+@testitem "factor_alias" setup = [TestUtils] begin
     import GraphPPL: factor_alias, StaticInterfaces
-
-    include("testutils.jl")
 
     function abc end
     function xyz end
@@ -101,7 +91,7 @@ end
     GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:a, :b)}) = abc
     GraphPPL.factor_alias(::TestUtils.TestGraphPPLBackend, ::typeof(xyz), ::StaticInterfaces{(:x, :y)}) = xyz
 
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     @test factor_alias(model, abc, StaticInterfaces((:a, :b))) === abc
     @test factor_alias(model, abc, StaticInterfaces((:x, :y))) === xyz
@@ -110,14 +100,11 @@ end
     @test factor_alias(model, xyz, StaticInterfaces((:x, :y))) === xyz
 end
 
-@testitem "default_parametrization" begin
+@testitem "default_parametrization" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: default_parametrization, Composite, Atomic
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     # Test 1: Add default arguments to Normal call
     @test default_parametrization(model, Atomic(), Normal, (0, 1)) == (μ = 0, σ = 1)
@@ -128,10 +115,10 @@ end
     # Test 3: Add :in to function call that has default behaviour with nested interfaces
     @test default_parametrization(model, Atomic(), +, ([1, 1], 2)) == (in = ([1, 1], 2),)
 
-    @test_throws ErrorException default_parametrization(model, Composite(), gcv, (1, 2))
+    @test_throws ErrorException default_parametrization(model, Composite(), TestUtils.gcv, (1, 2))
 end
 
-@testitem "getindex for StaticInterfaces" begin
+@testitem "getindex for StaticInterfaces" setup = [TestUtils] begin
     import GraphPPL: StaticInterfaces
 
     interfaces = (:a, :b, :c)
@@ -142,12 +129,11 @@ end
     end
 end
 
-@testitem "missing_interfaces" begin
+@testitem "missing_interfaces" setup = [TestUtils] begin
+    using Static
     import GraphPPL: missing_interfaces, interfaces
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     function abc end
 
@@ -172,38 +158,32 @@ end
     @test missing_interfaces(model, bar, static(2), (in1 = 1, in2 = 2, out = 3, test = 4)) == GraphPPL.StaticInterfaces(())
 end
 
-@testitem "sort_interfaces" begin
+@testitem "sort_interfaces" setup = [TestUtils] begin
     import GraphPPL: sort_interfaces
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     # Test 1: Test that sort_interfaces sorts the interfaces in the correct order
-    @test sort_interfaces(model, NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(model, NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
-    @test sort_interfaces(model, NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(model, NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
-    @test sort_interfaces(model, NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanVariance, (μ = 1, σ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanVariance, (out = 1, μ = 1, σ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanVariance, (σ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanVariance, (σ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, σ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanPrecision, (μ = 1, τ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanPrecision, (out = 1, μ = 1, τ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanPrecision, (τ = 1, out = 1, μ = 1)) == (out = 1, μ = 1, τ = 1)
+    @test sort_interfaces(model, TestUtils.NormalMeanPrecision, (τ = 1, μ = 1, out = 1)) == (out = 1, μ = 1, τ = 1)
 
-    @test_throws ErrorException sort_interfaces(model, NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
+    @test_throws ErrorException sort_interfaces(model, TestUtils.NormalMeanVariance, (σ = 1, μ = 1, τ = 1))
 end
 
-@testitem "prepare_interfaces" begin
+@testitem "prepare_interfaces" setup = [TestUtils] begin
     import GraphPPL: prepare_interfaces
 
-    include("testutils.jl")
+    model = TestUtils.create_test_model()
 
-    using .TestUtils.ModelZoo
+    @test prepare_interfaces(model, TestUtils.anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
+    @test prepare_interfaces(model, TestUtils.anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
 
-    model = create_test_model()
-
-    @test prepare_interfaces(model, anonymous_in_loop, 1, (y = 1,)) == (x = 1, y = 1)
-    @test prepare_interfaces(model, anonymous_in_loop, 1, (x = 1,)) == (y = 1, x = 1)
-
-    @test prepare_interfaces(model, type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
-    @test prepare_interfaces(model, type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
+    @test prepare_interfaces(model, TestUtils.type_arguments, 1, (x = 1,)) == (n = 1, x = 1)
+    @test prepare_interfaces(model, TestUtils.type_arguments, 1, (n = 1,)) == (x = 1, n = 1)
 end

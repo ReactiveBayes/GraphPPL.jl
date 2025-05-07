@@ -1,32 +1,25 @@
-
-@testitem "model constructor" begin
+@testitem "model constructor" setup = [TestUtils] begin
     import GraphPPL: create_model, Model
 
-    include("testutils.jl")
-
-    @test typeof(create_test_model()) <: Model
+    @test typeof(TestUtils.create_test_model()) <: Model
 
     @test_throws MethodError Model()
 end
 
 # TODO this is not a test for GraphPPL but for the tests.
-@testitem "create_test_model()" begin
+@testitem "create_test_model()" setup = [TestUtils] begin
     import GraphPPL: create_model, Model, nv, ne
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     @test typeof(model) <: Model && nv(model) == 0 && ne(model) == 0
 
-    @test_throws MethodError create_test_model(:x, :y, :z)
+    @test_throws MethodError TestUtils.create_test_model(:x, :y, :z)
 end
 
-@testitem "getcounter and setcounter!" begin
+@testitem "getcounter and setcounter!" setup = [TestUtils] begin
     import GraphPPL: create_model, setcounter!, getcounter
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
 
     @test setcounter!(model, 1) == 1
     @test getcounter(model) == 1

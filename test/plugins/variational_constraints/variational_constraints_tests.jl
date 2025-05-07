@@ -8,9 +8,15 @@ end
 @testitem "simple @model + various constraints" begin
     using Distributions
     import GraphPPL:
-        create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
-
-    include("../../testutils.jl")
+        create_model,
+        with_plugins,
+        PluginsCollection,
+        VariationalConstraintsPlugin,
+        getorcreate!,
+        NodeCreationOptions,
+        hasextra,
+        getextra,
+        @model
 
     @model function simple_model()
         x ~ Beta(1, 1)
@@ -278,7 +284,7 @@ end
     end
 end
 
-@testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "simple @model + mean field @constraints + anonymous variable linked through a deterministic relation" setup = [TestUtils] begin
     using Distributions
     using GraphPPL:
         create_model,
@@ -293,9 +299,7 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
-    include("../../testutils.jl")
-
-    @model function simple_model(a, b, c)
+    TestUtils.@model function simple_model(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
         a ~ Normal(μ = x, τ = 1)
     end
@@ -323,7 +327,9 @@ end
     end
 end
 
-@testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "state space model @model + mean field @constraints + anonymous variable linked through a deterministic relation" setup = [
+    TestUtils
+] begin
     using Distributions
     using GraphPPL:
         create_model,
@@ -340,17 +346,13 @@ end
         with_plugins,
         datalabel
 
-    include("../../testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    @model function random_walk(y, a, b)
-        x[1] ~ NormalMeanVariance(0, 1)
-        y[1] ~ NormalMeanVariance(x[1], 1)
+    TestUtils.@model function random_walk(y, a, b)
+        x[1] ~ TestUtils.NormalMeanVariance(0, 1)
+        y[1] ~ TestUtils.NormalMeanVariance(x[1], 1)
 
         for i in 2:length(y)
-            x[i] ~ NormalMeanPrecision(a * x[i - 1] + b, 1)
-            y[i] ~ NormalMeanVariance(x[i], 1)
+            x[i] ~ TestUtils.NormalMeanPrecision(a * x[i - 1] + b, 1)
+            y[i] ~ TestUtils.NormalMeanVariance(x[i], 1)
         end
     end
 
@@ -369,19 +371,19 @@ end
             end
 
             @test length(collect(filter(as_node(Normal), model))) === 2 * n
-            @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
-            @test length(collect(filter(as_node(NormalMeanPrecision), model))) === n - 1
+            @test length(collect(filter(as_node(TestUtils.NormalMeanVariance), model))) === n + 1
+            @test length(collect(filter(as_node(TestUtils.NormalMeanPrecision), model))) === n - 1
             @test length(collect(filter(as_node(prod), model))) === n - 1
             @test length(collect(filter(as_node(sum), model))) === n - 1
 
-            @test all(filter(as_node(NormalMeanVariance), model)) do node
+            @test all(filter(as_node(TestUtils.NormalMeanVariance), model)) do node
                 # This must be factorized out just because of the implicit constraint for conststs and datavars
                 interfaces = GraphPPL.edges(model, node)
                 @test hasextra(model[node], :factorization_constraint_indices)
                 return Tuple.(getextra(model[node], :factorization_constraint_indices)) === ((1,), (2,), (3,))
             end
 
-            @test all(filter(as_node(NormalMeanPrecision), model)) do node
+            @test all(filter(as_node(TestUtils.NormalMeanPrecision), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to structured, since empty constraints do not factorize out this case
                 interfaces = GraphPPL.edges(model, node)
@@ -398,12 +400,12 @@ end
             end
 
             @test length(collect(filter(as_node(Normal), model))) == 2 * n
-            @test length(collect(filter(as_node(NormalMeanVariance), model))) === n + 1
-            @test length(collect(filter(as_node(NormalMeanPrecision), model))) === n - 1
+            @test length(collect(filter(as_node(TestUtils.NormalMeanVariance), model))) === n + 1
+            @test length(collect(filter(as_node(TestUtils.NormalMeanPrecision), model))) === n - 1
             @test length(collect(filter(as_node(prod), model))) === n - 1
             @test length(collect(filter(as_node(sum), model))) === n - 1
 
-            @test all(filter(as_node(NormalMeanPrecision) | as_node(NormalMeanVariance), model)) do node
+            @test all(filter(as_node(TestUtils.NormalMeanPrecision) | as_node(TestUtils.NormalMeanVariance), model)) do node
                 # The test tests that the factorization constraint around the node `x[i] ~ Normal(a * x[i - 1] + b, 1)`
                 # is correctly resolved to mean-field, because `a * x[i - 1] + b` is deterministically linked to `x[i - 1]`, thus 
                 # the interfaces must be factorized out
@@ -416,7 +418,9 @@ end
     end
 end
 
-@testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation with constants/datavars" begin
+@testitem "simple @model + structured @constraints + anonymous variable linked through a deterministic relation with constants/datavars" setup = [
+    TestUtils
+] begin
     using Distributions, LinearAlgebra
     using GraphPPL:
         create_model,
@@ -432,9 +436,7 @@ end
         VariationalConstraintsPlugin,
         with_plugins
 
-    include("../../testutils.jl")
-
-    @model function simple_model(y, a, b)
+    TestUtils.@model function simple_model(y, a, b)
         τ ~ Gamma(10, 10) # wrong for MvNormal, but test is for a different purpose
         θ ~ Gamma(10, 10)
 
@@ -476,7 +478,7 @@ end
     end
 end
 
-@testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" begin
+@testitem "state space @model (nested) + @constraints + anonymous variable linked through a deterministic relation" setup = [TestUtils] begin
     using Distributions
     using GraphPPL:
         create_model,
@@ -493,17 +495,15 @@ end
         with_plugins,
         datalabel
 
-    include("../../testutils.jl")
-
-    @model function nested2(u, θ, c, d)
+    TestUtils.@model function nested2(u, θ, c, d)
         u ~ Normal(c * θ + d, 1)
     end
 
-    @model function nested1(z, g, a, b)
+    TestUtils.@model function nested1(z, g, a, b)
         z ~ nested2(θ = g, c = a, d = b)
     end
 
-    @model function random_walk(y, a, b)
+    TestUtils.@model function random_walk(y, a, b)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
 
@@ -581,7 +581,7 @@ end
     end
 end
 
-@testitem "Simple @model + functional form constraints" begin
+@testitem "Simple @model + functional form constraints" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -597,9 +597,7 @@ end
         VariationalConstraintsMarginalFormConstraintKey,
         VariationalConstraintsMessagesFormConstraintKey
 
-    include("../../testutils.jl")
-
-    @model function simple_model_for_fform_constraints()
+    TestUtils.@model function simple_model_for_fform_constraints()
         x ~ Normal(0, 1)
         y ~ Gamma(1, 1)
         z ~ Normal(x, y)
@@ -689,7 +687,7 @@ end
     end
 end
 
-@testitem "@constraints macro pipeline" begin
+@testitem "@constraints macro pipeline" setup = [TestUtils] begin
     import GraphPPL:
         create_model,
         with_plugins,
@@ -703,44 +701,40 @@ end
         VariationalConstraintsMessagesFormConstraintKey,
         VariationalConstraintsFactorizationIndicesKey
 
-    include("../../testutils.jl")
-
-    using .TestUtils.ModelZoo
-
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
         q(y, z) = q(y)q(z)
-        q(x)::NormalMeanVariance()
-        μ(y)::NormalMeanVariance()
+        q(x)::TestUtils.NormalMeanVariance()
+        μ(y)::TestUtils.NormalMeanVariance()
     end
     # Test constraints macro with single variables and no nesting
-    model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
+    model = create_model(with_plugins(TestUtils.simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     for node in filter(GraphPPL.as_variable(:x), model)
-        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == NormalMeanVariance()
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == TestUtils.NormalMeanVariance()
         @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
     end
     for node in filter(GraphPPL.as_variable(:y), model)
         @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
-        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == NormalMeanVariance()
+        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == TestUtils.NormalMeanVariance()
     end
     for node in filter(GraphPPL.as_variable(:z), model)
         @test !hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
         @test !hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
     end
-    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) == ((1,), (2,), (3,))
-    @test Tuple.(getextra(model[ctx[NormalMeanVariance, 2]], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
+    @test Tuple.(getextra(model[ctx[TestUtils.NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) == ((1,), (2,), (3,))
+    @test Tuple.(getextra(model[ctx[TestUtils.NormalMeanVariance, 2]], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
 
     # Test constriants macro with nested model
     constraints = @constraints begin
-        for q in inner
+        for q in TestUtils.inner
             q(α, θ) = q(α)q(θ)
-            q(α)::NormalMeanVariance()
-            μ(θ)::NormalMeanVariance()
+            q(α)::TestUtils.NormalMeanVariance()
+            μ(θ)::TestUtils.NormalMeanVariance()
         end
     end
-    model = create_model(with_plugins(outer(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
+    model = create_model(with_plugins(TestUtils.outer(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
     @test hasextra(model[ctx[:w][1]], VariationalConstraintsMarginalFormConstraintKey) === false
@@ -750,44 +744,47 @@ end
     @test hasextra(model[ctx[:w][5]], VariationalConstraintsMarginalFormConstraintKey) === false
 
     @test hasextra(model[ctx[:w][1]], VariationalConstraintsMessagesFormConstraintKey) === false
-    @test getextra(model[ctx[:w][2]], VariationalConstraintsMessagesFormConstraintKey) === NormalMeanVariance()
-    @test getextra(model[ctx[:w][3]], VariationalConstraintsMessagesFormConstraintKey) === NormalMeanVariance()
+    @test getextra(model[ctx[:w][2]], VariationalConstraintsMessagesFormConstraintKey) === TestUtils.NormalMeanVariance()
+    @test getextra(model[ctx[:w][3]], VariationalConstraintsMessagesFormConstraintKey) === TestUtils.NormalMeanVariance()
     @test hasextra(model[ctx[:w][4]], VariationalConstraintsMessagesFormConstraintKey) === false
     @test hasextra(model[ctx[:w][5]], VariationalConstraintsMessagesFormConstraintKey) === false
 
-    @test getextra(model[ctx[:y]], VariationalConstraintsMarginalFormConstraintKey) == NormalMeanVariance()
-    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(inner_inner), model)
+    @test getextra(model[ctx[:y]], VariationalConstraintsMarginalFormConstraintKey) == TestUtils.NormalMeanVariance()
+    for node in filter(GraphPPL.as_node(TestUtils.NormalMeanVariance) & GraphPPL.as_context(TestUtils.inner_inner), model)
         @test Tuple.(getextra(model[node], VariationalConstraintsFactorizationIndicesKey)) == ((1,), (2, 3))
     end
 
     # Test with specifying specific submodel
     constraints = @constraints begin
-        for q in (child_model, 1)
+        for q in (TestUtils.child_model, 1)
             q(in, out, σ) = q(in, out)q(σ)
         end
     end
-    model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
+    model = create_model(with_plugins(TestUtils.parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
-        ((1, 2), (3,))
+    @test Tuple.(
+        getextra(model[ctx[TestUtils.child_model, 1][TestUtils.NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)
+    ) == ((1, 2), (3,))
     for i in 2:99
-        @test Tuple.(getextra(model[ctx[child_model, i][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
-            ((1, 2, 3),)
+        @test Tuple.(
+            getextra(model[ctx[TestUtils.child_model, i][TestUtils.NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)
+        ) == ((1, 2, 3),)
     end
 
     # Test with specifying general submodel
     constraints = @constraints begin
-        for q in child_model
+        for q in TestUtils.child_model
             q(in, out, σ) = q(in, out)q(σ)
         end
     end
-    model = create_model(with_plugins(parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
+    model = create_model(with_plugins(TestUtils.parent_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
     ctx = GraphPPL.getcontext(model)
 
-    @test Tuple.(getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)) ==
-        ((1, 2), (3,))
-    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
+    @test Tuple.(
+        getextra(model[ctx[TestUtils.child_model, 1][TestUtils.NormalMeanVariance, 1]], VariationalConstraintsFactorizationIndicesKey)
+    ) == ((1, 2), (3,))
+    for node in filter(GraphPPL.as_node(TestUtils.NormalMeanVariance) & GraphPPL.as_context(TestUtils.child_model), model)
         @test Tuple.(getextra(model[node], VariationalConstraintsFactorizationIndicesKey)) == ((1, 2), (3,))
     end
 
@@ -795,42 +792,42 @@ end
     constraints = @constraints begin
         q(x, y) = q(x)q(y)
     end
-    @test_throws ErrorException create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints))))
+    @test_throws ErrorException create_model(
+        with_plugins(TestUtils.simple_model(), PluginsCollection(VariationalConstraintsPlugin(constraints)))
+    )
 end
 
-@testitem "A complex hierarchical constraints with lots of renaming and interleaving with constants" begin
+@testitem "A complex hierarchical constraints with lots of renaming and interleaving with constants" setup = [TestUtils] begin
     using Distributions
     using BitSetTuples
     import GraphPPL:
         create_model, with_plugins, PluginsCollection, VariationalConstraintsPlugin, getorcreate!, NodeCreationOptions, hasextra, getextra
 
-    include("../../testutils.jl")
-
-    @model function submodel_3_1(b, n, m)
+    TestUtils.@model function submodel_3_1(b, n, m)
         b ~ Normal(n, m)
     end
 
-    @model function submodel_3_2(b, n, m)
+    TestUtils.@model function submodel_3_2(b, n, m)
         b ~ Normal(n + 1, m + 1)
     end
 
-    @model function submodel_2_1(a, b, c, submodel_3)
+    TestUtils.@model function submodel_2_1(a, b, c, submodel_3)
         c ~ submodel_3(b = a, m = b)
     end
 
-    @model function submodel_2_2(a, b, c, submodel_3)
+    TestUtils.@model function submodel_2_2(a, b, c, submodel_3)
         c ~ submodel_3(b = a + 1, m = b + 1)
     end
 
-    @model function submodel_1_1(x, y, z, submodel_2, submodel_3)
+    TestUtils.@model function submodel_1_1(x, y, z, submodel_2, submodel_3)
         z ~ submodel_2(a = x, b = y, submodel_3 = submodel_3)
     end
 
-    @model function submodel_1_2(x, y, z, submodel_2, submodel_3)
+    TestUtils.@model function submodel_1_2(x, y, z, submodel_2, submodel_3)
         z ~ submodel_2(a = x + 1, b = y + 1, submodel_3 = submodel_3)
     end
 
-    @model function main_model(case, submodel_1, submodel_2, submodel_3)
+    TestUtils.@model function main_model(case, submodel_1, submodel_2, submodel_3)
         r ~ Gamma(1, 1)
         u ~ Beta(1, 1)
         # In the test we impose the mean-field factorization
@@ -909,7 +906,7 @@ end
     end
 end
 
-@testitem "A joint constraint over 'initial variable' and 'state variables' aka `q(x0, x)q(γ)`" begin
+@testitem "A joint constraint over 'initial variable' and 'state variables' aka `q(x0, x)q(γ)`" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -923,9 +920,7 @@ end
         hasextra,
         datalabel
 
-    include("../../testutils.jl")
-
-    @model function some_state_space_model(y)
+    TestUtils.@model function some_state_space_model(y)
         γ ~ Gamma(1, 1)
         θ ~ Gamma(1, 1)
         μ0 ~ Beta(1, 1)
@@ -971,15 +966,11 @@ end
     end
 end
 
-@testitem "Apply MeanField constraints" begin
+@testitem "Apply MeanField constraints" setup = [TestUtils] begin
     using GraphPPL
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data
 
-    include("../../testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for model_fform in ModelsInTheZooWithoutArguments
+    for model_fform in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(MeanField()))))
         for node in filter(as_node(), model)
             node_data = model[node]
@@ -989,17 +980,13 @@ end
     end
 end
 
-@testitem "Apply BetheFactorization constraints" begin
+@testitem "Apply BetheFactorization constraints" setup = [TestUtils] begin
     using GraphPPL
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
-    include("../../testutils.jl")
-
-    using .TestUtils.ModelZoo
-
     # BetheFactorization uses `default_constraints` for `contains_default_constraints`
     # So it is not tested here
-    for model_fform in setdiff(Set(ModelsInTheZooWithoutArguments), Set([contains_default_constraints]))
+    for model_fform in setdiff(Set(TestUtils.ModelsInTheZooWithoutArguments), Set([TestUtils.contains_default_constraints]))
         model = create_model(
             with_plugins(model_fform(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(BetheFactorization())))
         )
@@ -1017,13 +1004,11 @@ end
     end
 end
 
-@testitem "Default constraints of top level model" begin
-    using GraphPPL
+@testitem "Default constraints of top level model" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
-    include("../../testutils.jl")
-
-    @model function model_with_default_constraints()
+    TestUtils.@model function model_with_default_constraints()
         x ~ Normal(0, 1)
         y ~ Normal(x, 1)
         z ~ Normal(y, 1)
@@ -1044,12 +1029,11 @@ end
     end
 end
 
-@testitem "Constraint over a mixture model" begin
+@testitem "Constraint over a mixture model" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
-    include("../../testutils.jl")
-
-    @model function mixture()
+    TestUtils.@model function mixture()
         m1 ~ Normal(0, 1)
         m2 ~ Normal(0, 1)
         m3 ~ Normal(0, 1)
@@ -1071,10 +1055,12 @@ end
         end
 
         for constraints in [constraints_1, constraints_2]
-            model = create_model(with_plugins(mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))))
+            model = create_model(
+                with_plugins(TestUtils.mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints)))
+            )
 
-            @test length(collect(filter(as_node(Mixture), model))) === 1
-            for node in filter(as_node(Mixture), model)
+            @test length(collect(filter(as_node(TestUtils.Mixture), model))) === 1
+            for node in filter(as_node(TestUtils.Mixture), model)
                 node_data = model[node]
                 @test Tuple.(GraphPPL.getextra(node_data, :factorization_constraint_indices)) == ((1, 2, 3, 4, 5, 6, 7, 8, 9),)
             end
@@ -1091,15 +1077,17 @@ end
         end
 
         for constraints in [constraints_1, constraints_2]
-            model = create_model(with_plugins(mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints))))
+            model = create_model(
+                with_plugins(TestUtils.mixture(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin(constraints)))
+            )
             for node in filter(as_node(), model)
                 node_data = model[node]
                 @test GraphPPL.getextra(node_data, :factorization_constraint_indices) ==
                     Tuple([[i] for i in 1:(length(neighbor_data(getproperties(node_data))))])
             end
 
-            @test length(collect(filter(as_node(Mixture), model))) === 1
-            for node in filter(as_node(Mixture), model)
+            @test length(collect(filter(as_node(TestUtils.Mixture), model))) === 1
+            for node in filter(as_node(TestUtils.Mixture), model)
                 node_data = model[node]
                 @test Tuple.(GraphPPL.getextra(node_data, :factorization_constraint_indices)) ==
                     ((1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,))
@@ -1108,18 +1096,17 @@ end
     end
 end
 
-@testitem "Issue 262, factorization constraint should not attempt to create a variable from submodels" begin
+@testitem "Issue 262, factorization constraint should not attempt to create a variable from submodels" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, with_plugins, getproperties, neighbor_data, is_factorized
 
-    include("../../testutils.jl")
-
-    @model function submodel(y, x)
+    TestUtils.@model function submodel(y, x)
         for i in 1:10
             y[i] ~ Normal(x, 1)
         end
     end
 
-    @model function main_model()
+    TestUtils.@model function main_model()
         x ~ Normal(0, 1)
         y ~ submodel(x = x)
     end
@@ -1135,7 +1122,7 @@ end
     @test length(collect(filter(as_node(Normal), model))) == 11
 end
 
-@testitem "`@constraints` should save the source code #1" begin
+@testitem "`@constraints` should save the source code #1" setup = [TestUtils] begin
     using GraphPPL
 
     constraints = @constraints begin

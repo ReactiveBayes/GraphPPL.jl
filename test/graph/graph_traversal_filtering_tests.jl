@@ -1,11 +1,7 @@
-@testitem "factor_nodes" begin
+@testitem "factor_nodes" setup = [TestUtils] begin
     import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for modelfn in ModelsInTheZooWithoutArguments
+    for modelfn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(modelfn())
         fnodes = collect(factor_nodes(model))
         for node in fnodes
@@ -19,14 +15,10 @@
     end
 end
 
-@testitem "factor_nodes with lambda function" begin
+@testitem "factor_nodes with lambda function" setup = [TestUtils] begin
     import GraphPPL: create_model, factor_nodes, is_factor, labels
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(model_fn())
         fnodes = collect(factor_nodes(model))
         factor_nodes(model) do label, nodedata
@@ -44,14 +36,10 @@ end
     end
 end
 
-@testitem "variable_nodes" begin
+@testitem "variable_nodes" setup = [TestUtils] begin
     import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         for node in fnodes
@@ -65,14 +53,10 @@ end
     end
 end
 
-@testitem "variable_nodes with lambda function" begin
+@testitem "variable_nodes with lambda function" setup = [TestUtils] begin
     import GraphPPL: create_model, variable_nodes, is_variable, labels
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(model_fn())
         fnodes = collect(variable_nodes(model))
         variable_nodes(model) do label, nodedata
@@ -90,24 +74,22 @@ end
     end
 end
 
-@testitem "variable_nodes with anonymous variables" begin
+@testitem "variable_nodes with anonymous variables" setup = [TestUtils] begin
     # The idea here is that the `variable_nodes` must return ALL anonymous variables as well
     using Distributions
     import GraphPPL: create_model, variable_nodes, getname, is_anonymous, getproperties
 
-    include("testutils.jl")
-
-    @model function simple_submodel_with_2_anonymous_for_variable_nodes(z, x, y)
+    TestUtils.@model function simple_submodel_with_2_anonymous_for_variable_nodes(z, x, y)
         # Creates two anonymous variables here
         z ~ Normal(x + 1, y - 1)
     end
 
-    @model function simple_submodel_with_3_anonymous_for_variable_nodes(z, x, y)
+    TestUtils.@model function simple_submodel_with_3_anonymous_for_variable_nodes(z, x, y)
         # Creates three anonymous variables here
         z ~ Normal(x + 1, y - 1 + 1)
     end
 
-    @model function simple_model_for_variable_nodes(submodel)
+    TestUtils.@model function simple_model_for_variable_nodes(submodel)
         xref ~ Normal(0, 1)
         y ~ Gamma(1, 1)
         zref ~ submodel(x = xref, y = y)
@@ -126,51 +108,42 @@ end
     end
 end
 
-@testitem "filter(::Predicate, ::Model)" begin
+@testitem "filter(::Predicate, ::Model)" setup = [TestUtils] begin
     import GraphPPL: create_model, as_node, as_context, as_variable
+    using Distributions
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_model(simple_model())
+    model = create_model(TestUtils.simple_model())
     result = collect(filter(as_node(Normal) | as_variable(:x), model))
     @test length(result) == 3
 
-    model = create_model(outer())
-    result = collect(filter(as_node(Gamma) & as_context(inner_inner), model))
+    model = create_model(TestUtils.outer())
+    result = collect(filter(as_node(Gamma) & as_context(TestUtils.inner_inner), model))
     @test length(result) == 0
 
-    result = collect(filter(as_node(Gamma) | as_context(inner_inner), model))
+    result = collect(filter(as_node(Gamma) | as_context(TestUtils.inner_inner), model))
     @test length(result) == 6
 
-    result = collect(filter(as_node(Normal) & as_context(inner_inner; children = true), model))
+    result = collect(filter(as_node(Normal) & as_context(TestUtils.inner_inner; children = true), model))
     @test length(result) == 1
 end
 
-@testitem "filter(::FactorNodePredicate, ::Model)" begin
+@testitem "filter(::FactorNodePredicate, ::Model)" setup = [TestUtils] begin
     import GraphPPL: create_model, as_node, getcontext
+    using Distributions
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_model(simple_model())
+    model = create_model(TestUtils.simple_model())
     context = getcontext(model)
     result = filter(as_node(Normal), model)
-    @test collect(result) == [context[NormalMeanVariance, 1], context[NormalMeanVariance, 2]]
+    @test collect(result) == [context[TestUtils.NormalMeanVariance, 1], context[TestUtils.NormalMeanVariance, 2]]
     result = filter(as_node(), model)
-    @test collect(result) == [context[NormalMeanVariance, 1], context[GammaShapeScale, 1], context[NormalMeanVariance, 2]]
+    @test collect(result) ==
+        [context[TestUtils.NormalMeanVariance, 1], context[TestUtils.GammaShapeScale, 1], context[TestUtils.NormalMeanVariance, 2]]
 end
 
-@testitem "filter(::VariableNodePredicate, ::Model)" begin
+@testitem "filter(::VariableNodePredicate, ::Model)" setup = [TestUtils] begin
     import GraphPPL: create_model, as_variable, getcontext, variable_nodes
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_model(simple_model())
+    model = create_model(TestUtils.simple_model())
     context = getcontext(model)
     result = filter(as_variable(:x), model)
     @test collect(result) == [context[:x]...]
@@ -178,24 +151,20 @@ end
     @test collect(result) == collect(variable_nodes(model))
 end
 
-@testitem "filter(::SubmodelPredicate, Model)" begin
+@testitem "filter(::SubmodelPredicate, Model)" setup = [TestUtils] begin
     import GraphPPL: create_model, as_context
 
-    include("testutils.jl")
+    model = create_model(TestUtils.outer())
 
-    using .TestUtils.ModelZoo
-
-    model = create_model(outer())
-
-    result = filter(as_context(inner), model)
+    result = filter(as_context(TestUtils.inner), model)
     @test length(collect(result)) == 0
 
-    result = filter(as_context(inner; children = true), model)
+    result = filter(as_context(TestUtils.inner; children = true), model)
     @test length(collect(result)) == 1
 
-    result = filter(as_context(inner_inner), model)
+    result = filter(as_context(TestUtils.inner_inner), model)
     @test length(collect(result)) == 1
 
-    result = filter(as_context(outer; children = true), model)
+    result = filter(as_context(TestUtils.outer; children = true), model)
     @test length(collect(result)) == 22
 end

@@ -1,10 +1,8 @@
-@testitem "degree" begin
+@testitem "degree" setup = [TestUtils] begin
     import GraphPPL: create_model, getcontext, getorcreate!, NodeCreationOptions, make_node!, degree
 
-    include("testutils.jl")
-
     for n in 5:10
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         ctx = getcontext(model)
 
         unused = getorcreate!(model, ctx, :unusued, nothing)
@@ -33,12 +31,10 @@
     end
 end
 
-@testitem "nv_ne(::Model)" begin
+@testitem "nv_ne(::Model)" setup = [TestUtils] begin
     import GraphPPL: create_model, getcontext, nv, ne, NodeData, VariableNodeProperties, NodeLabel, EdgeLabel
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     @test isempty(model)
     @test nv(model) == 0
@@ -56,7 +52,7 @@ end
     @test ne(model) == 1
 end
 
-@testitem "edges" begin
+@testitem "edges" setup = [TestUtils] begin
     import GraphPPL:
         edges,
         create_model,
@@ -72,10 +68,8 @@ end
         has_edge,
         getproperties
 
-    include("testutils.jl")
-
     # Test 1: Test getting all edges from a model
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     a = NodeLabel(:a, 1)
     b = NodeLabel(:b, 2)
@@ -105,7 +99,7 @@ end
     # @test getname.(edges(model, [a, b])) == [:edge, :edge, :edge]
 end
 
-@testitem "neighbors(::Model, ::NodeData)" begin
+@testitem "neighbors(::Model, ::NodeData)" setup = [TestUtils] begin
     import GraphPPL:
         create_model,
         getcontext,
@@ -120,11 +114,7 @@ end
         add_edge!,
         getproperties
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
 
     a = NodeLabel(:a, 1)
@@ -134,7 +124,7 @@ end
     add_edge!(model, a, getproperties(model[a]), b, :edge, 1)
     @test collect(neighbors(model, NodeLabel(:a, 1))) == [NodeLabel(:b, 2)]
 
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     a = ResizableArray(NodeLabel, Val(1))
     b = ResizableArray(NodeLabel, Val(1))
@@ -149,26 +139,22 @@ end
         @test n ∈ neighbors(model, a)
     end
     # Test 2: Test getting sorted neighbors
-    model = create_model(simple_model())
+    model = create_model(TestUtils.simple_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
     @test getname.(neighbors(model, node)) == [:z, :x, :y]
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
-    model = create_model(vector_model())
+    model = create_model(TestUtils.vector_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
     @test getname.(collect(neighbors(model, node))) == [:z, :x, :y]
 end
 
-@testitem "save and load graph" begin
+@testitem "save and load graph" setup = [TestUtils] begin
     import GraphPPL: create_model, with_plugins, savegraph, loadgraph, getextra, as_node
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
-    model = create_model(with_plugins(vector_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
+    model = create_model(with_plugins(TestUtils.vector_model(), GraphPPL.PluginsCollection(GraphPPL.VariationalConstraintsPlugin())))
     mktemp() do file, io
         file = file * ".jld2"
         savegraph(file, model)

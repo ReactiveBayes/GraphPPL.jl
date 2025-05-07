@@ -1,10 +1,6 @@
 
-@testitem "Check that factor node plugins are uniquely recreated" begin
+@testitem "Check that factor node plugins are uniquely recreated" setup = [TestUtils] begin
     import GraphPPL: create_model, with_plugins, getplugins, factor_nodes, PluginsCollection, setextra!, getextra
-
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
 
     struct AnArbitraryPluginForTestUniqeness end
 
@@ -18,7 +14,7 @@
         return label, nodedata
     end
 
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForTestUniqeness())))
         for f1 in factor_nodes(model), f2 in factor_nodes(model)
             if f1 !== f2
@@ -30,7 +26,7 @@
     end
 end
 
-@testitem "Check that plugins may change the options" begin
+@testitem "Check that plugins may change the options" setup = [TestUtils] begin
     import GraphPPL:
         NodeData,
         variable_nodes,
@@ -45,10 +41,6 @@ end
         create_model,
         with_plugins
 
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
-
     struct AnArbitraryPluginForChangingOptions end
 
     GraphPPL.plugin_type(::AnArbitraryPluginForChangingOptions) = GraphPPL.VariableNodePlugin()
@@ -58,7 +50,7 @@ end
         return label, NodeData(context, convert(VariableNodeProperties, :x, nothing, NodeCreationOptions(kind = :constant, value = 1.0)))
     end
 
-    for model_fn in ModelsInTheZooWithoutArguments
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
         model = create_model(with_plugins(model_fn(), PluginsCollection(AnArbitraryPluginForChangingOptions())))
         for v in variable_nodes(model)
             @test getname(getproperties(model[v])) === :x

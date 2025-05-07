@@ -1,4 +1,4 @@
-@testitem "NodeLabel properties" begin
+@testitem "NodeLabel properties" setup = [TestUtils] begin
     import GraphPPL: NodeLabel
 
     xref = NodeLabel(:x, 1)
@@ -10,7 +10,7 @@
     @test xref < y
 end
 
-@testitem "getname(::NodeLabel)" begin
+@testitem "getname(::NodeLabel)" setup = [TestUtils] begin
     import GraphPPL: ResizableArray, NodeLabel, getname
 
     xref = NodeLabel(:x, 1)
@@ -25,12 +25,10 @@ end
     @test getname(xref) == :x
 end
 
-@testitem "generate_nodelabel(::Model, ::Symbol)" begin
+@testitem "generate_nodelabel(::Model, ::Symbol)" setup = [TestUtils] begin
     import GraphPPL: create_model, gensym, NodeLabel, generate_nodelabel
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     first_sym = generate_nodelabel(model, :x)
     @test typeof(first_sym) == NodeLabel
 
@@ -41,7 +39,7 @@ end
     @test id.name == :c && id.global_counter == 3
 end
 
-@testitem "proxy labels" begin
+@testitem "proxy labels" setup = [TestUtils] begin
     import GraphPPL: NodeLabel, ProxyLabel, proxylabel, getname, unroll, ResizableArray, FunctionalIndex
 
     y = NodeLabel(:y, 1)
@@ -106,12 +104,10 @@ end
     end
 end
 
-@testitem "datalabel" begin
+@testitem "datalabel" setup = [TestUtils] begin
     import GraphPPL: getcontext, datalabel, NodeCreationOptions, VariableKindData, VariableKindRandom, unroll, proxylabel
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     ylabel = datalabel(model, ctx, NodeCreationOptions(kind = VariableKindData), :y)
     yvar = unroll(ylabel)
@@ -140,12 +136,10 @@ end
     )
 end
 
-@testitem "contains_nodelabel" begin
+@testitem "contains_nodelabel" setup = [TestUtils] begin
     import GraphPPL: create_model, getcontext, getorcreate!, contains_nodelabel, NodeCreationOptions, True, False, MixedArguments
 
-    include("testutils.jl")
-
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     a = getorcreate!(model, ctx, :x, nothing)
     b = getorcreate!(model, ctx, NodeCreationOptions(kind = :data), :x, nothing)

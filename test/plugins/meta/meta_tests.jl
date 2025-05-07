@@ -5,14 +5,11 @@
     @test MetaPlugin(nothing) == MetaPlugin(EmptyMeta)
 end
 
-@testitem "@meta macro pipeline" begin
+@testitem "@meta macro pipeline" setup = [TestUtils] begin
+    using Distributions
     using GraphPPL
 
     import GraphPPL: create_model, with_plugins, getextra, hasextra, PluginsCollection, MetaPlugin, apply_meta!
-
-    include("../../testutils.jl")
-
-    using .TestUtils.ModelZoo
 
     struct SomeMeta end
 
@@ -22,11 +19,11 @@ end
         x -> SomeMeta()
         y -> (meta = SomeMeta(), other = 1)
     end
-    model = create_model(with_plugins(simple_model(), PluginsCollection(MetaPlugin(metaspec))))
+    model = create_model(with_plugins(TestUtils.simple_model(), PluginsCollection(MetaPlugin(metaspec))))
     ctx = GraphPPL.getcontext(model)
 
-    @test !hasextra(model[ctx[NormalMeanVariance, 1]], :meta)
-    @test getextra(model[ctx[NormalMeanVariance, 2]], :meta) == SomeMeta()
+    @test !hasextra(model[ctx[TestUtils.NormalMeanVariance, 1]], :meta)
+    @test getextra(model[ctx[TestUtils.NormalMeanVariance, 2]], :meta) == SomeMeta()
 
     @test getextra(model[ctx[:x]], :meta) == SomeMeta()
     @test getextra(model[ctx[:y]], :meta) == SomeMeta()
@@ -36,56 +33,56 @@ end
     metaobj = @meta begin
         Gamma(w) -> SomeMeta()
     end
-    model = create_model(with_plugins(outer(), PluginsCollection(MetaPlugin(metaobj))))
+    model = create_model(with_plugins(TestUtils.outer(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
-    for node in filter(GraphPPL.as_node(Gamma) & GraphPPL.as_context(outer), model)
+    for node in filter(GraphPPL.as_node(Gamma) & GraphPPL.as_context(TestUtils.outer), model)
         @test getextra(model[node], :meta) == SomeMeta()
     end
 
     # Test meta macro with nested model
     metaobj = @meta begin
-        for meta in inner
+        for meta in TestUtils.inner
             α -> SomeMeta()
         end
     end
-    model = create_model(with_plugins(outer(), PluginsCollection(MetaPlugin(metaobj))))
+    model = create_model(with_plugins(TestUtils.outer(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
     @test getextra(model[ctx[:y]], :meta) == SomeMeta()
 
     # Test with specifying specific submodel
     metaobj = @meta begin
-        for meta in (child_model, 1)
+        for meta in (TestUtils.child_model, 1)
             Normal(in, out) -> SomeMeta()
         end
     end
-    model = create_model(with_plugins(parent_model(), PluginsCollection(MetaPlugin(metaobj))))
+    model = create_model(with_plugins(TestUtils.parent_model(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
-    @test getextra(model[ctx[child_model, 1][NormalMeanVariance, 1]], :meta) == SomeMeta()
+    @test getextra(model[ctx[TestUtils.child_model, 1][TestUtils.NormalMeanVariance, 1]], :meta) == SomeMeta()
     for i in 2:99
-        @test !hasextra(model[ctx[child_model, i][NormalMeanVariance, 1]], :meta)
+        @test !hasextra(model[ctx[TestUtils.child_model, i][TestUtils.NormalMeanVariance, 1]], :meta)
     end
 
     # Test with specifying general submodel
     metaobj = @meta begin
-        for meta in child_model
+        for meta in TestUtils.child_model
             Normal(in, out) -> SomeMeta()
         end
     end
-    model = create_model(with_plugins(parent_model(), PluginsCollection(MetaPlugin(metaobj))))
+    model = create_model(with_plugins(TestUtils.parent_model(), PluginsCollection(MetaPlugin(metaobj))))
     ctx = GraphPPL.getcontext(model)
 
-    for node in filter(GraphPPL.as_node(NormalMeanVariance) & GraphPPL.as_context(child_model), model)
+    for node in filter(GraphPPL.as_node(TestUtils.NormalMeanVariance) & GraphPPL.as_context(TestUtils.child_model), model)
         @test getextra(model[node], :meta) == SomeMeta()
     end
 end
 
-@testitem "Meta setting via the `where` block" begin
-    include("../../testutils.jl")
+@testitem "Meta setting via the `where` block" setup = [TestUtils] begin
+    using Distributions
 
-    @model function some_model()
+    TestUtils.@model function some_model()
         x ~ Beta(1.0, 2.0) where {meta = "Hello, world!"}
     end
 
@@ -97,7 +94,7 @@ end
 end
 
 @testitem "Meta should save source code " begin
-    include("../../testutils.jl")
+    using Distributions
 
     meta = @meta begin
         Normal(in, out) -> 1

@@ -1,4 +1,4 @@
-@testitem "NodeIdPlugin: model with the plugin" begin
+@testitem "NodeIdPlugin: model with the plugin" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -13,8 +13,7 @@
         create_model,
         with_plugins
 
-    include("../testutils.jl")
-    @model function node_with_two_anonymous()
+    TestUtils.@model function node_with_two_anonymous()
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(0, 1)
         for i in 2:10
