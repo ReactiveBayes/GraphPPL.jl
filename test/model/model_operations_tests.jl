@@ -264,6 +264,7 @@ end
 end
 
 @testitem "make_node!(::Atomic)" setup = [TestUtils] begin
+    using Distributions
     using Graphs, BitSetTuples
     import GraphPPL:
         getcontext,
@@ -543,19 +544,19 @@ end
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    make_node!(model, ctx, options, TestUtils.ModelZoo.prior, proxylabel(:x, xref, nothing), ())
+    make_node!(model, ctx, options, TestUtils.prior, proxylabel(:x, xref, nothing), ())
     @test nv(model) == 4
-    @test ctx[TestUtils.ModelZoo.prior, 1][:a] == proxylabel(:x, xref, nothing)
+    @test ctx[TestUtils.prior, 1][:a] == proxylabel(:x, xref, nothing)
 
     #test make node for other composite models
     model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     xref = getorcreate!(model, ctx, :x, nothing)
-    @test_throws ErrorException make_node!(model, ctx, options, TestUtils.ModelZoo.gcv, proxylabel(:x, xref, nothing), (0, 1))
+    @test_throws ErrorException make_node!(model, ctx, options, TestUtils.gcv, proxylabel(:x, xref, nothing), (0, 1))
 
     # test make node of broadcastable composite model
-    model = create_model(TestUtils.ModelZoo.broadcaster())
+    model = create_model(TestUtils.broadcaster())
     @test nv(model) == 103
 end
 
