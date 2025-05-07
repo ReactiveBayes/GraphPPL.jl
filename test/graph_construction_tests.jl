@@ -2,11 +2,12 @@
 # We don't use models from the `model_zoo.jl` file because they are subject to change
 # These tests are meant to be stable and not change often
 
-@testitem "Simple model 1" begin
+@testitem "Simple model 1" setup = [TestUtils] begin
     using Distributions
     import GraphPPL:
         create_model,
         getcontext,
+        getorcreate!,
         add_toplevel_model!,
         factor_nodes,
         variable_nodes,
@@ -16,9 +17,7 @@
         as_variable,
         degree
 
-    include("testutils.jl")
-
-    @model function simple_model_1()
+    TestUtils.@model function simple_model_1()
         x ~ Normal(0, 1)
         y ~ Gamma(1, 1)
         z ~ Normal(x, y)
@@ -47,13 +46,11 @@
     @test degree(model, first(collect(filter(as_variable(:z), model)))) === 1
 end
 
-@testitem "Simple model 2" begin
+@testitem "Simple model 2" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, prune!
 
-    include("testutils.jl")
-
-    @model function simple_model_2(a, b, c)
+    TestUtils.@model function simple_model_2(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
         a ~ Normal(μ = x, σ = 1)
     end
@@ -70,13 +67,11 @@ end
     @test length(collect(filter(as_node(sqrt), model))) === 0 # should be compiled out, c is a constant
 end
 
-@testitem "Simple model but wrong indexing into a single random variable" begin
+@testitem "Simple model but wrong indexing into a single random variable" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions
 
-    include("testutils.jl")
-
-    @model function simple_model_with_wrong_indexing(y)
+    TestUtils.@model function simple_model_with_wrong_indexing(y)
         x ~ MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])
         y ~ Beta(x[1], x[2])
     end
@@ -89,13 +84,11 @@ end
     end
 end
 
-@testitem "Simple model with lazy data (number) creation" begin
+@testitem "Simple model with lazy data (number) creation" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
 
-    include("testutils.jl")
-
-    @model function simple_model_3(a, b, c, d)
+    TestUtils.@model function simple_model_3(a, b, c, d)
         x ~ Beta(a, b)
         y ~ Gamma(c, d)
         z ~ Normal(x, y)
@@ -118,7 +111,7 @@ end
     @test length(filter(label -> is_constant(getproperties(model[label])), collect(filter(as_variable(), model)))) === 0
 end
 
-@testitem "Simple model with lazy data (vector) creation" begin
+@testitem "Simple model with lazy data (vector) creation" setup = [TestUtils] begin
     using Distributions
     import GraphPPL:
         create_model,
@@ -132,13 +125,11 @@ end
         datalabel,
         VariableKindData
 
-    include("testutils.jl")
-
-    @model function simple_submodel_3(T, x, y, Λ)
+    TestUtils.@model function simple_submodel_3(T, x, y, Λ)
         T ~ Normal(x + y, Λ)
     end
 
-    @model function simple_model_3(y, Σ, n, T)
+    TestUtils.@model function simple_model_3(y, Σ, n, T)
         m ~ Beta(1, 1)
         for i in 1:n, j in 1:n
             T[i, j] ~ simple_submodel_3(x = m, Λ = Σ, y = y[i])
@@ -180,13 +171,11 @@ end
     end
 end
 
-@testitem "Simple model with lazy data creation with attached data" begin
+@testitem "Simple model with lazy data creation with attached data" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel, MissingCollection
 
-    include("testutils.jl")
-
-    @model function simple_model_4_withlength(y, Σ)
+    TestUtils.@model function simple_model_4_withlength(y, Σ)
         m ~ Beta(1, 1)
 
         for i in 1:length(y)
@@ -194,7 +183,7 @@ end
         end
     end
 
-    @model function simple_model_4_withsize(y, Σ)
+    TestUtils.@model function simple_model_4_withsize(y, Σ)
         m ~ Beta(1, 1)
 
         for i in 1:size(y, 1)
@@ -202,7 +191,7 @@ end
         end
     end
 
-    @model function simple_model_4_witheachindex(y, Σ)
+    TestUtils.@model function simple_model_4_witheachindex(y, Σ)
         m ~ Beta(1, 1)
 
         for i in eachindex(y)
@@ -210,7 +199,7 @@ end
         end
     end
 
-    @model function simple_model_4_with_firstindex_lastindex(y, Σ)
+    TestUtils.@model function simple_model_4_with_firstindex_lastindex(y, Σ)
         m ~ Beta(1, 1)
 
         for i in firstindex(y):lastindex(y)
@@ -218,7 +207,7 @@ end
         end
     end
 
-    @model function simple_model_4_with_forloop(y, Σ)
+    TestUtils.@model function simple_model_4_with_forloop(y, Σ)
         m ~ Beta(1, 1)
 
         for yᵢ in y
@@ -226,7 +215,7 @@ end
         end
     end
 
-    @model function simple_model_4_with_foreach(y, Σ)
+    TestUtils.@model function simple_model_4_with_foreach(y, Σ)
         m ~ Beta(1, 1)
 
         foreach(y) do yᵢ
@@ -302,13 +291,11 @@ end
     end
 end
 
-@testitem "Simple model with lazy data creation with attached data but out of bounds" begin
+@testitem "Simple model with lazy data creation with attached data but out of bounds" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, index, getproperties, is_kind, datalabel
 
-    include("testutils.jl")
-
-    @model function simple_model_a_vector(a)
+    TestUtils.@model function simple_model_a_vector(a)
         x ~ Beta(a[1], a[2]) # In the test the provided `a` will either a scalar or a vector of length 1
         b ~ Gamma(a[3], a[4])
         z ~ Normal(x, b)
@@ -360,7 +347,7 @@ end
         end
     end
 
-    @model function simple_model_a_matrix(a)
+    TestUtils.@model function simple_model_a_matrix(a)
         x ~ Beta(a[1, 1], a[1, 2]) # In the test the provided `a` will either a scalar or a matrix of smaller size
         b ~ Gamma(a[2, 1], a[2, 2])
         z ~ Normal(x, b)
@@ -424,14 +411,12 @@ end
     end
 end
 
-@testitem "Simple state space model" begin
+@testitem "Simple state space model" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, add_toplevel_model!, degree
 
-    include("testutils.jl")
-
     # Test that graph construction creates the right amount of nodes and variables in a simple state space model
-    @model function state_space_model(n)
+    TestUtils.@model function state_space_model(n)
         γ ~ Gamma(1, 1)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], γ)
@@ -441,7 +426,7 @@ end
         end
     end
     for n in [10, 30, 50, 100, 1000]
-        model = create_test_model()
+        model = TestUtils.create_test_model()
         add_toplevel_model!(model, state_space_model, (n = n,))
         @test length(collect(filter(as_node(Normal), model))) == 2 * n
         @test length(collect(filter(as_variable(:x), model))) == n
@@ -458,13 +443,11 @@ end
     end
 end
 
-@testitem "Simple state space model with lazy data creation with attached data" begin
+@testitem "Simple state space model with lazy data creation with attached data" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions, index, getproperties, is_random, is_data, degree
 
-    include("testutils.jl")
-
-    @model function state_space_model_with_lazy_data(y, Σ)
+    TestUtils.@model function state_space_model_with_lazy_data(y, Σ)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], Σ)
         for i in 2:length(y)
@@ -513,24 +496,21 @@ end
     end
 end
 
-@testitem "Nested model structure" begin
+@testitem "Nested model structure" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, add_toplevel_model!
 
-    include("testutils.jl")
-
-    # Test that graph construction creates the right amount of nodes and variables in a nested model structure
-    @model function gcv(κ, ω, z, x, y)
+    TestUtils.@model function gcv(κ, ω, z, x, y)
         log_σ := κ * z + ω
         y ~ Normal(x, exp(log_σ))
     end
 
-    @model function gcv_lm(y, x_prev, x_next, z, ω, κ)
+    TestUtils.@model function gcv_lm(y, x_prev, x_next, z, ω, κ)
         x_next ~ gcv(x = x_prev, z = z, ω = ω, κ = κ)
         y ~ Normal(x_next, 1)
     end
 
-    @model function hgf(y)
+    TestUtils.@model function hgf(y)
 
         # Specify priors
 
@@ -569,17 +549,15 @@ end
     end
 end
 
-@testitem "Nested model structure but with constants" begin
+@testitem "Nested model structure but with constants" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
 
-    include("testutils.jl")
-
-    @model function submodel(y, x, z)
+    TestUtils.@model function submodel(y, x, z)
         y ~ Normal(x, z)
     end
 
-    @model function mainmodel(y)
+    TestUtils.@model function mainmodel(y)
         y ~ submodel(x = 1, z = 2)
     end
 
@@ -594,18 +572,16 @@ end
     @test length(collect(filter(as_variable(:z), model))) === 0
 end
 
-@testitem "Force create a new variable with the `new` syntax" begin
+@testitem "Force create a new variable with the `new` syntax" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, datalabel, NodeCreationOptions
 
-    include("testutils.jl")
-
-    @model function submodel(y, x_prev, x_next)
+    TestUtils.@model function submodel(y, x_prev, x_next)
         x_next ~ Normal(x_prev, 1)
         y ~ Normal(x_next, 1)
     end
 
-    @model function state_space_model(y)
+    TestUtils.@model function state_space_model(y)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
 
@@ -622,7 +598,7 @@ end
         return (y = y,)
     end
 
-    @model function state_space_model_with_new(y)
+    TestUtils.@model function state_space_model_with_new(y)
         x[1] ~ Normal(0, 1)
         y[1] ~ Normal(x[1], 1)
         for i in 2:length(y)
@@ -641,13 +617,11 @@ end
     @test length(collect(filter(as_variable(:y), model))) === 10
 end
 
-@testitem "Anonymous variables should not be created from arithmetical operations on pure constants" begin
+@testitem "Anonymous variables should not be created from arithmetical operations on pure constants" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, variable_nodes, getproperties, is_random, getname
 
-    include("testutils.jl")
-
-    @model function mv_iid_inverse_wishart_known_mean(y, d)
+    TestUtils.@model function mv_iid_inverse_wishart_known_mean(y, d)
         m ~ MvNormal(zeros(d + 1 - 1 + 1 - 1), Matrix(Diagonal(ones(d + 1 - 1 + 1 - 1))))
         C ~ InverseWishart(d + 1, Matrix(Diagonal(ones(d))))
 
@@ -685,12 +659,10 @@ end
     end
 end
 
-@testitem "Aliases in the model should be resolved automatically" begin
+@testitem "Aliases in the model should be resolved automatically" setup = [TestUtils] begin
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, fform, factor_nodes, getproperties
-
-    include("testutils.jl")
-
-    @model function aliases_for_normal(s4)
+    using Distributions
+    TestUtils.@model function aliases_for_normal(s4)
         r1 ~ Normal(μ = 1.0, τ = 1.0)
         r2 ~ Normal(m = r1, γ = 1.0)
         r3 ~ Normal(mean = r2, σ⁻² = 1.0)
@@ -714,27 +686,25 @@ end
     # The manual search however does indicate that the aliases are resolved and `Normal` node has NOT been created (as intended)
     @test length(collect(filter(label -> fform(getproperties(model[label])) === Normal, collect(factor_nodes(model))))) === 0
     # Double check the number of `NormalMeanPrecision` and `NormalMeanVariance` nodes
-    @test length(collect(filter(as_node(NormalMeanPrecision), model))) === 7
-    @test length(collect(filter(as_node(NormalMeanVariance), model))) === 4
+    @test length(collect(filter(as_node(TestUtils.NormalMeanPrecision), model))) === 7
+    @test length(collect(filter(as_node(TestUtils.NormalMeanVariance), model))) === 4
 end
 
-@testitem "Submodels can be used in the keyword arguments" begin
+@testitem "Submodels can be used in the keyword arguments" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, variable_nodes, getproperties, is_random, getname
 
-    include("testutils.jl")
-
-    @model function prod_distributions(a, b, c)
+    TestUtils.@model function prod_distributions(a, b, c)
         a ~ b * c
     end
 
     # The test tests if we can write `μ = prod_distributions(b = A, c = x_prev)`
-    @model function state_transition_with_submodel(y_next, x_next, x_prev, A, B, P, Q)
+    TestUtils.@model function state_transition_with_submodel(y_next, x_next, x_prev, A, B, P, Q)
         x_next ~ MvNormal(μ = prod_distributions(b = A, c = x_prev), Σ = Q)
         y_next ~ MvNormal(μ = prod_distributions(b = B, c = x_next), Σ = P)
     end
 
-    @model function multivariate_lgssm_model_with_several_submodels(y, mean0, cov0, A, B, Q, P)
+    TestUtils.@model function multivariate_lgssm_model_with_several_submodels(y, mean0, cov0, A, B, Q, P)
         x_prev ~ MvNormal(μ = mean0, Σ = cov0)
         for i in eachindex(y)
             x[i] ~ state_transition_with_submodel(y_next = y[i], x_prev = x_prev, A = A, B = B, P = P, Q = Q)
@@ -764,13 +734,11 @@ end
     @test length(collect(filter(as_variable(:x), model))) === 10
 end
 
-@testitem "Using distribution objects as priors" begin
+@testitem "Using distribution objects as priors" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
-    include("testutils.jl")
-
-    @model function coin_model_priors(y, prior)
+    TestUtils.@model function coin_model_priors(y, prior)
         θ ~ prior
         for i in eachindex(y)
             y[i] ~ Bernoulli(θ)
@@ -788,18 +756,18 @@ end
     @test length(collect(filter(as_node(prior), model))) === 1
 end
 
-@testitem "Model that passes a slice to child model" begin
+@testitem "Model that passes a slice to child model" setup = [TestUtils] begin
     using GraphPPL
-    include("testutils.jl")
+    using Distributions
 
-    @model function mixed_v(y, v)
+    TestUtils.@model function mixed_v(y, v)
         for i in 1:3
             v[i] ~ Normal(0, 1)
         end
         y ~ Normal(v[1], v[2])
     end
 
-    @model function mixed_m()
+    TestUtils.@model function mixed_m()
         local m
         for i in 1:3
             for j in 1:3
@@ -815,17 +783,16 @@ end
     @test haskey(context[mixed_v, 1], :v)
 end
 
-@testitem "Model that constructs a new vector to pass to children" begin
-    include("testutils.jl")
-
-    @model function mixed_v(y, v)
+@testitem "Model that constructs a new vector to pass to children" setup = [TestUtils] begin
+    using Distributions
+    TestUtils.@model function mixed_v(y, v)
         for i in 1:3
             v[i] ~ Normal(0, 1)
         end
         y ~ Normal(v[1], v[2])
     end
 
-    @model function mixed_m()
+    TestUtils.@model function mixed_m()
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
@@ -838,17 +805,16 @@ end
     @test haskey(context[mixed_v, 1], :v)
 end
 
-@testitem "Model that constructs a new matrix to pass to children" begin
-    include("testutils.jl")
-
-    @model function mixed_v(y, v)
+@testitem "Model that constructs a new matrix to pass to children" setup = [TestUtils] begin
+    using Distributions
+    TestUtils.@model function mixed_v(y, v)
         for i in 1:3
             v[i] ~ Normal(0, 1)
         end
         y ~ Normal(v[1], v[3])
     end
 
-    @model function mixed_m()
+    TestUtils.@model function mixed_m()
         v1 ~ Normal(0, 1)
         v2 ~ Normal(0, 1)
         v3 ~ Normal(0, 1)
@@ -861,13 +827,11 @@ end
     @test haskey(context[mixed_v, 1], :v)
 end
 
-@testitem "Model creation should throw if a `~` using with a constant on RHS" begin
+@testitem "Model creation should throw if a `~` using with a constant on RHS" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
-    include("testutils.jl")
-
-    @model function broken_beta_bernoulli(y)
+    TestUtils.@model function broken_beta_bernoulli(y)
         # This should throw an error since `Matrix` is not defined as a proper node
         θ ~ Matrix([1.0 0.0; 0.0 1.0])
         for i in eachindex(y)
@@ -882,13 +846,11 @@ end
     end
 end
 
-@testitem "Condition based initialization of variables" begin
+@testitem "Condition based initialization of variables" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model
 
-    include("testutils.jl")
-
-    @model function condition_based_initialization(condition)
+    TestUtils.@model function condition_based_initialization(condition)
         if condition
             y ~ Normal(0.0, 1.0)
         else
@@ -909,23 +871,21 @@ end
     @test length(collect(filter(as_node(Gamma), model2))) == 1
 end
 
-@testitem "Attempt to trick Julia's parser" begin
+@testitem "Attempt to trick Julia's parser" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model
-
-    include("testutils.jl")
 
     # We use `@isdefined` macro inside the macro generator code to check if the variable is defined
     # The idea of this test is to double check that `@model` parser and Julia in particular 
     # does not confuse the undefined `y` variable with the `y` variable defined in the model
-    @model function tricky_model_1()
+    TestUtils.@model function tricky_model_1()
         b ~ Normal(0.0, 1.0)
         if false
             b = nothing
         end
     end
 
-    @model function tricky_model_2()
+    TestUtils.@model function tricky_model_2()
         b ~ Normal(0.0, 1.0)
         if false
             b = nothing
@@ -941,7 +901,7 @@ end
 
     global yy = 1
 
-    @model function tricky_model_3()
+    TestUtils.@model function tricky_model_3()
         yy ~ Normal(0.0, 1.0)
         # This is technically not allowed in real models 
         # However we want the `@model` macro to instantiate a different `yy` variable 
@@ -962,7 +922,7 @@ end
 
     # We double check though that the `@model` macro may depend on global variables if needed
     global boolean = true
-    @model function model_that_uses_global_variables_1()
+    TestUtils.@model function model_that_uses_global_variables_1()
         if boolean
             b ~ Normal(0.0, 1.0)
         else
@@ -978,7 +938,7 @@ end
 
     global m = 0.0
     global v = 1.0
-    @model function model_that_uses_global_variables_2()
+    TestUtils.@model function model_that_uses_global_variables_2()
         b ~ Normal(m, v)
     end
 
@@ -995,14 +955,12 @@ end
     @test GraphPPL.is_constant(nodeneighborsproperties[3]) && GraphPPL.value(nodeneighborsproperties[3]) === v
 end
 
-@testitem "Broadcasting in the model" begin
+@testitem "Broadcasting in the model" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model
     using LinearAlgebra
 
-    include("testutils.jl")
-
-    @model function linreg()
+    TestUtils.@model function linreg()
         x .~ Normal(fill(0, 10), 1)
         a .~ Normal(fill(0, 10), 1)
         b .~ Normal(fill(0, 10), 1)
@@ -1014,7 +972,7 @@ end
     @test length(collect(filter(as_node(sum), model))) == 10
     @test length(collect(filter(as_node(prod), model))) == 10
 
-    @model function nested_normal()
+    TestUtils.@model function nested_normal()
         x .~ Normal(fill(0, 10), 1)
         a .~ Gamma(fill(0, 10), 1)
         b .~ Normal(Normal.(Normal.(x, 1), a), 1)
@@ -1027,7 +985,7 @@ end
     function foo end
     GraphPPL.NodeBehaviour(::TestUtils.TestGraphPPLBackend, ::typeof(foo)) = GraphPPL.Stochastic()
 
-    @model function emtpy_broadcast()
+    TestUtils.@model function emtpy_broadcast()
         x .~ Normal(fill(0, 10), 1)
         x .~ foo()
     end
@@ -1035,7 +993,7 @@ end
     model = create_model(emtpy_broadcast())
     @test length(collect(filter(as_node(foo), model))) == 10
 
-    @model function coin_toss(x)
+    TestUtils.@model function coin_toss(x)
         π ~ Beta(1, 1)
         x .~ Bernoulli(π)
     end
@@ -1045,20 +1003,18 @@ end
     @test length(collect(filter(as_node(Bernoulli), model))) == 10
     @test length(collect(filter(as_node(Beta), model))) == 1
 
-    @model function weird_broadcast()
+    TestUtils.@model function weird_broadcast()
         π ~ Beta(1, 1)
         z .~ Bernoulli(Normal.(0, 1))
     end
     @test_throws ErrorException local model = create_model(weird_broadcast())
 end
 
-@testitem "Broadcasting with datalabels" begin
+@testitem "Broadcasting with datalabels" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel, MissingCollection
 
-    include("testutils.jl")
-
-    @model function linear_regression_broadcasted(x, y)
+    TestUtils.@model function linear_regression_broadcasted(x, y)
         a ~ Normal(mean = 0.0, var = 1.0)
         b ~ Normal(mean = 0.0, var = 1.0)
         # Variance over-complicated for a purpose of checking that this expressions are allowed, it should be equal to `1.0`
@@ -1106,7 +1062,7 @@ end
         )
     end
 
-    @model function beta_bernoulli_broadcasted(x)
+    TestUtils.@model function beta_bernoulli_broadcasted(x)
         θ ~ Beta(1, 1)
         x .~ Bernoulli(θ)
     end
@@ -1121,13 +1077,11 @@ end
     @test length(collect(filter(as_node(Beta), model))) == 1
 end
 
-@testitem "Ambiguous broadcasting should give a descriptive error" begin
+@testitem "Ambiguous broadcasting should give a descriptive error" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions
 
-    include("testutils.jl")
-
-    @model function faulty_beta_bernoulli_broadcasted()
+    TestUtils.@model function faulty_beta_bernoulli_broadcasted()
         θ ~ Beta(1, 1)
         x .~ Bernoulli(θ)
     end
@@ -1138,13 +1092,11 @@ end
     )
 end
 
-@testitem "Broadcasting over ranges" begin
+@testitem "Broadcasting over ranges" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
     import GraphPPL: create_model, getproperties, neighbor_data, is_random, is_constant, value
 
-    include("testutils.jl")
-
-    @model function broadcasting_over_range()
+    TestUtils.@model function broadcasting_over_range()
         # Should create 10 `x` variables
         x .~ Normal(ones(10), 1)
 
@@ -1175,13 +1127,11 @@ end
     end
 end
 
-@testitem "Complex ranges with `begin`/`end` should be supported" begin
+@testitem "Complex ranges with `begin`/`end` should be supported" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, getproperties, neighbor_data, is_constant, value
 
-    include("testutils.jl")
-
-    @model function complex_ranges_with_begin_end_1()
+    TestUtils.@model function complex_ranges_with_begin_end_1()
         c = [1.0, 2.0]
         b[1] ~ Normal(0.0, c[begin + 1])
         b[2] ~ Normal(0.0, c[end - 1])
@@ -1201,22 +1151,22 @@ end
         @test is_constant(c_for_y_2) && value(c_for_y_2) === 1.0
     end
 
-    @model function complex_ranges_with_begin_end_2()
+    TestUtils.@model function complex_ranges_with_begin_end_2()
         c = [1.0, 2.0]
         b .~ Normal(0.0, c[1:(end - 1 + 1)])
     end
 
-    @model function complex_ranges_with_begin_end_3()
+    TestUtils.@model function complex_ranges_with_begin_end_3()
         c = [1.0, 2.0]
         b .~ Normal(0.0, c[(begin + 1 - 1):2])
     end
 
-    @model function complex_ranges_with_begin_end_4()
+    TestUtils.@model function complex_ranges_with_begin_end_4()
         c = [1.0, 2.0]
         b .~ Normal(0.0, c[(begin + 1 - 1):(end - 1 + 1)])
     end
 
-    @model function complex_ranges_with_begin_end_5()
+    TestUtils.@model function complex_ranges_with_begin_end_5()
         c = [1.0, 2.0]
         b .~ Normal(0.0, c[begin:end])
     end
@@ -1237,14 +1187,12 @@ end
     end
 end
 
-@testitem "Anonymous variables" begin
-    using GraphPPL
+@testitem "Anonymous variables" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, VariableNameAnonymous
 
-    include("testutils.jl")
-
     # Test whether generic anonymous variables are created correctly
-    @model function anonymous_variables()
+    TestUtils.@model function anonymous_variables()
         b ~ Normal(Normal(0, 1), 1)
     end
 
@@ -1256,7 +1204,7 @@ end
 
     function foo end
 
-    @model function det_anonymous_variables()
+    TestUtils.@model function det_anonymous_variables()
         b .~ Bernoulli(fill(0.5, 10))
         x ~ foo(foo(in = b))
     end
@@ -1266,7 +1214,10 @@ end
     @test length(collect(filter(as_variable(VariableNameAnonymous), model))) == 1
 end
 
-@testitem "data/const variables should automatically fold when used with anonymous variable and deterministic relationship" begin
+@testitem "data/const variables should automatically fold when used with anonymous variable and deterministic relationship" setup = [
+    TestUtils
+] begin
+    using Distributions
     import GraphPPL:
         create_model,
         getorcreate!,
@@ -1279,13 +1230,11 @@ end
         value,
         VariableNameAnonymous
 
-    include("testutils.jl")
-
-    @model function fold_datavars_1(f, a, b)
+    TestUtils.@model function fold_datavars_1(f, a, b)
         y ~ Normal(f(a, b), 0.5)
     end
 
-    @model function fold_datavars_2(f, a, b)
+    TestUtils.@model function fold_datavars_2(f, a, b)
         y ~ Normal(f(f(a, b), f(a, b)), 0.5)
     end
 
@@ -1440,18 +1389,16 @@ end
     end
 end
 
-@testitem "return value from the `@model` should be saved in the Context" begin
+@testitem "return value from the `@model` should be saved in the Context" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, datalabel, getorcreate!, NodeCreationOptions, returnval, getcontext, children
 
-    include("testutils.jl")
-
-    @model function submodel_with_return(y, x, z, subval)
+    TestUtils.@model function submodel_with_return(y, x, z, subval)
         y ~ Normal(x, z)
         return subval
     end
 
-    @model function model_with_return(y, val)
+    TestUtils.@model function model_with_return(y, val)
         x .~ Normal(ones(10), ones(10))
         z .~ Normal(ones(10), ones(10))
 
@@ -1489,13 +1436,11 @@ end
     end
 end
 
-@testitem "return value from the model must materialize `VariableRef`" begin
+@testitem "return value from the model must materialize `VariableRef`" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, datalabel, getorcreate!, NodeCreationOptions, returnval, getcontext, NodeLabel
 
-    include("testutils.jl")
-
-    @model function model_with_return_of_var(y, x, z, val)
+    TestUtils.@model function model_with_return_of_var(y, x, z, val)
         y ~ Normal(x, z)
         return (y, val)
     end
@@ -1511,12 +1456,11 @@ end
     @test returnval(toplevelcontext)[2] === 3
 end
 
-@testitem "`end` index should be allowed in the `~` operator" begin
+@testitem "`end` index should be allowed in the `~` operator" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model
 
-    include("testutils.jl")
-
-    @model function begin_end_in_rhs()
+    TestUtils.@model function begin_end_in_rhs()
         s[1] ~ Beta(0.0, 1.0)
         b[1] ~ Normal(s[begin], 1.0)
         b[2] ~ Normal(s[end], 1.0)
@@ -1528,7 +1472,7 @@ end
         @test length(collect(filter(as_variable(:s), model))) == 1
     end
 
-    @model function begin_end_in_lhs()
+    TestUtils.@model function begin_end_in_lhs()
         s[1] ~ Beta(0.0, 1.0)
         s[begin] ~ Normal(0.0, 1.0)
         s[end] ~ Normal(0.0, 1.0)
@@ -1541,12 +1485,11 @@ end
     end
 end
 
-@testitem "Use local scoped variable in two different scopes" begin
+@testitem "Use local scoped variable in two different scopes" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model
 
-    include("testutils.jl")
-
-    @model function scope_twice()
+    TestUtils.@model function scope_twice()
         for i in 1:5
             tmp[i] ~ Normal(0, 1)
         end
@@ -1561,12 +1504,11 @@ end
     end
 end
 
-@testitem "datalabel should support empty indices if array is passed" begin
+@testitem "datalabel should support empty indices if array is passed" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
-    include("testutils.jl")
-
-    @model function foo(y)
+    TestUtils.@model function foo(y)
         x ~ MvNormal([1, 1], [1 0.0; 0.0 1.0])
         y ~ MvNormal(x, [1.0 0.0; 0.0 1.0])
     end
@@ -1580,38 +1522,37 @@ end
     @test length(collect(filter(as_variable(:y), model))) == 1
 end
 
-@testitem "Node arguments must be unique" begin
+@testitem "Node arguments must be unique" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, getorcreate!, NodeCreationOptions, datalabel
 
-    include("testutils.jl")
-
-    @model function simple_model_duplicate_1()
+    TestUtils.@model function simple_model_duplicate_1()
         x ~ Normal(0.0, 1.0)
         b ~ x + x
     end
 
-    @model function simple_model_duplicate_2()
+    TestUtils.@model function simple_model_duplicate_2()
         x ~ Normal(0.0, 1.0)
         b ~ x + x + x
     end
 
-    @model function simple_model_duplicate_3()
+    TestUtils.@model function simple_model_duplicate_3()
         x ~ Normal(0.0, 1.0)
         b ~ Normal(x, x)
     end
 
-    @model function simple_model_duplicate_4()
+    TestUtils.@model function simple_model_duplicate_4()
         x ~ Normal(0.0, 1.0)
         hide_x = x
         b ~ Normal(hide_x, x)
     end
 
-    @model function simple_model_duplicate_5()
+    TestUtils.@model function simple_model_duplicate_5()
         x ~ Normal(0.0, 1.0)
         x ~ Normal(x, 1)
     end
 
-    @model function simple_model_duplicate_6()
+    TestUtils.@model function simple_model_duplicate_6()
         x ~ Normal(0.0, 1.0)
         hide_x = x
         hide_x ~ Normal(x, 1)
@@ -1630,7 +1571,7 @@ end
         )
     end
 
-    @model function my_model(obs, N, sigma)
+    TestUtils.@model function my_model(obs, N, sigma)
         local x
         for i in 1:N
             x[i] ~ Bernoulli(0.5)
@@ -1650,7 +1591,7 @@ end
         return (obs = obs,)
     end
 
-    @model function my_model(obs, N, sigma)
+    TestUtils.@model function my_model(obs, N, sigma)
         local x
         for i in 1:N
             x[i] ~ Bernoulli(0.5)
@@ -1672,12 +1613,11 @@ end
     end
 end
 
-@testitem "Neural network model" begin
+@testitem "Neural network model" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, datalabel, NodeCreationOptions
 
-    include("testutils.jl")
-
-    @model function neural_dot(out, in, w)
+    TestUtils.@model function neural_dot(out, in, w)
         c[1] ~ in[1] * w[1]
         for i in 2:length(in)
             c[i] ~ c[i - 1] + in[i] * w[i]
@@ -1685,7 +1625,7 @@ end
         out := identity(c[end])
     end
 
-    @model function neuron(in, out)
+    TestUtils.@model function neuron(in, out)
         local w
         for i in 1:length(in)
             w[i] ~ Normal(0.0, 1.0)
@@ -1693,13 +1633,13 @@ end
         out ~ neural_dot(in = in, w = w)
     end
 
-    @model function neural_network_layer(in, out, n)
+    TestUtils.@model function neural_network_layer(in, out, n)
         for i in 1:n
             out[i] ~ neuron(in = in)
         end
     end
 
-    @model function neural_net(in, out)
+    TestUtils.@model function neural_net(in, out)
         h1 ~ neural_network_layer(in = in, n = 10)
         h2 ~ neural_network_layer(in = h1, n = 16)
         out ~ neural_network_layer(in = h2, n = 2)
@@ -1716,11 +1656,11 @@ end
     @test length(collect(filter(as_variable(:out), model))) == 2
 end
 
-@testitem "Comparing variables throws warning" begin
+@testitem "Comparing variables throws warning" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, getorcreate!
 
-    include("testutils.jl")
-    @model function test_model(y)
+    TestUtils.@model function test_model(y)
         x ~ Normal(0.0, 1.0)
         if x == 0
             z ~ Normal(0.0, 1.0)
@@ -1733,7 +1673,7 @@ end
         test_model(y = 1)
     )
 
-    @model function test_model(y)
+    TestUtils.@model function test_model(y)
         x ~ Normal(0.0, 1.0)
         if x > 0
             z ~ Normal(0.0, 1.0)
@@ -1745,7 +1685,7 @@ end
     @test_throws "Comparing Factor Graph variable `x` with a value. This is not possible as the value of `x` is not known at model construction time." create_model(
         test_model(y = 1)
     )
-    @model function test_model(y)
+    TestUtils.@model function test_model(y)
         x ~ Normal(0.0, 1.0)
         if x < 0
             z ~ Normal(0.0, 1.0)
@@ -1758,7 +1698,7 @@ end
         test_model(y = 1)
     )
 
-    @model function test_model(y)
+    TestUtils.@model function test_model(y)
         x ~ Normal(0.0, 1.0)
         if 0 >= x
             z ~ Normal(0.0, 1.0)
@@ -1772,15 +1712,14 @@ end
     )
 end
 
-@testitem "Multivariate input to function" begin
-    using GraphPPL
+@testitem "Multivariate input to function" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: create_model, getorcreate!, datalabel
 
-    include("testutils.jl")
     function dot end
     function relu end
 
-    @model function neuron(in, out)
+    TestUtils.@model function neuron(in, out)
         local w
         for i in 1:(length(in))
             w[i] ~ Normal(0.0, 1.0)
@@ -1790,13 +1729,13 @@ end
         out := relu(unactivated)
     end
 
-    @model function neural_network_layer(in, out, n)
+    TestUtils.@model function neural_network_layer(in, out, n)
         for i in 1:n
             out[i] ~ neuron(in = in)
         end
     end
 
-    @model function neural_net(in, out)
+    TestUtils.@model function neural_net(in, out)
         local softin
         for i in 1:length(in)
             softin[i] ~ Normal(in[i], 1.0)
@@ -1816,8 +1755,8 @@ end
     @test length(collect(filter(as_variable(:in), model))) == 3
 end
 
-@testitem "Constraints over nested models" begin
-    using GraphPPL
+@testitem "Constraints over nested models" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL:
         create_model,
         getorcreate!,
@@ -1829,14 +1768,12 @@ end
         hasextra,
         getextra
 
-    include("testutils.jl")
-
-    @model function inner_model(x, y)
+    TestUtils.@model function inner_model(x, y)
         θ ~ Normal(0.0, 1.0)
         y ~ Normal(x, θ)
     end
 
-    @model function outer_model(y)
+    TestUtils.@model function outer_model(y)
         x ~ Normal(0.0, 1.0)
         y ~ inner_model(x = x)
     end
@@ -1853,7 +1790,7 @@ end
     end
 
     context = GraphPPL.getcontext(model)
-    node = context[inner_model, 1][NormalMeanVariance, 2]
+    node = context[inner_model, 1][TestUtils.NormalMeanVariance, 2]
     @test hasextra(model[node], :factorization_constraint_indices)
     @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
 
@@ -1869,17 +1806,17 @@ end
     end
 
     context = GraphPPL.getcontext(model)
-    node = context[inner_model, 1][NormalMeanVariance, 2]
+    node = context[inner_model, 1][TestUtils.NormalMeanVariance, 2]
     @test hasextra(model[node], :factorization_constraint_indices)
     @test getextra(model[node], :factorization_constraint_indices) == ([1], [2], [3])
 end
 
-@testitem "Inference with DataArray" begin
+@testitem "Inference with DataArray" setup = [TestUtils] begin
     using Distributions
     using GraphPPL
     import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
 
-    @model function data_array_model(y)
+    TestUtils.@model function data_array_model(y)
         σ ~ Gamma(1.0, 1.0)
         for i in 1:10
             y[i + 10] ~ Normal(y[i], σ)
@@ -1901,33 +1838,33 @@ end
     end
 end
 
-@testitem "Splatting in the `~` operator" begin
+@testitem "Splatting in the `~` operator" setup = [TestUtils] begin
     using GraphPPL
     using Distributions
-    import GraphPPL: create_model, datalabel, NodeCreationOptions, @model
+    import GraphPPL: create_model, datalabel, NodeCreationOptions
 
-    @model function splatting_model_1(y)
+    TestUtils.@model function splatting_model_1(y)
         a ~ Normal(0.0, 1.0)
         b ~ InverseGamma(1.0, 1.0)
         x = [a, b]
         y ~ Normal(x...)
     end
 
-    @model function splatting_model_2(y)
+    TestUtils.@model function splatting_model_2(y)
         a ~ Normal(0.0, 1.0)
         b ~ InverseGamma(1.0, 1.0)
         x = [b]
         y ~ Normal(a, x...)
     end
 
-    @model function splatting_model_3(y)
+    TestUtils.@model function splatting_model_3(y)
         a ~ Normal(0.0, 1.0)
         b ~ InverseGamma(1.0, 1.0)
         x = [a]
         y ~ Normal(x..., b)
     end
 
-    @model function splatting_model_4(y)
+    TestUtils.@model function splatting_model_4(y)
         a ~ Normal(0.0, 1.0)
         b ~ InverseGamma(1.0, 1.0)
         x_1 = [a]
@@ -1950,7 +1887,7 @@ end
         a = context[:a]
         b = context[:b]
         y = context[:y]
-        normal_node = context[Normal, 2]
+        normal_node = context[TestUtils.NormalMeanVariance, 2]
         @test a ∈ GraphPPL.neighbors(model, normal_node)
         @test b ∈ GraphPPL.neighbors(model, normal_node)
         @test y ∈ GraphPPL.neighbors(model, normal_node)
@@ -1959,7 +1896,7 @@ end
         @test GraphPPL.getname(model[normal_node, y]) == :out
     end
 
-    @model function splatting_model_5(y)
+    TestUtils.@model function splatting_model_5(y)
         x[1] ~ Normal(0.0, 1.0)
         x[2] ~ InverseGamma(1.0, 1.0)
         y ~ Normal(x...)
@@ -1976,7 +1913,7 @@ end
     context = GraphPPL.getcontext(model)
     x = context[:x]
     y = context[:y]
-    normal_node = context[Normal, 2]
+    normal_node = context[TestUtils.NormalMeanVariance, 2]
     @test x[1] ∈ GraphPPL.neighbors(model, normal_node)
     @test x[2] ∈ GraphPPL.neighbors(model, normal_node)
     @test y ∈ GraphPPL.neighbors(model, normal_node)
@@ -1985,12 +1922,12 @@ end
     @test GraphPPL.getname(model[normal_node, y]) == :out
 end
 
-@testitem "Multiple indices in rhs statement" begin
+@testitem "Multiple indices in rhs statement" setup = [TestUtils] begin
     using Distributions
     using GraphPPL
-    import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
+    import GraphPPL: create_model, datalabel, NodeCreationOptions, neighbors
 
-    @model function multiple_indices(prior_params, y)
+    TestUtils.@model function multiple_indices(prior_params, y)
         x ~ Normal(prior_params[1][1], prior_params[1][2])
         y ~ Normal(x, 1.0)
     end
@@ -2004,12 +1941,12 @@ end
     @test length(collect(filter(as_variable(:x), model))) == 1
 end
 
-@testitem "Create empty array" begin
+@testitem "Create empty array" setup = [TestUtils] begin
     using Distributions
     using GraphPPL
-    import GraphPPL: @model, create_model, datalabel, NodeCreationOptions, neighbors
+    import GraphPPL: create_model, datalabel, NodeCreationOptions, neighbors
 
-    @model function empty_array_model()
+    TestUtils.@model function empty_array_model()
         x = []
         @test isempty(x)
     end

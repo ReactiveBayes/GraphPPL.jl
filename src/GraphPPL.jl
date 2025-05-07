@@ -1,20 +1,96 @@
 module GraphPPL
 
 using MacroTools
+using Static
+using NamedTupleTools
+using Dictionaries
+using BipartiteFactorGraphs
+using BipartiteFactorGraphs.Graphs
+using MetaGraphsNext, MetaGraphsNext.JLD2
+using BitSetTuples
 
-include("resizable_array.jl")
-include("plugins_collection.jl")
+import Base: put!, haskey, getindex, getproperty, setproperty!, setindex!, vec, iterate, showerror, Exception
+import BipartiteFactorGraphs.Graphs: neighbors, degree
 
-include("graph_engine.jl")
-include("model_generator.jl")
-include("model_macro.jl")
+export as_node, as_variable, as_context, savegraph, loadgraph
 
+include("core/abstract_types.jl")
+
+# Core components - these have minimal dependencies
+include("core/errors.jl")
+include("core/functional_indices.jl")
+include("core/node_types.jl")
+include("core/resizable_array.jl")
+include("graph/node_labels.jl")
+include("plugins/plugins_collection.jl")
+
+# Export from core
+export NotImplementedError
+export FunctionalIndex, FunctionalRange
+export AbstractBackend, AbstractInterfaces, AbstractInterfaceAliases
+
+# Export basic node/edge labels
+export NodeLabel, EdgeLabel, FactorID
+
+# Basic model structure - needed for context and node creation
+include("model/indexed_variable.jl")
+include("model/proxy_label.jl")
+include("model/context.jl")
+
+# Model creation components - needed before node properties
+include("model/node_creation.jl")
+
+# Node handling - now has proper dependencies
+include("nodes/node_properties.jl")
+include("nodes/node_materialization.jl")
+
+# Graph components - uses node properties
+include("graph/interfaces.jl")
+include("graph/node_data.jl")
+
+# Export from graph
+export NodeData, getcontext, getproperties, getextra, is_factor, is_variable
+
+# Export from nodes
+export VariableNodeProperties, FactorNodeProperties
+export VariableKindRandom, VariableKindData, VariableKindConstant, VariableKindUnknown
+export AnonymousVariable
+
+# Export from model basics
+export Model, NodeCreationOptions, Context
+
+# Additional interface types
+export StaticInterfaces, StaticInterfaceAliases
+
+# Remaining model components
+include("model/model.jl")
+include("model/model_filtering.jl")
+include("model/var_dict.jl")
+include("model/variable_ref.jl")
+
+# Export additional model components
+export VariableRef, IndexedVariable
+export path_to_root, factor_nodes, individual_variables, vector_variables, tensor_variables
+export VarDict
+export ProxyLabel, unroll
+
+include("utils/macro_utils.jl")
+
+# Plugins
+include("plugins/plugin_processing.jl")
 include("plugins/node_created_by.jl")
 include("plugins/node_id.jl")
 include("plugins/node_tag.jl")
 include("plugins/variational_constraints/variational_constraints.jl")
 include("plugins/meta/meta.jl")
 
+# Model generation
+include("generators/model_generator.jl")
+
+# Macros
+include("macros/model_macro.jl")
+
+# Backend
 include("backends/default.jl")
 
 """

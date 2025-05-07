@@ -1,4 +1,4 @@
-@testitem "NodeTagPlugin: model with the plugin" begin
+@testitem "NodeTagPlugin: model with the plugin" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -13,9 +13,7 @@
         getextra,
         by_nodetag
 
-    include("../testutils.jl")
-
-    model = create_test_model(plugins = PluginsCollection(NodeTagPlugin()))
+    model = TestUtils.create_test_model(plugins = PluginsCollection(NodeTagPlugin()))
     ctx = getcontext(model)
 
     @testset begin

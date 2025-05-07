@@ -1,7 +1,5 @@
-@testitem "Model visualizations with GraphViz: generate DOT and save to file" begin
+@testitem "Model visualizations with GraphViz: generate DOT and save to file" setup = [TestUtils] begin
     using GraphPPL, Distributions, GraphViz
-
-    include("../testutils.jl")
 
     # test params for layout and strategy combinations
     layouts = ["dot", "neato"]
@@ -12,10 +10,8 @@
         mkdir(test_imgs_path)
     end
 
-    import .TestUtils.ModelZoo as A
-
     # for all models in the models zoo
-    for model in TestUtils.ModelZoo.ModelsInTheZooWithoutArguments
+    for model in TestUtils.ModelsInTheZooWithoutArguments
         # for each combination of layout and strategy
         for gv_layout in layouts
             for gv_strategy in strategies
