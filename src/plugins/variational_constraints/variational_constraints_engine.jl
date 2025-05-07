@@ -818,8 +818,8 @@ function resolve(model::Model, context::Context, constraint::FactorizationConstr
     return ResolvedFactorizationConstraint(ResolvedConstraintLHS(lhs), rhs)
 end
 
-function is_factorized(nodedata::NodeData)
-    properties = getproperties(nodedata)::VariableNodeProperties
+function is_factorized(nodedata::AbstractNodeData)
+    properties = getproperties(nodedata)
     if is_constant(properties)
         return true
     end
