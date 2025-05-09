@@ -1,26 +1,27 @@
 """
-    BackendInterface
+    FactorGraphBackendInterface
 
 Abstract interface for backend-specific operations in GraphPPL.jl.
 This defines the behavior that any backend implementation must support,
 allowing for different computational backends to be integrated with the core
 modeling framework.
 """
-abstract type BackendInterface end
+abstract type FactorGraphBackendInterface end
 
 """
-    aliases(backend::BackendInterface, fform)
+    aliases(backend::FactorGraphBackendInterface, fform)
 
 Returns a collection of aliases for `fform` specific to the `backend`.
 This function must be implemented by concrete backend subtypes.
 """
 function aliases end
 
-aliases(backend::BackendInterface, fform) = error("Backend $(typeof(backend)) must implement a method for `aliases` for `$(fform)`.")
-aliases(model::ModelInterface, fform::F) where {F} = aliases(get_backend(model), fform)
+aliases(backend::B, fform) where {B <: FactorGraphBackendInterface} =
+    error("Backend $(typeof(backend)) must implement a method for `aliases` for `$(fform)`.")
+aliases(model::FactorGraphModelInterface, fform::F) where {F} = aliases(get_backend(model), fform)
 
 """
-    factor_alias(backend::BackendInterface, fform, interfaces)
+    factor_alias(backend::FactorGraphBackendInterface, fform, interfaces)
 
 Returns the specific alias for a given `fform` and `interfaces` combination,
 tailored to the provided `backend`.
@@ -28,12 +29,12 @@ This function must be implemented by concrete backend subtypes.
 """
 function factor_alias end
 
-factor_alias(backend::BackendInterface, fform, interfaces) =
+factor_alias(backend::B, fform, interfaces) where {B <: FactorGraphBackendInterface} =
     error("The backend $(typeof(backend)) must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
-factor_alias(model::ModelInterface, fform::F, interfaces) where {F} = factor_alias(get_backend(model), fform, interfaces)
+factor_alias(model::FactorGraphModelInterface, fform::F, interfaces) where {F} = factor_alias(get_backend(model), fform, interfaces)
 
 """
-    interfaces(backend::BackendInterface, fform, ninterfaces)
+    interfaces(backend::FactorGraphBackendInterface, fform, ninterfaces)
 
 Returns the interface specification (e.g., names, types) for a given `fform`
 and a specific number of interfaces `ninterfaces`, according to the `backend`.
@@ -42,25 +43,25 @@ This function must be implemented by concrete backend subtypes.
 """
 function interfaces end
 
-interfaces(backend::BackendInterface, fform, ninterfaces) = error(
+interfaces(backend::B, fform, ninterfaces) where {B <: FactorGraphBackendInterface} = error(
     "The backend $(typeof(backend)) must implement a method for `interfaces` for `$(fform)` and `$(ninterfaces)` number of interfaces."
 )
-interfaces(model::ModelInterface, fform::F, ninterfaces) where {F} = interfaces(get_backend(model), fform, ninterfaces)
+interfaces(model::FactorGraphModelInterface, fform::F, ninterfaces) where {F} = interfaces(get_backend(model), fform, ninterfaces)
 
 """
-    interface_aliases(backend::BackendInterface, fform)
+    interface_aliases(backend::FactorGraphBackendInterface, fform)
 
 Returns the aliases for interfaces of a given `fform`, specific to the `backend`.
 This function must be implemented by concrete backend subtypes.
 """
 function interface_aliases end
 
-interface_aliases(backend::BackendInterface, fform) =
+interface_aliases(backend::B, fform) where {B <: FactorGraphBackendInterface} =
     error("The backend $(typeof(backend)) must implement a method for `interface_aliases` for `$(fform)`.")
-interface_aliases(model::ModelInterface, fform::F) where {F} = interface_aliases(get_backend(model), fform)
+interface_aliases(model::FactorGraphModelInterface, fform::F) where {F} = interface_aliases(get_backend(model), fform)
 
 """
-    default_parametrization(backend::BackendInterface, nodetype, fform, rhs)
+    default_parametrization(backend::FactorGraphBackendInterface, nodetype, fform, rhs)
 
 Returns the default parametrization for a given `fform` and `rhs` (right-hand side of an expression),
 considering the `nodetype` and specific `backend` logic.
@@ -68,27 +69,27 @@ This function must be implemented by concrete backend subtypes.
 """
 function default_parametrization end
 
-default_parametrization(backend::BackendInterface, nodetype, fform, rhs) = error(
+default_parametrization(backend::B, nodetype, fform, rhs) where {B <: FactorGraphBackendInterface} = error(
     "The backend $(typeof(backend)) must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`."
 )
-default_parametrization(model::ModelInterface, nodetype, fform::F, rhs) where {F} =
+default_parametrization(model::FactorGraphModelInterface, nodetype, fform::F, rhs) where {F} =
     default_parametrization(get_backend(model), nodetype, fform, rhs)
 
 """
-    instantiate(backend_type::Type{<:BackendInterface})
+    instantiate(backend_type::Type{<:FactorGraphBackendInterface})
 
 Instantiates a default backend object of the specified `backend_type`.
-This function must be implemented for each concrete backend type that subtypes `BackendInterface`.
+This function must be implemented for each concrete backend type that subtypes `FactorGraphBackendInterface`.
 
 # Arguments
-- `backend_type::Type{<:BackendInterface}`: The type of the backend to instantiate.
+- `backend_type::Type{<:FactorGraphBackendInterface}`: The type of the backend to instantiate.
 
 # Returns
 - An instance of the specified `backend_type`.
 """
 function instantiate end
 
-instantiate(backend_type::Type{B}) where {B <: BackendInterface} =
+instantiate(backend_type::Type{B}) where {B <: FactorGraphBackendInterface} =
     error("The backend of type $backend_type must implement a method for `instantiate`.")
 
 # NodeType and NodeBehaviour definitions moved from src/core/node_types.jl
@@ -114,15 +115,15 @@ struct Composite <: NodeType end
 struct Atomic <: NodeType end
 
 """
-    get_node_type(backend::BackendInterface, fform)
+    get_node_type(backend::FactorGraphBackendInterface, fform)
 
 Returns a `NodeType` object (`Atomic` or `Composite`) for a given `backend` and `fform`.
 This function must be implemented by concrete backend subtypes if the default error is not desired.
 """
-function get_node_type(backend::BackendInterface, fform)
+function get_node_type(backend::B, fform) where {B <: FactorGraphBackendInterface}
     error("Backend $(typeof(backend)) must implement a method for `get_node_type` for `$(fform)`.")
 end
-get_node_type(model::ModelInterface, fform) = get_node_type(get_backend(model), fform)
+get_node_type(model::FactorGraphModelInterface, fform) = get_node_type(get_backend(model), fform)
 
 """
     NodeBehaviour
@@ -146,12 +147,12 @@ struct Stochastic <: NodeBehaviour end
 struct Deterministic <: NodeBehaviour end
 
 """
-    get_node_behaviour(backend::BackendInterface, fform)
+    get_node_behaviour(backend::FactorGraphBackendInterface, fform)
 
 Returns a `NodeBehaviour` object (`Deterministic` or `Stochastic`) for a given `backend` and `fform`.
 This function must be implemented by concrete backend subtypes if the default error is not desired.
 """
-function get_node_behaviour(backend::BackendInterface, fform)
+function get_node_behaviour(backend::B, fform) where {B <: FactorGraphBackendInterface}
     error("Backend $(typeof(backend)) must implement a method for `get_node_behaviour` for `$(fform)`.")
 end
-get_node_behaviour(model::ModelInterface, fform) = get_node_behaviour(get_backend(model), fform)
+get_node_behaviour(model::FactorGraphModelInterface, fform) = get_node_behaviour(get_backend(model), fform)

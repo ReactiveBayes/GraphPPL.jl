@@ -19,3 +19,47 @@ function get_name end
 Get the index of the edge.
 """
 function get_index end
+
+"""
+    has_extra(edge::EdgeInterface, key::Symbol)
+    has_extra(edge::EdgeInterface, key::NodeDataExtraKey)
+
+Check if the edge has an extra property with the given key.
+"""
+function has_extra(edge::E, key) where {E <: EdgeInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_extra, E, EdgeInterface))
+end
+
+"""
+    get_extra(edge::EdgeInterface, key::Symbol)
+    get_extra(edge::EdgeInterface, key::Symbol)
+    get_extra(edge::EdgeInterface, key::Symbol, default)
+    get_extra(edge::EdgeInterface, key::NodeDataExtraKey{K,T})::T
+    get_extra(edge::EdgeInterface, key::NodeDataExtraKey{K,T}, default::T)::T
+
+Get the extra property with the given key. If a form with a default value is used and the property
+does not exist, returns the default value. The NodeDataExtraKey versions provide type safety at compile time.
+"""
+function get_extra(edge::E, args...) where {E <: EdgeInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_extra, E, EdgeInterface))
+end
+
+"""
+    set_extra!(edge::EdgeInterface, key::Symbol, value)
+    set_extra!(edge::EdgeInterface, key::NodeDataExtraKey{K,T}, value::T)
+
+Set the extra property with the given key to the given value.
+The NodeDataExtraKey version provides type safety at compile time.
+"""
+function set_extra!(edge::E, key, value) where {E <: EdgeInterface}
+    throw(GraphPPLInterfaceNotImplemented(set_extra!, E, EdgeInterface))
+end
+
+"""
+    Base.show(io, edge::EdgeInterface)
+
+Display a string representation of the edge.
+"""
+function Base.show(io, edge::E) where {E <: EdgeInterface}
+    throw(GraphPPLInterfaceNotImplemented(show, E, EdgeInterface))
+end
