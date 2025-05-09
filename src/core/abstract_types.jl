@@ -1,4 +1,3 @@
-
 abstract type AbstractModelFilterPredicate end
 
 abstract type AbstractVariableReference end

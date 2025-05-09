@@ -6,7 +6,7 @@ The `context` field stores the context of the node.
 The `properties` field stores the properties of the node. 
 The `extra` field stores additional properties of the node depending on which plugins were enabled.
 """
-mutable struct NodeData <: AbstractNodeData
+mutable struct NodeData
     const context    :: Context
     const properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
     const extra      :: UnorderedDictionary{Symbol, Any}

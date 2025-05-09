@@ -15,16 +15,19 @@ import BipartiteFactorGraphs.Graphs: neighbors, degree
 export as_node, as_variable, as_context, savegraph, loadgraph
 
 include("core/abstract_types.jl")
+include("core/errors.jl")
 
 include("interfaces/variable_interface.jl")
 include("interfaces/factor_interface.jl")
 include("interfaces/model_interface.jl")
 include("interfaces/backend_interface.jl")
 
+include("nodes/variable_node_data.jl")
+include("nodes/factor_node_data.jl")
+
 # Core components - these have minimal dependencies
-include("core/errors.jl")
+
 include("core/functional_indices.jl")
-include("core/node_types.jl")
 include("core/resizable_array.jl")
 include("graph/node_labels.jl")
 include("plugins/plugins_collection.jl")
