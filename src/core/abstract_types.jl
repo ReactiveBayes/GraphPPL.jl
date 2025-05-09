@@ -1,21 +1,7 @@
-abstract type AbstractModel end
-
-abstract type AbstractNodeProperties end
-
-abstract type AbstractNodeData end
 
 abstract type AbstractModelFilterPredicate end
 
 abstract type AbstractVariableReference end
-
-"""
-    AbstractBackend
-
-Base type for all probabilistic model backends. Backends define how node types, behavior, and interfaces
-are interpreted during model creation. Different backends can provide different interpretations of the same
-syntax, enabling specialized handling for different inference algorithms.
-"""
-abstract type AbstractBackend end
 
 """
     AbstractInterfaces

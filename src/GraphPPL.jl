@@ -16,6 +16,11 @@ export as_node, as_variable, as_context, savegraph, loadgraph
 
 include("core/abstract_types.jl")
 
+include("interfaces/variable_interface.jl")
+include("interfaces/factor_interface.jl")
+include("interfaces/model_interface.jl")
+include("interfaces/backend_interface.jl")
+
 # Core components - these have minimal dependencies
 include("core/errors.jl")
 include("core/functional_indices.jl")
@@ -45,11 +50,16 @@ include("nodes/node_properties.jl")
 include("nodes/node_materialization.jl")
 
 # Graph components - uses node properties
-include("graph/interfaces.jl")
 include("graph/node_data.jl")
 
 # Export from graph
 export NodeData, getcontext, getproperties, getextra, is_factor, is_variable
+
+# Export graph modification functions
+export set_variable_node_data!, set_factor_node_data!, add_edge_between!
+export has_variable_node, has_factor_node, get_variable_node, get_factor_node, has_edge
+export add_variable!, add_factor!, add_composite_factor!, connect_nodes!, prune_model!, has_node
+export get_node_properties, has_node_property, get_node_property, get_factor_node_name
 
 # Export from nodes
 export VariableNodeProperties, FactorNodeProperties
