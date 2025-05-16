@@ -1,5 +1,3 @@
-import ..GraphPPL: FactorNodeDataInterface, NodeDataExtraKey, GraphPPLInterfaceNotImplemented
-
 """
     FactorNodeData <: FactorNodeDataInterface
 
@@ -26,11 +24,11 @@ struct FactorNodeData <: FactorNodeDataInterface
 end
 
 """
-    fform(factor_data::FactorNodeData)
+    get_functional_form(factor_data::FactorNodeData)
 
 Get the functional form of the factor node data.
 """
-function fform(factor_data::FactorNodeData)
+function get_functional_form(factor_data::FactorNodeData)
     return factor_data.form
 end
 
@@ -53,12 +51,12 @@ function has_extra(factor_data::FactorNodeData, key::Symbol)
 end
 
 """
-    has_extra(factor_data::FactorNodeData, key::NodeDataExtraKey)
+    has_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey)
 
 Check if the factor node data has an extra property with the given key.
 """
-function has_extra(factor_data::FactorNodeData, key::NodeDataExtraKey)
-    return haskey(factor_data.extras, Symbol(key))
+function has_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}) where {K, T}
+    return haskey(factor_data.extras, get_key(key))
 end
 
 """
@@ -71,6 +69,15 @@ function get_extra(factor_data::FactorNodeData, key::Symbol)
 end
 
 """
+    get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey)
+
+Get the extra property with the given key.
+"""
+function get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}) where {K, T}
+    return factor_data.extras[get_key(key)]::T
+end
+
+"""
     get_extra(factor_data::FactorNodeData, key::Symbol, default)
 
 Get the extra property with the given key. If the property does not exist, returns the default value.
@@ -80,21 +87,12 @@ function get_extra(factor_data::FactorNodeData, key::Symbol, default)
 end
 
 """
-    get_extra(factor_data::FactorNodeData, key::NodeDataExtraKey{K,T})::T where {K,T}
+    get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey, default)
 
-Get the extra property with the given key. Type-safe version.
+Get the extra property with the given key. If the property does not exist, returns the default value.
 """
-function get_extra(factor_data::FactorNodeData, key::NodeDataExtraKey{K, T})::T where {K, T}
-    return factor_data.extras[Symbol(key)]::T
-end
-
-"""
-    get_extra(factor_data::FactorNodeData, key::NodeDataExtraKey{K,T}, default::T)::T where {K,T}
-
-Get the extra property with the given key. If the property does not exist, returns the default value. Type-safe version.
-"""
-function get_extra(factor_data::FactorNodeData, key::NodeDataExtraKey{K, T}, default::T)::T where {K, T}
-    return get(factor_data.extras, Symbol(key), default)::T
+function get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}, default) where {K, T}
+    return get(factor_data.extras, get_key(key), default)::T
 end
 
 """
@@ -108,12 +106,12 @@ function set_extra!(factor_data::FactorNodeData, key::Symbol, value)
 end
 
 """
-    set_extra!(factor_data::FactorNodeData, key::NodeDataExtraKey{K,T}, value::T) where {K,T}
+    set_extra!(factor_data::FactorNodeData, key::Symbol, value)
 
-Set the extra property with the given key to the given value. Type-safe version.
+Set the extra property with the given key to the given value.
 """
-function set_extra!(factor_data::FactorNodeData, key::NodeDataExtraKey{K, T}, value::T) where {K, T}
-    factor_data.extras[Symbol(key)] = value
+function set_extra!(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}, value::T) where {K, T}
+    factor_data.extras[get_key(key)] = value
     return value
 end
 
@@ -124,4 +122,8 @@ Custom display method for FactorNodeData.
 """
 function Base.show(io::IO, data::FactorNodeData)
     print(io, "FactorNodeData(form=$(data.form), context=$(data.context), extras=$(data.extras))")
+end
+
+function create_factor_data(::Type{FactorNodeData}, context::Any, fform::Any; kwargs...)
+    return FactorNodeData(fform, context)
 end

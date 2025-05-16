@@ -19,6 +19,24 @@ to identify nodes regardless of implementation details.
 abstract type NodeLabelInterface end
 
 """
+    VariableNodeLabelInterface
+
+Abstract interface for variable node labels in a factor graph. This serves as a unified
+reference type for both variable and factor nodes, providing a consistent way
+to identify nodes regardless of implementation details.
+"""
+abstract type VariableNodeLabelInterface <: NodeLabelInterface end
+
+"""
+    FactorNodeLabelInterface
+
+Abstract interface for factor node labels in a factor graph. This serves as a unified
+reference type for both variable and factor nodes, providing a consistent way
+to identify nodes regardless of implementation details.
+"""
+abstract type FactorNodeLabelInterface <: NodeLabelInterface end
+
+"""
     get_context(model::M) where {M<:FactorGraphModelInterface}
 
 Retrieve the context associated with the model.
@@ -279,7 +297,7 @@ function get_variable_data_type(model::M) where {M <: FactorGraphModelInterface}
 end
 
 """
-    make_variable_data(model::M, context::Any, name::Symbol, index::Any;
+    create_variable_data(model::M, context::Any, name::Symbol, index::Any;
                       kind::Symbol=:random,
                       link::Any=nothing,
                       value::Any=nothing,
@@ -301,7 +319,7 @@ node data type via get_variable_node_type and then constructing it with create_v
 # Returns
 A concrete implementation of VariableNodeDataInterface appropriate for the model type
 """
-function make_variable_data(
+function create_variable_data(
     model::M,
     context::Any,
     name::Symbol,
@@ -343,7 +361,18 @@ can be provided to customize the factor node data creation.
 - An instance of factor node data that implements `FactorNodeDataInterface`
 """
 function create_factor_data(model::M, context::Any, fform::Any; kwargs...) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(create_factor_data, M, FactorGraphModelInterface))
+    T = get_factor_node_type(model)
+    return create_factor_data(T, context, fform; kwargs...)
+end
+
+"""
+    get_edge_data_type(model::M) where {M <: FactorGraphModelInterface}
+
+Returns the type of edge data used by this model implementation.
+Must return a type that implements EdgeInterface.
+"""
+function get_edge_data_type(model::M) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_edge_data_type, M, FactorGraphModelInterface))
 end
 
 """
@@ -361,7 +390,8 @@ This payload is intended to be passed to `GraphPPL.add_edge!(model, source, dest
 - An instance of a concrete edge data structure (which should be a subtype of `EdgeInterface`).
 """
 function create_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(create_edge_data, M, FactorGraphModelInterface))
+    T = get_edge_data_type(model)
+    return create_edge_data(T, name, index)
 end
 
 # Graph Creation Operations

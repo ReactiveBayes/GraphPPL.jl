@@ -14,10 +14,14 @@ import BipartiteFactorGraphs.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
+# Core components - these have minimal dependencies
 include("core/errors.jl")
+include("core/functional_indices.jl")
+include("core/resizable_array.jl")
+include("core/dictionary_key.jl")
+include("core/node_creation_options.jl")
 
-include("utils/dictionary_key.jl")
-
+# Interfaces - these define the core interfaces for the package
 include("interfaces/proxy_label_interface.jl")
 include("interfaces/variable_interface.jl")
 include("interfaces/edge_interface.jl")
@@ -28,14 +32,13 @@ include("interfaces/context_interface.jl")
 include("interfaces/plugins_interface.jl")
 include("interfaces/variable_reference_interface.jl")
 
-include("nodes/variable_node_data.jl")
-include("nodes/factor_node_data.jl")
+# Node data structures (moved from 'nodes/' to 'model/core/')
+include("model/core/node_labels.jl")
 
-# Core components - these have minimal dependencies
+include("model/core/variable_node_data.jl")
+include("model/core/factor_node_data.jl")
+include("model/core/anonymous_variable.jl")
 
-include("core/functional_indices.jl")
-include("core/resizable_array.jl")
-include("graph/node_labels.jl")
 include("plugins/plugins_collection.jl")
 
 # Export from core
@@ -47,19 +50,18 @@ export AbstractBackend, AbstractInterfaces, AbstractInterfaceAliases
 export NodeLabel, EdgeLabel, FactorID
 
 # Basic model structure - needed for context and node creation
-include("model/indexed_variable.jl")
-include("model/proxy_label.jl")
-include("model/context.jl")
+include("model/core/indexed_variable.jl")
+include("model/core/proxy_label.jl")
+# include("model/core/context.jl")
+# include("model/core/var_dict.jl")
+# include("model/core/variable_ref.jl")
+include("model/core/bipartitemodel.jl")
 
 # Model creation components - needed before node properties
-include("model/node_creation.jl")
+include("model/operations/variable_node_creation.jl")
 
 # Node handling - now has proper dependencies
-include("nodes/node_properties.jl")
-include("nodes/node_materialization.jl")
-
-# Graph components - uses node properties
-include("graph/node_data.jl")
+include("model/operations/factor_node_materialization.jl")
 
 # Export from graph
 export NodeData, getcontext, getproperties, getextra, is_factor, is_variable
@@ -82,10 +84,8 @@ export Model, NodeCreationOptions, Context
 export StaticInterfaces, StaticInterfaceAliases
 
 # Remaining model components
-include("model/model.jl")
-include("model/model_filtering.jl")
-include("model/var_dict.jl")
-include("model/variable_ref.jl")
+# include("model/model.jl")
+include("model/operations/model_filtering.jl")
 
 # Export additional model components
 export VariableRef, IndexedVariable
@@ -93,21 +93,20 @@ export path_to_root, factor_nodes, individual_variables, vector_variables, tenso
 export VarDict
 export ProxyLabel, unroll
 
-include("utils/macro_utils.jl")
+include("dsl/macro_utils.jl")
 
 # Plugins
-include("plugins/plugin_processing.jl")
 include("plugins/node_created_by.jl")
 include("plugins/node_id.jl")
 include("plugins/node_tag.jl")
-include("plugins/variational_constraints/variational_constraints.jl")
-include("plugins/meta/meta.jl")
+# include("plugins/variational_constraints/variational_constraints.jl")
+# include("plugins/meta/meta.jl")
 
 # Model generation
 include("generators/model_generator.jl")
 
 # Macros
-include("macros/model_macro.jl")
+include("dsl/model_macro.jl")
 
 # Backend
 include("backends/default.jl")

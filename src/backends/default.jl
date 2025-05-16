@@ -3,7 +3,7 @@
 
 A default backend that is used in the `GraphPPL.@model` macro when no backend is specified explicitly.
 """
-struct DefaultBackend <: BackendInterface end
+struct DefaultBackend <: FactorGraphBackendInterface end
 
 function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
     return (
@@ -20,27 +20,27 @@ function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
 end
 
 # By default we assume everything is a `Deterministic` node, e.g. `Matrix` or `Digonal` or `sqrt`
-GraphPPL.NodeBehaviour(::DefaultBackend, _) = GraphPPL.Deterministic()
+GraphPPL.get_node_behaviour(::DefaultBackend, _) = GraphPPL.Deterministic()
 
 # By default we assume that types and functions are `Atomic` nodes, `Composite` nodes should be specified explicitly in the `@model` macro
-GraphPPL.NodeType(::DefaultBackend, ::Type) = GraphPPL.Atomic()
-GraphPPL.NodeType(::DefaultBackend, ::F) where {F <: Function} = GraphPPL.Atomic()
-GraphPPL.aliases(::DefaultBackend, f) = (f,)
+GraphPPL.get_node_type(::DefaultBackend, ::Type) = GraphPPL.Atomic()
+GraphPPL.get_node_type(::DefaultBackend, ::F) where {F <: Function} = GraphPPL.Atomic()
+GraphPPL.get_aliases(::DefaultBackend, f) = (f,)
 
 # Placeholder function that is defined for all Composite nodes and is invoked when inferring what interfaces are missing when a node is called
-GraphPPL.interfaces(::DefaultBackend, ::F, ::StaticInt{1}) where {F} = GraphPPL.StaticInterfaces((:out,))
-GraphPPL.interfaces(::DefaultBackend, ::F, _) where {F} = GraphPPL.StaticInterfaces((:out, :in))
+GraphPPL.get_interfaces(::DefaultBackend, ::F, ::StaticInt{1}) where {F} = GraphPPL.StaticInterfaces((:out,))
+GraphPPL.get_interfaces(::DefaultBackend, ::F, _) where {F} = GraphPPL.StaticInterfaces((:out, :in))
 
 # By default all factors are not aliased, e.g. `Normal` remains `Normal`
-GraphPPL.factor_alias(::DefaultBackend, f::F, interfaces) where {F} = f
+GraphPPL.get_factor_alias(::DefaultBackend, f::F, interfaces) where {F} = f
 
 # By default we assume that all factors have no aliases for their interfaces
-GraphPPL.interface_aliases(::DefaultBackend, _) = GraphPPL.StaticInterfaceAliases(())
+GraphPPL.get_interface_aliases(::DefaultBackend, _) = GraphPPL.StaticInterfaceAliases(())
 
 # By default only one default parametrization is provided for all nodes, which maps the provided arguments to the `in` interface
 # And throws an error for `Composite` nodes since those has to be called with named arguments anyway
-default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
-default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
+GraphPPL.get_default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
+GraphPPL.get_default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
     error("Composite nodes always have to be initialized with named arguments")
 
 # The default backend does not really have any special hyperparameters

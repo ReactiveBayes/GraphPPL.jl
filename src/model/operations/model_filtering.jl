@@ -1,4 +1,4 @@
-
+abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
@@ -60,6 +60,6 @@ as_variable(any) = VariableNodePredicate{any}()
 as_variable() = IsVariableNode()
 as_context(any; children = false) = SubmodelPredicate{any, typeof(static(children))}()
 
-function Base.filter(predicate::AbstractModelFilterPredicate, model::Model)
+function Base.filter(predicate::AbstractModelFilterPredicate, model::FactorGraphModelInterface)
     return Iterators.filter(something -> apply(predicate, model, something), labels(model))
 end

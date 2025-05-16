@@ -8,8 +8,11 @@ struct NodeIdPlugin end
 plugin_type(::NodeIdPlugin) = FactorAndVariableNodesPlugin()
 
 function preprocess_plugin(
-    ::NodeIdPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+    ::NodeIdPlugin,
+    model::FactorGraphModelInterface,
+    context::ContextInterface,
+    nodedata::Union{FactorNodeDataInterface, VariableNodeDataInterface}
 )
-    setextra!(nodedata, :id, label.global_counter)
-    return label, nodedata
+    setextra!(nodedata, :id, nv(model))
+    return nodedata
 end

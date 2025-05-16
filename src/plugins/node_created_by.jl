@@ -22,9 +22,9 @@ show_createdby(io::IO, created_by::Expr) = print(io, created_by)
 show_createdby(io::IO, created_by::Function) = show_createdby(io, created_by())
 
 function preprocess_plugin(
-    ::NodeCreatedByPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+    ::NodeCreatedByPlugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface
 )
     created_by = get(options, :created_by, EmptyCreatedBy)
     setextra!(nodedata, :created_by, CreatedBy(created_by))
-    return label, nodedata
+    return nodedata
 end

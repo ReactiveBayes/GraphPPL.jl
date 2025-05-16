@@ -98,6 +98,7 @@ Code Organization
 - Separate implementation from interface by using abstract types and multiple dispatch.
 - Use include() to split large modules into multiple files.
 - Follow a consistent project structure (e.g., src/, test/, docs/).
+- In Julia packages, you don't need to put relative imports at the top of a file.
 
 Documentation
 - Write comprehensive docstrings for all public functions and types.

@@ -1,16 +1,3 @@
-
-abstract type AbstractPluginTraitType end
-
-"""
-A trait object for unknown plugins. Such plugins cannot be added to the collection, unless they implement the `plugin_type` method.
-"""
-struct UnknownPluginType <: AbstractPluginTraitType end
-
-"""
-Checks the type of the plugin and returns the corresponding trait object.
-"""
-plugin_type(::Any) = UnknownPluginType()
-
 """
 A collection of plugins.
 """

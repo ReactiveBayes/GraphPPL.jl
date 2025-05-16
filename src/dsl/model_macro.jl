@@ -501,7 +501,7 @@ __combine_axes() = Base.OneTo(1)
 __combine_axes(any...) = Base.Broadcast.combine_axes(any...)
 
 __check_vectorized_input(any) = last.(any)
-__check_vectorized_input(::Tuple{T, GraphPPL.NodeLabel}) where {T} = error(
+__check_vectorized_input(::Tuple{T, <:NodeLabelInterface}) where {T} = error(
     "Cannot broadcast scalar inputs over an unspecified or one-dimensional return array. Did you accidentally make a statement like this: `x ~ Bernoulli(Beta.(1, 1))` without initializing `x`?"
 )
 

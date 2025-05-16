@@ -387,7 +387,7 @@ end
     
 Set a vector or tensor variable array, determined by the dimensionality of the array.
 """
-function set_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface, 1}) where {C <: ContextInterface, V}
+function set_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface, 1}) where {C <: ContextInterface}
     return set_vector_variable_array!(context, name, value)
 end
 

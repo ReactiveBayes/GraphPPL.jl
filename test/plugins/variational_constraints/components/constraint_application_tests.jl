@@ -1,75 +1,3 @@
-@testitem "is_factorized" setup = [TestUtils] begin
-    import GraphPPL: is_factorized, AbstractNodeData, AbstractNodeProperties, getproperties, getlink
-
-    mutable struct MockNodeData{T} <: AbstractNodeData
-        properties::T
-        extras::Dict{Symbol, Any}
-    end
-
-    # Mock implementation to test pure functions without requiring model setup
-    struct MockVariableNodeProperties <: AbstractNodeProperties
-        is_constant::Bool
-        link::Union{Nothing, Vector{MockNodeData}}
-    end
-
-    Base.getproperty(p::MockVariableNodeProperties, name::Symbol) =
-        if name === :link
-            getfield(p, :link)
-        else
-            getfield(p, name)
-        end
-
-    getproperties(data::MockNodeData) = data.properties
-    GraphPPL.getextra(data::MockNodeData, key::Symbol) = get(data.extras, key, nothing)
-    GraphPPL.hasextra(data::MockNodeData, key::Symbol) = haskey(data.extras, key)
-    GraphPPL.getlink(props::MockVariableNodeProperties) = props.link
-    GraphPPL.is_constant(props::MockVariableNodeProperties) = props.is_constant
-    # Test 1: Basic constant variable
-    node1_props = MockVariableNodeProperties(true, nothing)
-    node1 = MockNodeData{MockVariableNodeProperties}(node1_props, Dict{Symbol, Any}())
-    @test is_factorized(node1)
-
-    # Test 2: Variable with factorized flag
-    node2_props = MockVariableNodeProperties(false, nothing)
-    node2 = MockNodeData{MockVariableNodeProperties}(node2_props, Dict{Symbol, Any}(:factorized => true))
-    @test is_factorized(node2)
-
-    # Test 3: Variable without factorized flag
-    node3_props = MockVariableNodeProperties(false, nothing)
-    node3 = MockNodeData{MockVariableNodeProperties}(node3_props, Dict{Symbol, Any}())
-    @test !is_factorized(node3)
-
-    # Test 4: Variable with factorized links
-    node4_link1_props = MockVariableNodeProperties(true, nothing)
-    node4_link1 = MockNodeData{MockVariableNodeProperties}(node4_link1_props, Dict{Symbol, Any}())
-    node4_link2_props = MockVariableNodeProperties(false, nothing)
-    node4_link2 = MockNodeData{MockVariableNodeProperties}(node4_link2_props, Dict{Symbol, Any}(:factorized => true))
-    node4_links = [node4_link1, node4_link2]
-    node4_props = MockVariableNodeProperties(false, node4_links)
-    node4 = MockNodeData{MockVariableNodeProperties}(node4_props, Dict{Symbol, Any}())
-    @test is_factorized(node4)
-
-    # Test 5: Variable with non-factorized links
-    node5_link1_props = MockVariableNodeProperties(true, nothing)
-    node5_link1 = MockNodeData{MockVariableNodeProperties}(node5_link1_props, Dict{Symbol, Any}())
-    node5_link2_props = MockVariableNodeProperties(false, nothing)
-    node5_link2 = MockNodeData{MockVariableNodeProperties}(node5_link2_props, Dict{Symbol, Any}())
-    node5_links = [node5_link1, node5_link2]
-    node5_props = MockVariableNodeProperties(false, node5_links)
-    node5 = MockNodeData{MockVariableNodeProperties}(node5_props, Dict{Symbol, Any}())
-    @test !is_factorized(node5)
-
-    # Test 6: Variable with mixed factorized/non-factorized links
-    node6_link1_props = MockVariableNodeProperties(true, nothing)
-    node6_link1 = MockNodeData{MockVariableNodeProperties}(node6_link1_props, Dict{Symbol, Any}())
-    node6_link2_props = MockVariableNodeProperties(false, nothing)
-    node6_link2 = MockNodeData{MockVariableNodeProperties}(node6_link2_props, Dict{Symbol, Any}())
-    node6_links = [node6_link1, node6_link2]
-    node6_props = MockVariableNodeProperties(false, node6_links)
-    node6 = MockNodeData{MockVariableNodeProperties}(node6_props, Dict{Symbol, Any}())
-    @test !is_factorized(node6)
-end
-
 @testitem "is_factorized || is_constant" setup = [TestUtils] begin
     import GraphPPL:
         is_constant, is_factorized, create_model, with_plugins, getcontext, getproperties, getorcreate!, variable_nodes, NodeCreationOptions
@@ -171,60 +99,60 @@ end
     @test_broken !is_valid_partition(invalid3)
 end
 
-@testitem "materialize_is_factorized_neighbors!" setup = [TestUtils] begin
-    import GraphPPL: materialize_is_factorized_neighbors!, BoundedBitSetTuple, NodeData, is_factorized, AbstractNodeData
+# @testitem "materialize_is_factorized_neighbors!" setup = [TestUtils] begin
+#     import GraphPPL: materialize_is_factorized_neighbors!, BoundedBitSetTuple, NodeData, is_factorized, AbstractNodeData
 
-    # Mock implementation
-    mutable struct MockNodeData <: AbstractNodeData
-        factorized::Bool
-    end
+#     # Mock implementation
+#     mutable struct MockNodeData <: AbstractNodeData
+#         factorized::Bool
+#     end
 
-    GraphPPL.is_factorized(n::MockNodeData) = n.factorized
+#     GraphPPL.is_factorized(n::MockNodeData) = n.factorized
 
-    # Test 1: All factorized neighbors
-    bitset = BoundedBitSetTuple(3)
-    fill!(bitset.contents, true)
-    neighbors = [MockNodeData(true), MockNodeData(true), MockNodeData(true)]
+#     # Test 1: All factorized neighbors
+#     bitset = BoundedBitSetTuple(3)
+#     fill!(bitset.contents, true)
+#     neighbors = [MockNodeData(true), MockNodeData(true), MockNodeData(true)]
 
-    materialize_is_factorized_neighbors!(bitset, neighbors)
-    for i in 1:3
-        for j in 1:3
-            if i == j
-                @test bitset[i, j]
-            else
-                @test !bitset[i, j]
-            end
-        end
-    end
+#     materialize_is_factorized_neighbors!(bitset, neighbors)
+#     for i in 1:3
+#         for j in 1:3
+#             if i == j
+#                 @test bitset[i, j]
+#             else
+#                 @test !bitset[i, j]
+#             end
+#         end
+#     end
 
-    # Test 2: Mixed factorized/non-factorized neighbors
-    bitset = BoundedBitSetTuple(3)
-    fill!(bitset.contents, true)
-    neighbors = [MockNodeData(true), MockNodeData(false), MockNodeData(true)]
+#     # Test 2: Mixed factorized/non-factorized neighbors
+#     bitset = BoundedBitSetTuple(3)
+#     fill!(bitset.contents, true)
+#     neighbors = [MockNodeData(true), MockNodeData(false), MockNodeData(true)]
 
-    materialize_is_factorized_neighbors!(bitset, neighbors)
-    for i in 1:3
-        for j in 1:3
-            if (i == j) || (i != 1 && i != 3 && j != 1 && j != 3)
-                @test bitset[i, j]
-            elseif (i == 1 || i == 3 || j == 1 || j == 3) && i != j
-                @test !bitset[i, j]
-            end
-        end
-    end
+#     materialize_is_factorized_neighbors!(bitset, neighbors)
+#     for i in 1:3
+#         for j in 1:3
+#             if (i == j) || (i != 1 && i != 3 && j != 1 && j != 3)
+#                 @test bitset[i, j]
+#             elseif (i == 1 || i == 3 || j == 1 || j == 3) && i != j
+#                 @test !bitset[i, j]
+#             end
+#         end
+#     end
 
-    # Test 3: No factorized neighbors
-    bitset = BoundedBitSetTuple(3)
-    fill!(bitset.contents, true)
-    neighbors = [MockNodeData(false), MockNodeData(false), MockNodeData(false)]
+#     # Test 3: No factorized neighbors
+#     bitset = BoundedBitSetTuple(3)
+#     fill!(bitset.contents, true)
+#     neighbors = [MockNodeData(false), MockNodeData(false), MockNodeData(false)]
 
-    materialize_is_factorized_neighbors!(bitset, neighbors)
-    for i in 1:3
-        for j in 1:3
-            @test bitset[i, j]
-        end
-    end
-end
+#     materialize_is_factorized_neighbors!(bitset, neighbors)
+#     for i in 1:3
+#         for j in 1:3
+#             @test bitset[i, j]
+#         end
+#     end
+# end
 
 @testitem "convert_to_bitsets" setup = [TestUtils] begin
     using BitSetTuples

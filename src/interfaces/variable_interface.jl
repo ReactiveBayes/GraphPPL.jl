@@ -7,7 +7,7 @@ for a variable node in the model. Models can implement specific types that exten
 abstract type VariableNodeDataInterface end
 
 """
-    create_variable_node_data(::Type{T}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any=nothing) where {T<:VariableNodeDataInterface}
+    create_variable_data(::Type{T}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any=nothing) where {T<:VariableNodeDataInterface}
 
 Template constructor for variable node data. Implementations can specialize on T to provide
 different construction logic for different node data types.
@@ -25,10 +25,10 @@ different construction logic for different node data types.
 # Returns
 An instance of type T containing the variable node data
 """
-function create_variable_node_data(
+function create_variable_data(
     ::Type{T}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any = nothing
 ) where {T <: VariableNodeDataInterface}
-    throw(GraphPPLInterfaceNotImplemented(create_variable_node_data, T, VariableNodeDataInterface))
+    throw(GraphPPLInterfaceNotImplemented(create_variable_data, T, VariableNodeDataInterface))
 end
 
 """

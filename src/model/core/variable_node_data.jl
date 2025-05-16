@@ -82,3 +82,15 @@ function Base.show(io::IO, vnd::VariableNodeData)
 
     print(io, "VariableNodeData(name=:$(vnd.name), kind=:$(kind_str))")
 end
+
+"""
+    create_variable_node_data(::Type{VariableNodeData}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any=nothing)
+
+Create a VariableNodeData instance with the given parameters. Any additional metadata is stored in the extras dictionary.
+"""
+function create_variable_node_data(
+    ::Type{VariableNodeData}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any = nothing
+)
+    extras = metadata === nothing ? Dict{Symbol, Any}() : Dict{Symbol, Any}(pairs(metadata))
+    return VariableNodeData(name = name, index = index, kind = kind, link = link, value = value, context = context, extras = extras)
+end

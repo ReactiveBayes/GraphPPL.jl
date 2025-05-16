@@ -9,12 +9,15 @@ struct NodeTagPlugin end
 plugin_type(::NodeTagPlugin) = FactorAndVariableNodesPlugin()
 
 function preprocess_plugin(
-    ::NodeTagPlugin, model::Model, context::Context, label::NodeLabel, nodedata::NodeData, options::NodeCreationOptions
+    ::NodeTagPlugin,
+    model::FactorGraphModelInterface,
+    context::ContextInterface,
+    nodedata::Union{FactorNodeDataInterface, VariableNodeDataInterface}
 )
     if haskey(options, :tag)
         setextra!(nodedata, :tag, getindex(options, :tag))
     end
-    return label, nodedata
+    return nodedata
 end
 
 struct FilterByTag <: AbstractModelFilterPredicate

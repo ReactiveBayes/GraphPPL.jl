@@ -1,97 +1,14 @@
+abstract type FactorNodeProperties end # TODO: remove this but graphppl really wants this to compile
 """
-    AnonymousVariable(model, context)
-
-Defines a lazy structure for anonymous variables.
-The actual anonymous variables materialize only in `make_node!` upon calling, because it needs arguments to the `make_node!` in order to create proper links.
-"""
-struct AnonymousVariable{M, C}
-    model::M
-    context::C
-end
-
-Base.broadcastable(v::AnonymousVariable) = Ref(v)
-
-create_anonymous_variable!(model::AbstractModel, context::Context) = AnonymousVariable(model, context)
-
-function materialize_anonymous_variable!(anonymous::AnonymousVariable, fform, args)
-    model = anonymous.model
-    return materialize_anonymous_variable!(NodeBehaviour(model, fform), model, anonymous.context, fform, args)
-end
-
-# Deterministic nodes can create links to variables in the model
-# This might be important for better factorization constraints resolution
-function materialize_anonymous_variable!(::Deterministic, model::AbstractModel, context::Context, fform, args)
-    linked = getindex.(Ref(model), unroll.(filter(is_nodelabel, args)))
-
-    # Check if all links are either `data` or `constants`
-    # In this case it is not necessary to create a new random variable, but rather a data variable 
-    # with `value = fform`
-    link_const, link_const_or_data = reduce(linked; init = (true, true)) do accum, link
-        check_is_all_constant, check_is_all_constant_or_data = accum
-        check_is_all_constant = check_is_all_constant && anonymous_arg_is_constanst(link)
-        check_is_all_constant_or_data = check_is_all_constant_or_data && anonymous_arg_is_constanst_or_data(link)
-        return (check_is_all_constant, check_is_all_constant_or_data)
-    end
-
-    if !link_const && !link_const_or_data
-        # Most likely case goes first, we need to create a new factor node and a new random variable
-        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
-    elseif link_const
-        # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
-        val = fform(map(arg -> arg isa NodeLabel ? value(getproperties(model[arg])) : arg, unroll.(args))...)
-        (
-            false,
-            add_variable_node!(
-                model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), VariableNameAnonymous, nothing
-            )
-        )
-    elseif link_const_or_data
-        # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
-        (
-            false,
-            add_variable_node!(
-                model,
-                context,
-                NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked),
-                VariableNameAnonymous,
-                nothing
-            )
-        )
-    else
-        # This should not really happen
-        error("Unreachable reached in `materialize_anonymous_variable!` for `Deterministic` node behaviour.")
-    end
-end
-
-anonymous_arg_is_constanst(data) = true
-anonymous_arg_is_constanst(data::AbstractNodeData) = is_constant(getproperties(data))
-anonymous_arg_is_constanst(data::AbstractArray) = all(anonymous_arg_is_constanst, data)
-
-anonymous_arg_is_constanst_or_data(data) = is_constant(data)
-anonymous_arg_is_constanst_or_data(data::AbstractNodeData) =
-    let props = getproperties(data)
-        is_constant(props) || is_data(props)
-    end
-anonymous_arg_is_constanst_or_data(data::AbstractArray) = all(anonymous_arg_is_constanst_or_data, data)
-
-function materialize_anonymous_variable!(::Deterministic, model::AbstractModel, context::Context, fform, args::NamedTuple)
-    return materialize_anonymous_variable!(Deterministic(), model, context, fform, values(args))
-end
-
-function materialize_anonymous_variable!(::Stochastic, model::AbstractModel, context::Context, fform, _)
-    return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
-end
-
-"""
-    add_atomic_factor_node!(model::AbstractModel, context::Context, options::NodeCreationOptions, fform)
+    add_atomic_factor_node!(model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform)
 
 Add an atomic factor node to the model with the given name.
 The function generates a new symbol for the node and adds it to the model with
-the generated symbol as the key and a `FactorAbstractNodeData` struct.
+the generated symbol as the key and a `FactorNodeData` struct.
 
 Args:
-    - `model::AbstractModel`: The model to which the node is added.
-    - `context::Context`: The context to which the symbol is added.
+    - `model::FactorGraphModelInterface`: The model to which the node is added.
+    - `context::ContextInterface`: The context to which the symbol is added.
     - `options::NodeCreationOptions`: The options for the creation process.
     - `fform::Any`: The functional form of the node.
 
@@ -100,14 +17,16 @@ Returns:
 """
 function add_atomic_factor_node! end
 
-function add_atomic_factor_node!(model::AbstractModel, context::Context, options::NodeCreationOptions, fform::F) where {F}
+function add_atomic_factor_node!(
+    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform::F
+) where {F}
     factornode_id = generate_factor_nodelabel(context, fform)
 
     potential_label = generate_nodelabel(model, fform)
-    potential_nodedata = NodeData(context, convert(FactorNodeProperties, fform, options))
+    potential_nodedata = create_factor_data(model, context, fform; options)
 
     label, nodedata = preprocess_plugins(
-        UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
+        UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_nodedata
     )
 
     add_vertex!(model, label, nodedata)
@@ -120,37 +39,39 @@ end
 Add a composite factor node to the model with the given name.
 
 The function generates a new symbol for the node and adds it to the model with
-the generated symbol as the key and a `AbstractNodeData` struct with `is_variable` set to
+the generated symbol as the key and a `FactorNodeData` struct with `is_variable` set to
 `false` and `node_name` set to the given name.
 
 Args:
-    - `model::AbstractModel`: The model to which the node is added.
-    - `parent_context::Context`: The context to which the symbol is added.
-    - `context::Context`: The context of the composite factor node.
+    - `model::FactorGraphModelInterface`: The model to which the node is added.
+    - `parent_context::ContextInterface`: The context to which the symbol is added.
+    - `context::ContextInterface`: The context of the composite factor node.
     - `node_name::Symbol`: The name of the node.
 
 Returns:
     - The generated id for the node.
 """
-function add_composite_factor_node!(model::AbstractModel, parent_context::Context, context::Context, node_name)
+function add_composite_factor_node!(
+    model::FactorGraphModelInterface, parent_context::ContextInterface, context::ContextInterface, node_name
+)
     node_id = generate_factor_nodelabel(parent_context, node_name)
     parent_context[node_id] = context
     return node_id
 end
 
 function add_edge!(
-    model::AbstractModel,
-    factor_node_id::NodeLabel,
+    model::FactorGraphModelInterface,
+    factor_node_id::FactorNodeLabelInterface,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, NodeLabel, AbstractVariableReference},
+    variable_node_id::Union{<:ProxyLabelInterface, <:VariableNodeLabelInterface, <:VariableReferenceInterface},
     interface_name::Symbol
 )
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
 end
 
 function add_edge!(
-    model::AbstractModel,
-    factor_node_id::NodeLabel,
+    model::FactorGraphModelInterface,
+    factor_node_id::FactorNodeLabelInterface,
     factor_node_propeties::FactorNodeProperties,
     variable_node_id::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol
@@ -159,19 +80,19 @@ function add_edge!(
 end
 
 add_edge!(
-    model::AbstractModel,
-    factor_node_id::NodeLabel,
+    model::FactorGraphModelInterface,
+    factor_node_id::FactorNodeLabelInterface,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, AbstractVariableReference},
+    variable_node_id::Union{<:ProxyLabelInterface, <:VariableNodeLabelInterface},
     interface_name::Symbol,
     index
 ) = add_edge!(model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index)
 
 function add_edge!(
-    model::AbstractModel,
-    factor_node_id::NodeLabel,
+    model::FactorGraphModelInterface,
+    factor_node_id::FactorNodeLabelInterface,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{NodeLabel},
+    variable_node_id::VariableNodeLabelInterface,
     interface_name::Symbol,
     index
 )
@@ -193,8 +114,8 @@ function add_edge!(
 end
 
 function add_edge!(
-    model::AbstractModel,
-    factor_node_id::NodeLabel,
+    model::FactorGraphModelInterface,
+    factor_node_id::FactorNodeLabelInterface,
     factor_node_propeties::FactorNodeProperties,
     variable_nodes::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol,
@@ -224,7 +145,7 @@ about interface names and structure.
 This implementation provides better performance through type stability and compile-time validation,
 but requires that interface names are known at compile time.
 """
-struct StaticInterfaces{I} <: AbstractInterfaces end
+struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
@@ -243,11 +164,11 @@ to its corresponding interface name.
 This implementation provides better performance through type stability and compile-time validation,
 but requires that interface aliases are known at compile time.
 """
-struct StaticInterfaceAliases{A} <: AbstractInterfaceAliases end
+struct StaticInterfaceAliases{A} end
 
 StaticInterfaceAliases(A::Tuple) = StaticInterfaceAliases{A}()
 
-interface_aliases(model::AbstractModel, fform::F, interfaces::StaticInterfaces) where {F} =
+interface_aliases(model::FactorGraphModelInterface, fform::F, interfaces::StaticInterfaces) where {F} =
     interface_aliases(interface_aliases(model, fform), interfaces)
 
 function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
@@ -272,7 +193,7 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 # Returns
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
-function missing_interfaces(model::AbstractModel, fform::F, val, known_interfaces::NamedTuple) where {F}
+function missing_interfaces(model::FactorGraphModelInterface, fform::F, val, known_interfaces::NamedTuple) where {F}
     return missing_interfaces(interfaces(model, fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
@@ -282,7 +203,7 @@ function missing_interfaces(
     return StaticInterfaces(filter(interface -> interface ∉ present_interfaces, all_interfaces))
 end
 
-function prepare_interfaces(model::AbstractModel, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
+function prepare_interfaces(model::FactorGraphModelInterface, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {F}
     missing_interface = missing_interfaces(model, fform, static(length(rhs_interfaces)) + static(1), rhs_interfaces)
     return prepare_interfaces(missing_interface, fform, lhs_interface, rhs_interfaces)
 end
@@ -305,7 +226,7 @@ function materialze_interfaces(model, context, interfaces)
     return map(interface -> materialize_interface(model, context, interface), interfaces)
 end
 
-function sort_interfaces(model::AbstractModel, fform::F, defined_interfaces::NamedTuple) where {F}
+function sort_interfaces(model::FactorGraphModelInterface, fform::F, defined_interfaces::NamedTuple) where {F}
     return sort_interfaces(interfaces(model, fform, static(length(defined_interfaces))), defined_interfaces)
 end
 
@@ -314,7 +235,7 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
 end
 
 function materialize_factor_node!(
-    model::AbstractModel, context::Context, options::NodeCreationOptions, fform::F, interfaces::NamedTuple
+    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform::F, interfaces::NamedTuple
 ) where {F}
     factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
     foreach(pairs(interfaces)) do (interface_name, interface)
@@ -326,9 +247,9 @@ end
 # maybe change name
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
-is_nodelabel(x::GraphPPL.NodeLabel) = true
-is_nodelabel(x::ProxyLabel) = true
-is_nodelabel(x::AbstractVariableReference) = true
+is_nodelabel(x::NodeLabelInterface) = true
+is_nodelabel(x::ProxyLabelInterface) = true
+is_nodelabel(x::VariableReferenceInterface) = true
 
 function contains_nodelabel(collection::Tuple)
     return any(element -> is_nodelabel(element), collection) ? True() : False()
@@ -344,33 +265,42 @@ end
 
 # TODO improve documentation
 
-function make_node!(model::AbstractModel, ctx::Context, fform::F, lhs_interfaces, rhs_interfaces) where {F}
+function make_node!(model::FactorGraphModelInterface, ctx::ContextInterface, fform::F, lhs_interfaces, rhs_interfaces) where {F}
     return make_node!(model, ctx, EmptyNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
 end
 
-make_node!(model::AbstractModel, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(
+    model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+) where {F} = make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # if it is composite, we assume it should be materialized and it is stochastic
 # TODO: shall we not assume that the `Composite` node is necessarily stochastic?
 make_node!(
-    nodetype::Composite, model::AbstractModel, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+    nodetype::Composite,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface,
+    rhs_interfaces
 ) where {F} = make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
-make_node!(model::AbstractModel, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing) where {F} =
-    make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
+make_node!(
+    model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing
+) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
 # If node is Atomic, check stochasticity
-make_node!(::Atomic, model::AbstractModel, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(
+    ::Atomic, model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+) where {F} = make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
     atomic::Atomic,
     deterministic::Deterministic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
     lhs_interface,
@@ -388,8 +318,8 @@ make_node!(
     ::False,
     ::Atomic,
     ::Deterministic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
     lhs_interface::Union{AnonymousVariable, ProxyLabel{<:T, <:AnonymousVariable} where {T}},
@@ -402,8 +332,8 @@ make_node!(
     ::False,
     ::Atomic,
     ::Deterministic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
     lhs_interface,
@@ -412,15 +342,22 @@ make_node!(
 
 # If a node is Stochastic, we always materialize.
 make_node!(
-    ::Atomic, ::Stochastic, model::AbstractModel, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+    ::Atomic,
+    ::Stochastic,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface,
+    rhs_interfaces
 ) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 function make_node!(
     materialize::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
     lhs_interface::AnonymousVariable,
@@ -441,11 +378,11 @@ make_node!(
     materialize::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::Tuple
 ) where {F} = make_node!(
     materialize,
@@ -463,11 +400,11 @@ make_node!(
     ::True,
     node_type::NodeType,
     behaviour::NodeBehaviour,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::MixedArguments
 ) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
@@ -475,11 +412,11 @@ make_node!(
     materialize::True,
     node_type::Composite,
     behaviour::Stochastic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::Tuple{}
 ) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
@@ -487,11 +424,11 @@ make_node!(
     materialize::True,
     node_type::Composite,
     behaviour::Stochastic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::Tuple
 ) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
@@ -499,22 +436,22 @@ make_node!(
     materialize::True,
     node_type::Composite,
     behaviour::Stochastic,
-    model::AbstractModel,
-    ctx::Context,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::NamedTuple
 ) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
 """
     make_node!
 
-Make a new factor node in the AbstractModel and specified Context, attach it to the specified interfaces, and return the interface that is on the lhs of the `~` operator.
+Make a new factor node in the FactorGraphModelInterface and specified ContextInterface, attach it to the specified interfaces, and return the interface that is on the lhs of the `~` operator.
 
 # Arguments
-- `model::AbstractModel`: The model to add the node to.
-- `ctx::Context`: The context in which to add the node.
+- `model::FactorGraphModelInterface`: The model to add the node to.
+- `ctx::ContextInterface`: The context in which to add the node.
 - `fform`: The function that the node represents.
 - `lhs_interface`: The interface that is on the lhs of the `~` operator.
 - `rhs_interfaces`: The interfaces that are the arguments of fform on the rhs of the `~` operator.
@@ -525,11 +462,11 @@ function make_node!(
     materialize::True,
     node_type::Atomic,
     behaviour::NodeBehaviour,
-    model::AbstractModel,
-    context::Context,
+    model::FactorGraphModelInterface,
+    context::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, AbstractVariableReference},
+    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = convert(
@@ -543,11 +480,13 @@ function make_node!(
     return nodeid, unroll(lhs_interface)
 end
 
-function add_terminated_submodel!(model::AbstractModel, context::Context, fform, interfaces::NamedTuple)
+function add_terminated_submodel!(model::FactorGraphModelInterface, context::ContextInterface, fform, interfaces::NamedTuple)
     return add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces)
 end
 
-function add_terminated_submodel!(model::AbstractModel, context::Context, options::NodeCreationOptions, fform, interfaces::NamedTuple)
+function add_terminated_submodel!(
+    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform, interfaces::NamedTuple
+)
     returnval = add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
     returnval!(context, returnval)
     return returnval
@@ -555,15 +494,15 @@ end
 
 """
 Add the `fform` as the toplevel model to the `model` and `context` with the specified `interfaces`.
-Calls the postprocess logic for the attached plugins of the model. Should be called only once for a given `AbstractModel` object.
+Calls the postprocess logic for the attached plugins of the model. Should be called only once for a given `FactorGraphModelInterface` object.
 """
 function add_toplevel_model! end
 
-function add_toplevel_model!(model::AbstractModel, fform, interfaces)
+function add_toplevel_model!(model::FactorGraphModelInterface, fform, interfaces)
     return add_toplevel_model!(model, getcontext(model), fform, interfaces)
 end
 
-function add_toplevel_model!(model::AbstractModel, context::Context, fform, interfaces)
+function add_toplevel_model!(model::FactorGraphModelInterface, context::ContextInterface, fform, interfaces)
     add_terminated_submodel!(model, context, fform, interfaces)
     foreach(getplugins(model)) do plugin
         postprocess_plugin(plugin, model)

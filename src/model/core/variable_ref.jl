@@ -1,9 +1,9 @@
 """
-    VariableRef(model::AbstractModel, context::Context, name::Symbol, index, external_collection = nothing)
+    VariableRef(model::FactorGraphModelInterface, context::Context, name::Symbol, index, external_collection = nothing)
 
 `VariableRef` implements a lazy reference to a variable in the model. 
 The reference does not create an actual variable in the model immediatelly, but postpones the creation 
-until strictly necessarily, which is hapenning inside the `unroll` function. The postponed creation allows users to define 
+until strictly necessary, which is hapenning inside the `unroll` function. The postponed creation allows users to define 
 pass a single variable into a submodel, e.g. `y ~ submodel(x = x)`, but use it as an array inside the submodel, 
 e.g. `y[i] ~ Normal(x[i], 1.0)`. 
 
@@ -15,7 +15,7 @@ The `index` is always a `Tuple`. By default, `(nothing, )` is used, to indicate 
 If "non-nothing" index is supplied, e.g. `(1, )` the shape of the udnerlying collection will be fixed to match the index 
 (1-dimensional in case of `(1, )`, 2-dimensional in case of `(1, 1)` and so on).
 """
-struct VariableRef{M, C, O, I, E, L} <: AbstractVariableReference
+struct VariableRef{M, C, O, I, E, L} <: VariableReferenceInterface
     model::M
     context::C
     options::O
@@ -59,7 +59,7 @@ variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", joi
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
 """
-    makevarref(fform::F, model::AbstractModel, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+    makevarref(fform::F, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
 
 A function that creates `VariableRef`, but takes the `fform` into account. When `fform` happens to be `Atomic` creates 
 the underlying variable immediatelly without postponing. When `fform` is `Composite` does not create the actual variable, 
@@ -67,18 +67,22 @@ but waits until strictly necessarily.
 """
 function makevarref end
 
-function makevarref(fform::F, model::AbstractModel, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple) where {F}
+function makevarref(
+    fform::F, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple
+) where {F}
     return makevarref(NodeType(model, fform), model, context, options, name, index)
 end
 
-function makevarref(::Atomic, model::AbstractModel, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+function makevarref(::Atomic, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
     # In the case of `Atomic` variable reference, we always create the variable 
     # (unless the index is empty, which may happen during broadcasting)
     internal_collection = isempty(index) ? nothing : getorcreate!(model, context, name, index...)
     return VariableRef(model, context, options, name, index, nothing, internal_collection)
 end
 
-function makevarref(::Composite, model::AbstractModel, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+function makevarref(
+    ::Composite, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple
+)
     # In the case of `Composite` variable reference, we create it immediatelly only when the variable is instantiated 
     # with indexing operation
     internal_collection = if !all(isnothing, index)
@@ -90,7 +94,7 @@ function makevarref(::Composite, model::AbstractModel, context::Context, options
 end
 
 function VariableRef(
-    model::AbstractModel,
+    model::FactorGraphModelInterface,
     context::Context,
     options::NodeCreationOptions,
     name::Symbol,
@@ -117,11 +121,11 @@ function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
     error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
 end
 
-function getifcreated(model::AbstractModel, context::Context, ref::VariableRef)
+function getifcreated(model::FactorGraphModelInterface, context::Context, ref::VariableRef)
     return getifcreated(model, context, ref, ref.index)
 end
 
-function getifcreated(model::AbstractModel, context::Context, ref::VariableRef, index)
+function getifcreated(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index)
     if !isnothing(ref.external_collection)
         return getorcreate!(ref.model, ref.context, ref, index)
     elseif !isnothing(ref.internal_collection)
@@ -133,12 +137,12 @@ function getifcreated(model::AbstractModel, context::Context, ref::VariableRef, 
     end
 end
 
-function getorcreate!(model::AbstractModel, context::Context, ref::VariableRef, index::Nothing)
+function getorcreate!(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index::Nothing)
     check_external_collection_compatibility(ref, index)
     return getorcreate!(model, context, ref.options, ref.name, index)
 end
 
-function getorcreate!(model::AbstractModel, context::Context, ref::VariableRef, index::Tuple)
+function getorcreate!(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index::Tuple)
     check_external_collection_compatibility(ref, index)
     return getorcreate!(model, context, ref.options, ref.name, index...)
 end

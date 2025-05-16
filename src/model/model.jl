@@ -12,7 +12,7 @@ Fields:
 - `source`: A `Source` object representing the original source code of the model (typically a `String` object).
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, P, B, S} <: AbstractModel
+struct Model{G, P, B, S} <: FactorGraphModelInterface
     graph::G
     plugins::P
     backend::B
@@ -20,20 +20,22 @@ struct Model{G, P, B, S} <: AbstractModel
     counter::Base.RefValue{Int64}
 end
 
-labels(model::Model) = MetaGraphsNext.labels(model.graph)
-Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
+get_context(model::Model) = model.graph[]
 
-getplugins(model::Model) = model.plugins
-getbackend(model::Model) = model.backend
-getsource(model::Model) = model.source
-getcounter(model::Model) = model.counter[]
-setcounter!(model::Model, value) = model.counter[] = value
+Graphs.nv(model::Model) = Graphs.nv(model.graph)
+Graphs.ne(model::Model) = Graphs.ne(model.graph)
 
-Graphs.savegraph(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
-Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
+get_plugins(model::Model) = model.plugins
+get_backend(model::Model) = model.backend
+get_source(model::Model) = model.source
+get_counter(model::Model) = model.counter[]
+set_counter!(model::Model, value) = model.counter[] = value
 
-NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
-NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
+save_model(file::AbstractString, model::GraphPPL.Model) = save(file, "__model__", model)
+load_model(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__model__")
+
+get_node_type(model::Model, fform::F) where {F} = get_node_type(get_backend(model), fform)
+NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(get_backend(model), fform)
 
 function Model(graph::MetaGraph, plugins::PluginsCollection, backend, source)
     return Model(graph, plugins, backend, source, Base.RefValue(0))
@@ -62,8 +64,6 @@ Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(
 
 Base.getindex(model::Model, keys::Base.Generator) = [model[key] for key in keys]
 
-Graphs.nv(model::Model) = Graphs.nv(model.graph)
-Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 
 Graphs.neighbors(model::Model, node::NodeLabel)                   = Graphs.neighbors(model, node, model[node])
@@ -106,22 +106,22 @@ function has_edge(model::Model, src, dst)
     return Graphs.has_edge(model.graph.graph, code_src, code_dst)
 end
 
-function generate_nodelabel(model::Model, name::Symbol)
-    nextcounter = setcounter!(model, getcounter(model) + 1)
-    return NodeLabel(name, nextcounter)
+function generate_node_label(model::Model, name::Symbol)
+    next_counter = set_counter!(model, get_counter(model) + 1)
+    return NodeLabel(name, next_counter)
 end
 
 """
-    getcontext(model::Model)
+    get_context(model::Model)
 
 Retrieves the context of a model. The context of a model contains the complete hierarchy of variables and factor nodes. 
 Additionally, contains all child submodels and their respective contexts. The Context supplies a mapping from symbols to `GraphPPL.NodeLabel` structures
 with which the model can be queried.
 """
-getcontext(model::Model) = model[]
+get_context(model::Model) = model[]
 
 function get_principal_submodel(model::Model)
-    context = getcontext(model)
+    context = get_context(model)
     return context
 end
 
@@ -130,16 +130,16 @@ end
 
 Returns a collection of aliases for `fform` depending on the `backend`.
 """
-aliases(model::Model, fform::F) where {F} = aliases(getbackend(model), fform)
+aliases(model::Model, fform::F) where {F} = aliases(get_backend(model), fform)
 
-factor_nodes(model::Model)   = Iterators.filter(node -> is_factor(model[node]), labels(model))
-variable_nodes(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
+get_factors(model::Model) = Iterators.filter(node -> is_factor(model[node]), labels(model))
+get_variables(model::Model) = Iterators.filter(node -> is_variable(model[node]), labels(model))
 
 """
-A version `factor_nodes(model)` that uses a callback function to process the factor nodes.
+A version `get_factors(model)` that uses a callback function to process the factor nodes.
 The callback function accepts both the label and the node data.
 """
-function factor_nodes(callback::F, model::Model) where {F}
+function get_factors(callback::F, model::Model) where {F}
     for label in labels(model)
         nodedata = model[label]
         if is_factor(nodedata)
@@ -149,10 +149,10 @@ function factor_nodes(callback::F, model::Model) where {F}
 end
 
 """
-A version `variable_nodes(model)` that uses a callback function to process the variable nodes.
+A version `get_variables(model)` that uses a callback function to process the variable nodes.
 The callback function accepts both the label and the node data.
 """
-function variable_nodes(callback::F, model::Model) where {F}
+function get_variables(callback::F, model::Model) where {F}
     for label in labels(model)
         nodedata = model[label]
         if is_variable(nodedata)
@@ -162,11 +162,11 @@ function variable_nodes(callback::F, model::Model) where {F}
 end
 
 """
-    prune!(m::Model)
+    prune_model!(m::Model)
 
 Remove all nodes from the model that are not connected to any other node.
 """
-function prune!(m::Model)
+function prune_model!(m::Model)
     degrees = degree(m.graph)
     nodes_to_remove = keys(degrees)[degrees .== 0]
     nodes_to_remove = sort(nodes_to_remove, rev = true)

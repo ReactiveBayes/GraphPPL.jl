@@ -51,34 +51,34 @@ A trait object for plugins that add extra functionality for both factor and vari
 struct FactorAndVariableNodesAndEdgesPlugin <: AbstractPluginTraitType end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface, options)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface)
 
-Call a plugin specific logic for a variable node with nodedata upon their creation. Accepts optional `options`.
+Call a plugin specific logic for a variable node with nodedata upon their creation.
 """
 function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface, options
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface
 ) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface)
 
-Call a plugin specific logic for a factor node with nodedata upon their creation. Accepts optional `options`.
+Call a plugin specific logic for a factor node with nodedata upon their creation.
 """
 function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface
 ) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface, options)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface)
 
-Call a plugin specific logic for an edge upon its creation. Accepts optional `options`.
+Call a plugin specific logic for an edge upon its creation.
 """
 function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface, options
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface
 ) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
@@ -105,14 +105,13 @@ to the node data in sequence. Each plugin can modify the node data.
 - `model::FactorGraphModelInterface`: The model containing the plugins.
 - `context::ContextInterface`: The context in which the node exists.
 - `nodedata`: The data of the node being processed.
-- `options`: Additional options to pass to each plugin's preprocessing function.
 
 # Returns
 The potentially modified `nodedata` after all plugins have been applied.
 """
-function preprocess_plugins(type::AbstractPluginTraitType, model::FactorGraphModelInterface, context::ContextInterface, nodedata, options)
+function preprocess_plugins(type::AbstractPluginTraitType, model::FactorGraphModelInterface, context::ContextInterface, nodedata)
     plugins = filter(type, getplugins(model))
     return foldl(plugins; init = nodedata) do nodedata, plugin
-        return preprocess_plugin(plugin, model, context, nodedata, options)
+        return preprocess_plugin(plugin, model, context, nodedata)
     end
 end
