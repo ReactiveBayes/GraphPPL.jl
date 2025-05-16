@@ -402,4 +402,152 @@
     ]
 
     export ModelsInTheZooWithoutArguments
+
+    # Helper functions for test suite
+
+    export create_variable_node_properties, create_factor_node_properties, add_test_variable, add_test_factor
+
+    """
+        create_variable_node_properties(name, index=nothing)
+
+    Create a VariableNodeProperties object for testing purposes.
+    """
+    function create_variable_node_properties(name::Symbol, index = nothing)
+        return GraphPPL.VariableNodeProperties(name = name, index = index)
+    end
+
+    """
+        create_factor_node_properties(fform)
+
+    Create a FactorNodeProperties object for testing purposes.
+    """
+    function create_factor_node_properties(fform)
+        return GraphPPL.FactorNodeProperties(fform = fform)
+    end
+
+    """
+        add_test_variable(model, name, index=nothing)
+
+    Add a test variable to the model with the given name and optional index.
+    Returns the node identifier.
+    """
+    function add_test_variable(model, name::Symbol, index = nothing)
+        ctx = GraphPPL.getcontext(model)
+        node_props = create_variable_node_properties(name, index)
+        node_data = GraphPPL.NodeData(ctx, node_props)
+
+        # Generate a node label
+        node_id = if index === nothing
+            GraphPPL.generate_nodelabel(name)
+        else
+            GraphPPL.generate_nodelabel(name, index)
+        end
+
+        # Add the node to the model
+        model[node_id] = node_data
+
+        return node_id
+    end
+
+    """
+        add_test_factor(model, fform)
+
+    Add a test factor to the model with the given functional form.
+    Returns the node identifier.
+    """
+    function add_test_factor(model, fform)
+        ctx = GraphPPL.getcontext(model)
+        node_props = create_factor_node_properties(fform)
+        node_data = GraphPPL.NodeData(ctx, node_props)
+
+        # Generate a node label
+        node_id = GraphPPL.generate_nodelabel(fform)
+
+        # Add the node to the model
+        model[node_id] = node_data
+
+        return node_id
+    end
+
+    """
+        get_variables(ctx::GraphPPL.Context)
+
+    Get all variables in a context.
+    """
+    function get_variables(ctx::GraphPPL.Context)
+        return ctx.individual_variables
+    end
+
+    """
+        get_variables(ctx::GraphPPL.Context, name::Symbol)
+
+    Get all indexed variables with the given name in a context.
+    """
+    function get_variables(ctx::GraphPPL.Context, name::Symbol)
+        if haskey(ctx.vector_variables, name)
+            return ctx.vector_variables[name]
+        elseif haskey(ctx.tensor_variables, name)
+            return ctx.tensor_variables[name]
+        end
+        return nothing
+    end
+
+    """
+        has_variable(ctx::GraphPPL.Context, name::Symbol)
+
+    Check if a context has a variable with the given name.
+    """
+    function has_variable(ctx::GraphPPL.Context, name::Symbol)
+        return haskey(ctx.individual_variables, name)
+    end
+
+    """
+        has_variable(ctx::GraphPPL.Context, name::Symbol, index)
+
+    Check if a context has an indexed variable with the given name and index.
+    """
+    function has_variable(ctx::GraphPPL.Context, name::Symbol, index)
+        vars = get_variables(ctx, name)
+        if vars !== nothing
+            if isa(index, Tuple)
+                return haskey(vars, index...)
+            else
+                return haskey(vars, index)
+            end
+        end
+        return false
+    end
+
+    """
+        get_variable(ctx::GraphPPL.Context, name::Symbol)
+
+    Get a variable with the given name from a context.
+    """
+    function get_variable(ctx::GraphPPL.Context, name::Symbol)
+        if haskey(ctx.individual_variables, name)
+            return ctx.individual_variables[name]
+        end
+        return nothing
+    end
+
+    """
+        get_context_child(parent_ctx::GraphPPL.Context, factor_id)
+
+    Get a child context for a composite factor node.
+    """
+    function get_context_child(parent_ctx::GraphPPL.Context, factor_id)
+        if haskey(GraphPPL.children(parent_ctx), factor_id)
+            return GraphPPL.children(parent_ctx)[factor_id]
+        end
+        return nothing
+    end
+
+    """
+        has_context_child(parent_ctx::GraphPPL.Context, factor_id)
+
+    Check if a parent context has a child context for a composite factor node.
+    """
+    function has_context_child(parent_ctx::GraphPPL.Context, factor_id)
+        return haskey(GraphPPL.children(parent_ctx), factor_id)
+    end
 end # TestUtils testmodule
