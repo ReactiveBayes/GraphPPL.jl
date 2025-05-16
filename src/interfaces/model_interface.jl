@@ -269,54 +269,85 @@ function prune_model!(model::M) where {M <: FactorGraphModelInterface}
 end
 
 """
+    get_variable_node_type(model::M) where {M<:FactorGraphModelInterface}
+
+Returns the type of variable node data used by this model implementation.
+Must return a type that implements VariableNodeDataInterface.
+"""
+function get_variable_data_type(model::M) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_variable_data_type, M, FactorGraphModelInterface))
+end
+
+"""
     make_variable_data(model::M, context::Any, name::Symbol, index::Any;
-                         kind::Symbol = :random, # Using :random as a common default
-                         link::Any = nothing,
-                         value::Any = nothing,
-                         extra_properties::NamedTuple = NamedTuple()) where {M <: FactorGraphModelInterface}
+                      kind::Symbol=:random,
+                      link::Any=nothing,
+                      value::Any=nothing,
+                      metadata::Any=nothing) where {M<:FactorGraphModelInterface}
 
-Constructs a type-stable data payload for a variable node, specific to model type `M`.
-This payload is intended to be passed to `GraphPPL.add_variable!(model, payload)`.
+Creates variable node data for the given model type by first resolving the appropriate
+node data type via get_variable_node_type and then constructing it with create_variable_node_data.
 
 # Arguments
-- `model::M`: The specific model interface implementation instance.
-- `context::Any`: The context for this variable data. (Using Any for now, can be refined to a specific Context type if available globally)
-- `name::Symbol`: The name of the variable.
-- `index::Any`: The index associated with the variable.
-- `kind::Symbol`: The kind of the variable (e.g., :random, :data, :constant). Defaults to `:random`.
-- `link::Any`: A link to another entity, if applicable. Defaults to `nothing`.
-- `value::Any`: A pre-assigned value, if applicable. Defaults to `nothing`.
-- `extra_properties::NamedTuple`: Additional plugin-specific or custom properties.
+- `model::M`: The model interface implementation instance
+- `context::Any`: The context for this variable
+- `name::Symbol`: The name of the variable
+- `index::Any`: The index for this variable (nothing for non-indexed)
+- `kind::Symbol`: The kind of variable (defaults to :random)
+- `link::Any`: Optional link to other nodes/components
+- `value::Any`: Optional pre-assigned value
+- `metadata::Any`: Optional additional metadata for extensions
 
 # Returns
-- An instance of a concrete, type-stable variable data structure.
+A concrete implementation of VariableNodeDataInterface appropriate for the model type
 """
-function make_variable_data(model::M, context::Any, name::Symbol, index::Any; kwargs...) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(make_variable_data, M, FactorGraphModelInterface))
+function make_variable_data(
+    model::M,
+    context::Any,
+    name::Symbol,
+    index::Any;
+    kind::Symbol = :random,
+    link::Any = nothing,
+    value::Any = nothing,
+    metadata::Any = nothing
+) where {M <: FactorGraphModelInterface}
+    T = get_variable_data_type(model)
+    return create_variable_data(T, name, index, kind, link, value, context, metadata)
 end
 
 """
-    make_factor_data(model::M, context::Any, fform::Any;
-                       extra_properties::NamedTuple = NamedTuple()) where {M <: FactorGraphModelInterface}
+    get_factor_node_type(model::M) where {M<:FactorGraphModelInterface}
 
-Constructs a type-stable data payload for a factor node, specific to model type `M`.
-This payload is intended to be passed to `GraphPPL.add_factor!(model, payload)`.
-
-# Arguments
-- `model::M`: The specific model interface implementation instance.
-- `context::Any`: The context for this factor data. (Using Any for now)
-- `fform::Any`: The functional form of the factor.
-- `extra_properties::NamedTuple`: Additional plugin-specific or custom properties.
-
-# Returns
-- An instance of a concrete, type-stable factor data structure.
+Returns the type of factor node data used by this model implementation.
+Must return a type that implements FactorNodeDataInterface.
 """
-function make_factor_data(model::M, context::Any, fform::Any; kwargs...) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(make_factor_data, M, FactorGraphModelInterface))
+function get_factor_node_type(model::M) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_factor_node_type, M, FactorGraphModelInterface))
 end
 
 """
-    make_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
+    create_factor_data(model::FactorGraphModelInterface, context, fform; kwargs...)
+
+Create factor node data for the given model, context, and functional form. Additional keyword arguments
+can be provided to customize the factor node data creation.
+
+# Arguments
+- `model`: The factor graph model interface instance
+- `context`: The context for the factor node
+- `fform`: The functional form for the factor node
+
+# Keywords
+- `kwargs...`: Additional keyword arguments for customizing the factor node data
+
+# Returns
+- An instance of factor node data that implements `FactorNodeDataInterface`
+"""
+function create_factor_data(model::M, context::Any, fform::Any; kwargs...) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_factor_data, M, FactorGraphModelInterface))
+end
+
+"""
+    create_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
 
 Constructs a data payload for an edge, specific to model type `M`.
 This payload is intended to be passed to `GraphPPL.add_edge!(model, source, destination, payload)`.
@@ -329,8 +360,8 @@ This payload is intended to be passed to `GraphPPL.add_edge!(model, source, dest
 # Returns
 - An instance of a concrete edge data structure (which should be a subtype of `EdgeInterface`).
 """
-function make_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(make_edge_data, M, FactorGraphModelInterface))
+function create_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_edge_data, M, FactorGraphModelInterface))
 end
 
 # Graph Creation Operations

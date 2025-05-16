@@ -7,6 +7,31 @@ for a variable node in the model. Models can implement specific types that exten
 abstract type VariableNodeDataInterface end
 
 """
+    create_variable_node_data(::Type{T}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any=nothing) where {T<:VariableNodeDataInterface}
+
+Template constructor for variable node data. Implementations can specialize on T to provide
+different construction logic for different node data types.
+
+# Arguments
+- `::Type{T}`: The concrete type of node data to create
+- `name::Symbol`: The name of the variable
+- `index::Any`: The index associated with the variable (nothing for non-indexed)
+- `kind::Symbol`: The kind of variable (e.g. :random, :data, :constant)
+- `link::Any`: Optional link to other nodes/components
+- `value::Any`: Optional pre-assigned value
+- `context::Any`: The context in which this variable exists
+- `metadata::Any`: Optional additional metadata for extensions
+
+# Returns
+An instance of type T containing the variable node data
+"""
+function create_variable_node_data(
+    ::Type{T}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any = nothing
+) where {T <: VariableNodeDataInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_variable_node_data, T, VariableNodeDataInterface))
+end
+
+"""
     get_name(variable_data::V) where {V<:VariableNodeDataInterface}
 
 Get the name of the variable node data.
@@ -98,8 +123,7 @@ function get_context(variable_data::V) where {V <: VariableNodeDataInterface}
 end
 
 """
-    hasextra(variable_data::V, key::Symbol) where {V<:VariableNodeDataInterface}
-    hasextra(variable_data::V, key::NodeDataExtraKey) where {V<:VariableNodeDataInterface}
+    hasextra(variable_data::V, key) where {V<:VariableNodeDataInterface}
 
 Check if the variable node data has an extra property with the given key.
 """
@@ -109,24 +133,20 @@ end
 
 """
     get_extra(variable_data::V) where {V<:VariableNodeDataInterface}
-    get_extra(variable_data::V, key::Symbol) where {V<:VariableNodeDataInterface}
-    get_extra(variable_data::V, key::Symbol, default) where {V<:VariableNodeDataInterface}
-    get_extra(variable_data::V, key::NodeDataExtraKey{K,T})::T where {V<:VariableNodeDataInterface}
-    get_extra(variable_data::V, key::NodeDataExtraKey{K,T}, default::T)::T where {V<:VariableNodeDataInterface}
+    get_extra(variable_data::V, key) where {V<:VariableNodeDataInterface}
+    get_extra(variable_data::V, key, default) where {V<:VariableNodeDataInterface}
 
 Get the extra property with the given key. If a form with a default value is used and the property
-does not exist, returns the default value. The NodeDataExtraKey versions provide type safety at compile time.
+does not exist, returns the default value.
 """
 function get_extra(variable_data::V, args...) where {V <: VariableNodeDataInterface}
     throw(GraphPPLInterfaceNotImplemented(get_extra, V, VariableNodeDataInterface))
 end
 
 """
-    set_extra!(variable_data::V, key::Symbol, value) where {V<:VariableNodeDataInterface}
-    set_extra!(variable_data::V, key::NodeDataExtraKey{K,T}, value::T) where {V<:VariableNodeDataInterface}
+    set_extra!(variable_data::V, key, value) where {V<:VariableNodeDataInterface}
 
 Set the extra property with the given key to the given value.
-The NodeDataExtraKey version provides type safety at compile time.
 """
 function set_extra!(variable_data::V, key, value) where {V <: VariableNodeDataInterface}
     throw(GraphPPLInterfaceNotImplemented(set_extra!, V, VariableNodeDataInterface))

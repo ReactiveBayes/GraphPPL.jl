@@ -31,11 +31,8 @@ function has_extra(edge::E, key) where {E <: EdgeInterface}
 end
 
 """
-    get_extra(edge::EdgeInterface, key::Symbol)
-    get_extra(edge::EdgeInterface, key::Symbol)
-    get_extra(edge::EdgeInterface, key::Symbol, default)
-    get_extra(edge::EdgeInterface, key::NodeDataExtraKey{K,T})::T
-    get_extra(edge::EdgeInterface, key::NodeDataExtraKey{K,T}, default::T)::T
+    get_extra(edge::EdgeInterface, key)
+    get_extra(edge::EdgeInterface, key, default)
 
 Get the extra property with the given key. If a form with a default value is used and the property
 does not exist, returns the default value. The NodeDataExtraKey versions provide type safety at compile time.
@@ -46,10 +43,8 @@ end
 
 """
     set_extra!(edge::EdgeInterface, key::Symbol, value)
-    set_extra!(edge::EdgeInterface, key::NodeDataExtraKey{K,T}, value::T)
 
 Set the extra property with the given key to the given value.
-The NodeDataExtraKey version provides type safety at compile time.
 """
 function set_extra!(edge::E, key, value) where {E <: EdgeInterface}
     throw(GraphPPLInterfaceNotImplemented(set_extra!, E, EdgeInterface))

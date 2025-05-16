@@ -5,7 +5,7 @@ Base abstract type for all plugins in the ReactiveBayes ecosystem.
 Plugins extend the functionality of the core system by providing additional features
 that can be enabled or disabled as needed.
 """
-abstract type AbstractPlugin end
+abstract type PluginInterface end
 
 """
     AbstractPluginTraitType
@@ -56,9 +56,9 @@ struct FactorAndVariableNodesAndEdgesPlugin <: AbstractPluginTraitType end
 Call a plugin specific logic for a variable node with nodedata upon their creation. Accepts optional `options`.
 """
 function preprocess_plugin(
-    plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface, options
-)
-    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, typeof(plugin), AbstractPluginTraitType))
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface, options
+) where {P <: PluginInterface}
+    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
@@ -66,19 +66,21 @@ end
 
 Call a plugin specific logic for a factor node with nodedata upon their creation. Accepts optional `options`.
 """
-function preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options)
-    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, typeof(plugin), AbstractPluginTraitType))
+function preprocess_plugin(
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options
+) where {P <: PluginInterface}
+    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, source::NodeLabel, target::NodeLabel, options)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface, options)
 
-Call a plugin specific logic for an edge between source and target nodes upon their creation. Accepts optional `options`.
+Call a plugin specific logic for an edge upon its creation. Accepts optional `options`.
 """
 function preprocess_plugin(
-    plugin, model::FactorGraphModelInterface, context::ContextInterface, source::NodeLabel, target::NodeLabel, options
-)
-    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, typeof(plugin), AbstractPluginTraitType))
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface, options
+) where {P <: PluginInterface}
+    throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
@@ -86,8 +88,8 @@ end
 
 Calls a plugin specific logic after the model has been created. By default does nothing.
 """
-function postprocess_plugin(plugin, model)
-    throw(GraphPPLInterfaceNotImplemented(postprocess_plugin, typeof(plugin), AbstractPluginTraitType))
+function postprocess_plugin(plugin::P, model::FactorGraphModelInterface) where {P <: PluginInterface}
+    throw(GraphPPLInterfaceNotImplemented(postprocess_plugin, P, PluginInterface))
 end
 
 """

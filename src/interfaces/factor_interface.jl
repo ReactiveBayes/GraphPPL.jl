@@ -25,8 +25,7 @@ function get_context(factor_data::F) where {F <: FactorNodeDataInterface}
 end
 
 """
-    has_extra(factor_data::FactorNodeDataInterface, key::Symbol)
-    has_extra(factor_data::FactorNodeDataInterface, key::NodeDataExtraKey)
+    has_extra(factor_data::FactorNodeDataInterface, key)
 
 Check if the factor node data has an extra property with the given key.
 """
@@ -35,11 +34,8 @@ function has_extra(factor_data::F, key) where {F <: FactorNodeDataInterface}
 end
 
 """
-    get_extra(factor_data::FactorNodeDataInterface, key::Symbol)
-    get_extra(factor_data::FactorNodeDataInterface, key::Symbol)
-    get_extra(factor_data::FactorNodeDataInterface, key::Symbol, default)
-    get_extra(factor_data::FactorNodeDataInterface, key::NodeDataExtraKey{K,T})::T
-    get_extra(factor_data::FactorNodeDataInterface, key::NodeDataExtraKey{K,T}, default::T)::T
+    get_extra(factor_data::FactorNodeDataInterface, key)
+    get_extra(factor_data::FactorNodeDataInterface, key, default)
 
 Get the extra property with the given key. If a form with a default value is used and the property
 does not exist, returns the default value. The NodeDataExtraKey versions provide type safety at compile time.
@@ -49,11 +45,9 @@ function get_extra(factor_data::F, args...) where {F <: FactorNodeDataInterface}
 end
 
 """
-    set_extra!(factor_data::FactorNodeDataInterface, key::Symbol, value)
-    set_extra!(factor_data::FactorNodeDataInterface, key::NodeDataExtraKey{K,T}, value::T)
+    set_extra!(factor_data::FactorNodeDataInterface, key, value)
 
 Set the extra property with the given key to the given value.
-The NodeDataExtraKey version provides type safety at compile time.
 """
 function set_extra!(factor_data::F, key, value) where {F <: FactorNodeDataInterface}
     throw(GraphPPLInterfaceNotImplemented(set_extra!, F, FactorNodeDataInterface))
@@ -66,4 +60,25 @@ Display a string representation of the factor node data.
 """
 function Base.show(io, factor_data::F) where {F <: FactorNodeDataInterface}
     throw(GraphPPLInterfaceNotImplemented(show, F, FactorNodeDataInterface))
+end
+
+"""
+    create_factor_data(model::FactorGraphModelInterface, context, fform; kwargs...)
+
+Create factor node data for the given model, context, and functional form. Additional keyword arguments
+can be provided to customize the factor node data creation.
+
+# Arguments
+- `model`: The factor graph model interface instance
+- `context`: The context for the factor node
+- `fform`: The functional form for the factor node
+
+# Keywords
+- `kwargs...`: Additional keyword arguments for customizing the factor node data
+
+# Returns
+- An instance of factor node data that implements `FactorNodeDataInterface`
+"""
+function create_factor_data(::Type{T}, context::Any, fform::Any; kwargs...) where {T <: FactorNodeDataInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_factor_data, T, FactorNodeDataInterface))
 end

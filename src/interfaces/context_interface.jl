@@ -156,11 +156,29 @@ function has_vector_variable(context::C, name::Symbol) where {C <: ContextInterf
 end
 
 """
+    has_vector_variable(context::C, name::Symbol, index::Int) where {C<:ContextInterface}
+    
+Check if a vector variable with the given name and index exists.
+"""
+function has_vector_variable(context::C, name::Symbol, index::Int) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_vector_variable, C, ContextInterface))
+end
+
+"""
     has_tensor_variable(context::C, name::Symbol) where {C<:ContextInterface}
     
 Check if a tensor variable with the given name exists.
 """
 function has_tensor_variable(context::C, name::Symbol) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_tensor_variable, C, ContextInterface))
+end
+
+"""
+    has_tensor_variable(context::C, name::Symbol, indices::Tuple) where {C<:ContextInterface}
+    
+Check if a tensor variable with the given name and indices exists.
+"""
+function has_tensor_variable(context::C, name::Symbol, indices::Tuple) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(has_tensor_variable, C, ContextInterface))
 end
 
@@ -215,12 +233,30 @@ function set_individual_variable!(context::C, name::Symbol, value::NodeLabelInte
 end
 
 """
+    set_vector_variable!(context::C, name::Symbol, value::AbstractVector{NodeLabelInterface}) where {C<:ContextInterface}
+    
+Set a vector variable.
+"""
+function set_vector_variable!(context::C, name::Symbol, value::AbstractVector{NodeLabelInterface}) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(set_vector_variable!, C, ContextInterface))
+end
+
+"""
     set_vector_variable!(context::C, name::Symbol, index::Int, value::NodeLabelInterface) where {C<:ContextInterface}
     
 Set a vector variable element.
 """
 function set_vector_variable!(context::C, name::Symbol, index::Int, value::NodeLabelInterface) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_vector_variable!, C, ContextInterface))
+end
+
+"""
+    set_tensor_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C<:ContextInterface}
+    
+Set a tensor variable.
+"""
+function set_tensor_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(set_tensor_variable!, C, ContextInterface))
 end
 
 """
@@ -233,20 +269,20 @@ function set_tensor_variable!(context::C, name::Symbol, indices::Tuple, value::N
 end
 
 """
-    set_vector_variable_array!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C<:ContextInterface}
+    set_vector_variable_array!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C<:ContextInterface}
     
 Set an entire vector variable array.
 """
-function set_vector_variable_array!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C <: ContextInterface}
+function set_vector_variable_array!(context::C, name::Symbol, value::AbstractVector{<:NodeLabelInterface}) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_vector_variable_array!, C, ContextInterface))
 end
 
 """
-    set_tensor_variable_array!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C<:ContextInterface}
+    set_tensor_variable_array!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C<:ContextInterface}
     
 Set an entire tensor variable array.
 """
-function set_tensor_variable_array!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C <: ContextInterface}
+function set_tensor_variable_array!(context::C, name::Symbol, value::AbstractArray{<:NodeLabelInterface}) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_tensor_variable_array!, C, ContextInterface))
 end
 
@@ -289,9 +325,9 @@ function get_variable(context::C, name::Symbol) where {C <: ContextInterface}
     if has_individual_variable(context, name)
         return get_individual_variable(context, name)
     elseif has_vector_variable(context, name)
-        return get_vector_variables(context)[name]
+        return get_vector_variable(context, name)
     elseif has_tensor_variable(context, name)
-        return get_tensor_variables(context)[name]
+        return get_tensor_variable(context, name)
     elseif has_proxy(context, name)
         return get_proxy(context, name)
     end
@@ -347,15 +383,15 @@ function set_variable!(context::C, name::Symbol, value::NodeLabelInterface) wher
 end
 
 """
-    set_variable!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C<:ContextInterface}
+    set_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C<:ContextInterface}
     
 Set a vector or tensor variable array, determined by the dimensionality of the array.
 """
-function set_variable!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface, V, 1}) where {C <: ContextInterface, V}
+function set_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface, 1}) where {C <: ContextInterface, V}
     return set_vector_variable_array!(context, name, value)
 end
 
-function set_variable!(context::C, name::Symbol, value::ResizableArray{NodeLabelInterface}) where {C <: ContextInterface}
+function set_variable!(context::C, name::Symbol, value::AbstractArray{NodeLabelInterface}) where {C <: ContextInterface}
     return set_tensor_variable_array!(context, name, value)
 end
 
