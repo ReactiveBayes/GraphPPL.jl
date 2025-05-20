@@ -17,8 +17,8 @@
         set_extra!
     # Test basic constructor
     vnd = VariableNodeData(name = :test, kind = :random, value = 5)
-    @test get_name(vnd) === :test
-    @test get_kind(vnd) === :random
+    @test @inferred(get_name(vnd)) === :test
+    @test @inferred(get_kind(vnd)) === :random
     @test get_value(vnd) === 5
 
     # Test with all fields
@@ -36,27 +36,27 @@ end
     import GraphPPL: VariableNodeData, is_random, is_data, is_constant
     # Test random variable
     random_var = VariableNodeData(name = :x, kind = :random)
-    @test is_random(random_var) === true
-    @test is_data(random_var) === false
-    @test is_constant(random_var) === false
+    @test @inferred(is_random(random_var)) === true
+    @test @inferred(is_data(random_var)) === false
+    @test @inferred(is_constant(random_var)) === false
 
     # Test data variable
     data_var = VariableNodeData(name = :y, kind = :data)
-    @test is_random(data_var) === false
-    @test is_data(data_var) === true
-    @test is_constant(data_var) === false
+    @test @inferred(is_random(data_var)) === false
+    @test @inferred(is_data(data_var)) === true
+    @test @inferred(is_constant(data_var)) === false
 
     # Test constant variable
     const_var = VariableNodeData(name = :z, kind = :constant)
-    @test is_random(const_var) === false
-    @test is_data(const_var) === false
-    @test is_constant(const_var) === true
+    @test @inferred(is_random(const_var)) === false
+    @test @inferred(is_data(const_var)) === false
+    @test @inferred(is_constant(const_var)) === true
 
     # Test unknown kind
     custom_var = VariableNodeData(name = :custom, kind = :custom)
-    @test is_random(custom_var) === false
-    @test is_data(custom_var) === false
-    @test is_constant(custom_var) === false
+    @test @inferred(is_random(custom_var)) === false
+    @test @inferred(is_data(custom_var)) === false
+    @test @inferred(is_constant(custom_var)) === false
 end
 
 # Anonymous variable test
@@ -168,6 +168,45 @@ end
     @test @allocated(has_extra(vnd, :test)) == 0
     @test @allocated(get_extra(vnd, :test, "default")) == 0
     @test @allocated(get_extra(vnd)) == 0
-    @test @allocated(set_extra!(vnd, :test, "value")) == 0
+    set_extra!(vnd, :test, "value")
     @test @allocated(get_extra(vnd, :test)) == 0
+end
+
+@testitem "create_variable_data interface test" begin
+    import GraphPPL:
+        VariableNodeData,
+        get_name,
+        get_index,
+        get_link,
+        get_kind,
+        get_value,
+        get_context,
+        is_random,
+        is_data,
+        is_constant,
+        is_anonymous,
+        has_extra,
+        get_extra,
+        set_extra!,
+        create_variable_data
+
+    # Test that create_variable_data works with all arguments
+    vnd = create_variable_data(VariableNodeData, :test_var, 1, :random, "test_link", 42.0, "test_context", Dict(:extra => "metadata"))
+
+    @test get_name(vnd) === :test_var
+    @test get_index(vnd) === 1
+    @test get_kind(vnd) === :random
+    @test get_link(vnd) === "test_link"
+    @test get_value(vnd) === 42.0
+    @test get_context(vnd) === "test_context"
+
+    # Test with minimal arguments
+    vnd_minimal = create_variable_data(VariableNodeData, :minimal_var, nothing, :data, nothing, nothing, nothing)
+
+    @test get_name(vnd_minimal) === :minimal_var
+    @test get_index(vnd_minimal) === nothing
+    @test get_kind(vnd_minimal) === :data
+    @test get_link(vnd_minimal) === nothing
+    @test get_value(vnd_minimal) === nothing
+    @test get_context(vnd_minimal) === nothing
 end

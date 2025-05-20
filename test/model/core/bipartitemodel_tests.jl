@@ -1,6 +1,5 @@
 @testitem "BipartiteModel: Variable node operations" begin
-    import GraphPPL: BipartiteModel
-    # Create instance of model
+    import GraphPPL: BipartiteModel, create_model, get_context, add_variable!, is_variable_node, is_factor_node, get_variable_data, get_variables, make_variable_data, get_factor_data, get_factors, make_factor_data, get_edge_data, has_edge, variable_neighbors,     # Create instance of model
     model = create_model(BipartiteModel)
     context = get_context(model) # Get context after model creation
 

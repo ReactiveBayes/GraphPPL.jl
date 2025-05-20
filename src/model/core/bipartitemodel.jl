@@ -26,7 +26,8 @@ struct BipartiteModel{
 end
 
 function create_model(::Type{BipartiteModel}; plugins = nothing, backend = nothing, source = nothing)
-    context = []
+    graph = BipartiteFactorGraph(VariableNodeData, FactorNodeData, EdgeData)
+    context = Context()
 end
 
 function get_context(model::BipartiteModel)

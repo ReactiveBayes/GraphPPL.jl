@@ -88,7 +88,7 @@ end
 
 Create a VariableNodeData instance with the given parameters. Any additional metadata is stored in the extras dictionary.
 """
-function create_variable_node_data(
+function create_variable_data(
     ::Type{VariableNodeData}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any = nothing
 )
     extras = metadata === nothing ? Dict{Symbol, Any}() : Dict{Symbol, Any}(pairs(metadata))

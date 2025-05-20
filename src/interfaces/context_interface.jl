@@ -6,6 +6,28 @@ Contains information about a model or submodel's variables, factors, and structu
 """
 abstract type ContextInterface end
 
+"""
+    create_context(
+        ::Type{C}, factor_identifier_type::FI, factor_label_type::FL, variable_label_type::VL
+    ) where {C <: ContextInterface, F, FI, FL, VL}
+
+Create a new context of type C with the given factor identifier type, factor data type, and variable data type.
+"""
+function create_context(
+    ::Type{C}, factor_identifier_type::FI, factor_label_type::FL, variable_label_type::VL
+) where {C <: ContextInterface, F, FI, FL, VL}
+    throw(GraphPPLInterfaceNotImplemented(create_context, C, ContextInterface))
+end
+
+"""
+    create_child_context(parent::C, fucntional_form::F) where {C <: ContextInterface, F}
+
+Create a new child context of type C with the given functional form.
+"""
+function create_child_context(parent::C, fucntional_form::F) where {C <: ContextInterface, F}
+    throw(GraphPPLInterfaceNotImplemented(create_child_context, C, ContextInterface))
+end
+
 # Basic Properties
 """
     get_depth(context::C) where {C<:ContextInterface}
