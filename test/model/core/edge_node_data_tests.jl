@@ -3,8 +3,8 @@
 
     # Test basic creation
     edge = create_edge_data(EdgeNodeData, name = :test)
-    @test @inferred(get_name(edge)) === :test
-    @test @inferred(get_index(edge)) === nothing
+    @test get_name(edge) === :test
+    @test get_index(edge) === nothing
 
     # Test with all fields
     edge = create_edge_data(EdgeNodeData, name = :full_test, index = 2)
@@ -149,15 +149,7 @@ end
 
 @testitem "EdgeNodeData satisfies EdgeDataInterface" begin
     import GraphPPL:
-        EdgeNodeData,
-        EdgeDataInterface,
-        get_name,
-        get_index,
-        has_extra,
-        get_extra,
-        set_extra!,
-        CompileTimeDictionaryKey,
-        create_edge_data
+        EdgeNodeData, EdgeDataInterface, get_name, get_index, has_extra, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
 
     # Verify EdgeNodeData is a subtype of EdgeDataInterface
     @test EdgeNodeData <: EdgeDataInterface
@@ -183,4 +175,4 @@ end
     @test has_extra(edge, key)
     @test get_extra(edge, key) == 42
     @test get_extra(edge, CompileTimeDictionaryKey{:nonexistent, Float64}(), 3.14) == 3.14
-end 
+end

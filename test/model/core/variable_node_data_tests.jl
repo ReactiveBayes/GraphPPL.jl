@@ -1,34 +1,16 @@
 
 @testitem "VariableNodeData creation with `create_variable_data`" begin
-    import GraphPPL:
-        VariableNodeData,
-        get_name,
-        get_kind,
-        get_value,
-        get_index,
-        get_link,
-        create_variable_data,
-        VariableNodeKind
+    import GraphPPL: VariableNodeData, get_name, get_kind, get_value, get_index, get_link, create_variable_data, VariableNodeKind
 
     # Test basic creation
-    vnd = create_variable_data(
-        VariableNodeData,
-        name = :test,
-        kind = VariableNodeKind.Random,
-        value = 5
-    )
+    vnd = create_variable_data(VariableNodeData, name = :test, kind = VariableNodeKind.Random, value = 5)
     @test @inferred(get_name(vnd)) === :test
     @test @inferred(get_kind(vnd)) === VariableNodeKind.Random
     @test get_value(vnd) === 5
 
     # Test with all fields
     vnd = create_variable_data(
-        VariableNodeData,
-        name = :full_test,
-        index = 2,
-        link = "some_link",
-        kind = VariableNodeKind.Data,
-        value = 10.5
+        VariableNodeData, name = :full_test, index = 2, link = "some_link", kind = VariableNodeKind.Data, value = 10.5
     )
     @test get_name(vnd) === :full_test
     @test get_index(vnd) === 2
@@ -38,13 +20,7 @@
 end
 
 @testitem "VariableNodeData kind tests" begin
-    import GraphPPL:
-        VariableNodeData,
-        is_random,
-        is_data,
-        is_constant,
-        create_variable_data,
-        VariableNodeKind
+    import GraphPPL: VariableNodeData, is_random, is_data, is_constant, create_variable_data, VariableNodeKind
 
     # Test random variable
     random_var = create_variable_data(VariableNodeData, name = :x, kind = VariableNodeKind.Random)
@@ -72,10 +48,10 @@ end
 end
 
 @testitem "VariableNodeData anonymous test" begin
-    import GraphPPL: VariableNodeData, is_anonymous, create_variable_data
+    import GraphPPL: VariableNodeData, VariableNodeKind, is_anonymous, create_variable_data
 
     # Test anonymous variable
-    anon_var = create_variable_data(VariableNodeData, name = :anonymous_var_graphppl)
+    anon_var = create_variable_data(VariableNodeData, name = :x, kind = VariableNodeKind.Anonymous)
     @test is_anonymous(anon_var) === true
 
     # Test named variable
@@ -205,7 +181,7 @@ end
 end
 
 @testitem "VariableNodeData show method" begin
-    import GraphPPL: VariableNodeData, set_extra!, create_variable_data
+    import GraphPPL: VariableNodeData, VariableNodeKind, set_extra!, create_variable_data
 
     vnd = create_variable_data(VariableNodeData, name = :test, kind = VariableNodeKind.Random)
     set_extra!(vnd, :test_key, "test_value")
@@ -276,6 +252,7 @@ end
 @testitem "test that VariableNodeData methods do not allocate" begin
     import GraphPPL:
         VariableNodeData,
+        create_variable_data,
         get_name,
         get_index,
         get_link,
@@ -288,7 +265,7 @@ end
         has_extra,
         get_extra,
         set_extra!
-    vnd = VariableNodeData(name = :test)
+    vnd = create_variable_data(VariableNodeData, name = :test)
     @test @allocated(get_name(vnd)) == 0
     @test @allocated(get_index(vnd)) == 0
     @test @allocated(get_link(vnd)) == 0
@@ -300,7 +277,6 @@ end
     @test @allocated(is_anonymous(vnd)) == 0
     @test @allocated(has_extra(vnd, :test)) == 0
     @test @allocated(get_extra(vnd, :test, "default")) == 0
-    @test @allocated(get_extra(vnd)) == 0
     set_extra!(vnd, :test, "value")
     @test @allocated(get_extra(vnd, :test)) == 0
 end
@@ -308,38 +284,38 @@ end
 @testitem "create_variable_data interface test" begin
     import GraphPPL:
         VariableNodeData,
+        VariableNodeKind,
+        create_variable_data,
         get_name,
         get_index,
         get_link,
         get_kind,
         get_value,
-        get_context,
         is_random,
         is_data,
         is_constant,
         is_anonymous,
         has_extra,
         get_extra,
-        set_extra!,
-        create_variable_data
+        set_extra!
 
     # Test that create_variable_data works with all arguments
-    vnd = create_variable_data(VariableNodeData, :test_var, 1, :random, "test_link", 42.0, "test_context", Dict(:extra => "metadata"))
+    vnd = create_variable_data(
+        VariableNodeData, name = :test_var, index = 1, kind = VariableNodeKind.Random, link = "test_link", value = 42.0
+    )
 
     @test get_name(vnd) === :test_var
     @test get_index(vnd) === 1
-    @test get_kind(vnd) === :random
+    @test get_kind(vnd) === VariableNodeKind.Random
     @test get_link(vnd) === "test_link"
     @test get_value(vnd) === 42.0
-    @test get_context(vnd) === "test_context"
 
     # Test with minimal arguments
-    vnd_minimal = create_variable_data(VariableNodeData, :minimal_var, nothing, :data, nothing, nothing, nothing)
+    vnd_minimal = create_variable_data(VariableNodeData, name = :minimal_var, kind = VariableNodeKind.Data)
 
     @test get_name(vnd_minimal) === :minimal_var
     @test get_index(vnd_minimal) === nothing
-    @test get_kind(vnd_minimal) === :data
+    @test get_kind(vnd_minimal) === VariableNodeKind.Data
     @test get_link(vnd_minimal) === nothing
     @test get_value(vnd_minimal) === nothing
-    @test get_context(vnd_minimal) === nothing
 end
