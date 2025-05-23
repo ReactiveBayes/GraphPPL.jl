@@ -21,8 +21,6 @@ include("core/resizable_array.jl")
 include("core/dictionary_key.jl")
 include("core/node_creation_options.jl")
 
-include("model/core/node_labels.jl")
-
 # Interfaces - these define the core interfaces for the package
 include("interfaces/proxy_label_interface.jl")
 include("interfaces/variable_interface.jl")

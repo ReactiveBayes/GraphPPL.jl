@@ -104,35 +104,23 @@ function get_variable(context::C, name, index) where {C <: ContextInterface}
 end
 
 """
-    get_factor_node(context::C, fform, identifier) where {C<:ContextInterface}
-    
-Get a factor node by functional form and identifier.
-"""
-function get_factor_node(context::C, fform, identifier) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(get_factor_node, C, ContextInterface))
-end
+    get_factor(context::C, identifier)
 
+Get a factor by identifier.
 """
-    get_child_context(context::C, fform, identifier) where {C<:ContextInterface}
-    
-Get a child context by functional form and identifier.
-"""
-function get_child_context(context::C, fform, identifier) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(get_child_context, C, ContextInterface))
+function get_factor(context::C, identifier) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_factor, C, ContextInterface))
 end
 
 # Has Key Checks
+"""
+    has_variable(context::C, name, index) where {C<:ContextInterface}
+    
+Check if a variable with the given name and index exists in the context.
+Index () can be provided for individual variables.
+"""
 function has_variable(context::C, name, index) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(has_variable, C, ContextInterface))
-end
-
-"""
-    has_factor_node(context::C, fform, identifier) where {C<:ContextInterface}
-    
-Check if a factor node with the given functional form and identifier exists.
-"""
-function has_factor_node(context::C, fform, identifier) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(has_factor_node, C, ContextInterface))
 end
 
 # Setters for Variables and Nodes

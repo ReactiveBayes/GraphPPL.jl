@@ -1,9 +1,9 @@
 @testmodule MockLabels begin
-    import GraphPPL: VariableNodeLabelInterface, FactorNodeLabelInterface
-    struct MockVariableNodeLabel <: VariableNodeLabelInterface
+    import GraphPPL
+    struct MockVariableNodeLabel
         id::Int
     end
-    struct MockFactorNodeLabel <: FactorNodeLabelInterface
+    struct MockFactorNodeLabel
         id::Int
     end
     struct MockFactorIdentifier{F}

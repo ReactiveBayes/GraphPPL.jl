@@ -23,7 +23,7 @@ end
 
 is_proxied(any) = is_proxied(typeof(any))
 is_proxied(::Type) = False()
-is_proxied(::Type{T}) where {T <: NodeLabelInterface} = True()
+is_proxied(::Type{T}) where {T <: VariableNodeLabel} = True()
 is_proxied(::Type{T}) where {T <: ProxyLabel} = True()
 is_proxied(::Type{T}) where {T <: AbstractArray} = is_proxied(eltype(T))
 
@@ -83,10 +83,10 @@ checked_getindex(something, index::FunctionalIndex) = Base.getindex(something, i
 checked_getindex(something, index::Tuple) = Base.getindex(something, index...)
 checked_getindex(something, index::Nothing) = something
 
-checked_getindex(nodelabel::NodeLabelInterface, index::Nothing) = nodelabel
-checked_getindex(nodelabel::NodeLabelInterface, index::Tuple) =
+checked_getindex(nodelabel::VariableNodeLabel, index::Nothing) = nodelabel
+checked_getindex(nodelabel::VariableNodeLabel, index::Tuple) =
     error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
-checked_getindex(nodelabel::NodeLabelInterface, index) =
+checked_getindex(nodelabel::VariableNodeLabel, index) =
     error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
 
 """
