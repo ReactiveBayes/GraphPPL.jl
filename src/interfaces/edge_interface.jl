@@ -51,10 +51,18 @@ function set_extra!(edge::E, key, value) where {E <: EdgeInterface}
 end
 
 """
-    Base.show(io, edge::EdgeInterface)
+    create_edge_data(::Type{T}, name, index)
 
-Display a string representation of the edge.
+Create edge data for the given model, name, and index.
+
+# Arguments
+- `model`: The factor graph model interface instance
+- `name`: The name of the edge
+- `index`: The index of the edge
+
+# Returns
+- An instance of edge data that implements `EdgeDataInterface`
 """
-function Base.show(io, edge::E) where {E <: EdgeInterface}
-    throw(GraphPPLInterfaceNotImplemented(show, E, EdgeInterface))
+function create_edge_data(::Type{T}, name, index) where {T <: EdgeDataInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_edge_data, T, EdgeDataInterface))
 end
