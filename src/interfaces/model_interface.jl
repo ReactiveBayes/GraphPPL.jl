@@ -84,13 +84,13 @@ function add_factor!(model::M, data::FactorNodeDataInterface) where {M <: Factor
 end
 
 """
-    add_edge!(model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeDataInterface) where {M<:FactorGraphModelInterface}
+    add_edge!(model::M, variable::VariableNodeLabel, factor::FactorNodeLabel, edge_data::EdgeDataInterface) where {M<:FactorGraphModelInterface}
 
 Connect two nodes in the model with an edge containing the specified data.
 Returns a boolean indicating whether the edge was added successfully or not.
 """
 function add_edge!(
-    model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeDataInterface
+    model::M, variable::VariableNodeLabel, factor::FactorNodeLabel, edge_data::EdgeDataInterface
 ) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(add_edge!, M, FactorGraphModelInterface))
 end
