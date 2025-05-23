@@ -121,14 +121,14 @@ function add_factor!(model::M, data::FactorNodeDataInterface) where {M <: Factor
 end
 
 """
-    add_edge!(model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeInterface) where {M<:FactorGraphModelInterface}
+    add_edge!(model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeDataInterface) where {M<:FactorGraphModelInterface}
 
 Connect two nodes in the model with an edge containing the specified data.
 
 Returns a reference to the created edge.
 """
 function add_edge!(
-    model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeInterface
+    model::M, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeDataInterface
 ) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(add_edge!, M, FactorGraphModelInterface))
 end
@@ -369,7 +369,7 @@ end
     get_edge_data_type(model::M) where {M <: FactorGraphModelInterface}
 
 Returns the type of edge data used by this model implementation.
-Must return a type that implements EdgeInterface.
+Must return a type that implements EdgeDataInterface.
 """
 function get_edge_data_type(model::M) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(get_edge_data_type, M, FactorGraphModelInterface))
@@ -387,7 +387,7 @@ This payload is intended to be passed to `GraphPPL.add_edge!(model, source, dest
 - `index::Any`: An index, if the edge connects to an indexed interface (e.g., for vector-valued arguments).
 
 # Returns
-- An instance of a concrete edge data structure (which should be a subtype of `EdgeInterface`).
+- An instance of a concrete edge data structure (which should be a subtype of `EdgeDataInterface`).
 """
 function create_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
     T = get_edge_data_type(model)

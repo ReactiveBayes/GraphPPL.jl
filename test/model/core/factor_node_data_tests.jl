@@ -1,35 +1,25 @@
-@testitem "FactorNodeData constructor" begin
-    import GraphPPL: FactorNodeData, get_functional_form, get_context
+@testitem "FactorNodeData creation with `create_factor_data`" begin
+    import GraphPPL: FactorNodeData, get_functional_form, create_factor_data
 
-    # Test constructor with form only
-    factor_data = FactorNodeData("test_form")
-    @test get_functional_form(factor_data) == "test_form"
-    @test get_context(factor_data) === nothing
-    @test isempty(factor_data.extras)
-
-    # Test constructor with form and context
-    context = "test_context"
-    factor_data = FactorNodeData("test_form", context)
-    @test get_functional_form(factor_data) == "test_form"
-    @test get_context(factor_data) === context
-    @test isempty(factor_data.extras)
+    for functional_form in ["test_form", "test_form_2", identity, (x) -> x]
+        factor_data = create_factor_data(FactorNodeData, functional_form = functional_form)
+        @test get_functional_form(factor_data) == functional_form
+    end
 end
 
-@testitem "FactorNodeData implements get_functional_form and get_context" begin
-    import GraphPPL: FactorNodeData, get_functional_form, get_context
+@testitem "FactorNodeData implements get_functional_form" begin
+    import GraphPPL: FactorNodeData, get_functional_form, create_factor_data
 
     form = "test_form"
-    context = "test_context"
-    factor_data = FactorNodeData(form, context)
+    factor_data = create_factor_data(FactorNodeData, functional_form = form)
 
     @test get_functional_form(factor_data) === form
-    @test get_context(factor_data) === context
 end
 
 @testitem "FactorNodeData implements has_extra with Symbol keys" begin
-    import GraphPPL: FactorNodeData, has_extra, set_extra!
+    import GraphPPL: FactorNodeData, create_factor_data, has_extra, set_extra!, get_extra
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
 
     # Initially, no extras should exist
     @test !has_extra(factor_data, :test_key)
@@ -37,15 +27,16 @@ end
     # After setting an extra, it should exist
     set_extra!(factor_data, :test_key, "test_value")
     @test has_extra(factor_data, :test_key)
+    @test get_extra(factor_data, :test_key) == "test_value"
 
     # Non-existent keys should return false
     @test !has_extra(factor_data, :nonexistent_key)
 end
 
 @testitem "FactorNodeData implements has_extra with CompileTimeDictionaryKey" begin
-    import GraphPPL: FactorNodeData, has_extra, set_extra!, CompileTimeDictionaryKey
+    import GraphPPL: FactorNodeData, has_extra, set_extra!, CompileTimeDictionaryKey, create_factor_data
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
     key = CompileTimeDictionaryKey{:test_key, String}()
 
     # Initially, no extras should exist
@@ -61,9 +52,9 @@ end
 end
 
 @testitem "FactorNodeData implements get_extra with Symbol keys" begin
-    import GraphPPL: FactorNodeData, get_extra, set_extra!
+    import GraphPPL: FactorNodeData, get_extra, set_extra!, create_factor_data
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
 
     # Set and get an extra
     set_extra!(factor_data, :test_key, "test_value")
@@ -80,9 +71,9 @@ end
 end
 
 @testitem "FactorNodeData implements get_extra with CompileTimeDictionaryKey" begin
-    import GraphPPL: FactorNodeData, get_extra, set_extra!, CompileTimeDictionaryKey
+    import GraphPPL: FactorNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_factor_data
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
     string_key = CompileTimeDictionaryKey{:string_key, String}()
     int_key = CompileTimeDictionaryKey{:int_key, Int}()
 
@@ -107,9 +98,9 @@ end
 end
 
 @testitem "FactorNodeData implements set_extra! with Symbol keys" begin
-    import GraphPPL: FactorNodeData, get_extra, set_extra!
+    import GraphPPL: FactorNodeData, get_extra, set_extra!, create_factor_data
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
 
     # Set a new extra
     @test set_extra!(factor_data, :test_key, "test_value") == "test_value"
@@ -128,9 +119,9 @@ end
 end
 
 @testitem "FactorNodeData implements set_extra! with CompileTimeDictionaryKey" begin
-    import GraphPPL: FactorNodeData, get_extra, set_extra!, CompileTimeDictionaryKey
+    import GraphPPL: FactorNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_factor_data
 
-    factor_data = FactorNodeData("test_form")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
     string_key = CompileTimeDictionaryKey{:string_key, String}()
     int_key = CompileTimeDictionaryKey{:int_key, Int}()
 
@@ -147,16 +138,15 @@ end
 end
 
 @testitem "FactorNodeData show method" begin
-    import GraphPPL: FactorNodeData, set_extra!
+    import GraphPPL: FactorNodeData, set_extra!, create_factor_data
 
-    factor_data = FactorNodeData("test_form", "test_context")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
     set_extra!(factor_data, :test_key, "test_value")
 
     # Test string representation
     str = sprint(show, factor_data)
     @test occursin("FactorNodeData", str)
     @test occursin("test_form", str)
-    @test occursin("test_context", str)
     @test occursin("test_key", str)
     @test occursin("test_value", str)
 end
@@ -166,21 +156,20 @@ end
         FactorNodeData,
         FactorNodeDataInterface,
         get_functional_form,
-        get_context,
         has_extra,
         get_extra,
         set_extra!,
-        CompileTimeDictionaryKey
+        CompileTimeDictionaryKey,
+        create_factor_data
 
     # Verify FactorNodeData is a subtype of FactorNodeDataInterface
     @test FactorNodeData <: FactorNodeDataInterface
 
     # Create a test instance
-    factor_data = FactorNodeData("test_form", "test_context")
+    factor_data = create_factor_data(FactorNodeData, functional_form = "test_form")
 
     # Test all interface methods are implemented
     @test get_functional_form(factor_data) == "test_form"
-    @test get_context(factor_data) == "test_context"
 
     # Test extras management
     @test !has_extra(factor_data, :test_key)
@@ -196,26 +185,4 @@ end
     @test has_extra(factor_data, key)
     @test get_extra(factor_data, key) == 42
     @test get_extra(factor_data, CompileTimeDictionaryKey{:nonexistent, Float64}(), 3.14) == 3.14
-end
-
-@testitem "create_factor_data function" begin
-    import GraphPPL: FactorNodeData, create_factor_data, get_functional_form, get_context
-
-    # Test basic creation
-    form = "test_form"
-    context = "test_context"
-    factor_data = create_factor_data(FactorNodeData, context, form)
-
-    # Verify the created data has correct form and context
-    @test factor_data isa FactorNodeData
-    @test get_functional_form(factor_data) === form
-    @test get_context(factor_data) === context
-    @test isempty(factor_data.extras)
-
-    # Test with kwargs (should be ignored as per implementation)
-    factor_data_with_kwargs = create_factor_data(FactorNodeData, context, form; extra_param = 42)
-    @test factor_data_with_kwargs isa FactorNodeData
-    @test get_functional_form(factor_data_with_kwargs) === form
-    @test get_context(factor_data_with_kwargs) === context
-    @test isempty(factor_data_with_kwargs.extras)
 end

@@ -5,20 +5,18 @@ A concrete implementation of `VariableNodeDataInterface` that stores data for a 
 
 # Fields
 - `name::Symbol`: The name of the variable
-- `index::Any`: The index of the variable
-- `link::Any`: The link to other nodes or components
-- `kind::Symbol`: The kind/type of variable
-- `value::Any`: The value of the variable
-- `context::Any`: Context data associated with the variable
-- `extras::Dict{Symbol, Any}`: Dictionary for storing additional properties
+- `index::Any = nothing`: The index of the variable
+- `link::Any = nothing`: The link to other nodes or components
+- `kind::UInt8 = VariableNodeKind.Unspecified`: The kind/type of variable
+- `value::Any = nothing`: The value of the variable
+- `extras::Dict{Symbol, Any} = Dict{Symbol, Any}()`: Dictionary for storing additional properties
 """
 @kwdef struct VariableNodeData <: VariableNodeDataInterface
     name::Symbol
     index::Any = nothing
     link::Any = nothing
-    kind::Symbol = :default
+    kind::UInt8 = VariableNodeKind.Unspecified
     value::Any = nothing
-    context::Any = nothing
     extras::Dict{Symbol, Any} = Dict{Symbol, Any}()
 end
 
@@ -28,69 +26,93 @@ get_index(vnd::VariableNodeData) = vnd.index
 get_link(vnd::VariableNodeData) = vnd.link
 get_kind(vnd::VariableNodeData) = vnd.kind
 get_value(vnd::VariableNodeData) = vnd.value
-get_context(vnd::VariableNodeData) = vnd.context
 
-# Constants for variable kinds
-const VariableKindRandom = :random
-const VariableKindData = :data
-const VariableKindConstant = :constant
-const VariableKindUnknown = :unknown
-const VariableNameAnonymous = :anonymous_var_graphppl
+"""
+    has_extra(variable_data::VariableNodeData, key::Symbol)
 
-# Kind-based functions
-is_kind(vnd::VariableNodeData, kind) = vnd.kind === kind
-is_kind(vnd::VariableNodeData, ::Val{kind}) where {kind} = vnd.kind === kind
-is_random(vnd::VariableNodeData) = is_kind(vnd, Val(VariableKindRandom))
-is_data(vnd::VariableNodeData) = is_kind(vnd, Val(VariableKindData))
-is_constant(vnd::VariableNodeData) = is_kind(vnd, Val(VariableKindConstant))
-is_anonymous(vnd::VariableNodeData) = vnd.name === VariableNameAnonymous
-
-# Extra properties management
-has_extra(vnd::VariableNodeData, key) = haskey(vnd.extras, key)
-
-function get_extra(vnd::VariableNodeData, key)
-    if !has_extra(vnd, key)
-        throw(KeyError(key))
-    end
-    return vnd.extras[key]
-end
-
-function get_extra(vnd::VariableNodeData, key, default)
-    return has_extra(vnd, key) ? vnd.extras[key] : default
-end
-
-function get_extra(vnd::VariableNodeData)
-    return vnd.extras
-end
-
-function set_extra!(vnd::VariableNodeData, key, value)
-    vnd.extras[key] = value
-    return vnd
-end
-
-# Custom show method
-function Base.show(io::IO, vnd::VariableNodeData)
-    kind_str = if is_random(vnd)
-        "random"
-    elseif is_data(vnd)
-        "data"
-    elseif is_constant(vnd)
-        "constant"
-    else
-        string(vnd.kind)
-    end
-
-    print(io, "VariableNodeData(name=:$(vnd.name), kind=:$(kind_str))")
+Check if the variable node data has an extra property with the given key.
+"""
+function has_extra(variable_data::VariableNodeData, key::Symbol)
+    return haskey(variable_data.extras, key)
 end
 
 """
-    create_variable_node_data(::Type{VariableNodeData}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any=nothing)
+    has_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey)
 
-Create a VariableNodeData instance with the given parameters. Any additional metadata is stored in the extras dictionary.
+Check if the variable node data has an extra property with the given key.
+"""
+function has_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey{K, T}) where {K, T}
+    return haskey(variable_data.extras, get_key(key))
+end
+
+"""
+    get_extra(variable_data::VariableNodeData, key::Symbol)
+
+Get the extra property with the given key.
+"""
+function get_extra(variable_data::VariableNodeData, key::Symbol)
+    return variable_data.extras[key]
+end
+
+"""
+    get_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey)
+
+Get the extra property with the given key.
+"""
+function get_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey{K, T}) where {K, T}
+    return convert(T, variable_data.extras[get_key(key)])::T
+end
+
+"""
+    get_extra(variable_data::VariableNodeData, key::Symbol, default)
+
+Get the extra property with the given key. If the property does not exist, returns the default value.
+"""
+function get_extra(variable_data::VariableNodeData, key::Symbol, default)
+    return get(variable_data.extras, key, default)
+end
+
+"""
+    get_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey, default)
+
+Get the extra property with the given key. If the property does not exist, returns the default value.
+"""
+function get_extra(variable_data::VariableNodeData, key::CompileTimeDictionaryKey{K, T}, default) where {K, T}
+    return convert(T, get(variable_data.extras, get_key(key), default))::T
+end
+
+"""
+    set_extra!(variable_data::VariableNodeData, key::Symbol, value)
+
+Set the extra property with the given key to the given value.
+"""
+function set_extra!(variable_data::VariableNodeData, key::Symbol, value)
+    variable_data.extras[key] = value
+    return value
+end
+
+"""
+    set_extra!(variable_data::VariableNodeData, key::Symbol, value)
+
+Set the extra property with the given key to the given value.
+"""
+function set_extra!(variable_data::VariableNodeData, key::CompileTimeDictionaryKey{K, T}, value::T) where {K, T}
+    variable_data.extras[get_key(key)] = value
+    return value
+end
+
+"""
+    create_variable_data(::Type{VariableNodeData}; name::Symbol, index::Any, kind::UInt8 = VariableNodeKind.Unspecified, link::Any = nothing, value::Any = nothing)
+
+Create a new variable node data of type `VariableNodeData` with the given parameters.
 """
 function create_variable_data(
-    ::Type{VariableNodeData}, name::Symbol, index::Any, kind::Symbol, link::Any, value::Any, context::Any, metadata::Any = nothing
+    ::Type{VariableNodeData};
+    name::Symbol,
+    index::Any = nothing,
+    kind::UInt8 = VariableNodeKind.Unspecified,
+    link::Any = nothing,
+    value::Any = nothing
 )
-    extras = metadata === nothing ? Dict{Symbol, Any}() : Dict{Symbol, Any}(pairs(metadata))
-    return VariableNodeData(name = name, index = index, kind = kind, link = link, value = value, context = context, extras = extras)
+    return VariableNodeData(name = name, index = index, kind = kind, link = link, value = value)
 end

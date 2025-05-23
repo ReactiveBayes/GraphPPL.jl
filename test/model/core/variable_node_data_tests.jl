@@ -1,5 +1,5 @@
-# Basic functionality tests
-@testitem "VariableNodeData construction and basic properties" begin
+
+@testitem "VariableNodeData creation with `create_variable_data`" begin
     import GraphPPL:
         VariableNodeData,
         get_name,
@@ -7,105 +7,221 @@
         get_value,
         get_index,
         get_link,
-        get_context,
-        is_random,
-        is_data,
-        is_constant,
-        is_anonymous,
-        has_extra,
-        get_extra,
-        set_extra!
-    # Test basic constructor
-    vnd = VariableNodeData(name = :test, kind = :random, value = 5)
+        create_variable_data,
+        VariableNodeKind
+
+    # Test basic creation
+    vnd = create_variable_data(
+        VariableNodeData,
+        name = :test,
+        kind = VariableNodeKind.Random,
+        value = 5
+    )
     @test @inferred(get_name(vnd)) === :test
-    @test @inferred(get_kind(vnd)) === :random
+    @test @inferred(get_kind(vnd)) === VariableNodeKind.Random
     @test get_value(vnd) === 5
 
     # Test with all fields
-    vnd = VariableNodeData(name = :full_test, index = 2, link = "some_link", kind = :data, value = 10.5, context = "test_context")
+    vnd = create_variable_data(
+        VariableNodeData,
+        name = :full_test,
+        index = 2,
+        link = "some_link",
+        kind = VariableNodeKind.Data,
+        value = 10.5
+    )
     @test get_name(vnd) === :full_test
     @test get_index(vnd) === 2
     @test get_link(vnd) === "some_link"
-    @test get_kind(vnd) === :data
+    @test get_kind(vnd) === VariableNodeKind.Data
     @test get_value(vnd) === 10.5
-    @test get_context(vnd) === "test_context"
 end
 
-# Variable kind tests
 @testitem "VariableNodeData kind tests" begin
-    import GraphPPL: VariableNodeData, is_random, is_data, is_constant
+    import GraphPPL:
+        VariableNodeData,
+        is_random,
+        is_data,
+        is_constant,
+        create_variable_data,
+        VariableNodeKind
+
     # Test random variable
-    random_var = VariableNodeData(name = :x, kind = :random)
+    random_var = create_variable_data(VariableNodeData, name = :x, kind = VariableNodeKind.Random)
     @test @inferred(is_random(random_var)) === true
     @test @inferred(is_data(random_var)) === false
     @test @inferred(is_constant(random_var)) === false
 
     # Test data variable
-    data_var = VariableNodeData(name = :y, kind = :data)
+    data_var = create_variable_data(VariableNodeData, name = :y, kind = VariableNodeKind.Data)
     @test @inferred(is_random(data_var)) === false
     @test @inferred(is_data(data_var)) === true
     @test @inferred(is_constant(data_var)) === false
 
     # Test constant variable
-    const_var = VariableNodeData(name = :z, kind = :constant)
+    const_var = create_variable_data(VariableNodeData, name = :z, kind = VariableNodeKind.Constant)
     @test @inferred(is_random(const_var)) === false
     @test @inferred(is_data(const_var)) === false
     @test @inferred(is_constant(const_var)) === true
 
-    # Test unknown kind
-    custom_var = VariableNodeData(name = :custom, kind = :custom)
-    @test @inferred(is_random(custom_var)) === false
-    @test @inferred(is_data(custom_var)) === false
-    @test @inferred(is_constant(custom_var)) === false
+    # Test unspecified kind
+    unspec_var = create_variable_data(VariableNodeData, name = :unspec)
+    @test @inferred(is_random(unspec_var)) === false
+    @test @inferred(is_data(unspec_var)) === false
+    @test @inferred(is_constant(unspec_var)) === false
 end
 
-# Anonymous variable test
 @testitem "VariableNodeData anonymous test" begin
-    import GraphPPL: VariableNodeData, is_anonymous
+    import GraphPPL: VariableNodeData, is_anonymous, create_variable_data
+
     # Test anonymous variable
-    anon_var = VariableNodeData(name = :anonymous_var_graphppl)
+    anon_var = create_variable_data(VariableNodeData, name = :anonymous_var_graphppl)
     @test is_anonymous(anon_var) === true
 
     # Test named variable
-    named_var = VariableNodeData(name = :x)
+    named_var = create_variable_data(VariableNodeData, name = :x)
     @test is_anonymous(named_var) === false
 end
 
-# Extra properties tests
-@testitem "VariableNodeData extra properties" begin
-    import GraphPPL: VariableNodeData, has_extra, get_extra, set_extra!
-    vnd = VariableNodeData(name = :test)
+@testitem "VariableNodeData implements has_extra with Symbol keys" begin
+    import GraphPPL: VariableNodeData, has_extra, get_extra, set_extra!, create_variable_data
 
-    # Test initial state
-    @test !has_extra(vnd, :extra_key)
-    @test_throws KeyError get_extra(vnd, :extra_key)
-    @test get_extra(vnd, :extra_key, "default") === "default"
-    @test get_extra(vnd) isa Dict{Symbol, Any}
-    @test isempty(get_extra(vnd))
+    vnd = create_variable_data(VariableNodeData, name = :test)
 
-    # Test setting and getting extras
-    set_extra!(vnd, :extra_key, "extra_value")
-    @test has_extra(vnd, :extra_key)
-    @test get_extra(vnd, :extra_key) === "extra_value"
-    @test get_extra(vnd, :extra_key, "default") === "extra_value"
-    @test !isempty(get_extra(vnd))
-    @test haskey(get_extra(vnd), :extra_key)
+    # Initially, no extras should exist
+    @test !has_extra(vnd, :test_key)
 
-    # Test overwriting
-    set_extra!(vnd, :extra_key, 42)
-    @test get_extra(vnd, :extra_key) === 42
+    # After setting an extra, it should exist
+    set_extra!(vnd, :test_key, "test_value")
+    @test has_extra(vnd, :test_key)
+    @test get_extra(vnd, :test_key) == "test_value"
 
-    # Test multiple extras
-    set_extra!(vnd, :another_key, "another_value")
-    @test has_extra(vnd, :another_key)
-    @test get_extra(vnd, :another_key) === "another_value"
-    @test length(get_extra(vnd)) == 2
+    # Non-existent keys should return false
+    @test !has_extra(vnd, :nonexistent_key)
 end
 
-# Complete interface implementation test
-@testitem "VariableNodeData implements all VariableNodeDataInterface methods" begin
+@testitem "VariableNodeData implements has_extra with CompileTimeDictionaryKey" begin
+    import GraphPPL: VariableNodeData, has_extra, set_extra!, CompileTimeDictionaryKey, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test)
+    key = CompileTimeDictionaryKey{:test_key, String}()
+
+    # Initially, no extras should exist
+    @test !has_extra(vnd, key)
+
+    # After setting an extra, it should exist
+    set_extra!(vnd, key, "test_value")
+    @test has_extra(vnd, key)
+
+    # Different key should not exist
+    other_key = CompileTimeDictionaryKey{:other_key, Int}()
+    @test !has_extra(vnd, other_key)
+end
+
+@testitem "VariableNodeData implements get_extra with Symbol keys" begin
+    import GraphPPL: VariableNodeData, get_extra, set_extra!, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test)
+
+    # Set and get an extra
+    set_extra!(vnd, :test_key, "test_value")
+    @test get_extra(vnd, :test_key) == "test_value"
+
+    # Get with default for existing key
+    @test get_extra(vnd, :test_key, "default") == "test_value"
+
+    # Get with default for non-existent key
+    @test get_extra(vnd, :nonexistent_key, "default") == "default"
+
+    # Getting non-existent key without default should throw
+    @test_throws KeyError get_extra(vnd, :nonexistent_key)
+end
+
+@testitem "VariableNodeData implements get_extra with CompileTimeDictionaryKey" begin
+    import GraphPPL: VariableNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test)
+    string_key = CompileTimeDictionaryKey{:string_key, String}()
+    int_key = CompileTimeDictionaryKey{:int_key, Int}()
+
+    # Set and get extras with type safety
+    set_extra!(vnd, string_key, "test_value")
+    set_extra!(vnd, int_key, 42)
+
+    @test @inferred(get_extra(vnd, string_key)) == "test_value"
+    @test @inferred(get_extra(vnd, int_key)) == 42
+
+    # Get with default for existing key
+    @test @inferred(get_extra(vnd, string_key, "default")) == "test_value"
+    @test @inferred(get_extra(vnd, int_key, 0)) == 42
+
+    # Get with default for non-existent key
+    float_key = CompileTimeDictionaryKey{:float_key, Float64}()
+    @test get_extra(vnd, float_key, 3.14) == 3.14
+
+    # Type safety check - should return the correct type
+    @test get_extra(vnd, int_key) isa Int
+    @test get_extra(vnd, string_key) isa String
+end
+
+@testitem "VariableNodeData implements set_extra! with Symbol keys" begin
+    import GraphPPL: VariableNodeData, get_extra, set_extra!, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test)
+
+    # Set a new extra
+    @test set_extra!(vnd, :test_key, "test_value") == "test_value"
+    @test get_extra(vnd, :test_key) == "test_value"
+
+    # Overwrite an existing extra
+    @test set_extra!(vnd, :test_key, "new_value") == "new_value"
+    @test get_extra(vnd, :test_key) == "new_value"
+
+    # Set extras of different types
+    @test set_extra!(vnd, :int_key, 42) == 42
+    @test set_extra!(vnd, :bool_key, true) == true
+
+    @test get_extra(vnd, :int_key) == 42
+    @test get_extra(vnd, :bool_key) == true
+end
+
+@testitem "VariableNodeData implements set_extra! with CompileTimeDictionaryKey" begin
+    import GraphPPL: VariableNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test)
+    string_key = CompileTimeDictionaryKey{:string_key, String}()
+    int_key = CompileTimeDictionaryKey{:int_key, Int}()
+
+    # Set new extras with type safety
+    @test set_extra!(vnd, string_key, "test_value") == "test_value"
+    @test set_extra!(vnd, int_key, 42) == 42
+
+    @test get_extra(vnd, string_key) == "test_value"
+    @test get_extra(vnd, int_key) == 42
+
+    # Overwrite existing extras
+    @test set_extra!(vnd, string_key, "new_value") == "new_value"
+    @test get_extra(vnd, string_key) == "new_value"
+end
+
+@testitem "VariableNodeData show method" begin
+    import GraphPPL: VariableNodeData, set_extra!, create_variable_data
+
+    vnd = create_variable_data(VariableNodeData, name = :test, kind = VariableNodeKind.Random)
+    set_extra!(vnd, :test_key, "test_value")
+
+    # Test string representation
+    str = sprint(show, vnd)
+    @test occursin("VariableNodeData", str)
+    @test occursin(":test", str)
+    @test occursin("test_key", str)
+    @test occursin("test_value", str)
+end
+
+@testitem "VariableNodeData satisfies VariableNodeDataInterface" begin
     import GraphPPL:
         VariableNodeData,
+        VariableNodeDataInterface,
         get_name,
         get_index,
         get_link,
@@ -115,29 +231,46 @@ end
         is_data,
         is_constant,
         is_anonymous,
-        get_context,
         has_extra,
         get_extra,
-        set_extra!
-    vnd = VariableNodeData(name = :test)
+        set_extra!,
+        CompileTimeDictionaryKey,
+        create_variable_data,
+        VariableNodeKind
 
-    # Test that all interface methods work without throwing
-    # GraphPPLInterfaceNotImplemented exceptions
-    @test_nowarn get_name(vnd)
-    @test_nowarn get_index(vnd)
-    @test_nowarn get_link(vnd)
-    @test_nowarn get_kind(vnd)
-    @test_nowarn get_value(vnd)
-    @test_nowarn is_random(vnd)
-    @test_nowarn is_data(vnd)
-    @test_nowarn is_constant(vnd)
-    @test_nowarn is_anonymous(vnd)
-    @test_nowarn get_context(vnd)
-    @test_nowarn has_extra(vnd, :test)
-    @test_nowarn get_extra(vnd)
-    @test_nowarn get_extra(vnd, :test, nothing)
-    @test_nowarn set_extra!(vnd, :test, "value")
-    @test_nowarn get_extra(vnd, :test)
+    # Verify VariableNodeData is a subtype of VariableNodeDataInterface
+    @test VariableNodeData <: VariableNodeDataInterface
+
+    # Create a test instance
+    vnd = create_variable_data(VariableNodeData, name = :test, kind = VariableNodeKind.Random)
+
+    # Test all interface methods are implemented
+    @test get_name(vnd) === :test
+    @test get_kind(vnd) === VariableNodeKind.Random
+    @test get_index(vnd) === nothing
+    @test get_link(vnd) === nothing
+    @test get_value(vnd) === nothing
+
+    # Test kind predicates
+    @test is_random(vnd) === true
+    @test is_data(vnd) === false
+    @test is_constant(vnd) === false
+    @test is_anonymous(vnd) === false
+
+    # Test extras management
+    @test !has_extra(vnd, :test_key)
+    set_extra!(vnd, :test_key, "test_value")
+    @test has_extra(vnd, :test_key)
+    @test get_extra(vnd, :test_key) == "test_value"
+    @test get_extra(vnd, :nonexistent, "default") == "default"
+
+    # Test CompileTimeDictionaryKey interface
+    key = CompileTimeDictionaryKey{:typed_key, Int}()
+    @test !has_extra(vnd, key)
+    set_extra!(vnd, key, 42)
+    @test has_extra(vnd, key)
+    @test get_extra(vnd, key) == 42
+    @test get_extra(vnd, CompileTimeDictionaryKey{:nonexistent, Float64}(), 3.14) == 3.14
 end
 
 @testitem "test that VariableNodeData methods do not allocate" begin
