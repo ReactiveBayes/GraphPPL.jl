@@ -70,7 +70,7 @@ export NodeData, getcontext, getproperties, getextra, is_factor, is_variable
 # Export graph modification functions
 export set_variable_node_data!, set_factor_node_data!, add_edge_between!
 export has_variable_node, has_factor_node, get_variable_node, get_factor_node, has_edge
-export add_variable!, add_factor!, add_composite_factor!, connect_nodes!, prune_model!, has_node
+export add_variable!, add_factor!, add_composite_factor!, connect_nodes!, has_node
 export get_node_properties, has_node_property, get_node_property, get_factor_node_name
 
 # Export from nodes

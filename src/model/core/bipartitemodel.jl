@@ -116,10 +116,6 @@ function load_model(file::AbstractString, ::Type{BipartiteModel})
     throw(GraphPPLInterfaceNotImplemented(load_model, BipartiteModel, FactorGraphModelInterface))
 end
 
-function prune_model!(model::BipartiteModel)
-    throw(GraphPPLInterfaceNotImplemented(prune_model!, BipartiteModel, FactorGraphModelInterface))
-end
-
 function get_variable_node_type(
     ::BipartiteModel{TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
 ) where {TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
