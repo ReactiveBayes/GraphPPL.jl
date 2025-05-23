@@ -43,15 +43,6 @@ function may_create(proxy::P) where {P <: ProxyLabelInterface}
 end
 
 """
-    set_may_create!(proxy::P, flag) where {P<:ProxyLabelInterface}
-
-Set whether this proxy label may create new variables.
-"""
-function set_may_create!(proxy::P, flag) where {P <: ProxyLabelInterface}
-    throw(GraphPPLInterfaceNotImplemented(set_may_create!, P, ProxyLabelInterface))
-end
-
-"""
     unroll(proxy::P) where {P<:ProxyLabelInterface}
 
 Resolve the proxy to the actual object it represents.
