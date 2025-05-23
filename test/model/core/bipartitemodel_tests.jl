@@ -157,44 +157,6 @@ end
     @test isempty(var_neighbors4)
 end
 
-@testitem "BipartiteModel: Model pruning" begin
-    import GraphPPL: BipartiteModel
-    model = create_model(BipartiteModel)
-    context = get_context(model)
-
-    # Create a mix of connected and isolated nodes
-    var_label1 = add_variable!(model, make_variable_data(model_type, context, :v1, 1))
-    var_label2 = add_variable!(model, make_variable_data(model_type, context, :v2, 2))
-    var_label3 = add_variable!(model, make_variable_data(model_type, context, :v3_isolated, 3)) # Will be isolated
-
-    factor_label1 = add_factor!(model, make_factor_data(model_type, context, TestFactorForm()))
-    factor_label2 = add_factor!(model, make_factor_data(model_type, context, TestFactorForm()))
-    factor_label3 = add_factor!(model, make_factor_data(model_type, context, TestFactorForm())) # Will be isolated
-
-    # Connect some nodes
-    add_edge!(model, var_label1, factor_label1, make_edge_data(model_type, :v1_f1_edge, 1))
-    add_edge!(model, var_label2, factor_label2, make_edge_data(model_type, :v2_f2_edge, 1))
-
-    # Initial state verification
-    @test nv(model) == 6
-    @test ne(model) == 2
-
-    # Test pruning
-    prune_model!(model)
-
-    variables = get_variables(model)
-    factors = get_factors(model)
-
-    @test nv(model) == 4
-    @test ne(model) == 2
-
-    @test length(variables) <= 2
-    @test length(factors) <= 2
-
-    @test has_edge(model, var_label1, factor_label1)
-    @test has_edge(model, var_label2, factor_label2)
-end
-
 @testitem "BipartiteModel: Model metadata" begin
     import GraphPPL: BipartiteModel
     model = create_model(BipartiteModel)

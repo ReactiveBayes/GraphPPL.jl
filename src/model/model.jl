@@ -160,15 +160,3 @@ function get_variables(callback::F, model::Model) where {F}
         end
     end
 end
-
-"""
-    prune_model!(m::Model)
-
-Remove all nodes from the model that are not connected to any other node.
-"""
-function prune_model!(m::Model)
-    degrees = degree(m.graph)
-    nodes_to_remove = keys(degrees)[degrees .== 0]
-    nodes_to_remove = sort(nodes_to_remove, rev = true)
-    rem_vertex!.(Ref(m.graph), nodes_to_remove)
-end

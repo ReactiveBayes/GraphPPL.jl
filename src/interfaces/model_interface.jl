@@ -276,17 +276,6 @@ function load_model(file::AbstractString, t::Type{<:FactorGraphModelInterface})
 end
 
 """
-    prune_model!(model::M) where {M<:FactorGraphModelInterface}
-
-Remove all isolated nodes from the model.
-
-Returns the updated model.
-"""
-function prune_model!(model::M) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(prune_model!, M, FactorGraphModelInterface))
-end
-
-"""
     get_variable_node_type(model::M) where {M<:FactorGraphModelInterface}
 
 Returns the type of variable node data used by this model implementation.

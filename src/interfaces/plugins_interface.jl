@@ -41,16 +41,6 @@ A trait object for plugins that add extra functionality for edges.
 struct EdgePlugin <: AbstractPluginTraitType end
 
 """
-A trait object for plugins that add extra functionality for both factor and variable nodes.
-"""
-struct FactorAndVariableNodesPlugin <: AbstractPluginTraitType end
-
-"""
-A trait object for plugins that add extra functionality for both factor and variable nodes, and edges.
-"""
-struct FactorAndVariableNodesAndEdgesPlugin <: AbstractPluginTraitType end
-
-"""
     preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface)
 
 Call a plugin specific logic for a variable node with nodedata upon their creation.
