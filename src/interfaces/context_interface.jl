@@ -7,24 +7,21 @@ Contains information about a model or submodel's variables, factors, and structu
 abstract type ContextInterface end
 
 """
-    create_context(
-        ::Type{C}, factor_identifier_type::FI, factor_label_type::FL, variable_label_type::VL
-    ) where {C <: ContextInterface, F, FI, FL, VL}
+    create_root_context(
+        ::Type{C}) where {C <: ContextInterface}
 
 Create a new context of type C with the given factor identifier type, factor data type, and variable data type.
 """
-function create_context(
-    ::Type{C}, factor_identifier_type::FI, factor_label_type::FL, variable_label_type::VL
-) where {C <: ContextInterface, F, FI, FL, VL}
-    throw(GraphPPLInterfaceNotImplemented(create_context, C, ContextInterface))
+function create_root_context(::Type{C}) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(create_root_context, C, ContextInterface))
 end
 
 """
-    create_child_context(parent::C, fucntional_form::F) where {C <: ContextInterface, F}
+    create_child_context(parent::C, functional_form::F, markov_blanket) where {C <: ContextInterface, F}
 
-Create a new child context of type C with the given functional form.
+Create a new child context of type C with the given functional form and markov blanket.
 """
-function create_child_context(parent::C, fucntional_form::F) where {C <: ContextInterface, F}
+function create_child_context(parent::C, functional_form::F, markov_blanket) where {C <: ContextInterface, F}
     throw(GraphPPLInterfaceNotImplemented(create_child_context, C, ContextInterface))
 end
 
@@ -139,17 +136,21 @@ function has_factor_node(context::C, fform, identifier) where {C <: ContextInter
 end
 
 # Setters for Variables and Nodes
-
-function set_variable!(context::C, variable, index)
+"""
+    set_variable!(context::C, variable, index) where {C<:ContextInterface}
+    
+Set a variable in the context at the specified index. Should be implemented for both VariableNodeLabel and AbstractArray{VariableNodeLabel}
+"""
+function set_variable!(context::C, variable, index) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_variable!, C, ContextInterface))
 end
 
 """
-    set_factor_node!(context::C, fform, identifier, value::NodeLabelInterface) where {C<:ContextInterface}
+    set_factor_node!(context::C, fform, identifier, value::FactorNodeLabel) where {C<:ContextInterface}
     
 Set a factor node.
 """
-function set_factor_node!(context::C, fform, identifier, value::NodeLabelInterface) where {C <: ContextInterface}
+function set_factor_node!(context::C, fform, identifier, value::FactorNodeLabel) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_factor_node!, C, ContextInterface))
 end
 
@@ -158,6 +159,6 @@ end
     
 Set a child context.
 """
-function set_child_context!(context::C, fform, identifier, value::ContextInterface) where {C <: ContextInterface}
+function set_child_context!(context::C, fform, identifier, value::C) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_child_context!, C, ContextInterface))
 end

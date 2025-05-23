@@ -21,6 +21,8 @@ include("core/resizable_array.jl")
 include("core/dictionary_key.jl")
 include("core/node_creation_options.jl")
 
+include("model/core/node_labels.jl")
+
 # Interfaces - these define the core interfaces for the package
 include("interfaces/proxy_label_interface.jl")
 include("interfaces/variable_interface.jl")
@@ -33,7 +35,6 @@ include("interfaces/plugins_interface.jl")
 include("interfaces/variable_reference_interface.jl")
 
 # Node data structures (moved from 'nodes/' to 'model/core/')
-include("model/core/node_labels.jl")
 
 include("model/core/variable_node_data.jl")
 include("model/core/factor_node_data.jl")
@@ -110,7 +111,7 @@ include("generators/model_generator.jl")
 include("dsl/model_macro.jl")
 
 # Backend
-include("backends/default.jl")
+include("strategies/default.jl")
 
 """
     @model function model_name(model_arguments)
