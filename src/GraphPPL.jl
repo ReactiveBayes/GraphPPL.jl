@@ -37,6 +37,7 @@ include("model/core/node_labels.jl")
 
 include("model/core/variable_node_data.jl")
 include("model/core/factor_node_data.jl")
+include("model/core/edge_node_data.jl")
 include("model/core/anonymous_variable.jl")
 
 include("plugins/plugins_collection.jl")

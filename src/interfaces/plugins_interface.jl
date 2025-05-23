@@ -73,12 +73,12 @@ function preprocess_plugin(
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeDataInterface)
 
 Call a plugin specific logic for an edge upon its creation.
 """
 function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeInterface
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeDataInterface
 ) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end

@@ -58,7 +58,7 @@ function add_factor!(model::BipartiteModel, data::FactorNodeDataInterface)
     return BipartiteFactorGraphs.add_factor!(model.graph, data)
 end
 
-function add_edge!(model::BipartiteModel, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeInterface)
+function add_edge!(model::BipartiteModel, source::NodeLabelInterface, destination::NodeLabelInterface, edge_data::EdgeDataInterface)
     return BipartiteFactorGraphs.add_edge!(
         model.graph, __prepare_node_label(model, source), __prepare_node_label(model, destination), edge_data
     )

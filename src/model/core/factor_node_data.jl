@@ -2,25 +2,14 @@
     FactorNodeData <: FactorNodeDataInterface
 
 Concrete implementation of `FactorNodeDataInterface` that stores data for a factor node in a factor graph.
+
+# Fields
+- `functional_form::Any`: The functional form of the factor node
+- `extras::Dict{Symbol, Any}`: Dictionary for storing additional properties
 """
-struct FactorNodeData <: FactorNodeDataInterface
-    """Functional form of the factor node."""
-    form::Any
-
-    """Context associated with the factor node."""
-    context::Any
-
-    """Dictionary of extra properties associated with the factor node."""
-    extras::Dict{Symbol, Any}
-
-    """
-        FactorNodeData(form, context = nothing)
-
-    Create a new factor node data with the given functional form and optional context.
-    """
-    function FactorNodeData(form, context = nothing)
-        new(form, context, Dict{Symbol, Any}())
-    end
+Base.@kwdef struct FactorNodeData <: FactorNodeDataInterface
+    functional_form::Any
+    extras::Dict{Symbol, Any} = Dict{Symbol, Any}()
 end
 
 """
@@ -29,16 +18,7 @@ end
 Get the functional form of the factor node data.
 """
 function get_functional_form(factor_data::FactorNodeData)
-    return factor_data.form
-end
-
-"""
-    get_context(factor_data::FactorNodeData)
-
-Get the context associated with the factor node data.
-"""
-function get_context(factor_data::FactorNodeData)
-    return factor_data.context
+    return factor_data.functional_form
 end
 
 """
@@ -74,7 +54,7 @@ end
 Get the extra property with the given key.
 """
 function get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}) where {K, T}
-    return factor_data.extras[get_key(key)]::T
+    return convert(T, factor_data.extras[get_key(key)])::T
 end
 
 """
@@ -92,7 +72,7 @@ end
 Get the extra property with the given key. If the property does not exist, returns the default value.
 """
 function get_extra(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K, T}, default) where {K, T}
-    return get(factor_data.extras, get_key(key), default)::T
+    return convert(T, get(factor_data.extras, get_key(key), default))::T
 end
 
 """
@@ -116,14 +96,10 @@ function set_extra!(factor_data::FactorNodeData, key::CompileTimeDictionaryKey{K
 end
 
 """
-    Base.show(io::IO, data::FactorNodeData)
+    create_factor_data(::Type{FactorNodeData}; functional_form)
 
-Custom display method for FactorNodeData.
+Create a new factor node data of type `FactorNodeData` with the given functional form.
 """
-function Base.show(io::IO, data::FactorNodeData)
-    print(io, "FactorNodeData(form=$(data.form), context=$(data.context), extras=$(data.extras))")
-end
-
-function create_factor_data(::Type{FactorNodeData}, context::Any, fform::Any; kwargs...)
-    return FactorNodeData(fform, context)
+function create_factor_data(::Type{FactorNodeData}; functional_form)
+    return FactorNodeData(functional_form = functional_form)
 end
