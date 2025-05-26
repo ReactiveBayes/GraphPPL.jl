@@ -14,30 +14,40 @@ import BipartiteFactorGraphs.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
+# Interfaces - these define the core interfaces for the package
+# The interfaces are split into three groups:
+
+# The interfaces which define what kind of data structures can be stored in the model for factor nodes, variable nodes and edges (connections).
+include("interfaces/variable_node_data_interface.jl")
+include("interfaces/factor_node_data_interface.jl")
+include("interfaces/edge_interface.jl")
+
+# The interfaces which define the core model structure
+include("interfaces/model_interface.jl")
+include("interfaces/context_interface.jl")
+
+# The interfaces which define the behaviour of the model and external interactions.
+include("interfaces/plugins_interface.jl")
+include("interfaces/nodestrategy_interface.jl")
+
 # Core components - these have minimal dependencies
 include("core/errors.jl")
 include("core/functional_indices.jl")
 include("core/resizable_array.jl")
 include("core/dictionary_key.jl")
 include("core/node_creation_options.jl")
+include("core/anonymous_variable.jl")
+include("core/indexed_variable.jl")
+include("core/proxy_label.jl")
+# include("core/var_dict.jl")
+include("core/variable_ref.jl")
 
-# Interfaces - these define the core interfaces for the package
-include("interfaces/proxy_label_interface.jl")
-include("interfaces/variable_interface.jl")
-include("interfaces/edge_interface.jl")
-include("interfaces/factor_interface.jl")
-include("interfaces/model_interface.jl")
-include("interfaces/nodestrategy_interface.jl")
-include("interfaces/context_interface.jl")
-include("interfaces/plugins_interface.jl")
-include("interfaces/variable_reference_interface.jl")
-
-# Node data structures (moved from 'nodes/' to 'model/core/')
-
-include("model/core/variable_node_data.jl")
-include("model/core/factor_node_data.jl")
-include("model/core/edge_node_data.jl")
-include("model/core/anonymous_variable.jl")
+# The implementations of the interfaces is in the 'impl' folder.
+include("model/impl/variable_node_data.jl")
+include("model/impl/factor_node_data.jl")
+include("model/impl/edge_node_data.jl")
+# include("model/impl/context.jl")
+# include("model/impl/bipartitemodel.jl")
 
 include("plugins/plugins_collection.jl")
 
@@ -48,14 +58,6 @@ export AbstractBackend, AbstractInterfaces, AbstractInterfaceAliases
 
 # Export basic node/edge labels
 export NodeLabel, EdgeLabel, FactorID
-
-# Basic model structure - needed for context and node creation
-include("model/core/indexed_variable.jl")
-include("model/core/proxy_label.jl")
-# include("model/core/context.jl")
-# include("model/core/var_dict.jl")
-include("model/core/variable_ref.jl")
-include("model/core/bipartitemodel.jl")
 
 # Model creation components - needed before node properties
 include("model/operations/variable_node_creation.jl")

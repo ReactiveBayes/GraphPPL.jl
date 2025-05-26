@@ -15,7 +15,7 @@ The `index` is always a `Tuple`. By default, `(nothing, )` is used, to indicate 
 If "non-nothing" index is supplied, e.g. `(1, )` the shape of the udnerlying collection will be fixed to match the index 
 (1-dimensional in case of `(1, )`, 2-dimensional in case of `(1, 1)` and so on).
 """
-struct VariableRef{M, C, O, I, E, L} <: VariableReferenceInterface
+struct VariableRef{M, C, O, I, E, L}
     model::M
     context::C
     options::O

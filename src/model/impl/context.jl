@@ -3,7 +3,7 @@
 
 Contains all information about a submodel in a probabilistic graphical model.
 """
-struct Context{P <: ProxyLabelInterface} <: ContextInterface
+struct Context <: ContextInterface
     depth::Int64
     fform::Function
     prefix::String
@@ -14,7 +14,7 @@ struct Context{P <: ProxyLabelInterface} <: ContextInterface
     individual_variables::UnorderedDictionary{Symbol, VariableNodeLabel}
     vector_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}
-    proxies::UnorderedDictionary{Symbol, P}
+    proxies::UnorderedDictionary{Symbol, ProxyLabel}
     returnval::Ref{Any}
 end
 

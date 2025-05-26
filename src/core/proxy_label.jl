@@ -14,7 +14,7 @@ A label that proxies another label in a probabilistic graphical model.
 The proxied objects must implement the `is_proxied(::Type) = True()`.
 The proxy labels may spawn new variables in a model, if `maycreate` is set to `True()`.
 """
-mutable struct ProxyLabel{P, I, M} <: ProxyLabelInterface
+mutable struct ProxyLabel{P, I, M}
     const name::Symbol
     const proxied::P
     const index::I
