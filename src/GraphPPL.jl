@@ -54,7 +54,7 @@ include("model/core/indexed_variable.jl")
 include("model/core/proxy_label.jl")
 # include("model/core/context.jl")
 # include("model/core/var_dict.jl")
-# include("model/core/variable_ref.jl")
+include("model/core/variable_ref.jl")
 include("model/core/bipartitemodel.jl")
 
 # Model creation components - needed before node properties

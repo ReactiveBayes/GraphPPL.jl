@@ -61,9 +61,9 @@ end
 
 function add_edge!(
     model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabelInterface,
+    factor_node_id::FactorNodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{<:ProxyLabelInterface, <:VariableNodeLabelInterface, <:VariableReferenceInterface},
+    variable_node_id::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     interface_name::Symbol
 )
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
@@ -71,7 +71,7 @@ end
 
 function add_edge!(
     model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabelInterface,
+    factor_node_id::FactorNodeLabel,
     factor_node_propeties::FactorNodeProperties,
     variable_node_id::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol
@@ -81,18 +81,18 @@ end
 
 add_edge!(
     model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabelInterface,
+    factor_node_id::FactorNodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{<:ProxyLabelInterface, <:VariableNodeLabelInterface},
+    variable_node_id::Union{<:ProxyLabel, <:VariableNodeLabel},
     interface_name::Symbol,
     index
 ) = add_edge!(model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index)
 
 function add_edge!(
     model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabelInterface,
+    factor_node_id::FactorNodeLabel,
     factor_node_propeties::FactorNodeProperties,
-    variable_node_id::VariableNodeLabelInterface,
+    variable_node_id::VariableNodeLabel,
     interface_name::Symbol,
     index
 )
@@ -115,7 +115,7 @@ end
 
 function add_edge!(
     model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabelInterface,
+    factor_node_id::FactorNodeLabel,
     factor_node_propeties::FactorNodeProperties,
     variable_nodes::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol,
@@ -247,9 +247,9 @@ end
 # maybe change name
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
-is_nodelabel(x::NodeLabelInterface) = true
-is_nodelabel(x::ProxyLabelInterface) = true
-is_nodelabel(x::VariableReferenceInterface) = true
+is_nodelabel(x::VariableNodeLabel) = true
+is_nodelabel(x::ProxyLabel) = true
+is_nodelabel(x::VariableRef) = true
 
 function contains_nodelabel(collection::Tuple)
     return any(element -> is_nodelabel(element), collection) ? True() : False()
@@ -382,7 +382,7 @@ make_node!(
     ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple
 ) where {F} = make_node!(
     materialize,
@@ -404,7 +404,7 @@ make_node!(
     ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::MixedArguments
 ) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
 
@@ -416,7 +416,7 @@ make_node!(
     ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple{}
 ) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
@@ -428,7 +428,7 @@ make_node!(
     ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple
 ) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
 
@@ -440,7 +440,7 @@ make_node!(
     ctx::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::NamedTuple
 ) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
 
@@ -466,7 +466,7 @@ function make_node!(
     context::ContextInterface,
     options::NodeCreationOptions,
     fform::F,
-    lhs_interface::Union{<:VariableNodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface},
+    lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = convert(

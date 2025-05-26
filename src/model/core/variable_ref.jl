@@ -68,12 +68,14 @@ but waits until strictly necessarily.
 function makevarref end
 
 function makevarref(
-    fform::F, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple
+    fform::F, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
 ) where {F}
     return makevarref(NodeType(model, fform), model, context, options, name, index)
 end
 
-function makevarref(::Atomic, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+function makevarref(
+    ::Atomic, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
+)
     # In the case of `Atomic` variable reference, we always create the variable 
     # (unless the index is empty, which may happen during broadcasting)
     internal_collection = isempty(index) ? nothing : getorcreate!(model, context, name, index...)
@@ -81,7 +83,7 @@ function makevarref(::Atomic, model::FactorGraphModelInterface, context::Context
 end
 
 function makevarref(
-    ::Composite, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple
+    ::Composite, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
 )
     # In the case of `Composite` variable reference, we create it immediatelly only when the variable is instantiated 
     # with indexing operation
@@ -95,7 +97,7 @@ end
 
 function VariableRef(
     model::FactorGraphModelInterface,
-    context::Context,
+    context::ContextInterface,
     options::NodeCreationOptions,
     name::Symbol,
     index::Tuple,
@@ -121,11 +123,11 @@ function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
     error("Unreachable. The `maycreate` argument in the `unroll` function for the `VariableRef` must be either `True` or `False`.")
 end
 
-function getifcreated(model::FactorGraphModelInterface, context::Context, ref::VariableRef)
+function getifcreated(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef)
     return getifcreated(model, context, ref, ref.index)
 end
 
-function getifcreated(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index)
+function getifcreated(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef, index)
     if !isnothing(ref.external_collection)
         return getorcreate!(ref.model, ref.context, ref, index)
     elseif !isnothing(ref.internal_collection)
@@ -137,12 +139,12 @@ function getifcreated(model::FactorGraphModelInterface, context::Context, ref::V
     end
 end
 
-function getorcreate!(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index::Nothing)
+function getorcreate!(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef, index::Nothing)
     check_external_collection_compatibility(ref, index)
     return getorcreate!(model, context, ref.options, ref.name, index)
 end
 
-function getorcreate!(model::FactorGraphModelInterface, context::Context, ref::VariableRef, index::Tuple)
+function getorcreate!(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef, index::Tuple)
     check_external_collection_compatibility(ref, index)
     return getorcreate!(model, context, ref.options, ref.name, index...)
 end

@@ -3,17 +3,17 @@
 
 Contains all information about a submodel in a probabilistic graphical model.
 """
-struct Context{FKey, F <: FactorNodeLabelInterface, V <: VariableNodeLabelInterface, P <: ProxyLabelInterface} <: ContextInterface
+struct Context{P <: ProxyLabelInterface} <: ContextInterface
     depth::Int64
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
     submodel_counts::UnorderedDictionary{Any, Int}
-    children::UnorderedDictionary{FKey, Context}
-    factor_nodes::UnorderedDictionary{FKey, F}
-    individual_variables::UnorderedDictionary{Symbol, V}
-    vector_variables::UnorderedDictionary{Symbol, ResizableArray{V, Vector{V}, 1}}
-    tensor_variables::UnorderedDictionary{Symbol, ResizableArray{V}}
+    children::UnorderedDictionary{FactorID, Context}
+    factor_nodes::UnorderedDictionary{FactorID, FactorNodeLabel}
+    individual_variables::UnorderedDictionary{Symbol, VariableNodeLabel}
+    vector_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}
+    tensor_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}
     proxies::UnorderedDictionary{Symbol, P}
     returnval::Ref{Any}
 end
@@ -26,10 +26,10 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         parent,
         UnorderedDictionary{Any, Int}(),
         UnorderedDictionary{FactorID, Context}(),
-        UnorderedDictionary{FactorID, NodeLabel}(),
-        UnorderedDictionary{Symbol, NodeLabel}(),
-        UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
-        UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
+        UnorderedDictionary{FactorID, FactorNodeLabel}(),
+        UnorderedDictionary{Symbol, VariableNodeLabel}(),
+        UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}(),
+        UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}(),
         UnorderedDictionary{Symbol, ProxyLabel}(),
         Ref{Any}()
     )
@@ -114,8 +114,7 @@ haskey(context::Context, key::Symbol) =
     haskey(context.tensor_variables, key) ||
     haskey(context.proxies, key)
 
-haskey(context::Context{FKey, F, V, P}, key::FKey) where {FKey, F, V, P} =
-    haskey(context.factor_nodes, key) || haskey(context.children, key)
+haskey(context::Context{P}, key::FactorID) where {P} = haskey(context.factor_nodes, key) || haskey(context.children, key)
 
 function Base.getindex(c::Context, key::Symbol)
     if haskey(c.individual_variables, key)
@@ -130,7 +129,7 @@ function Base.getindex(c::Context, key::Symbol)
     throw(KeyError(key))
 end
 
-function Base.getindex(c::Context{FKey, F, V, P}, key::FKey) where {FKey, F, V, P}
+function Base.getindex(c::Context{P}, key::FactorID) where {P}
     if haskey(c.factor_nodes, key)
         return c.factor_nodes[key]
     elseif haskey(c.children, key)
@@ -139,22 +138,18 @@ function Base.getindex(c::Context{FKey, F, V, P}, key::FKey) where {FKey, F, V, 
     throw(KeyError(key))
 end
 
-Base.getindex(c::Context{FKey, F, V, P}, fform, index::Int) where {FKey, F, V, P} = c[FactorID(fform, index)]
+Base.getindex(c::Context{P}, fform, index::Int) where {P} = c[FactorID(fform, index)]
 
-Base.setindex!(c::Context{FKey, F, V, P}, val::V, key::Symbol) where {FKey, F, V, P} = set!(c.individual_variables, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::V, key::Symbol, index::Nothing) where {FKey, F, V, P} =
-    set!(c.individual_variables, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::V, key::Symbol, index::Int) where {FKey, F, V, P} = c.vector_variables[key][index] = val
-Base.setindex!(c::Context{FKey, F, V, P}, val::V, key::Symbol, index::NTuple{N, Int64} where {N}) where {FKey, F, V, P} =
-    c.tensor_variables[key][index...] = val
-Base.setindex!(c::Context{FKey, F, V, P}, val::ResizableArray{V, T, 1} where {T}, key::Symbol) where {FKey, F, V, P} =
-    set!(c.vector_variables, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::ResizableArray{V} where {T}, key::Symbol) where {FKey, F, V, P} =
-    set!(c.tensor_variables, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::P, key::Symbol) where {FKey, F, V, P} = set!(c.proxies, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::P, key::Symbol, index::Nothing) where {FKey, F, V, P} = set!(c.proxies, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::Context, key::FKey) where {FKey, F, V, P} = set!(c.children, key, val)
-Base.setindex!(c::Context{FKey, F, V, P}, val::F, key::FKey) where {FKey, F, V, P} = set!(c.factor_nodes, key, val)
+Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
+Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
+Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
+Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
+Base.setindex!(c::Context, val::ResizableArray{VariableNodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
+Base.setindex!(c::Context, val::ResizableArray{VariableNodeLabel}, key::Symbol) = set!(c.tensor_variables, key, val)
+Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
+Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
+Base.setindex!(c::Context, val::Context, key::FactorID) = set!(c.children, key, val)
+Base.setindex!(c::Context, val::FactorNodeLabel, key::FactorID) = set!(c.factor_nodes, key, val)
 
 function copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
     foreach(pairs(interfaces)) do (name_in_child, object_in_parent)

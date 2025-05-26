@@ -212,7 +212,7 @@ end
 
 Get a variable if it already exists as a node, or create a constant node if it's a raw value.
 This function handles different variable types differently:
-- `NodeLabelInterface`, `ProxyLabelInterface`, `ResizableArray`: Returns as-is
+- `VariableNodeLabel`, `ProxyLabel`, `ResizableArray`: Returns as-is
 - Collections of labels: Maps `getifcreated` over each element
 - Any other value: Creates a new constant node
 
@@ -224,14 +224,14 @@ This function handles different variable types differently:
 # Returns
 The variable node or nodes, either as-is or newly created.
 """
-getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var::NodeLabelInterface) = var
+getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var::VariableNodeLabel) = var
 getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var::ResizableArray) = var
-getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var::ProxyLabelInterface) = var
-# TODO abstract this away with a trait. Also why do `NodeLabelInterface` and `ProxyLabelInterface` get special treatment but VariableRef doesn't?
+getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var::ProxyLabel) = var
+
 getifcreated(
     model::FactorGraphModelInterface,
     context::ContextInterface,
-    var::Union{Tuple, AbstractArray{T}} where {T <: Union{<:NodeLabelInterface, <:ProxyLabelInterface, <:VariableReferenceInterface}}
+    var::Union{Tuple, AbstractArray{T}} where {T <: Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef}}
 ) = map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var) =
     add_variable_node!(model, context, NodeCreationOptions(value = var, kind = :constant), gensym(constvar))
