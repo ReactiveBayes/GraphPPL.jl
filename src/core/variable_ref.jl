@@ -194,9 +194,15 @@ function variableref_checked_iterator_call(f::F, fsymbol::Symbol, ref::VariableR
     error(lazy"Cannot call `$(fsymbol)` on variable reference `$(ref.name)`. The variable `$(ref.name)` has not been instantiated.")
 end
 
-function postprocess_returnval(ref::VariableRef)
-    if haskey(ref.context, ref.name)
-        return ref.context[ref.name]
+"""
+    postprocess_returnval(context::ContextInterface, ref::VariableRef)
+
+Postprocess the return value of a variable reference. If the variable has been instantiated, 
+return the variable node label. Otherwise, error.
+"""
+function postprocess_returnval(context::ContextInterface, ref::VariableRef)
+    if has_variable(context, ref.name)
+        return get_variable(context, ref.name)
     end
     error("Cannot `return $(ref)`. The variable has not been instantiated.")
 end

@@ -43,11 +43,11 @@ include("core/proxy_label.jl")
 include("core/variable_ref.jl")
 
 # The implementations of the interfaces is in the 'impl' folder.
-include("model/impl/variable_node_data.jl")
-include("model/impl/factor_node_data.jl")
-include("model/impl/edge_node_data.jl")
-# include("model/impl/context.jl")
-# include("model/impl/bipartitemodel.jl")
+include("implementation/bipartite/variable_node_data.jl")
+include("implementation/bipartite/factor_node_data.jl")
+include("implementation/bipartite/edge_node_data.jl")
+include("implementation/bipartite/context.jl")
+# include("implementation/bipartite/bipartitemodel.jl")
 
 include("plugins/plugins_collection.jl")
 
@@ -59,11 +59,10 @@ export AbstractBackend, AbstractInterfaces, AbstractInterfaceAliases
 # Export basic node/edge labels
 export NodeLabel, EdgeLabel, FactorID
 
-# Model creation components - needed before node properties
-include("model/operations/variable_node_creation.jl")
-
-# Node handling - now has proper dependencies
-include("model/operations/factor_node_materialization.jl")
+# Operations
+include("operations/variable_node_creation.jl")
+include("operations/factor_node_materialization.jl")
+include("operations/model_filtering.jl")
 
 # Export from graph
 export NodeData, getcontext, getproperties, getextra, is_factor, is_variable
@@ -84,10 +83,6 @@ export Model, NodeCreationOptions, Context
 
 # Additional interface types
 export StaticInterfaces, StaticInterfaceAliases
-
-# Remaining model components
-# include("model/model.jl")
-include("model/operations/model_filtering.jl")
 
 # Export additional model components
 export VariableRef, IndexedVariable

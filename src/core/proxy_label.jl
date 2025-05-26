@@ -130,7 +130,14 @@ Base.getindex(proxy::ProxyLabel, indices...) = getindex(indexed_last(proxy), ind
 Base.size(proxy::ProxyLabel) = size(indexed_last(proxy))
 Base.broadcastable(proxy::ProxyLabel) = Base.broadcastable(indexed_last(proxy))
 
-postprocess_returnval(proxy::ProxyLabel) = postprocess_returnval(indexed_last(proxy))
+"""
+    postprocess_returnval(context::ContextInterface, proxy::ProxyLabel)
+
+Postprocess the return value of a proxy label. By default, postprocess the proxied object.
+"""
+function postprocess_returnval(context::ContextInterface, proxy::ProxyLabel)
+    return postprocess_returnval(context, indexed_last(proxy))
+end
 
 """Similar to `Base.last` when applied on `ProxyLabel`, but also applies `checked_getindex` while unrolling"""
 function indexed_last end

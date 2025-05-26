@@ -1,14 +1,16 @@
+
 """
-    Context
+    Context <: ContextInterface
 
 Contains all information about a submodel in a probabilistic graphical model.
+Implements the [`ContextInterface`](@ref).
 """
 struct Context <: ContextInterface
     depth::Int64
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
-    submodel_counts::UnorderedDictionary{Any, Int}
+    submodel_counts::UnorderedDictionary{Function, Int}
     children::UnorderedDictionary{FactorID, Context}
     factor_nodes::UnorderedDictionary{FactorID, FactorNodeLabel}
     individual_variables::UnorderedDictionary{Symbol, VariableNodeLabel}
@@ -24,7 +26,7 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         fform,
         prefix,
         parent,
-        UnorderedDictionary{Any, Int}(),
+        UnorderedDictionary{Function, Int}(),
         UnorderedDictionary{FactorID, Context}(),
         UnorderedDictionary{FactorID, FactorNodeLabel}(),
         UnorderedDictionary{Symbol, VariableNodeLabel}(),
@@ -54,13 +56,8 @@ shortname(context::Context) = string(context.prefix)
 returnval(context::Context) = context.returnval[]
 
 function returnval!(context::Context, value)
-    context.returnval[] = postprocess_returnval(value)
+    context.returnval[] = postprocess_returnval(context, value)
 end
-
-# We do not want to return `VariableRef` from the model
-# In this case we replace them with the actual node labels
-postprocess_returnval(value) = value
-postprocess_returnval(value::Tuple) = map(postprocess_returnval, value)
 
 path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
@@ -114,7 +111,7 @@ haskey(context::Context, key::Symbol) =
     haskey(context.tensor_variables, key) ||
     haskey(context.proxies, key)
 
-haskey(context::Context{P}, key::FactorID) where {P} = haskey(context.factor_nodes, key) || haskey(context.children, key)
+haskey(context::Context, key::FactorID) = haskey(context.factor_nodes, key) || haskey(context.children, key)
 
 function Base.getindex(c::Context, key::Symbol)
     if haskey(c.individual_variables, key)
@@ -129,7 +126,7 @@ function Base.getindex(c::Context, key::Symbol)
     throw(KeyError(key))
 end
 
-function Base.getindex(c::Context{P}, key::FactorID) where {P}
+function Base.getindex(c::Context, key::FactorID)
     if haskey(c.factor_nodes, key)
         return c.factor_nodes[key]
     elseif haskey(c.children, key)
@@ -138,7 +135,7 @@ function Base.getindex(c::Context{P}, key::FactorID) where {P}
     throw(KeyError(key))
 end
 
-Base.getindex(c::Context{P}, fform, index::Int) where {P} = c[FactorID(fform, index)]
+Base.getindex(c::Context, fform, index::Int) = c[FactorID(fform, index)]
 
 Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
 Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)

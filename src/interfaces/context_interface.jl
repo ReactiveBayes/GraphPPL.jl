@@ -7,25 +7,47 @@ Contains information about a model or submodel's variables, factors, and structu
 abstract type ContextInterface end
 
 """
-    create_root_context(
-        ::Type{C}) where {C <: ContextInterface}
+    FactorID(fform, index)
 
-Create a new context of type C with the given factor identifier type, factor data type, and variable data type.
+A unique identifier for a single factor node or a submodel of type `fform` in an arbitrary `ContextInterface`.
+A submodel can have multiple factor nodes of the same type, e.g. `Normal` factors.
+The `index` is used to distinguish between them. 
+The same applies to submodels which are created by the same functional form.
+"""
+struct FactorID{F}
+    fform::F
+    index::Int64
+end
+
+FactorID(::Type{F}, index) where {F} = FactorID{Type{F}}(F, index)
+FactorID(fform, index) = FactorID(fform, index)
+
+fform(id::FactorID) = id.fform
+index(id::FactorID) = id.index
+
+Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
+Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.fform == id2.fform && id1.index == id2.index
+Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
+
+"""
+    create_root_context(::Type{C}) where {C <: ContextInterface}
+
+Create a new context of type `C`. The root context always has `identity` as its functional form.
 """
 function create_root_context(::Type{C}) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(create_root_context, C, ContextInterface))
 end
 
 """
-    create_child_context(parent::C, functional_form::F, markov_blanket) where {C <: ContextInterface, F}
+    create_child_context(parent::C, functional_form::F, markov_blanket::NamedTuple) where {C <: ContextInterface, F}
 
 Create a new child context of type C with the given functional form and markov blanket.
+The `markov_blanket` is a named tuple of `Symbol` => `ProxyLabel` pairs.
 """
-function create_child_context(parent::C, functional_form::F, markov_blanket) where {C <: ContextInterface, F}
+function create_child_context(parent::C, functional_form::F, markov_blanket::NamedTuple) where {C <: ContextInterface, F}
     throw(GraphPPLInterfaceNotImplemented(create_child_context, C, ContextInterface))
 end
 
-# Basic Properties
 """
     get_depth(context::C) where {C<:ContextInterface}
 
@@ -39,6 +61,7 @@ end
     get_functional_form(context::C) where {C<:ContextInterface}
 
 Get the functional form (model function) associated with this context.
+Returns `identity` for the root context.
 """
 function get_functional_form(context::C) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_functional_form, C, ContextInterface))
@@ -83,70 +106,94 @@ end
 """
     set_returnval!(context::C, value) where {C<:ContextInterface}
 
-Set the return value of this context.
+Set the return value of this context. Typically also calls [`postprocess_returnval`](@ref) to postprocess the value.
 """
 function set_returnval!(context::C, value) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_returnval!, C, ContextInterface))
 end
 
 """
+    postprocess_returnval(context::C, value) where {C<:ContextInterface}
+    postprocess_returnval(context::C, value::Tuple) where {C<:ContextInterface}
+
+Postprocess the return value of this context. By default, return the value as is. 
+For tuples, postprocess each element. Also has special behavior for [`ProxyLabel`](@ref)s and [`VariableRef`](@ref)s.
+"""
+function postprocess_returnval(context::ContextInterface, value)
+    return value
+end
+
+function postprocess_returnval(context::ContextInterface, value::Tuple)
+    return map(postprocess_returnval, value)
+end
+
+"""
     get_path_to_root(context::C) where {C<:ContextInterface}
 
-Get the path from this context to the root context.
+Get the path from this context to the root context. The path is an iterable of contexts, starting with this context and ending with the root context.
 """
 function get_path_to_root(context::C) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_path_to_root, C, ContextInterface))
 end
 
-# Variable Access - Specific Types
-function get_variable(context::C, name, index) where {C <: ContextInterface}
+"""
+    get_variable(context::C, name::Symbol) where {C<:ContextInterface}
+
+Get a variable (or a collection of variables) by name. Does not check if the variable exists.
+Use [`has_variable`](@ref) to check if a variable exists.
+"""
+function get_variable(context::C, name::Symbol) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_variable, C, ContextInterface))
 end
 
 """
-    get_factor(context::C, identifier)
+    get_factor(context::C, id::FactorID)
 
-Get a factor by identifier.
+Get a factor by its id. Does not check if the factor exists.
+Use [`has_factor`](@ref) to check if a factor exists.
 """
-function get_factor(context::C, identifier) where {C <: ContextInterface}
+function get_factor(context::C, id::FactorID) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_factor, C, ContextInterface))
 end
 
-# Has Key Checks
 """
-    has_variable(context::C, name, index) where {C<:ContextInterface}
+    has_variable(context::C, name::Symbol) where {C<:ContextInterface}
     
-Check if a variable with the given name and index exists in the context.
-Index () can be provided for individual variables.
+Check if a variable (or a collection of variables) with the given name exists in the context.
+Use [`get_variable`](@ref) to retrieve a variable.
 """
-function has_variable(context::C, name, index) where {C <: ContextInterface}
+function has_variable(context::C, name::Symbol) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(has_variable, C, ContextInterface))
 end
 
-# Setters for Variables and Nodes
 """
-    set_variable!(context::C, variable, index) where {C<:ContextInterface}
+    has_factor(context::C, id::FactorID) where {C<:ContextInterface}
+
+Check if a factor with the given id exists in the context.
+Use [`get_factor`](@ref) to retrieve a factor.
+"""
+function has_factor(context::C, id::FactorID) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_factor, C, ContextInterface))
+end
+
+"""
+    set_variable!(context::C, variable_or_collection, name::Symbol) where {C<:ContextInterface}
+    set_variable!(context::C, variable_or_collection, name::Symbol, index) where {C<:ContextInterface}
     
-Set a variable in the context at the specified index. Should be implemented for both VariableNodeLabel and AbstractArray{VariableNodeLabel}
+Set a variable (or a collection of variables) in the context at the specified index. 
+If index is specified, a single variable should be provided (not a collection).
+The variable typically will be a [`VariableNodeLabel`](@ref), but can also be a [`ProxyLabel`](@ref) or a [`VariableRef`](@ref).
+The collection typically will be a [`ResizableArray`](@ref).
 """
-function set_variable!(context::C, variable, index) where {C <: ContextInterface}
+function set_variable!(context::C, variable_or_collection, name::Symbol, index = nothing) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_variable!, C, ContextInterface))
 end
 
 """
-    set_factor_node!(context::C, fform, identifier, value::FactorNodeLabel) where {C<:ContextInterface}
+    set_factor!(context::C, factor, id::FactorID) where {C<:ContextInterface}
     
-Set a factor node.
+Set a factor. The factor typically will be a [`FactorNodeLabel`](@ref).
 """
-function set_factor_node!(context::C, fform, identifier, value::FactorNodeLabel) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(set_factor_node!, C, ContextInterface))
-end
-
-"""
-    set_child_context!(context::C, fform, identifier, value::ContextInterface) where {C<:ContextInterface}
-    
-Set a child context.
-"""
-function set_child_context!(context::C, fform, identifier, value::C) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(set_child_context!, C, ContextInterface))
+function set_factor!(context::C, factor, id::FactorID) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(set_factor!, C, ContextInterface))
 end
