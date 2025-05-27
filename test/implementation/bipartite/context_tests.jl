@@ -1,16 +1,17 @@
 @testitem "Root Context Creation" begin
-    import GraphPPL: Context, ContextInterface, create_root_context, get_depth, get_parent
+    import GraphPPL: Context, ContextInterface, create_root_context, get_depth, get_parent, get_children
 
     # Test root context creation
     root_ctx = create_root_context(Context)
     @test root_ctx isa ContextInterface
     @test get_depth(root_ctx) == 0
     @test get_parent(root_ctx) === nothing
+    @test_throws Exception get_children(root_ctx, sin)
 end
 
 @testitem "Child Context Creation" begin
     import GraphPPL: VariableNodeLabel, Context, ContextInterface, create_root_context, create_child_context, proxylabel
-    import GraphPPL: get_variable, has_variable, get_depth, get_parent, get_functional_form
+    import GraphPPL: get_variable, has_variable, get_depth, get_parent, get_functional_form, get_children, has_children
 
     x = VariableNodeLabel(1)
     y = VariableNodeLabel(2)
@@ -23,6 +24,8 @@ end
     @test child_ctx isa ContextInterface
     @test get_depth(child_ctx) == 1
     @test get_parent(child_ctx) === root_ctx
+    @test get_children(root_ctx, sin) == [child_ctx]
+    @test get_children(root_ctx, sin, 1) == child_ctx
     @test get_functional_form(child_ctx) == sin
 
     @test has_variable(child_ctx, :x)
@@ -56,6 +59,8 @@ end
         get_returnval,
         set_returnval!,
         get_path_to_root,
+        get_children,
+        has_children,
         proxylabel
 
     # Create test contexts
@@ -70,6 +75,23 @@ end
     @test get_depth(root_ctx) == 0
     @test get_depth(child_ctx) == 1
     @test get_depth(grandchild_ctx) == 2
+
+    # Test children getters
+    @test has_children(root_ctx, sin)
+    @test has_children(root_ctx, sin, 1)
+    @test !has_children(root_ctx, cos)
+    @test !has_children(root_ctx, cos, 1)
+    @test get_children(root_ctx, sin) == [child_ctx]
+    @test get_children(root_ctx, sin, 1) == child_ctx
+    @test_throws Exception get_children(root_ctx, cos)
+
+    @test has_children(child_ctx, cos)
+    @test has_children(child_ctx, cos, 1)
+    @test !has_children(child_ctx, sin)
+    @test !has_children(child_ctx, sin, 1)
+    @test get_children(child_ctx, cos) == [grandchild_ctx]
+    @test get_children(child_ctx, cos, 1) == grandchild_ctx
+    @test_throws Exception get_children(child_ctx, sin)
 
     # Test functional forms
     @test get_functional_form(child_ctx) == sin
@@ -189,34 +211,41 @@ end
     @test_throws Exception get_variable(ctx, :nonexistent, nothing)
 end
 
-@testitem "Factor Operations" setup = [MockLabels] begin
-    import GraphPPL: create_root_context, get_factor, set_factor_node!
+@testitem "Factor Operations" begin
+    import GraphPPL: FactorNodeLabel, create_root_context, get_factor, set_factor!, has_factor
 
     ctx = create_root_context(Context)
 
+    @test !has_factor(ctx, sin)
+    @test !has_factor(ctx, sin, 1)
+    @test !has_factor(ctx, cos)
+    @test !has_factor(ctx, cos, 1)
+
     # Create test factors
-    factor1 = MockFactorNodeLabel()
-    factor2 = MockFactorNodeLabel()
+    factor1 = FactorNodeLabel(1)
+    factor2 = FactorNodeLabel(2)
 
     # Test setting and getting factors
-    set_factor_node!(ctx, sin, :factor1, factor1)
-    set_factor_node!(ctx, cos, :factor2, factor2)
+    set_factor!(ctx, factor1, sin)
+    set_factor!(ctx, factor2, cos)
 
-    @test get_factor(ctx, :factor1) === factor1
-    @test get_factor(ctx, :factor2) === factor2
+    @test get_factor(ctx, sin) == [factor1]
+    @test get_factor(ctx, cos) == [factor2]
+    @test get_factor(ctx, sin, 1) === factor1
+    @test get_factor(ctx, cos, 1) === factor2
 
     # Test non-existent factors
     @test_throws Exception get_factor(ctx, :nonexistent)
 end
 
-@testitem "Child Context Operations" setup = [MockLabels] begin
-    import GraphPPL: create_root_context, create_child_context, get_child_context, set_child_context!, proxylabel
+@testitem "Child Context Operations" begin
+    import GraphPPL: VariableNodeLabel, create_root_context, create_child_context, get_children, has_children, proxylabel, has_variable
 
     root_ctx = create_root_context(Context)
 
     # Create interface variables
-    interface_var1 = MockNodeLabel()
-    interface_var2 = MockNodeLabel()
+    interface_var1 = VariableNodeLabel(1)
+    interface_var2 = VariableNodeLabel(2)
 
     # Create and set child contexts with proper proxy labels
     proxy1 = proxylabel(:inputs, interface_var1, nothing)
@@ -228,33 +257,36 @@ end
     child1 = create_child_context(root_ctx, sin, interfaces1)
     child2 = create_child_context(root_ctx, cos, interfaces2)
 
-    set_child_context!(root_ctx, sin, :child1, child1)
-    set_child_context!(root_ctx, cos, :child2, child2)
-
     # Test retrieving child contexts
-    @test get_child_context(root_ctx, sin, :child1) === child1
-    @test get_child_context(root_ctx, cos, :child2) === child2
+    @test get_children(root_ctx, sin) == [child1]
+    @test get_children(root_ctx, sin, 1) == child1
+    @test get_children(root_ctx, cos) == [child2]
+    @test get_children(root_ctx, cos, 1) == child2
+    @test has_variable(child1, :inputs)
+    @test has_variable(child2, :inputs)
 
     # Test nested child contexts
     proxy3 = proxylabel(:inputs, interface_var1, nothing)
     interfaces3 = (inputs = proxy3,)
     grandchild = create_child_context(child1, tan, interfaces3)
-    set_child_context!(child1, tan, :grandchild, grandchild)
-    @test get_child_context(child1, tan, :grandchild) === grandchild
+    @test get_children(child1, tan) == [grandchild]
+    @test get_children(child1, tan, 1) == grandchild
+    @test has_variable(grandchild, :inputs)
 
     # Test non-existent child contexts
-    @test_throws Exception get_child_context(root_ctx, tan, :nonexistent)
+    @test_throws Exception get_children(root_ctx, tan)
+    @test_throws Exception get_children(root_ctx, tan, 1)
 end
 
-@testitem "Markov Blanket Operations" setup = [MockLabels] begin
-    import GraphPPL: create_root_context, create_child_context, get_variable, set_variable!, proxylabel
+@testitem "Markov Blanket Operations" begin
+    import GraphPPL: VariableNodeLabel, create_root_context, create_child_context, has_variable, set_variable!, proxylabel
 
     # Create contexts
     parent_ctx = create_root_context(Context)
 
     # Setup interface variables in parent
-    interface_var = MockNodeLabel()
-    set_variable!(parent_ctx, interface_var, nothing)
+    interface_var = VariableNodeLabel(1)
+    set_variable!(parent_ctx, interface_var, :x)
 
     # Create child with markov blanket using proper proxy label
     proxy = proxylabel(:inputs, interface_var, nothing)
@@ -262,11 +294,15 @@ end
     child_ctx = create_child_context(parent_ctx, sin, interfaces)
 
     # Test if interface variables are accessible in child
-    @test get_variable(child_ctx, :inputs, nothing) === interface_var
+    @test !has_variable(child_ctx, :x)
+    @test has_variable(child_ctx, :inputs)
+    @test has_variable(child_ctx, :inputs, nothing)
 
     # Test nested markov blanket propagation
     grandchild_ctx = create_child_context(child_ctx, cos, interfaces)
-    @test get_variable(grandchild_ctx, :inputs, nothing) === interface_var
+    @test has_variable(grandchild_ctx, :inputs)
+    @test !has_variable(grandchild_ctx, :x)
+    @test !has_variable(grandchild_ctx, :x, nothing)
 end
 
 @testitem "Context" begin

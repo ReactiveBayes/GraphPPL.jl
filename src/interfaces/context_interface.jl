@@ -20,9 +20,32 @@ end
 
 Create a new child context of type C with the given functional form and markov blanket.
 The `markov_blanket` is a named tuple of `Symbol` => `ProxyLabel` pairs.
+The child context, when created, should be accessible via [`get_children`](@ref).
 """
 function create_child_context(parent::C, functional_form::F, markov_blanket::NamedTuple) where {C <: ContextInterface, F}
     throw(GraphPPLInterfaceNotImplemented(create_child_context, C, ContextInterface))
+end
+
+"""
+    has_children(context::C, functional_form::F) where {C <: ContextInterface, F}
+    has_children(context::C, functional_form::F, index) where {C <: ContextInterface, F}
+
+Check if the context has any children with the given functional form.
+If `index` is provided, check if a child with that index exists.
+"""
+function has_children(context::C, functional_form::F, index = nothing) where {C <: ContextInterface, F}
+    throw(GraphPPLInterfaceNotImplemented(has_children, C, ContextInterface))
+end
+
+"""
+    get_children(context::C, functional_form::F, index = nothing) where {C <: ContextInterface, F}
+
+Get the children of the context with the given functional form.
+Does not check if the children exist. Use [`has_children`](@ref) to check if children of the given functional form exist.
+If `index` is provided, get the child with that index. 
+"""
+function get_children(context::C, functional_form::F, index = nothing) where {C <: ContextInterface, F}
+    throw(GraphPPLInterfaceNotImplemented(get_children, C, ContextInterface))
 end
 
 """
@@ -178,7 +201,7 @@ end
 """
     set_factor!(context::C, factor, functional_form) where {C<:ContextInterface}
     
-Set a factor. The factor typically will be a [`FactorNodeLabel`](@ref) or another context. Returns the index of the inserted factor within the context.
+Set a factor. The factor typically will be a [`FactorNodeLabel`](@ref). Returns the index of the inserted factor within the context.
 """
 function set_factor!(context::C, factor, functional_form) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_factor!, C, ContextInterface))

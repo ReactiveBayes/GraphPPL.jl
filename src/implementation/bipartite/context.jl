@@ -44,6 +44,14 @@ end
 
 function create_child_context(parent::Context, fform::F, markov_blanket::NamedTuple) where {F}
     child = Context(parent.depth + 1, fform, string(parent.prefix, "_", fform), parent)
+
+    # Insert the child into the parent's children dictionary
+    if haskey(parent.children, fform)
+        push!(parent.children[fform], child)
+    else
+        set!(parent.children, fform, [child])
+    end
+
     foreach(pairs(markov_blanket)) do (name_in_child, object_in_parent)
         # All other types of objects are assumed to be constants, 
         # so we don't need to save them in the context
@@ -52,6 +60,22 @@ function create_child_context(parent::Context, fform::F, markov_blanket::NamedTu
         end
     end
     return child
+end
+
+function has_children(context::Context, fform::F) where {F}
+    return haskey(context.children, fform)
+end
+
+function has_children(context::Context, fform::F, index) where {F}
+    return haskey(context.children, fform) && isassigned(context.children[fform], index)
+end
+
+function get_children(context::Context, fform::F) where {F}
+    return context.children[fform]
+end
+
+function get_children(context::Context, fform::F, index) where {F}
+    return context.children[fform][index]
 end
 
 get_depth(context::Context) = context.depth
@@ -161,12 +185,11 @@ set_variable!(c::Context, val::ProxyLabel, key::Symbol, index) = error("Proxy la
 set_variable!(c::Context, val::ProxyLabel, key::Symbol, index, indices...) = error("Proxy labels cannot be set at an index")
 
 function has_factor(context::Context, functional_form)
-    return haskey(context.factor_nodes, functional_form) || haskey(context.children, functional_form)
+    return haskey(context.factor_nodes, functional_form)
 end
 
 function has_factor(context::Context, functional_form, index)
-    return (haskey(context.factor_nodes, functional_form) && isassigned(context.factor_nodes[functional_form], index)) ||
-           (haskey(context.children, functional_form) && isassigned(context.children[functional_form], index))
+    return (haskey(context.factor_nodes, functional_form) && isassigned(context.factor_nodes[functional_form], index))
 end
 
 function get_factor(c::Context, functional_form)
@@ -177,22 +200,12 @@ function get_factor(c::Context, functional_form, index)
     return c.factor_nodes[functional_form][index]
 end
 
-function set_factor!(c::Context, val::Context, functional_form::F) where {F}
-    if haskey(c.children, functional_form)
-        push!(c.children[functional_form], val)
-        return length(c.children[functional_form])
-    else
-        c.children[functional_form] = [val]
-        return 1
-    end
-end
-
 function set_factor!(c::Context, factor::FactorNodeLabel, functional_form::F) where {F}
     if haskey(c.factor_nodes, functional_form)
         push!(c.factor_nodes[functional_form], factor)
         return length(c.factor_nodes[functional_form])
     else
-        c.factor_nodes[functional_form] = [factor]
+        set!(c.factor_nodes, functional_form, [factor])
         return 1
     end
 end
