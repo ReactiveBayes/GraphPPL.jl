@@ -43,8 +43,9 @@ end
     @test_throws Exception get_variable(child_ctx, :y, 1, 1)
 end
 
-@testitem "Basic Context Properties" setup = [MockLabels] begin
+@testitem "Basic Context Properties" begin
     import GraphPPL:
+        VariableNodeLabel,
         create_root_context,
         create_child_context,
         get_depth,
@@ -59,7 +60,7 @@ end
 
     # Create test contexts
     root_ctx = create_root_context(Context)
-    interface_var = MockNodeLabel()
+    interface_var = VariableNodeLabel(1)
     proxy = proxylabel(:inputs, interface_var, nothing)
     interfaces = (inputs = proxy,)
     child_ctx = create_child_context(root_ctx, sin, interfaces)
@@ -75,21 +76,17 @@ end
     @test get_functional_form(grandchild_ctx) == cos
 
     # Test prefix and naming
-    @test !isempty(get_prefix(root_ctx))
+    @test isempty(get_prefix(root_ctx))
+    @test isempty(get_short_name(root_ctx))
     @test !isempty(get_prefix(child_ctx))
-    @test !isempty(get_short_name(root_ctx))
     @test !isempty(get_short_name(child_ctx))
+    @test !isempty(get_prefix(grandchild_ctx))
+    @test !isempty(get_short_name(grandchild_ctx))
 
     # Test parent relationships
     @test get_parent(root_ctx) === nothing
     @test get_parent(child_ctx) === root_ctx
     @test get_parent(grandchild_ctx) === child_ctx
-
-    # Test return value setting and getting
-    set_returnval!(child_ctx, 42)
-    @test get_returnval(child_ctx) == 42
-    set_returnval!(child_ctx, "test")
-    @test get_returnval(child_ctx) == "test"
 
     # Test path to root
     root_path = get_path_to_root(grandchild_ctx)
@@ -97,32 +94,95 @@ end
     @test root_path[1] === grandchild_ctx
     @test root_path[2] === child_ctx
     @test root_path[3] === root_ctx
+
+    # Test return value setting and getting
+    set_returnval!(child_ctx, 42)
+    @test get_returnval(root_ctx) == nothing
+    @test get_returnval(child_ctx) == 42
+    @test get_returnval(grandchild_ctx) == nothing
+
+    set_returnval!(child_ctx, "test")
+    @test get_returnval(root_ctx) == nothing
+    @test get_returnval(child_ctx) == "test"
+    @test get_returnval(grandchild_ctx) == nothing
+
+    set_returnval!(root_ctx, 1)
+    @test get_returnval(root_ctx) == 1
+    @test get_returnval(child_ctx) == "test"
+    @test get_returnval(grandchild_ctx) == nothing
 end
 
-@testitem "Variable Operations" setup = [MockLabels] begin
-    import GraphPPL: create_root_context, get_variable, set_variable!, has_variable
+@testitem "Variable Operations" begin
+    import GraphPPL: ResizableArray, VariableNodeLabel, create_root_context, get_variable, set_variable!, has_variable
 
     ctx = create_root_context(Context)
 
     # Test scalar variable
-    var = MockNodeLabel()
-    set_variable!(ctx, var, nothing)
+    var = VariableNodeLabel(1)
+    set_variable!(ctx, var, :x, nothing)
     @test has_variable(ctx, :x, nothing)
     @test get_variable(ctx, :x, nothing) === var
 
+    # Check that scalar variables are not accessible at an index
+    @test !has_variable(ctx, :x, 1)
+    @test !has_variable(ctx, :x, 1, 1)
+    @test_throws Exception get_variable(ctx, :x, 1)
+    @test_throws Exception get_variable(ctx, :x, 1, 1)
+
+    # Check that non-existent variables are not accessible
+    @test !has_variable(ctx, :y)
+    @test !has_variable(ctx, :y, 1)
+    @test !has_variable(ctx, :y, 1, 1)
+    @test_throws Exception get_variable(ctx, :y)
+    @test_throws Exception get_variable(ctx, :y, 1)
+    @test_throws Exception get_variable(ctx, :y, 1, 1)
+
     # Test vector variable
-    vec_var = [MockNodeLabel() for _ in 1:3]
+    vec_var = ResizableArray(VariableNodeLabel)
+
+    vec_var[1] = VariableNodeLabel(1)
+    vec_var[2] = VariableNodeLabel(2)
+
     set_variable!(ctx, vec_var, :vec)
+
+    @test has_variable(ctx, :vec)
     @test has_variable(ctx, :vec, 1)
+    @test has_variable(ctx, :vec, 2)
+    @test !has_variable(ctx, :vec, 3)
+    @test !has_variable(ctx, :vec, 1, 1)
     @test get_variable(ctx, :vec, 1) === vec_var[1]
     @test get_variable(ctx, :vec, 2) === vec_var[2]
+    @test_throws Exception get_variable(ctx, :vec, 3)
 
     # Test tensor variable
-    tensor_var = reshape([MockNodeLabel() for _ in 1:6], 2, 3)
-    set_variable!(ctx, tensor_var, ())
-    @test has_variable(ctx, :tensor, (1, 1))
-    @test get_variable(ctx, :tensor, (1, 1)) === tensor_var[1, 1]
-    @test get_variable(ctx, :tensor, (2, 3)) === tensor_var[2, 3]
+    tensor_var = ResizableArray(VariableNodeLabel, Val(2))
+
+    tensor_var[1, 1] = VariableNodeLabel(1)
+    tensor_var[1, 2] = VariableNodeLabel(2)
+    tensor_var[2, 1] = VariableNodeLabel(3)
+    tensor_var[2, 2] = VariableNodeLabel(4)
+    tensor_var[2, 3] = VariableNodeLabel(5)
+
+    set_variable!(ctx, tensor_var, :tensor)
+
+    @test has_variable(ctx, :tensor, 1, 1)
+    @test has_variable(ctx, :tensor, 1, 2)
+    @test has_variable(ctx, :tensor, 2, 1)
+    @test has_variable(ctx, :tensor, 2, 2)
+    @test has_variable(ctx, :tensor, 2, 3)
+
+    @test !has_variable(ctx, :tensor, 1, 3)
+    @test !has_variable(ctx, :tensor, 1, 1, 1)
+    @test !has_variable(ctx, :tensor, 1, 1, 2)
+    @test !has_variable(ctx, :tensor, 1, 2, 1)
+    @test !has_variable(ctx, :tensor, 1, 2, 2)
+    @test !has_variable(ctx, :tensor, 2, 1, 1)
+    @test !has_variable(ctx, :tensor, 2, 1, 2)
+    @test get_variable(ctx, :tensor, 1, 1) === tensor_var[1, 1]
+    @test get_variable(ctx, :tensor, 1, 2) === tensor_var[1, 2]
+    @test get_variable(ctx, :tensor, 2, 3) === tensor_var[2, 3]
+    @test_throws Exception get_variable(ctx, :tensor, 1, 3)
+    @test_throws Exception get_variable(ctx, :tensor, 1, 1, 1)
 
     # Test non-existent variables
     @test !has_variable(ctx, :nonexistent, nothing)

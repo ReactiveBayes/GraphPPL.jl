@@ -74,7 +74,7 @@ end
 """
     get_returnval(context::C) where {C<:ContextInterface}
 
-Get the return value of this context.
+Get the return value of this context. If not set, should return `nothing`.
 """
 function get_returnval(context::C) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_returnval, C, ContextInterface))

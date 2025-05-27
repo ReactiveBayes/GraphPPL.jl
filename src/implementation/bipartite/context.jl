@@ -32,7 +32,7 @@ struct Context <: ContextInterface
             UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}(),
             UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}(),
             UnorderedDictionary{Symbol, ProxyLabel}(),
-            Ref{Any}()
+            Ref{Any}(nothing)
         )
     end
 end
@@ -154,6 +154,7 @@ set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Int) = c.v
 set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
 set_variable!(c::Context, val::ResizableArray{VariableNodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
 set_variable!(c::Context, val::ResizableArray{VariableNodeLabel}, key::Symbol) = set!(c.tensor_variables, key, val)
+
 set_variable!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
 set_variable!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
 set_variable!(c::Context, val::ProxyLabel, key::Symbol, index) = error("Proxy labels cannot be set at an index")
