@@ -1,7 +1,7 @@
 """
-    DefaultBackend 
+    DefaultStrategy 
 
-A default backend that is used in the `GraphPPL.@model` macro when no backend is specified explicitly.
+A default strategy that is used in the `GraphPPL.@model` macro when no strategy is specified explicitly.
 """
 struct DefaultStrategy <: FactorNodeStrategy end
 
@@ -42,6 +42,9 @@ GraphPPL.get_interface_aliases(::DefaultStrategy, _) = GraphPPL.StaticInterfaceA
 GraphPPL.get_default_parametrization(::DefaultStrategy, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
 GraphPPL.get_default_parametrization(::DefaultStrategy, ::Composite, fform::F, rhs) where {F} =
     error("Composite nodes always have to be initialized with named arguments")
+
+# By default we use the string representation of the factor form
+GraphPPL.get_prettyname(::DefaultStrategy, fform) = string(fform)
 
 # The default backend does not really have any special hyperparameters
 GraphPPL.instantiate(::Type{DefaultStrategy}) = DefaultStrategy()

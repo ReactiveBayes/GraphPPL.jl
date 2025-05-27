@@ -604,12 +604,12 @@ function get_boilerplate_functions(backend_type, ms_name, ms_args, num_interface
     ms_args = map(arg -> preprocess_interface_expression(arg), ms_args)
     return quote
         function $ms_name end
-        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
+        GraphPPL.get_interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
+        GraphPPL.get_interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
             GraphPPL.StaticInterfaces(Tuple($ms_args))
         GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
-        GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f,)
+        GraphPPL.get_aliases(::$backend_type, f::typeof($ms_name)) = (f,)
         GraphPPL.default_backend(::typeof($ms_name)) = $(GraphPPL.instantiate(backend_type))
     end
 end

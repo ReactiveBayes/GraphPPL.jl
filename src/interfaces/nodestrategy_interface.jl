@@ -76,6 +76,18 @@ get_default_parametrization(model::FactorGraphModelInterface, nodetype, fform::F
     get_default_parametrization(get_strategy(model), nodetype, fform, rhs)
 
 """
+    get_prettyname(strategy::FactorNodeStrategy, fform)
+
+Returns the pretty name for a given `fform`, according to the strategy.
+This function must be implemented by concrete strategy subtypes.
+"""
+function get_prettyname end
+
+get_prettyname(strategy::S, fform) where {S <: FactorNodeStrategy} =
+    error("Strategy $(typeof(strategy)) must implement a method for `get_prettyname` for `$(fform)`.")
+get_prettyname(model::FactorGraphModelInterface, fform) = get_prettyname(get_strategy(model), fform)
+
+"""
     instantiate(strategy_type::Type{<:FactorNodeStrategy})
 
 Instantiates a default strategy object of the specified `strategy_type`.

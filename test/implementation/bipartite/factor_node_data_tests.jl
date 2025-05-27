@@ -91,11 +91,11 @@ end
 
     # Get with default for non-existent key
     float_key = CompileTimeDictionaryKey{:float_key, Float64}()
-    @test get_extra(factor_data, float_key, 3.14) == 3.14
+    @test @inferred(get_extra(factor_data, float_key, 3.14)) == 3.14
 
     # Type safety check - should return the correct type
-    @test get_extra(factor_data, int_key) isa Int
-    @test get_extra(factor_data, string_key) isa String
+    @test @inferred(get_extra(factor_data, int_key)) isa Int
+    @test @inferred(get_extra(factor_data, string_key)) isa String
 end
 
 @testitem "FactorNodeData implements set_extra! with Symbol keys" begin
@@ -130,12 +130,12 @@ end
     @test @inferred(set_extra!(factor_data, string_key, "test_value")) == "test_value"
     @test @inferred(set_extra!(factor_data, int_key, 42)) == 42
 
-    @test get_extra(factor_data, string_key) == "test_value"
-    @test get_extra(factor_data, int_key) == 42
+    @test @inferred(get_extra(factor_data, string_key)) == "test_value"
+    @test @inferred(get_extra(factor_data, int_key)) == 42
 
     # Overwrite existing extras
-    @test set_extra!(factor_data, string_key, "new_value") == "new_value"
-    @test get_extra(factor_data, string_key) == "new_value"
+    @test @inferred(set_extra!(factor_data, string_key, "new_value")) == "new_value"
+    @test @inferred(get_extra(factor_data, string_key)) == "new_value"
 end
 
 @testitem "FactorNodeData show method" begin
@@ -186,100 +186,4 @@ end
     @test has_extra(factor_data, key)
     @test get_extra(factor_data, key) == 42
     @test get_extra(factor_data, CompileTimeDictionaryKey{:nonexistent, Float64}(), 3.14) == 3.14
-end
-
-@testitem "NodeCreationOptions" setup = [TestUtils] begin
-    import GraphPPL: NodeCreationOptions, withopts, withoutopts
-
-    @test NodeCreationOptions() == NodeCreationOptions()
-    @test keys(NodeCreationOptions()) === ()
-    @test NodeCreationOptions(arbitrary_option = 1) == NodeCreationOptions((; arbitrary_option = 1))
-
-    @test haskey(NodeCreationOptions(arbitrary_option = 1), :arbitrary_option)
-    @test NodeCreationOptions(arbitrary_option = 1)[:arbitrary_option] === 1
-
-    @test @inferred(haskey(NodeCreationOptions(), :a)) === false
-    @test @inferred(haskey(NodeCreationOptions(), :b)) === false
-    @test @inferred(haskey(NodeCreationOptions(a = 1, b = 2), :b)) === true
-    @test @inferred(haskey(NodeCreationOptions(a = 1, b = 2), :c)) === false
-    @test @inferred(NodeCreationOptions(a = 1, b = 2)[:a]) === 1
-    @test @inferred(NodeCreationOptions(a = 1, b = 2)[:b]) === 2
-
-    @test_throws ErrorException NodeCreationOptions()[:a]
-    @test_throws ErrorException NodeCreationOptions(a = 1, b = 2)[:c]
-
-    @test @inferred(get(NodeCreationOptions(), :a, 2)) === 2
-    @test @inferred(get(NodeCreationOptions(), :b, 3)) === 3
-    @test @inferred(get(NodeCreationOptions(), :c, 4)) === 4
-    @test @inferred(get(NodeCreationOptions(a = 1, b = 2), :a, 2)) === 1
-    @test @inferred(get(NodeCreationOptions(a = 1, b = 2), :b, 3)) === 2
-    @test @inferred(get(NodeCreationOptions(a = 1, b = 2), :c, 4)) === 4
-
-    @test NodeCreationOptions(a = 1, b = 2)[(:a,)] === NodeCreationOptions(a = 1)
-    @test NodeCreationOptions(a = 1, b = 2)[(:b,)] === NodeCreationOptions(b = 2)
-
-    @test keys(NodeCreationOptions(a = 1, b = 2)) == (:a, :b)
-
-    @test @inferred(withopts(NodeCreationOptions(), (a = 1,))) == NodeCreationOptions(a = 1)
-    @test @inferred(withopts(NodeCreationOptions(b = 2), (a = 1,))) == NodeCreationOptions(b = 2, a = 1)
-
-    @test @inferred(withoutopts(NodeCreationOptions(), Val((:a,)))) == NodeCreationOptions()
-    @test @inferred(withoutopts(NodeCreationOptions(b = 1), Val((:a,)))) == NodeCreationOptions(b = 1)
-    @test @inferred(withoutopts(NodeCreationOptions(a = 1), Val((:a,)))) == NodeCreationOptions()
-    @test @inferred(withoutopts(NodeCreationOptions(a = 1, b = 2), Val((:c,)))) == NodeCreationOptions(a = 1, b = 2)
-end
-
-@testitem "is_constant" setup = [TestUtils] begin
-    import GraphPPL: create_model, is_constant, variable_nodes, getname, getproperties
-
-    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
-        model = create_model(model_fn())
-        for label in variable_nodes(model)
-            node = model[label]
-            props = getproperties(node)
-            if occursin("constvar", string(getname(props)))
-                @test is_constant(props)
-            else
-                @test !is_constant(props)
-            end
-        end
-    end
-end
-
-@testitem "is_data" setup = [TestUtils] begin
-    import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
-
-    m = TestUtils.create_test_model()
-    ctx = getcontext(m)
-    xref = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
-    @test is_data(getproperties(m[xref]))
-
-    # Since the models here are without top arguments they cannot create `data` labels
-    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
-        model = create_model(model_fn())
-        for label in variable_nodes(model)
-            @test !is_data(getproperties(model[label]))
-        end
-    end
-end
-
-@testitem "Predefined kinds of variable nodes" setup = [TestUtils] begin
-    import GraphPPL: VariableKindRandom, VariableKindData, VariableKindConstant
-    import GraphPPL: getcontext, getorcreate!, NodeCreationOptions, getproperties
-
-    model = TestUtils.create_test_model()
-    context = getcontext(model)
-    xref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindRandom), :x, nothing)
-    y = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindData), :y, nothing)
-    zref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindConstant), :z, nothing)
-
-    import GraphPPL: is_random, is_data, is_constant, is_kind
-
-    xprops = getproperties(model[xref])
-    yprops = getproperties(model[y])
-    zprops = getproperties(model[zref])
-
-    @test is_random(xprops) && is_kind(xprops, VariableKindRandom)
-    @test is_data(yprops) && is_kind(yprops, VariableKindData)
-    @test is_constant(zprops) && is_kind(zprops, VariableKindConstant)
 end

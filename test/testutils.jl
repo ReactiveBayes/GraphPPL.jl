@@ -27,41 +27,42 @@
         return esc(:(@test_broken (prettify($lhs) == prettify($rhs))))
     end
 
-    # We use a custom backend for testing purposes, instead of using the `DefaultBackend`
+    # We use a custom backend for testing purposes, instead of using the `DefaultStrategy`
     # The `TestGraphPPLBackend` is a simple backend that specifies how to handle objects from `Distributions.jl`
     # It does use the default pipeline collection for the `@model` macro
-    struct TestGraphPPLBackend <: GraphPPL.AbstractBackend end
+    struct TestGraphPPLStrategy <: GraphPPL.FactorNodeStrategy end
 
-    GraphPPL.model_macro_interior_pipelines(::TestGraphPPLBackend) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultBackend())
+    GraphPPL.model_macro_interior_pipelines(::TestGraphPPLStrategy) = GraphPPL.model_macro_interior_pipelines(GraphPPL.DefaultStrategy())
 
-    # The `TestGraphPPLBackend` redirects some of the methods to the `DefaultBackend`
+    # The `TestGraphPPLBackend` redirects some of the methods to the `DefaultStrategy`
     # (not all though, `TestGraphPPLBackend` implements some of them for the custom structures defined also below)
-    # The `DefaultBackend` has extension rules for `Distributions.jl` types for example
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultBackend(), fform)
-    GraphPPL.NodeType(::TestGraphPPLBackend, fform) = GraphPPL.NodeType(GraphPPL.DefaultBackend(), fform)
-    GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.DefaultBackend(), fform)
-    GraphPPL.interfaces(::TestGraphPPLBackend, fform, n) = GraphPPL.interfaces(GraphPPL.DefaultBackend(), fform, n)
-    GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_alias(GraphPPL.DefaultBackend(), f, interfaces)
-    GraphPPL.interface_aliases(::TestGraphPPLBackend, f) = GraphPPL.interface_aliases(GraphPPL.DefaultBackend(), f)
-    GraphPPL.default_parametrization(::TestGraphPPLBackend, nodetype, f, rhs) =
-        GraphPPL.default_parametrization(GraphPPL.DefaultBackend(), nodetype, f, rhs)
-    GraphPPL.instantiate(::Type{TestGraphPPLBackend}) = TestGraphPPLBackend()
+    # The `DefaultStrategy` has extension rules for `Distributions.jl` types for example
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.NodeType(::TestGraphPPLStrategy, fform) = GraphPPL.NodeType(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.get_aliases(::TestGraphPPLStrategy, fform) = GraphPPL.get_aliases(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, fform, n) = GraphPPL.get_interfaces(GraphPPL.DefaultStrategy(), fform, n)
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, f, interfaces) = GraphPPL.get_factor_alias(GraphPPL.DefaultStrategy(), f, interfaces)
+    GraphPPL.get_interface_aliases(::TestGraphPPLStrategy, f) = GraphPPL.get_interface_aliases(GraphPPL.DefaultStrategy(), f)
+    GraphPPL.get_default_parametrization(::TestGraphPPLStrategy, nodetype, f, rhs) =
+        GraphPPL.get_default_parametrization(GraphPPL.DefaultStrategy(), nodetype, f, rhs)
+    GraphPPL.get_prettyname(::TestGraphPPLStrategy, fform) = GraphPPL.get_prettyname(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.instantiate(::Type{TestGraphPPLStrategy}) = TestGraphPPLStrategy()
 
     # Check that we can alias the `+` into `sum` and `*` into `prod`
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(+), interfaces) = sum
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::typeof(*), interfaces) = prod
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::typeof(+), interfaces) = sum
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::typeof(*), interfaces) = prod
 
     export @model
 
     # This is a special `@model` macro that should be used in tests
     macro model(model_specification)
-        return esc(GraphPPL.model_macro_interior(TestGraphPPLBackend, model_specification))
+        return esc(GraphPPL.model_macro_interior(TestGraphPPLStrategy, model_specification))
     end
 
     export create_test_model
 
     function create_test_model(;
-        fform = identity, plugins = GraphPPL.PluginsCollection(), backend = TestGraphPPLBackend(), source = nothing
+        fform = identity, plugins = GraphPPL.PluginsCollection(), backend = TestGraphPPLStrategy(), source = nothing
     )
         # `identity` is not really a probabilistic model and also does not have a backend nor a source code
         # for testing purposes however it should be fine
@@ -74,37 +75,37 @@
 
     struct PointMass end
 
-    GraphPPL.prettyname(::Type{PointMass}) = "δ"
+    GraphPPL.get_prettyname(::Type{PointMass}) = "δ"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{PointMass}) = GraphPPL.Deterministic()
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{PointMass}) = GraphPPL.Deterministic()
 
     struct ArbitraryNode end
 
-    GraphPPL.prettyname(::Type{ArbitraryNode}) = "ArbitraryNode"
+    GraphPPL.get_prettyname(::Type{ArbitraryNode}) = "ArbitraryNode"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
     struct NormalMeanVariance end
 
-    GraphPPL.prettyname(::Type{NormalMeanVariance}) = "𝓝(μ, σ^2)"
+    GraphPPL.get_prettyname(::Type{NormalMeanVariance}) = "𝓝(μ, σ^2)"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
 
     struct NormalMeanPrecision end
 
-    GraphPPL.prettyname(::Type{NormalMeanPrecision}) = "𝓝(μ, σ^-2)"
+    GraphPPL.get_prettyname(::Type{NormalMeanPrecision}) = "𝓝(μ, σ^-2)"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
-    GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
+    GraphPPL.get_aliases(::TestGraphPPLStrategy, ::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 
-    GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{NormalMeanVariance}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :σ))
-    GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :τ))
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{NormalMeanVariance}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :σ))
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{NormalMeanPrecision}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :μ, :τ))
 
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :σ)}) = NormalMeanVariance
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :τ)}) = NormalMeanPrecision
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :σ)}) = NormalMeanVariance
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::Type{Normal}, ::GraphPPL.StaticInterfaces{(:μ, :τ)}) = NormalMeanPrecision
 
-    GraphPPL.interface_aliases(::TestGraphPPLBackend, ::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
+    GraphPPL.get_interface_aliases(::TestGraphPPLStrategy, ::Type{Normal}) = GraphPPL.StaticInterfaceAliases((
         (:mean, :μ),
         (:m, :μ),
         (:variance, :σ),
@@ -122,19 +123,19 @@
     struct GammaShapeRate end
     struct GammaShapeScale end
 
-    GraphPPL.aliases(::TestGraphPPLBackend, ::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
+    GraphPPL.get_aliases(::TestGraphPPLStrategy, ::Type{Gamma}) = (Gamma, GammaShapeRate, GammaShapeScale)
 
-    GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{GammaShapeRate}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :β))
-    GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :θ))
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{GammaShapeRate}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :β))
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{GammaShapeScale}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :α, :θ))
 
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :β)}) = GammaShapeRate
-    GraphPPL.factor_alias(::TestGraphPPLBackend, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :θ)}) = GammaShapeScale
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :β)}) = GammaShapeRate
+    GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::Type{Gamma}, ::GraphPPL.StaticInterfaces{(:α, :θ)}) = GammaShapeScale
 
     struct Mixture end
 
-    GraphPPL.interfaces(::TestGraphPPLBackend, ::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
+    GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLBackend, ::Type{Mixture}) = GraphPPL.Stochastic()
+    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{Mixture}) = GraphPPL.Stochastic()
 
     # Model zoo for tests
 

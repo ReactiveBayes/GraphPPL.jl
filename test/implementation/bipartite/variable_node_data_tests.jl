@@ -319,3 +319,58 @@ end
     @test get_link(vnd_minimal) === nothing
     @test get_value(vnd_minimal) === nothing
 end
+
+@testitem "is_constant" setup = [TestUtils] begin
+    import GraphPPL: create_model, is_constant, variable_nodes, getname, getproperties
+
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
+        for label in variable_nodes(model)
+            node = model[label]
+            props = getproperties(node)
+            if occursin("constvar", string(getname(props)))
+                @test is_constant(props)
+            else
+                @test !is_constant(props)
+            end
+        end
+    end
+end
+
+@testitem "is_data" setup = [TestUtils] begin
+    import GraphPPL: is_data, create_model, getcontext, getorcreate!, variable_nodes, NodeCreationOptions, getproperties
+
+    m = TestUtils.create_test_model()
+    ctx = getcontext(m)
+    xref = getorcreate!(m, ctx, NodeCreationOptions(kind = :data), :x, nothing)
+    @test is_data(getproperties(m[xref]))
+
+    # Since the models here are without top arguments they cannot create `data` labels
+    for model_fn in TestUtils.ModelsInTheZooWithoutArguments
+        model = create_model(model_fn())
+        for label in variable_nodes(model)
+            @test !is_data(getproperties(model[label]))
+        end
+    end
+end
+
+@testitem "Predefined kinds of variable nodes" setup = [TestUtils] begin
+    import GraphPPL: VariableKindRandom, VariableKindData, VariableKindConstant
+    import GraphPPL: getcontext, getorcreate!, NodeCreationOptions, getproperties
+
+    model = TestUtils.create_test_model()
+    context = getcontext(model)
+    xref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindRandom), :x, nothing)
+    y = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindData), :y, nothing)
+    zref = getorcreate!(model, context, NodeCreationOptions(kind = VariableKindConstant), :z, nothing)
+
+    import GraphPPL: is_random, is_data, is_constant, is_kind
+
+    xprops = getproperties(model[xref])
+    yprops = getproperties(model[y])
+    zprops = getproperties(model[zref])
+
+    @test is_random(xprops) && is_kind(xprops, VariableKindRandom)
+    @test is_data(yprops) && is_kind(yprops, VariableKindData)
+    @test is_constant(zprops) && is_kind(zprops, VariableKindConstant)
+end
