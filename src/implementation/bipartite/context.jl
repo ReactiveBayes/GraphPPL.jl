@@ -11,64 +11,65 @@ struct Context <: ContextInterface
     prefix::String
     parent::Union{Context, Nothing}
     submodel_counts::UnorderedDictionary{Function, Int}
-    children::UnorderedDictionary{FactorID, Context}
-    factor_nodes::UnorderedDictionary{FactorID, FactorNodeLabel}
+    children::UnorderedDictionary{Function, Vector{Context}}
+    factor_nodes::UnorderedDictionary{Any, Vector{FactorNodeLabel}}
     individual_variables::UnorderedDictionary{Symbol, VariableNodeLabel}
     vector_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}
     proxies::UnorderedDictionary{Symbol, ProxyLabel}
     returnval::Ref{Any}
-end
 
-function Context(depth::Int, fform::Function, prefix::String, parent)
-    return Context(
-        depth,
-        fform,
-        prefix,
-        parent,
-        UnorderedDictionary{Function, Int}(),
-        UnorderedDictionary{FactorID, Context}(),
-        UnorderedDictionary{FactorID, FactorNodeLabel}(),
-        UnorderedDictionary{Symbol, VariableNodeLabel}(),
-        UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}(),
-        UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}(),
-        UnorderedDictionary{Symbol, ProxyLabel}(),
-        Ref{Any}()
-    )
-end
-
-Context(parent::Context, model_fform::Function) =
-    Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
-Context(fform) = Context(0, fform, "", nothing)
-Context() = Context(identity)
-
-fform(context::Context) = context.fform
-parent(context::Context) = context.parent
-individual_variables(context::Context) = context.individual_variables
-vector_variables(context::Context) = context.vector_variables
-tensor_variables(context::Context) = context.tensor_variables
-factor_nodes(context::Context) = context.factor_nodes
-proxies(context::Context) = context.proxies
-children(context::Context) = context.children
-count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
-shortname(context::Context) = string(context.prefix)
-
-returnval(context::Context) = context.returnval[]
-
-function returnval!(context::Context, value)
-    context.returnval[] = postprocess_returnval(context, value)
-end
-
-path_to_root(::Nothing) = []
-path_to_root(context::Context) = [context, path_to_root(parent(context))...]
-
-function generate_factor_nodelabel(context::Context, fform::F) where {F}
-    if count(context, fform) == 0
-        set!(context.submodel_counts, fform, 1)
-    else
-        context.submodel_counts[fform] += 1
+    function Context(depth::Int, fform::Function, prefix::String, parent::Union{Context, Nothing})
+        return new(
+            depth,
+            fform,
+            prefix,
+            parent,
+            UnorderedDictionary{Function, Int}(),
+            UnorderedDictionary{Function, Vector{Context}}(),
+            UnorderedDictionary{Any, Vector{FactorNodeLabel}}(),
+            UnorderedDictionary{Symbol, VariableNodeLabel}(),
+            UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel, Vector{VariableNodeLabel}, 1}}(),
+            UnorderedDictionary{Symbol, ResizableArray{VariableNodeLabel}}(),
+            UnorderedDictionary{Symbol, ProxyLabel}(),
+            Ref{Any}()
+        )
     end
-    return FactorID(fform, count(context, fform))
+end
+
+# We need to implement the `create_root_context` method for the `ContextInterface` interface
+function create_root_context(::Type{Context})
+    return Context(0, identity, "", nothing)
+end
+
+function create_child_context(parent::Context, fform::F, markov_blanket::NamedTuple) where {F}
+    child = Context(parent.depth + 1, fform, string(parent.prefix, "_", fform), parent)
+    foreach(pairs(markov_blanket)) do (name_in_child, object_in_parent)
+        # All other types of objects are assumed to be constants, 
+        # so we don't need to save them in the context
+        if object_in_parent isa ProxyLabel
+            set!(child.proxies, name_in_child, object_in_parent)
+        end
+    end
+    return child
+end
+
+get_depth(context::Context) = context.depth
+get_functional_form(context::Context) = context.fform
+get_prefix(context::Context) = context.prefix
+get_parent(context::Context) = context.parent
+get_short_name(context::Context) = string(context.prefix)
+
+get_returnval(context::Context) = context.returnval[]
+set_returnval!(context::Context, value) = context.returnval[] = postprocess_returnval(context, value)
+
+function get_path_to_root(context::Context)
+    path = [context]
+    while get_parent(context) !== nothing
+        push!(path, get_parent(context))
+        context = get_parent(context)
+    end
+    return path
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", context::Context)
@@ -103,17 +104,7 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
     end
 end
 
-getname(f::Function) = String(Symbol(f))
-
-haskey(context::Context, key::Symbol) =
-    haskey(context.individual_variables, key) ||
-    haskey(context.vector_variables, key) ||
-    haskey(context.tensor_variables, key) ||
-    haskey(context.proxies, key)
-
-haskey(context::Context, key::FactorID) = haskey(context.factor_nodes, key) || haskey(context.children, key)
-
-function Base.getindex(c::Context, key::Symbol)
+function get_variable(c::Context, key::Symbol)
     if haskey(c.individual_variables, key)
         return c.individual_variables[key]
     elseif haskey(c.vector_variables, key)
@@ -126,42 +117,83 @@ function Base.getindex(c::Context, key::Symbol)
     throw(KeyError(key))
 end
 
-function Base.getindex(c::Context, key::FactorID)
-    if haskey(c.factor_nodes, key)
-        return c.factor_nodes[key]
-    elseif haskey(c.children, key)
-        return c.children[key]
+function get_variable(c::Context, key::Symbol, index::Nothing)
+    return get_variable(c, key)
+end
+
+function get_variable(c::Context, key::Symbol, index)
+    return c.vector_variables[key][index]
+end
+
+function get_variable(c::Context, key::Symbol, index, indices...)
+    return c.tensor_variables[key][index, indices...]
+end
+
+function has_variable(context::Context, key::Symbol)
+    return haskey(context.individual_variables, key) ||
+           haskey(context.vector_variables, key) ||
+           haskey(context.tensor_variables, key) ||
+           haskey(context.proxies, key)
+end
+
+function has_variable(c::Context, key::Symbol, index::Nothing)
+    return has_variable(c, key)
+end
+
+function has_variable(c::Context, key::Symbol, index)
+    return haskey(c.vector_variables, key) && isassigned(c.vector_variables[key], index)
+end
+
+function has_variable(c::Context, key::Symbol, index, indices...)
+    return haskey(c.tensor_variables, key) && isassigned(c.tensor_variables[key], index, indices...)
+end
+
+set_variable!(c::Context, val::VariableNodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
+set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
+set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
+set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
+set_variable!(c::Context, val::ResizableArray{VariableNodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
+set_variable!(c::Context, val::ResizableArray{VariableNodeLabel}, key::Symbol) = set!(c.tensor_variables, key, val)
+set_variable!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
+set_variable!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
+set_variable!(c::Context, val::ProxyLabel, key::Symbol, index) = error("Proxy labels cannot be set at an index")
+set_variable!(c::Context, val::ProxyLabel, key::Symbol, index, indices...) = error("Proxy labels cannot be set at an index")
+
+function has_factor(context::Context, functional_form)
+    return haskey(context.factor_nodes, functional_form) || haskey(context.children, functional_form)
+end
+
+function has_factor(context::Context, functional_form, index)
+    return (haskey(context.factor_nodes, functional_form) && isassigned(context.factor_nodes[functional_form], index)) ||
+           (haskey(context.children, functional_form) && isassigned(context.children[functional_form], index))
+end
+
+function get_factor(c::Context, functional_form)
+    return c.factor_nodes[functional_form]
+end
+
+function get_factor(c::Context, functional_form, index)
+    return c.factor_nodes[functional_form][index]
+end
+
+function set_factor!(c::Context, val::Context, functional_form::F) where {F}
+    if haskey(c.children, functional_form)
+        push!(c.children[functional_form], val)
+        return length(c.children[functional_form])
+    else
+        c.children[functional_form] = [val]
+        return 1
     end
-    throw(KeyError(key))
 end
 
-Base.getindex(c::Context, fform, index::Int) = c[FactorID(fform, index)]
-
-Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
-Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
-Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
-Base.setindex!(c::Context, val::VariableNodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
-Base.setindex!(c::Context, val::ResizableArray{VariableNodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
-Base.setindex!(c::Context, val::ResizableArray{VariableNodeLabel}, key::Symbol) = set!(c.tensor_variables, key, val)
-Base.setindex!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
-Base.setindex!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
-Base.setindex!(c::Context, val::Context, key::FactorID) = set!(c.children, key, val)
-Base.setindex!(c::Context, val::FactorNodeLabel, key::FactorID) = set!(c.factor_nodes, key, val)
-
-function copy_markov_blanket_to_child_context(child_context::Context, interfaces::NamedTuple)
-    foreach(pairs(interfaces)) do (name_in_child, object_in_parent)
-        add_to_child_context(child_context, name_in_child, object_in_parent)
+function set_factor!(c::Context, factor::FactorNodeLabel, functional_form::F) where {F}
+    if haskey(c.factor_nodes, functional_form)
+        push!(c.factor_nodes[functional_form], factor)
+        return length(c.factor_nodes[functional_form])
+    else
+        c.factor_nodes[functional_form] = [factor]
+        return 1
     end
-end
-
-function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent::ProxyLabel)
-    set!(child_context.proxies, name_in_child, object_in_parent)
-    return nothing
-end
-
-function add_to_child_context(child_context::Context, name_in_child::Symbol, object_in_parent)
-    # By default, we assume that `object_in_parent` is a constant, so there is no need to save it in the context
-    return nothing
 end
 
 throw_if_individual_variable(context::Context, name::Symbol) =

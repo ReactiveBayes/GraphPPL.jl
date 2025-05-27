@@ -1,21 +1,46 @@
-@testitem "Context Creation" setup = [MockLabels] begin
-    import GraphPPL: ContextInterface, create_root_context, create_child_context, proxylabel
+@testitem "Root Context Creation" begin
+    import GraphPPL: Context, ContextInterface, create_root_context, get_depth, get_parent
 
     # Test root context creation
     root_ctx = create_root_context(Context)
     @test root_ctx isa ContextInterface
     @test get_depth(root_ctx) == 0
     @test get_parent(root_ctx) === nothing
+end
 
-    # Test child context creation with proxy label
-    interface_var = MockNodeLabel()
-    proxy = proxylabel(:inputs, interface_var, nothing)
-    interfaces = (inputs = proxy,)
-    child_ctx = create_child_context(root_ctx, sin, interfaces)
+@testitem "Child Context Creation" begin
+    import GraphPPL: VariableNodeLabel, Context, ContextInterface, create_root_context, create_child_context, proxylabel
+    import GraphPPL: get_variable, has_variable, get_depth, get_parent, get_functional_form
+
+    x = VariableNodeLabel(1)
+    y = VariableNodeLabel(2)
+    x_proxy = proxylabel(:inputs, x, nothing)
+    y_proxy = proxylabel(:inputs, y, 1)
+    markov_blanket = (x = x_proxy, y = y_proxy)
+
+    root_ctx = create_root_context(Context)
+    child_ctx = create_child_context(root_ctx, sin, markov_blanket)
     @test child_ctx isa ContextInterface
     @test get_depth(child_ctx) == 1
     @test get_parent(child_ctx) === root_ctx
     @test get_functional_form(child_ctx) == sin
+
+    @test has_variable(child_ctx, :x)
+
+    @test get_variable(child_ctx, :x) === x_proxy
+    @test get_variable(child_ctx, :x, nothing) === x_proxy
+    @test_throws Exception get_variable(child_ctx, :x, 1)
+    @test_throws Exception get_variable(child_ctx, :x, 1, 1)
+
+    @test has_variable(child_ctx, :y)
+    @test has_variable(child_ctx, :y, nothing)
+    @test !has_variable(child_ctx, :y, 1)
+    @test !has_variable(child_ctx, :y, 1, 1)
+
+    @test get_variable(child_ctx, :y) === y_proxy
+    @test get_variable(child_ctx, :y, nothing) === y_proxy
+    @test_throws Exception get_variable(child_ctx, :y, 1)
+    @test_throws Exception get_variable(child_ctx, :y, 1, 1)
 end
 
 @testitem "Basic Context Properties" setup = [MockLabels] begin

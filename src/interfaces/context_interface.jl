@@ -7,29 +7,6 @@ Contains information about a model or submodel's variables, factors, and structu
 abstract type ContextInterface end
 
 """
-    FactorID(fform, index)
-
-A unique identifier for a single factor node or a submodel of type `fform` in an arbitrary `ContextInterface`.
-A submodel can have multiple factor nodes of the same type, e.g. `Normal` factors.
-The `index` is used to distinguish between them. 
-The same applies to submodels which are created by the same functional form.
-"""
-struct FactorID{F}
-    fform::F
-    index::Int64
-end
-
-FactorID(::Type{F}, index) where {F} = FactorID{Type{F}}(F, index)
-FactorID(fform, index) = FactorID(fform, index)
-
-fform(id::FactorID) = id.fform
-index(id::FactorID) = id.index
-
-Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
-Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.fform == id2.fform && id1.index == id2.index
-Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
-
-"""
     create_root_context(::Type{C}) where {C <: ContextInterface}
 
 Create a new context of type `C`. The root context always has `identity` as its functional form.
@@ -138,47 +115,34 @@ end
 
 """
     get_variable(context::C, name::Symbol) where {C<:ContextInterface}
+    get_variable(context::C, name::Symbol, index) where {C<:ContextInterface}
+    get_variable(context::C, name::Symbol, indices...) where {C<:ContextInterface}
 
 Get a variable (or a collection of variables) by name. Does not check if the variable exists.
-Use [`has_variable`](@ref) to check if a variable exists.
+Use [`has_variable`](@ref) to check if a variable exists. 
+If `index` (or `indices`) is provided, a single variable should be returned (not a collection).
 """
 function get_variable(context::C, name::Symbol) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_variable, C, ContextInterface))
 end
 
 """
-    get_factor(context::C, id::FactorID)
-
-Get a factor by its id. Does not check if the factor exists.
-Use [`has_factor`](@ref) to check if a factor exists.
-"""
-function get_factor(context::C, id::FactorID) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(get_factor, C, ContextInterface))
-end
-
-"""
     has_variable(context::C, name::Symbol) where {C<:ContextInterface}
+    has_variable(context::C, name::Symbol, index) where {C<:ContextInterface}
+    has_variable(context::C, name::Symbol, indices...) where {C<:ContextInterface}
     
 Check if a variable (or a collection of variables) with the given name exists in the context.
 Use [`get_variable`](@ref) to retrieve a variable.
+If `index` (or `indices`) is provided, the function checks if a variable with that index exists.
 """
 function has_variable(context::C, name::Symbol) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(has_variable, C, ContextInterface))
 end
 
 """
-    has_factor(context::C, id::FactorID) where {C<:ContextInterface}
-
-Check if a factor with the given id exists in the context.
-Use [`get_factor`](@ref) to retrieve a factor.
-"""
-function has_factor(context::C, id::FactorID) where {C <: ContextInterface}
-    throw(GraphPPLInterfaceNotImplemented(has_factor, C, ContextInterface))
-end
-
-"""
     set_variable!(context::C, variable_or_collection, name::Symbol) where {C<:ContextInterface}
     set_variable!(context::C, variable_or_collection, name::Symbol, index) where {C<:ContextInterface}
+    set_variable!(context::C, variable_or_collection, name::Symbol, indices...) where {C<:ContextInterface}
     
 Set a variable (or a collection of variables) in the context at the specified index. 
 If index is specified, a single variable should be provided (not a collection).
@@ -190,10 +154,32 @@ function set_variable!(context::C, variable_or_collection, name::Symbol, index =
 end
 
 """
-    set_factor!(context::C, factor, id::FactorID) where {C<:ContextInterface}
-    
-Set a factor. The factor typically will be a [`FactorNodeLabel`](@ref).
+    get_factor(context::C, functional_form) where {C<:ContextInterface}
+    get_factor(context::C, functional_form, index) where {C<:ContextInterface}
+
+Get a collection of factors by its `functional_form`. Does not check if the factor exists.
+Use [`has_factor`](@ref) to check if a factor exists. If `index` is provided, return a single factor.
 """
-function set_factor!(context::C, factor, id::FactorID) where {C <: ContextInterface}
+function get_factor(context::C, functional_form, index = nothing) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_factor, C, ContextInterface))
+end
+
+"""
+    has_factor(context::C, functional_form) where {C<:ContextInterface}
+    has_factor(context::C, functional_form, index) where {C<:ContextInterface}
+
+Check if a factor with the given `functional_form` exists in the context.
+Use [`get_factor`](@ref) to retrieve a factor. If `index` is provided, check if a factor with that index exists.
+"""
+function has_factor(context::C, functional_form, index = nothing) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_factor, C, ContextInterface))
+end
+
+"""
+    set_factor!(context::C, factor, functional_form) where {C<:ContextInterface}
+    
+Set a factor. The factor typically will be a [`FactorNodeLabel`](@ref) or another context. Returns the index of the inserted factor within the context.
+"""
+function set_factor!(context::C, factor, functional_form) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_factor!, C, ContextInterface))
 end
