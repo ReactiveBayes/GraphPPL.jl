@@ -4,8 +4,6 @@ using Aqua
 using JET
 using TestItemRunner
 
-# include("testutils.jl")
-
 @testset "GraphPPL.jl" begin
     @testset "Code quality (Aqua.jl)" begin
         Aqua.test_all(GraphPPL; ambiguities = (broken = true,))

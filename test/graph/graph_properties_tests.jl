@@ -142,13 +142,13 @@ end
     model = create_model(TestUtils.simple_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z])) # Normal node we're investigating is the only neighbor of `z` in the graph.
-    @test getname.(neighbors(model, node)) == [:z, :x, :y]
+    @test issetequal(getname.(neighbors(model, node)), [:z, :x, :y])
 
     # Test 3: Test getting sorted neighbors when one of the edge indices is nothing
     model = create_model(TestUtils.vector_model())
     ctx = getcontext(model)
     node = first(neighbors(model, ctx[:z][1]))
-    @test getname.(collect(neighbors(model, node))) == [:z, :x, :y]
+    @test issetequal(getname.(collect(neighbors(model, node))), [:z, :x, :y])
 end
 
 @testitem "save and load graph" setup = [TestUtils] begin

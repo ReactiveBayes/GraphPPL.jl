@@ -119,9 +119,9 @@ end
     import GraphPPL: Context, getcontext, create_model, add_variable_node!, NodeCreationOptions
 
     model = TestUtils.create_test_model()
-    @test getcontext(model) == model.graph[]
+    @test getcontext(model) == model.context
     add_variable_node!(model, getcontext(model), NodeCreationOptions(), :x, nothing)
-    @test getcontext(model)[:x] == model.graph[][:x]
+    @test getcontext(model)[:x] == model.context[:x]
 end
 
 @testitem "path_to_root(::Context)" setup = [TestUtils] begin

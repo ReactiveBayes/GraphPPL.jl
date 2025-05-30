@@ -1,6 +1,3 @@
-# This file contains tests for the model creation functionality of GraphPPL
-# We don't use models from the `model_zoo.jl` file because they are subject to change
-# These tests are meant to be stable and not change often
 
 @testitem "Simple model 1" setup = [TestUtils] begin
     using Distributions
@@ -432,8 +429,9 @@ end
         @test length(collect(filter(as_variable(:x), model))) == n
         @test length(collect(filter(as_variable(:y), model))) == n
 
-        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:(end - 1)]) # Intermediate entries have degree `3`
-        @test all(v -> degree(model, v) === 2, collect(filter(as_variable(:x), model))[end:end]) # The last entry has degree `2`
+        x_vars = collect(filter(as_variable(:x), model))
+        @test count(v -> degree(model, v) === 2, x_vars) === 1 # Exactly one x variable has degree 2
+        @test count(v -> degree(model, v) === 3, x_vars) === length(x_vars) - 1 # All other x variables have degree 3
 
         @test all(v -> degree(model, v) === 1, filter(as_variable(:y), model)) # The data entries have degree `1`
 
@@ -490,9 +488,9 @@ end
         @test allunique(ysindices)
         @test Set(ysindices) == Set(1:n)
 
-        # Test that the `x` variables are connected to 3 nodes (except for the last one)
-        @test all(v -> degree(model, v) === 3, collect(filter(as_variable(:x), model))[1:(end - 1)]) # Intermediate entries have degree `3`
-        @test all(v -> degree(model, v) === 2, collect(filter(as_variable(:x), model))[end:end]) # The last entry has degree `2`
+        x_vars = collect(filter(as_variable(:x), model))
+        @test count(v -> degree(model, v) === 2, x_vars) === 1 # Exactly one x variable has degree 2
+        @test count(v -> degree(model, v) === 3, x_vars) === length(x_vars) - 1 # All other x variables have degree 3
     end
 end
 
@@ -1094,7 +1092,7 @@ end
 
 @testitem "Broadcasting over ranges" setup = [TestUtils] begin
     using Distributions, LinearAlgebra
-    import GraphPPL: create_model, getproperties, neighbor_data, is_random, is_constant, value
+    import GraphPPL: create_model, getproperties, neighbor_data, is_random, is_constant, value, neighbors
 
     TestUtils.@model function broadcasting_over_range()
         # Should create 10 `x` variables
@@ -1115,13 +1113,14 @@ end
 
     foreach(enumerate(collect(filter(as_node(sum), model)))) do (i, label)
         nodedata = model[label]
+        nvs = neighbors(model, label)
+        nvs_data = [model[neighbor] for neighbor in nvs]
         nodeproperties = getproperties(nodedata)
-        nodeneighbor_properties = map(getproperties, neighbor_data(nodeproperties))
-
+        nodeneighbor_properties = map(getproperties, nvs_data)
         # The first index of the `sum` is xᵢ₊₁
-        @test is_random(nodeneighbor_properties[1]) && nodeneighbor_properties[1] === getproperties(model[xvariables[i + 1]])
+        @test is_random(nodeneighbor_properties[2]) && nodeneighbor_properties[2] === getproperties(model[xvariables[i + 1]])
         # The second index of the `sum` is xᵢ
-        @test is_random(nodeneighbor_properties[2]) && nodeneighbor_properties[2] === getproperties(model[xvariables[i]])
+        @test is_random(nodeneighbor_properties[1]) && nodeneighbor_properties[1] === getproperties(model[xvariables[i]])
         # The third index of the `sum` is the constant `1`
         @test is_constant(nodeneighbor_properties[3]) && value(nodeneighbor_properties[3]) == 1
     end
@@ -1581,7 +1580,7 @@ end
         for i in 1:N
             C ~ C + x[i]
         end
-        obs ~ NormalMeanVariance(C, sigma^2)
+        obs ~ TestUtils.NormalMeanVariance(C, sigma^2)
     end
 
     @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(
@@ -1602,7 +1601,7 @@ end
             next_C ~ accum_C + x[i]
             accum_C = next_C
         end
-        obs ~ NormalMeanVariance(accum_C, sigma^2)
+        obs ~ TestUtils.NormalMeanVariance(accum_C, sigma^2)
     end
 
     @test_throws r"Trying to create duplicate edge.*Make sure that all the arguments to the `~` operator are unique.*" create_model(

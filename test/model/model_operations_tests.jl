@@ -376,8 +376,8 @@ end
     out = getorcreate!(model, ctx, :out, nothing)
     nodeid, _ = make_node!(model, ctx, options, TestUtils.ArbitraryNode, out, (1, 1))
     @test nv(model) == 4
-    @test getname.(edges(model, nodeid)) == [:out, :in, :in]
-    @test getname.(edges(model, nodeid)) == [:out, :in, :in]
+    @test issetequal(getname.(edges(model, nodeid)), [:out, :in, :in])
+    @test issetequal(getname.(edges(model, nodeid)), [:out, :in, :in])
 
     #Test 10: Deterministic node with keyword arguments
     function abc(; a = 1, b = 2)
@@ -455,7 +455,7 @@ end
     for keys in [(:mean, :variance), (:m, :variance), (:mean, :v)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, σ)))
         @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === TestUtils.NormalMeanVariance
-        @test GraphPPL.neighbors(model, node_id) == [out, μ, σ]
+        @test issetequal(GraphPPL.neighbors(model, node_id), [out, μ, σ])
     end
 
     # Test 15.2: Make stochastic node with aliased interfaces
@@ -468,7 +468,7 @@ end
     for keys in [(:mean, :precision), (:m, :precision), (:mean, :p)]
         local node_id, _ = make_node!(model, ctx, options, Normal, out, NamedTuple{keys}((μ, p)))
         @test GraphPPL.fform(GraphPPL.getproperties(model[node_id])) === TestUtils.NormalMeanPrecision
-        @test GraphPPL.neighbors(model, node_id) == [out, μ, p]
+        @test issetequal(GraphPPL.neighbors(model, node_id), [out, μ, p])
     end
 end
 

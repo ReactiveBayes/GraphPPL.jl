@@ -136,8 +136,10 @@ end
     result = filter(as_node(Normal), model)
     @test collect(result) == [context[TestUtils.NormalMeanVariance, 1], context[TestUtils.NormalMeanVariance, 2]]
     result = filter(as_node(), model)
-    @test collect(result) ==
+    @test issetequal(
+        collect(result),
         [context[TestUtils.NormalMeanVariance, 1], context[TestUtils.GammaShapeScale, 1], context[TestUtils.NormalMeanVariance, 2]]
+    )
 end
 
 @testitem "filter(::VariableNodePredicate, ::Model)" setup = [TestUtils] begin

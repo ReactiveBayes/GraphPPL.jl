@@ -598,7 +598,7 @@ Materializes all constraints in `Model`. This function should be called before r
 
 """
 function materialize_constraints!(model::Model)
-    for node in MetaGraphsNext.labels(model.graph)
+    for node in labels(model)
         materialize_constraints!(model, node)
     end
 end

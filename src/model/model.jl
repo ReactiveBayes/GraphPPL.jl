@@ -1,3 +1,5 @@
+using BipartiteFactorGraphs
+
 """
     Model(graph::MetaGraph)
 
@@ -12,15 +14,17 @@ Fields:
 - `source`: A `Source` object representing the original source code of the model (typically a `String` object).
 - `counter`: A `Base.RefValue{Int64}` object keeping track of the number of nodes in the graph.
 """
-struct Model{G, P, B, S} <: AbstractModel
+struct Model{G, P, B, S, C} <: AbstractModel
     graph::G
+    context::C
+    mapping::Dict{NodeLabel, Int}
     plugins::P
     backend::B
     source::S
     counter::Base.RefValue{Int64}
 end
 
-labels(model::Model) = MetaGraphsNext.labels(model.graph)
+labels(model::Model) = sort(collect(keys(model.mapping)), by = x -> x.global_counter)
 Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
@@ -35,8 +39,8 @@ Graphs.loadgraph(file::AbstractString, ::Type{GraphPPL.Model}) = load(file, "__m
 NodeType(model::Model, fform::F) where {F} = NodeType(getbackend(model), fform)
 NodeBehaviour(model::Model, fform::F) where {F} = NodeBehaviour(getbackend(model), fform)
 
-function Model(graph::MetaGraph, plugins::PluginsCollection, backend, source)
-    return Model(graph, plugins, backend, source, Base.RefValue(0))
+function Model(graph::BipartiteFactorGraph, context::Context, plugins::PluginsCollection, backend, source)
+    return Model(graph, context, Dict{NodeLabel, Int}(), plugins, backend, source, Base.RefValue(0))
 end
 
 function Model(fform::F, plugins::PluginsCollection) where {F}
@@ -44,19 +48,35 @@ function Model(fform::F, plugins::PluginsCollection) where {F}
 end
 
 function Model(fform::F, plugins::PluginsCollection, backend, source) where {F}
-    label_type = NodeLabel
-    edge_data_type = EdgeLabel
-    vertex_data_type = NodeData
-    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
-    model = Model(graph, plugins, backend, source)
+    graph = BipartiteFactorGraph(NodeData, NodeData, EdgeLabel)
+    model = Model(graph, Context(fform), plugins, backend, source)
     return model
 end
 
-Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = Base.setindex!(model.graph, val, key)
-Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = Base.setindex!(model.graph, val, src, dst)
-Base.getindex(model::Model) = Base.getindex(model.graph)
-Base.getindex(model::Model, key::NodeLabel) = Base.getindex(model.graph, key)
-Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) = Base.getindex(model.graph, src, dst)
+Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = begin
+    if is_variable(val)
+        intkey = BipartiteFactorGraphs.add_variable!(model.graph, val)
+    else
+        intkey = BipartiteFactorGraphs.add_factor!(model.graph, val)
+    end
+    model.mapping[key] = intkey
+    return val
+end
+Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = begin
+    BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], val)
+    return val
+end
+Base.getindex(model::Model) = getcontext(model)
+Base.getindex(model::Model, key::NodeLabel) = begin
+    id = model.mapping[key]
+    if BipartiteFactorGraphs.is_variable(model.graph, id)
+        return BipartiteFactorGraphs.get_variable_data(model.graph, id)
+    else
+        return BipartiteFactorGraphs.get_factor_data(model.graph, id)
+    end
+end
+Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
+    BipartiteFactorGraphs.get_edge_data(model.graph, model.mapping[src], model.mapping[dst])
 Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = map(key -> model[key], keys)
 Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(key -> model[key], keys))
 
@@ -66,44 +86,51 @@ Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 
-Graphs.neighbors(model::Model, node::NodeLabel)                   = Graphs.neighbors(model, node, model[node])
+Graphs.neighbors(model::Model, node::NodeLabel)                   = begin
+    id = model.mapping[node]
+    if BipartiteFactorGraphs.is_variable(model.graph, id)
+        ids = BipartiteFactorGraphs.factor_neighbors(model.graph, id)
+    else
+        ids = BipartiteFactorGraphs.variable_neighbors(model.graph, id)
+    end
+    return [findfirst(==(id), model.mapping) for id in ids]
+end
 Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
 
-Graphs.neighbors(model::Model, node::NodeLabel, nodedata::NodeData)                                     = Graphs.neighbors(model, node, nodedata, getproperties(nodedata))
-Graphs.neighbors(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties)   = map(neighbor -> neighbor[1], neighbors(properties))
-Graphs.neighbors(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties) = MetaGraphsNext.neighbor_labels(model.graph, node)
+Graphs.edges(model::Model, node::NodeLabel) = begin
+    id = model.mapping[node]
+    if BipartiteFactorGraphs.is_variable(model.graph, id)
+        ids = BipartiteFactorGraphs.factor_neighbors(model.graph, id)
+    else
+        ids = BipartiteFactorGraphs.variable_neighbors(model.graph, id)
+    end
 
-Graphs.edges(model::Model, node::NodeLabel) = Graphs.edges(model, node, model[node])
+    return [BipartiteFactorGraphs.get_edge_data(model.graph, id, id2) for id2 in ids]
+end
 Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.edges(model, node), nodes))
 
-Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData) = Graphs.edges(model, node, nodedata, getproperties(nodedata))
-Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties) =
-    map(neighbor -> neighbor[2], neighbors(properties))
+# Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData) = Graphs.edges(model, node, nodedata, getproperties(nodedata))
+# Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties) =
+#     map(neighbor -> neighbor[2], neighbors(properties))
 
-function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties)
-    return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
-end
+# function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties)
+#     return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
+# end
 
-Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, MetaGraphsNext.code_for(model.graph, label))
+Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, model.mapping[label])
 
 function add_vertex!(model::Model, label, data)
-    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
-    code = nv(model) + 1
-    model.graph.vertex_labels[code] = label
-    model.graph.vertex_properties[label] = (code, data)
-    Graphs.add_vertex!(model.graph.graph)
+    model[label] = data
+    return true
 end
 
 function add_edge!(model::Model, src, dst, data)
-    # This is an unsafe procedure that implements behaviour from `MetaGraphsNext`. 
-    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
-    model.graph.edge_data[(src, dst)] = data
-    return Graphs.add_edge!(model.graph.graph, code_src, code_dst)
+    model[src, dst] = data
+    return true
 end
 
 function has_edge(model::Model, src, dst)
-    code_src, code_dst = MetaGraphsNext.code_for(model.graph, src), MetaGraphsNext.code_for(model.graph, dst)
-    return Graphs.has_edge(model.graph.graph, code_src, code_dst)
+    return BipartiteFactorGraphs.has_edge(model.graph, model.mapping[src], model.mapping[dst])
 end
 
 function generate_nodelabel(model::Model, name::Symbol)
@@ -118,7 +145,7 @@ Retrieves the context of a model. The context of a model contains the complete h
 Additionally, contains all child submodels and their respective contexts. The Context supplies a mapping from symbols to `GraphPPL.NodeLabel` structures
 with which the model can be queried.
 """
-getcontext(model::Model) = model[]
+getcontext(model::Model) = model.context
 
 function get_principal_submodel(model::Model)
     context = getcontext(model)
