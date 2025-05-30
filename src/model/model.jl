@@ -125,8 +125,7 @@ function add_vertex!(model::Model, label, data)
 end
 
 function add_edge!(model::Model, src, dst, data)
-    model[src, dst] = data
-    return true
+    return BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], data)
 end
 
 function has_edge(model::Model, src, dst)
