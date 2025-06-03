@@ -24,7 +24,7 @@ struct Model{G, P, B, S, C} <: AbstractModel
     counter::Base.RefValue{Int64}
 end
 
-labels(model::Model) = sort(collect(keys(model.mapping)), by = x -> x.global_counter)
+labels(model::Model) = Iterators.map(i -> NodeLabel(:anything, i), 1:nv(model.graph))
 Base.isempty(model::Model) = iszero(nv(model.graph)) && iszero(ne(model.graph))
 
 getplugins(model::Model) = model.plugins
@@ -54,21 +54,23 @@ function Model(fform::F, plugins::PluginsCollection, backend, source) where {F}
 end
 
 Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = begin
-    if is_variable(val)
-        intkey = BipartiteFactorGraphs.add_variable!(model.graph, val)
+    intkey = if is_variable(val)
+        BipartiteFactorGraphs.add_variable!(model.graph, val)
+    elseif is_factor(val)
+        BipartiteFactorGraphs.add_factor!(model.graph, val)
     else
-        intkey = BipartiteFactorGraphs.add_factor!(model.graph, val)
+        error("Invalid node data: $val")
     end
-    model.mapping[key] = intkey
+    @assert key.global_counter == intkey lazy"Key $key has global counter $intkey, but expected $(key.global_counter)"
     return val
 end
 Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = begin
-    BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], val)
+    BipartiteFactorGraphs.add_edge!(model.graph, src.global_counter, dst.global_counter, val)
     return val
 end
 Base.getindex(model::Model) = getcontext(model)
 Base.getindex(model::Model, key::NodeLabel) = begin
-    id = model.mapping[key]
+    id = key.global_counter
     if BipartiteFactorGraphs.is_variable(model.graph, id)
         return BipartiteFactorGraphs.get_variable_data(model.graph, id)
     else
@@ -76,7 +78,7 @@ Base.getindex(model::Model, key::NodeLabel) = begin
     end
 end
 Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
-    BipartiteFactorGraphs.get_edge_data(model.graph, model.mapping[src], model.mapping[dst])
+    BipartiteFactorGraphs.get_edge_data(model.graph, src.global_counter, dst.global_counter)
 Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = map(key -> model[key], keys)
 Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(key -> model[key], keys))
 
@@ -86,26 +88,26 @@ Graphs.nv(model::Model) = Graphs.nv(model.graph)
 Graphs.ne(model::Model) = Graphs.ne(model.graph)
 Graphs.edges(model::Model) = Graphs.edges(model.graph)
 
-Graphs.neighbors(model::Model, node::NodeLabel)                   = begin
-    id = model.mapping[node]
+Graphs.neighbors(model::Model, node::NodeLabel) = begin
+    id = node.global_counter
     if BipartiteFactorGraphs.is_variable(model.graph, id)
         ids = BipartiteFactorGraphs.factor_neighbors(model.graph, id)
     else
         ids = BipartiteFactorGraphs.variable_neighbors(model.graph, id)
     end
-    return [findfirst(==(id), model.mapping) for id in ids]
+    return [NodeLabel(:anything, id) for id in ids]
 end
 Graphs.neighbors(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.neighbors(model, node), nodes))
 
 Graphs.edges(model::Model, node::NodeLabel) = begin
-    id = model.mapping[node]
+    id = node.global_counter
     if BipartiteFactorGraphs.is_variable(model.graph, id)
         ids = BipartiteFactorGraphs.factor_neighbors(model.graph, id)
     else
         ids = BipartiteFactorGraphs.variable_neighbors(model.graph, id)
     end
 
-    return [BipartiteFactorGraphs.get_edge_data(model.graph, id, id2) for id2 in ids]
+    return (BipartiteFactorGraphs.get_edge_data(model.graph, id, id2) for id2 in ids)
 end
 Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.edges(model, node), nodes))
 
@@ -117,19 +119,19 @@ Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatte
 #     return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
 # end
 
-Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, model.mapping[label])
+Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, label.global_counter)
 
 function add_vertex!(model::Model, label, data)
     model[label] = data
     return true
 end
 
-function add_edge!(model::Model, src, dst, data)
-    return BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], data)
+function add_edge!(model::Model, src::NodeLabel, dst::NodeLabel, data)
+    return BipartiteFactorGraphs.add_edge!(model.graph, src.global_counter, dst.global_counter, data)
 end
 
-function has_edge(model::Model, src, dst)
-    return BipartiteFactorGraphs.has_edge(model.graph, model.mapping[src], model.mapping[dst])
+function has_edge(model::Model, src::NodeLabel, dst::NodeLabel)
+    return BipartiteFactorGraphs.has_edge(model.graph, src.global_counter, dst.global_counter)
 end
 
 function generate_nodelabel(model::Model, name::Symbol)

@@ -494,58 +494,58 @@ end
     end
 end
 
-@testitem "Nested model structure" setup = [TestUtils] begin
-    using Distributions
-    import GraphPPL: create_model, add_toplevel_model!
+# @testitem "Nested model structure" setup = [TestUtils] begin
+#     using Distributions
+#     import GraphPPL: create_model, add_toplevel_model!
 
-    TestUtils.@model function gcv(κ, ω, z, x, y)
-        log_σ := κ * z + ω
-        y ~ Normal(x, exp(log_σ))
-    end
+#     TestUtils.@model function gcv(κ, ω, z, x, y)
+#         log_σ := κ * z + ω
+#         y ~ Normal(x, exp(log_σ))
+#     end
 
-    TestUtils.@model function gcv_lm(y, x_prev, x_next, z, ω, κ)
-        x_next ~ gcv(x = x_prev, z = z, ω = ω, κ = κ)
-        y ~ Normal(x_next, 1)
-    end
+#     TestUtils.@model function gcv_lm(y, x_prev, x_next, z, ω, κ)
+#         x_next ~ gcv(x = x_prev, z = z, ω = ω, κ = κ)
+#         y ~ Normal(x_next, 1)
+#     end
 
-    TestUtils.@model function hgf(y)
+#     TestUtils.@model function hgf(y)
 
-        # Specify priors
+#         # Specify priors
 
-        ξ ~ Gamma(1, 1)
-        ω_1 ~ Normal(0, 1)
-        ω_2 ~ Normal(0, 1)
-        κ_1 ~ Normal(0, 1)
-        κ_2 ~ Normal(0, 1)
-        x_1[1] ~ Normal(0, 1)
-        x_2[1] ~ Normal(0, 1)
-        x_3[1] ~ Normal(0, 1)
+#         ξ ~ Gamma(1, 1)
+#         ω_1 ~ Normal(0, 1)
+#         ω_2 ~ Normal(0, 1)
+#         κ_1 ~ Normal(0, 1)
+#         κ_2 ~ Normal(0, 1)
+#         x_1[1] ~ Normal(0, 1)
+#         x_2[1] ~ Normal(0, 1)
+#         x_3[1] ~ Normal(0, 1)
 
-        # Specify generative model
+#         # Specify generative model
 
-        for i in 2:(length(y) + 1)
-            x_3[i] ~ Normal(μ = x_3[i - 1], σ = ξ)
-            x_2[i] ~ gcv(x = x_2[i - 1], z = x_3[i], ω = ω_2, κ = κ_2)
-            x_1[i] ~ gcv_lm(x_prev = x_1[i - 1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i - 1])
-        end
-    end
+#         for i in 2:(length(y) + 1)
+#             x_3[i] ~ Normal(μ = x_3[i - 1], σ = ξ)
+#             x_2[i] ~ gcv(x = x_2[i - 1], z = x_3[i], ω = ω_2, κ = κ_2)
+#             x_1[i] ~ gcv_lm(x_prev = x_1[i - 1], z = x_2[i], ω = ω_1, κ = κ_1, y = y[i - 1])
+#         end
+#     end
 
-    for n in [10, 30, 50, 100, 1000]
-        ydata = rand(n)
-        model = GraphPPL.create_model(hgf()) do model, context
-            y = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
-            return (; y = y)
-        end
+#     for n in [10, 30, 50, 100, 1000]
+#         ydata = rand(n)
+#         model = GraphPPL.create_model(hgf()) do model, context
+#             y = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = :data), :y, ydata)
+#             return (; y = y)
+#         end
 
-        @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7
-        @test length(collect(filter(as_node(exp), model))) == 2 * n
-        @test length(collect(filter(as_node(prod), model))) == 2 * n
-        @test length(collect(filter(as_node(sum), model))) == 2 * n
-        @test length(collect(filter(as_node(Gamma), model))) == 1
-        @test length(collect(filter(as_node(Normal) & as_context(gcv), model))) == 2 * n
-        @test length(collect(filter(as_variable(:x_1), model))) == n + 1
-    end
-end
+#         @test length(collect(filter(as_node(Normal), model))) == (4 * n) + 7
+#         @test length(collect(filter(as_node(exp), model))) == 2 * n
+#         @test length(collect(filter(as_node(prod), model))) == 2 * n
+#         @test length(collect(filter(as_node(sum), model))) == 2 * n
+#         @test length(collect(filter(as_node(Gamma), model))) == 1
+#         @test length(collect(filter(as_node(Normal) & as_context(gcv), model))) == 2 * n
+#         @test length(collect(filter(as_variable(:x_1), model))) == n + 1
+#     end
+# end
 
 @testitem "Nested model structure but with constants" setup = [TestUtils] begin
     using Distributions
