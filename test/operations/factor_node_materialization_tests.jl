@@ -26,7 +26,7 @@
 
     # Test return values are valid
     @test label1 !== nothing
-    @test typeof(label1).name.name == :FactorNodeLabel
+    @test label1 isa FactorNodeLabel
     @test nodedata1 !== nothing
 
     # Test model node count increased by 1
