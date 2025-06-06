@@ -65,11 +65,11 @@ ModelGenerator(model, kwargs) = ModelGenerator(model, kwargs, PluginsCollection(
 ModelGenerator(model, kwargs, plugins) = ModelGenerator(model, kwargs, plugins, default_backend(model))
 ModelGenerator(model, kwargs, plugins, backend) = ModelGenerator(model, kwargs, plugins, backend, nothing)
 
-getmodel(generator::ModelGenerator) = generator.model
-getkwargs(generator::ModelGenerator) = generator.kwargs
-getplugins(generator::ModelGenerator) = generator.plugins
-getbackend(generator::ModelGenerator) = generator.backend
-getsource(generator::ModelGenerator) = generator.source
+get_model(generator::ModelGenerator) = generator.model
+get_kwargs(generator::ModelGenerator) = generator.kwargs
+get_plugins(generator::ModelGenerator) = generator.plugins
+get_backend(generator::ModelGenerator) = generator.backend
+get_source(generator::ModelGenerator) = generator.source
 
 """
     with_plugins(generator::ModelGenerator, plugins::PluginsCollection)

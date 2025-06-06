@@ -1,5 +1,5 @@
 """
-    NodeCreationOptions(namedtuple)
+    FactorNodeCreationOptions(namedtuple)
 
 Options for creating a node in a probabilistic graphical model. These are typically coming from the `where {}` block 
 in the `@model` macro, but can also be created manually. Expects a `NamedTuple` as an input.
@@ -10,93 +10,94 @@ in the `@model` macro, but can also be created manually. Expects a `NamedTuple` 
 # Examples
 ```julia
 # Create options for a constant node
-options = NodeCreationOptions(value = 5, kind = :constant)
+options = FactorNodeCreationOptions(value = 5, kind = :constant)
 
 # Create empty options
-empty_options = NodeCreationOptions(nothing)
+empty_options = FactorNodeCreationOptions(nothing)
 ```
 """
-struct NodeCreationOptions{N}
+struct FactorNodeCreationOptions{N}
     options::N
 end
 
-const EmptyNodeCreationOptions = NodeCreationOptions{Nothing}(nothing)
+const EmptyFactorNodeCreationOptions = FactorNodeCreationOptions{Nothing}(nothing)
 
 """
-    NodeCreationOptions(; kwargs...)
+    FactorNodeCreationOptions(; kwargs...)
 
-Create a `NodeCreationOptions` instance from keyword arguments.
+Create a `FactorNodeCreationOptions` instance from keyword arguments.
 
 # Examples
 ```julia
-options = NodeCreationOptions(kind = :random, value = 0.5)
+options = FactorNodeCreationOptions(kind = :random, value = 0.5)
 ```
 """
-NodeCreationOptions(; kwargs...) = convert(NodeCreationOptions, kwargs)
+FactorNodeCreationOptions(; kwargs...) = convert(FactorNodeCreationOptions, kwargs)
 
-Base.convert(::Type{NodeCreationOptions}, ::@Kwargs{}) = NodeCreationOptions(nothing)
-Base.convert(::Type{NodeCreationOptions}, options) = NodeCreationOptions(NamedTuple(options))
+Base.convert(::Type{FactorNodeCreationOptions}, ::@Kwargs{}) = FactorNodeCreationOptions(nothing)
+Base.convert(::Type{FactorNodeCreationOptions}, options) = FactorNodeCreationOptions(NamedTuple(options))
 
-Base.haskey(options::NodeCreationOptions, key::Symbol) = haskey(options.options, key)
-Base.getindex(options::NodeCreationOptions, keys...) = getindex(options.options, keys...)
-Base.getindex(options::NodeCreationOptions, keys::NTuple{N, Symbol}) where {N} = NodeCreationOptions(getindex(options.options, keys))
-Base.keys(options::NodeCreationOptions) = keys(options.options)
-Base.get(options::NodeCreationOptions, key::Symbol, default) = get(options.options, key, default)
+Base.haskey(options::FactorNodeCreationOptions, key::Symbol) = haskey(options.options, key)
+Base.getindex(options::FactorNodeCreationOptions, keys...) = getindex(options.options, keys...)
+Base.getindex(options::FactorNodeCreationOptions, keys::NTuple{N, Symbol}) where {N} =
+    FactorNodeCreationOptions(getindex(options.options, keys))
+Base.keys(options::FactorNodeCreationOptions) = keys(options.options)
+Base.get(options::FactorNodeCreationOptions, key::Symbol, default) = get(options.options, key, default)
 
 # Fast fallback for empty options
-Base.haskey(::NodeCreationOptions{Nothing}, key::Symbol) = false
-Base.getindex(::NodeCreationOptions{Nothing}, keys...) = error("type `NodeCreationOptions{Nothing}` has no field $(keys)")
-Base.keys(::NodeCreationOptions{Nothing}) = ()
-Base.get(::NodeCreationOptions{Nothing}, key::Symbol, default) = default
+Base.haskey(::FactorNodeCreationOptions{Nothing}, key::Symbol) = false
+Base.getindex(::FactorNodeCreationOptions{Nothing}, keys...) = error("type `FactorNodeCreationOptions{Nothing}` has no field $(keys)")
+Base.keys(::FactorNodeCreationOptions{Nothing}) = ()
+Base.get(::FactorNodeCreationOptions{Nothing}, key::Symbol, default) = default
 
 """
-    withopts(options::NodeCreationOptions, extra::NamedTuple) -> NodeCreationOptions
+    withopts(options::FactorNodeCreationOptions, extra::NamedTuple) -> FactorNodeCreationOptions
 
-Combine existing `NodeCreationOptions` with additional options in `extra`.
-Returns a new `NodeCreationOptions` instance with merged options.
+Combine existing `FactorNodeCreationOptions` with additional options in `extra`.
+Returns a new `FactorNodeCreationOptions` instance with merged options.
 
 # Arguments
-- `options::NodeCreationOptions`: Existing options
+- `options::FactorNodeCreationOptions`: Existing options
 - `extra::NamedTuple`: Additional options to add
 
 # Returns
-A new `NodeCreationOptions` with combined options.
+A new `FactorNodeCreationOptions` with combined options.
 
 # Examples
 ```julia
-original = NodeCreationOptions(kind = :random)
+original = FactorNodeCreationOptions(kind = :random)
 extended = withopts(original, (value = 0.5,))
 ```
 """
-withopts(::NodeCreationOptions{Nothing}, options::NamedTuple) = NodeCreationOptions(options)
-withopts(options::NodeCreationOptions, extra::NamedTuple) = NodeCreationOptions((; options.options..., extra...))
+withopts(::FactorNodeCreationOptions{Nothing}, options::NamedTuple) = FactorNodeCreationOptions(options)
+withopts(options::FactorNodeCreationOptions, extra::NamedTuple) = FactorNodeCreationOptions((; options.options..., extra...))
 
 """
-    withoutopts(options::NodeCreationOptions, ::Val{K}) -> NodeCreationOptions
+    withoutopts(options::FactorNodeCreationOptions, ::Val{K}) -> FactorNodeCreationOptions
 
-Create a new `NodeCreationOptions` with specified keys removed.
+Create a new `FactorNodeCreationOptions` with specified keys removed.
 
 # Arguments
-- `options::NodeCreationOptions`: Existing options
+- `options::FactorNodeCreationOptions`: Existing options
 - `::Val{K}`: Keys to remove, as a value type of tuple of symbols
 
 # Returns
-A new `NodeCreationOptions` with specified keys removed.
+A new `FactorNodeCreationOptions` with specified keys removed.
 
 # Examples
 ```julia
-options = NodeCreationOptions(kind = :random, value = 0.5)
+options = FactorNodeCreationOptions(kind = :random, value = 0.5)
 filtered = withoutopts(options, Val((:value,)))  # Removes the :value key
 ```
 """
-withoutopts(::NodeCreationOptions{Nothing}, ::Val) = NodeCreationOptions(nothing)
+withoutopts(::FactorNodeCreationOptions{Nothing}, ::Val) = FactorNodeCreationOptions(nothing)
 
-function withoutopts(options::NodeCreationOptions, ::Val{K}) where {K}
+function withoutopts(options::FactorNodeCreationOptions, ::Val{K}) where {K}
     newoptions = options.options[filter(key -> key ∉ K, keys(options.options))]
     # Should be compiled out, there are tests for it
     if isempty(newoptions)
-        return NodeCreationOptions(nothing)
+        return FactorNodeCreationOptions(nothing)
     else
-        return NodeCreationOptions(newoptions)
+        return FactorNodeCreationOptions(newoptions)
     end
 end

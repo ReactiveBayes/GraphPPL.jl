@@ -5,9 +5,6 @@ struct PluginsCollection{T}
     collection::T
 
     function PluginsCollection(collection::T) where {T <: Tuple}
-        if any(plugin -> plugin_type(plugin) isa UnknownPluginType, collection)
-            error("The collection $(collection) contains plugins of unknown type.")
-        end
         return new{T}(collection)
     end
 end
@@ -27,26 +24,41 @@ Base.:(+)(left::PluginsCollection, right::PluginsCollection) = PluginsCollection
 """
    add_plugin(collection::PluginsCollection, plugin)
 
-Adds a plugin to the collection. The plugin must be of a type that is supported by the collection.
+Adds a plugin to the collection.
 """
-add_plugin(collection::PluginsCollection, plugin) = add_plugin(collection, plugin_type(plugin), plugin)
-add_plugin(collection::PluginsCollection, ::UnknownPluginType, plugin) =
-    error("The plugin $(plugin) has `UnknownPluginType`. Consider implementing `plugin_type` method.")
-add_plugin(collection::PluginsCollection, _, plugin) = PluginsCollection((collection.collection..., plugin))
+add_plugin(collection::PluginsCollection, plugin) = PluginsCollection((collection.collection..., plugin))
 
-function Base.filter(::UnknownPluginType, collection::PluginsCollection)
-    error("Cannot filter the collection of plugins by `UnknownPluginType`.")
+function preprocess_factor_node_plugins(
+    model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options::FactorNodeCreationOptions
+)
+    return foldl(get_plugins(model); init = nodedata) do plugin, nodedata
+        if is_factor_plugin(plugin)
+            nodedata = preprocess_plugin(plugin, model, context, node_data, options)::typeof(node_data)
+        else
+            return nodedata
+        end
+    end
+    return node_data
 end
 
-function Base.filter(trait::AbstractPluginTraitType, collection::PluginsCollection)
-    return PluginsCollection(filter(plugin -> isequal(plugin_type(plugin), trait), collection.collection))
+function preprocess_variable_node_plugins(model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface)
+    return foldl(get_plugins(model); init = nodedata) do plugin, nodedata
+        if is_variable_plugin(plugin)
+            nodedata = preprocess_plugin(plugin, model, context, node_data)::typeof(node_data)
+        else
+            return nodedata
+        end
+    end
+    return node_data
 end
 
-struct UnionPluginType{T, U} <: AbstractPluginTraitType
-    trait1::T
-    trait2::U
-end
-
-function Base.isequal(type::AbstractPluginTraitType, union::UnionPluginType)
-    return isequal(type, union.trait1) || isequal(type, union.trait2)
+function preprocess_edge_plugins(model::FactorGraphModelInterface, edgedata::EdgeDataInterface)
+    return foldl(get_plugins(model); init = edgedata) do plugin, edgedata
+        if is_edge_plugin(plugin)
+            edgedata = preprocess_plugin(plugin, model, edgedata)::typeof(edgedata)
+        else
+            return edgedata
+        end
+    end
+    return edgedata
 end

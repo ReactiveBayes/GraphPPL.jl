@@ -22,7 +22,7 @@ struct BipartiteModel{
     source_code::S
 end
 
-function create_model(::Type{BipartiteModel}; plugins = nothing, node_strategy = nothing, source = nothing)
+function create_model(::Type{BipartiteModel}; plugins = PluginsCollection(), node_strategy = nothing, source = nothing)
     graph = BipartiteFactorGraph(VariableNodeData, FactorNodeData, EdgeData)
     context = create_root_context(Context)
     return BipartiteModel(graph, context, node_strategy, plugins, source)

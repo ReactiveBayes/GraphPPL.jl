@@ -18,15 +18,19 @@ If "non-nothing" index is supplied, e.g. `(1, )` the shape of the udnerlying col
 struct VariableRef{M, C, O, I, E, L}
     model::M
     context::C
-    options::O
     name::Symbol
     index::I
     external_collection::E
     internal_collection::L
+    kind::UInt8
 end
 
 Base.:(==)(left::VariableRef, right::VariableRef) =
-    left.model == right.model && left.context == right.context && left.name == right.name && left.index == right.index
+    left.model == right.model &&
+    left.context == right.context &&
+    left.name == right.name &&
+    left.index == right.index &&
+    left.kind == right.kind
 
 function Base.:(==)(left::VariableRef, right)
     error(
@@ -46,8 +50,8 @@ Base.:(<=)(left, right::VariableRef) = left == right
 
 is_proxied(::Type{T}) where {T <: VariableRef} = True()
 
-external_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = E
-internal_collection_typeof(::Type{VariableRef{M, C, O, I, E, L}}) where {M, C, O, I, E, L} = L
+external_collection_typeof(::Type{VariableRef{M, C, I, E, L}}) where {M, C, I, E, L} = E
+internal_collection_typeof(::Type{VariableRef{M, C, I, E, L}}) where {M, C, I, E, L} = L
 
 external_collection(ref::VariableRef) = ref.external_collection
 internal_collection(ref::VariableRef) = ref.internal_collection
@@ -59,7 +63,7 @@ variable_ref_show(io::IO, name::Symbol, index::Tuple) = print(io, name, "[", joi
 variable_ref_show(io::IO, name::Symbol, index::Any) = print(io, name, "[", index, "]")
 
 """
-    makevarref(fform::F, model::FactorGraphModelInterface, context::Context, options::NodeCreationOptions, name::Symbol, index::Tuple)
+    makevarref(fform::F, model::FactorGraphModelInterface, context::Context, name::Symbol, index::Tuple)
 
 A function that creates `VariableRef`, but takes the `fform` into account. When `fform` happens to be `Atomic` creates 
 the underlying variable immediatelly without postponing. When `fform` is `Composite` does not create the actual variable, 
@@ -67,24 +71,18 @@ but waits until strictly necessarily.
 """
 function makevarref end
 
-function makevarref(
-    fform::F, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
-) where {F}
-    return makevarref(NodeType(model, fform), model, context, options, name, index)
+function makevarref(fform::F, model::FactorGraphModelInterface, context::ContextInterface, name::Symbol, index::Tuple) where {F}
+    return makevarref(get_node_type(model, fform), model, context, name, index)
 end
 
-function makevarref(
-    ::Atomic, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
-)
+function makevarref(::Atomic, model::FactorGraphModelInterface, context::ContextInterface, name::Symbol, index::Tuple)
     # In the case of `Atomic` variable reference, we always create the variable 
     # (unless the index is empty, which may happen during broadcasting)
     internal_collection = isempty(index) ? nothing : getorcreate!(model, context, name, index...)
-    return VariableRef(model, context, options, name, index, nothing, internal_collection)
+    return VariableRef(model, context, name, index, nothing, internal_collection, VariableNodeKind.Random)
 end
 
-function makevarref(
-    ::Composite, model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, name::Symbol, index::Tuple
-)
+function makevarref(::Composite, model::FactorGraphModelInterface, context::ContextInterface, name::Symbol, index::Tuple)
     # In the case of `Composite` variable reference, we create it immediatelly only when the variable is instantiated 
     # with indexing operation
     internal_collection = if !all(isnothing, index)
@@ -92,25 +90,24 @@ function makevarref(
     else
         nothing
     end
-    return VariableRef(model, context, options, name, index, nothing, internal_collection)
+    return VariableRef(model, context, name, index, nothing, internal_collection, VariableNodeKind.Random)
 end
 
 function VariableRef(
     model::FactorGraphModelInterface,
     context::ContextInterface,
-    options::NodeCreationOptions,
     name::Symbol,
     index::Tuple,
     external_collection = nothing,
-    internal_collection = nothing
+    internal_collection = nothing,
+    kind::UInt8 = VariableNodeKind.Random
 )
     M = typeof(model)
     C = typeof(context)
-    O = typeof(options)
     I = typeof(index)
     E = typeof(external_collection)
     L = typeof(internal_collection)
-    return VariableRef{M, C, O, I, E, L}(model, context, options, name, index, external_collection, internal_collection)
+    return VariableRef{M, C, I, E, L}(model, context, name, index, external_collection, internal_collection, kind)
 end
 
 function unroll(p::ProxyLabel, ref::VariableRef, index, maycreate, liftedindex)
@@ -141,12 +138,12 @@ end
 
 function getorcreate!(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef, index::Nothing)
     check_external_collection_compatibility(ref, index)
-    return getorcreate!(model, context, ref.options, ref.name, index)
+    return getorcreate!(model, context, ref.name, index)
 end
 
 function getorcreate!(model::FactorGraphModelInterface, context::ContextInterface, ref::VariableRef, index::Tuple)
     check_external_collection_compatibility(ref, index)
-    return getorcreate!(model, context, ref.options, ref.name, index...)
+    return getorcreate!(model, context, ref.name, index...)
 end
 
 Base.IteratorSize(ref::VariableRef) = Base.IteratorSize(typeof(ref))
@@ -285,9 +282,7 @@ function Base.broadcastable(ref::VariableRef)
         # If we have an underlying collection (e.g. data), we should instantiate all variables at the point of broadcasting 
         # in order to support something like `y .~ ` where `y` is a data label
         return collect(
-            Iterators.map(
-                I -> checked_getindex(getorcreate!(ref.model, ref.context, ref.options, ref.name, I.I...), I.I), CartesianIndices(axes(ref))
-            )
+            Iterators.map(I -> checked_getindex(getorcreate!(ref.model, ref.context, ref.name, I.I...), I.I), CartesianIndices(axes(ref)))
         )
     elseif !isnothing(internal_collection(ref))
         return Base.broadcastable(internal_collection(ref))
@@ -298,15 +293,11 @@ function Base.broadcastable(ref::VariableRef)
 end
 
 """
-    datalabel(model, context, options, name, collection = MissingCollection())
+    datalabel(model, context, name, collection = MissingCollection())
 
 A function for creating proxy data labels to pass into the model upon creation. 
 Can be useful in combination with `AbstractModelGenerator` and `create_model`.
 """
-function datalabel(model, context, options, name, collection = MissingCollection())
-    kind = get(options, :kind, VariableKindUnknown)
-    if !isequal(kind, VariableKindData)
-        error("`datalabel` only supports `VariableKindData` in `NodeCreationOptions`")
-    end
-    return proxylabel(name, VariableRef(model, context, options, name, (nothing,), collection), nothing, True())
+function datalabel(model, context, name, collection = MissingCollection())
+    return proxylabel(name, VariableRef(model, context, name, (nothing,), collection, nothing, VariableNodeKind.Data), nothing, True())
 end

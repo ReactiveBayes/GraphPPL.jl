@@ -8,37 +8,52 @@ that can be enabled or disabled as needed.
 abstract type PluginInterface end
 
 """
-    AbstractPluginTraitType
+    is_factor_plugin(plugin::PluginInterface) -> True() | False()
 
-Base abstract type for plugin trait types that categorize plugins based on their functionality.
-Plugin traits are used to filter and dispatch on specific types of plugins in the plugin collection.
-"""
-abstract type AbstractPluginTraitType end
+Returns whether this plugin should be applied to factor nodes.
+Must return a static boolean value from Static.jl (True() or False()).
 
-"""
-A trait object for unknown plugins. Such plugins cannot be added to the collection, unless they implement the `plugin_type` method.
-"""
-struct UnknownPluginType <: AbstractPluginTraitType end
+# Arguments
+- `plugin::PluginInterface`: The plugin to check
 
+# Returns
+A static boolean value indicating if this plugin applies to factor nodes.
 """
-Checks the type of the plugin and returns the corresponding trait object.
-"""
-plugin_type(::Any) = UnknownPluginType()
+function is_factor_plugin(plugin::PluginInterface)
+    throw(GraphPPLInterfaceNotImplemented(is_factor_plugin, P, PluginInterface))
+end
 
 """
-A trait object for plugins that add extra functionality for factor nodes.
+    is_variable_plugin(plugin::PluginInterface) -> True() | False()
+
+Returns whether this plugin should be applied to variable nodes.
+Must return a static boolean value from Static.jl (True() or False()).
+
+# Arguments
+- `plugin::PluginInterface`: The plugin to check
+
+# Returns
+A static boolean value indicating if this plugin applies to variable nodes.
 """
-struct FactorNodePlugin <: AbstractPluginTraitType end
+function is_variable_plugin(plugin::PluginInterface)
+    throw(GraphPPLInterfaceNotImplemented(is_variable_plugin, P, PluginInterface))
+end
 
 """
-A trait object for plugins that add extra functionality for variable nodes.
-"""
-struct VariableNodePlugin <: AbstractPluginTraitType end
+    is_edge_plugin(plugin::PluginInterface) -> True() | False()
 
+Returns whether this plugin should be applied to edges.
+Must return a static boolean value from Static.jl (True() or False()).
+
+# Arguments
+- `plugin::PluginInterface`: The plugin to check
+
+# Returns
+A static boolean value indicating if this plugin applies to edges.
 """
-A trait object for plugins that add extra functionality for edges.
-"""
-struct EdgePlugin <: AbstractPluginTraitType end
+function is_edge_plugin(plugin::PluginInterface)
+    throw(GraphPPLInterfaceNotImplemented(is_edge_plugin, P, PluginInterface))
+end
 
 """
     preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::VariableNodeDataInterface)
@@ -52,24 +67,22 @@ function preprocess_plugin(
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options)
 
 Call a plugin specific logic for a factor node with nodedata upon their creation.
 """
 function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface
+    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, nodedata::FactorNodeDataInterface, options
 ) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
 """
-    preprocess_plugin(plugin, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeDataInterface)
+    preprocess_plugin(plugin, model::FactorGraphModelInterface, edgedata::EdgeDataInterface)
 
 Call a plugin specific logic for an edge upon its creation.
 """
-function preprocess_plugin(
-    plugin::P, model::FactorGraphModelInterface, context::ContextInterface, edgedata::EdgeDataInterface
-) where {P <: PluginInterface}
+function preprocess_plugin(plugin::P, model::FactorGraphModelInterface, edgedata::EdgeDataInterface) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(preprocess_plugin, P, PluginInterface))
 end
 
@@ -80,28 +93,4 @@ Calls a plugin specific logic after the model has been created. By default does 
 """
 function postprocess_plugin(plugin::P, model::FactorGraphModelInterface) where {P <: PluginInterface}
     throw(GraphPPLInterfaceNotImplemented(postprocess_plugin, P, PluginInterface))
-end
-
-"""
-    preprocess_plugins(type::AbstractPluginTraitType, model::FactorGraphModelInterface, context::ContextInterface, nodedata, options)
-
-Process a node through all plugins of a specific type in the model.
-
-This function filters plugins by the given type, then applies each plugin's `preprocess_plugin` method 
-to the node data in sequence. Each plugin can modify the node data.
-
-# Arguments
-- `type::AbstractPluginTraitType`: The type of plugins to filter and apply.
-- `model::FactorGraphModelInterface`: The model containing the plugins.
-- `context::ContextInterface`: The context in which the node exists.
-- `nodedata`: The data of the node being processed.
-
-# Returns
-The potentially modified `nodedata` after all plugins have been applied.
-"""
-function preprocess_plugins(type::AbstractPluginTraitType, model::FactorGraphModelInterface, context::ContextInterface, nodedata)
-    plugins = filter(type, getplugins(model))
-    return foldl(plugins; init = nodedata) do nodedata, plugin
-        return preprocess_plugin(plugin, model, context, nodedata)
-    end
 end

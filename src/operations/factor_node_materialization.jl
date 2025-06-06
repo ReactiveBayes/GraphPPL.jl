@@ -1,6 +1,6 @@
 abstract type FactorNodeProperties end # TODO: remove this but graphppl really wants this to compile
 """
-    add_atomic_factor_node!(model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform)
+    add_atomic_factor_node!(model::FactorGraphModelInterface, context::ContextInterface, options::FactorNodeCreationOptions, fform)
 
 Add an atomic factor node to the model with the given name.
 The function generates a new symbol for the node and adds it to the model with
@@ -9,7 +9,7 @@ the generated symbol as the key and a `FactorNodeData` struct.
 Args:
     - `model::FactorGraphModelInterface`: The model to which the node is added.
     - `context::ContextInterface`: The context to which the symbol is added.
-    - `options::NodeCreationOptions`: The options for the creation process.
+    - `options::FactorNodeCreationOptions`: The options for the creation process, used by plugins.
     - `fform::Any`: The functional form of the node.
 
 Returns:
@@ -18,21 +18,13 @@ Returns:
 function add_atomic_factor_node! end
 
 function add_atomic_factor_node!(
-    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform::F
+    model::FactorGraphModelInterface, context::ContextInterface, options::FactorNodeCreationOptions, fform::F
 ) where {F}
-    factornode_id = generate_factor_nodelabel(context, fform)
-
-    potential_label = generate_nodelabel(model, fform)
-    potential_nodedata = create_factor_data(model, context, fform; options)
-
-    label, nodedata = preprocess_plugins(
-        UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_nodedata
-    )
-
-    add_vertex!(model, label, nodedata)
-    context[factornode_id] = label
-
-    return label, nodedata, convert(FactorNodeProperties, getproperties(nodedata))
+    potential_nodedata = create_factor_data(model, fform)
+    nodedata = preprocess_factor_node_plugins(model, context, potential_nodedata, options)
+    label = add_factor!(model, nodedata)
+    set_factor!(context, label, fform)
+    return label, nodedata
 end
 
 """
@@ -62,67 +54,58 @@ end
 function add_edge!(
     model::FactorGraphModelInterface,
     factor_node_id::FactorNodeLabel,
-    factor_node_propeties::FactorNodeProperties,
     variable_node_id::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     interface_name::Symbol
 )
-    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, nothing)
+    return add_edge!(model, factor_node_id, variable_node_id, interface_name, nothing)
 end
 
 function add_edge!(
     model::FactorGraphModelInterface,
     factor_node_id::FactorNodeLabel,
-    factor_node_propeties::FactorNodeProperties,
     variable_node_id::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol
 )
-    return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, 1)
+    return add_edge!(model, factor_node_id, variable_node_id, interface_name, 1)
 end
 
 add_edge!(
     model::FactorGraphModelInterface,
     factor_node_id::FactorNodeLabel,
-    factor_node_propeties::FactorNodeProperties,
     variable_node_id::Union{<:ProxyLabel, <:VariableNodeLabel},
     interface_name::Symbol,
     index
-) = add_edge!(model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index)
+) = add_edge!(model, factor_node_id, unroll(variable_node_id), interface_name, index)
 
 function add_edge!(
-    model::FactorGraphModelInterface,
-    factor_node_id::FactorNodeLabel,
-    factor_node_propeties::FactorNodeProperties,
-    variable_node_id::VariableNodeLabel,
-    interface_name::Symbol,
-    index
+    model::FactorGraphModelInterface, factor_node_id::FactorNodeLabel, variable_node_id::VariableNodeLabel, interface_name::Symbol, index
 )
-    label = EdgeLabel(interface_name, index)
-    neighbor_node_label = unroll(variable_node_id)
-    addneighbor!(factor_node_propeties, neighbor_node_label, label, model[neighbor_node_label])
-    edge_added = add_edge!(model, neighbor_node_label, factor_node_id, label)
+    edgedata = create_edge_data(model, interface_name, index)
+    edgedata = preprocess_edge_plugins(model, edgedata)
+    @show edgedata
+    edge_added = add_edge!(model, variable_node_id, factor_node_id, edgedata)
     if !edge_added
         # Double check if the edge has already been added
-        if has_edge(model, neighbor_node_label, factor_node_id)
+        if has_edge(model, variable_node_id, factor_node_id)
             error(
-                lazy"Trying to create duplicate edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id). Make sure that all the arguments to the `~` operator are unique (both left hand side and right hand side)."
+                lazy"Trying to create duplicate edge $(edgedata) between variable $(variable_node_id) and factor node $(factor_node_id). Make sure that all the arguments to the `~` operator are unique (both left hand side and right hand side)."
             )
         else
-            error(lazy"Cannot create an edge $(label) between variable $(neighbor_node_label) and factor node $(factor_node_id).")
+            error(lazy"Cannot create an edge $(edgedata) between variable $(variable_node_id) and factor node $(factor_node_id).")
         end
     end
-    return label
+    return edge_added
 end
 
 function add_edge!(
     model::FactorGraphModelInterface,
     factor_node_id::FactorNodeLabel,
-    factor_node_propeties::FactorNodeProperties,
     variable_nodes::Union{AbstractArray, Tuple, NamedTuple},
     interface_name::Symbol,
     index
 )
     for variable_node in variable_nodes
-        add_edge!(model, factor_node_id, factor_node_propeties, variable_node, interface_name, index)
+        add_edge!(model, factor_node_id, variable_node, interface_name, index)
         index += increase_index(variable_node)
     end
 end
@@ -235,13 +218,13 @@ function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) 
 end
 
 function materialize_factor_node!(
-    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform::F, interfaces::NamedTuple
+    model::FactorGraphModelInterface, context::ContextInterface, options::FactorNodeCreationOptions, fform::F, interfaces::NamedTuple
 ) where {F}
-    factor_node_id, factor_node_data, factor_node_properties = add_atomic_factor_node!(model, context, options, fform)
+    factor_node_id, factor_node_data = add_atomic_factor_node!(model, context, options, fform)
     foreach(pairs(interfaces)) do (interface_name, interface)
-        add_edge!(model, factor_node_id, factor_node_properties, interface, interface_name)
+        add_edge!(model, factor_node_id, interface, interface_name)
     end
-    return factor_node_id, factor_node_data, factor_node_properties
+    return factor_node_id, factor_node_data
 end
 
 # maybe change name
@@ -266,11 +249,11 @@ end
 # TODO improve documentation
 
 function make_node!(model::FactorGraphModelInterface, ctx::ContextInterface, fform::F, lhs_interfaces, rhs_interfaces) where {F}
-    return make_node!(model, ctx, EmptyNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
+    return make_node!(model, ctx, EmptyFactorNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
 end
 
 make_node!(
-    model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+    model::FactorGraphModelInterface, ctx::ContextInterface, options::FactorNodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
 ) where {F} = make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # if it is composite, we assume it should be materialized and it is stochastic
@@ -279,7 +262,7 @@ make_node!(
     nodetype::Composite,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface,
     rhs_interfaces
@@ -287,12 +270,23 @@ make_node!(
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
 make_node!(
-    model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
+    options::FactorNodeCreationOptions,
+    fform::F,
+    lhs_interface,
+    rhs_interfaces::Nothing
 ) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
 
 # If node is Atomic, check stochasticity
 make_node!(
-    ::Atomic, model::FactorGraphModelInterface, ctx::ContextInterface, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
+    ::Atomic,
+    model::FactorGraphModelInterface,
+    ctx::ContextInterface,
+    options::FactorNodeCreationOptions,
+    fform::F,
+    lhs_interface,
+    rhs_interfaces
 ) where {F} = make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
@@ -301,7 +295,7 @@ make_node!(
     deterministic::Deterministic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface,
     rhs_interfaces
@@ -320,7 +314,7 @@ make_node!(
     ::Deterministic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{AnonymousVariable, ProxyLabel{<:T, <:AnonymousVariable} where {T}},
     rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
@@ -334,7 +328,7 @@ make_node!(
     ::Deterministic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface,
     rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
@@ -346,7 +340,7 @@ make_node!(
     ::Stochastic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface,
     rhs_interfaces
@@ -358,7 +352,7 @@ function make_node!(
     behaviour::NodeBehaviour,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::AnonymousVariable,
     rhs_interfaces
@@ -380,7 +374,7 @@ make_node!(
     behaviour::NodeBehaviour,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple
@@ -402,7 +396,7 @@ make_node!(
     behaviour::NodeBehaviour,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::MixedArguments
@@ -414,7 +408,7 @@ make_node!(
     behaviour::Stochastic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple{}
@@ -426,7 +420,7 @@ make_node!(
     behaviour::Stochastic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::Tuple
@@ -438,7 +432,7 @@ make_node!(
     behaviour::Stochastic,
     model::FactorGraphModelInterface,
     ctx::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::NamedTuple
@@ -464,7 +458,7 @@ function make_node!(
     behaviour::NodeBehaviour,
     model::FactorGraphModelInterface,
     context::ContextInterface,
-    options::NodeCreationOptions,
+    options::FactorNodeCreationOptions,
     fform::F,
     lhs_interface::Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef},
     rhs_interfaces::NamedTuple
@@ -481,11 +475,13 @@ function make_node!(
 end
 
 function add_terminated_submodel!(model::FactorGraphModelInterface, context::ContextInterface, fform, interfaces::NamedTuple)
-    return add_terminated_submodel!(model, context, NodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces)
+    return add_terminated_submodel!(
+        model, context, FactorNodeCreationOptions((; created_by = () -> :($QuoteNode(fform)))), fform, interfaces
+    )
 end
 
 function add_terminated_submodel!(
-    model::FactorGraphModelInterface, context::ContextInterface, options::NodeCreationOptions, fform, interfaces::NamedTuple
+    model::FactorGraphModelInterface, context::ContextInterface, options::FactorNodeCreationOptions, fform, interfaces::NamedTuple
 )
     returnval = add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
     returnval!(context, returnval)
