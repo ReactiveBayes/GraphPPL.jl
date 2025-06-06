@@ -291,3 +291,29 @@ end
     @test edge_data1_new !== edge_data3_new
     @test edge_data2_left !== edge_data2_right
 end
+
+@testitem "Factor node materialization: plugin interface" setup = [MockPluginModule] begin
+    import GraphPPL:
+        BipartiteModel,
+        Context,
+        create_model,
+        get_context,
+        add_atomic_factor_node!,
+        EmptyFactorNodeCreationOptions,
+        nv,
+        has_factor,
+        get_factor,
+        get_factors,
+        get_factor_data,
+        PluginsCollection
+
+    model = create_model(BipartiteModel, plugins = PluginsCollection((MockPluginModule.MockPlugin(),)))
+    context = get_context(model)
+    options = EmptyFactorNodeCreationOptions
+
+    # (1) Add first factor node with sum functional form
+    fform1 = sum
+
+    label1, nodedata1 = add_atomic_factor_node!(model, context, options, fform1)
+    @test GraphPPL.get_extra(nodedata1, :mock_plugin) == true
+end

@@ -8,48 +8,45 @@ that can be enabled or disabled as needed.
 abstract type PluginInterface end
 
 """
-    is_factor_plugin(plugin::PluginInterface) -> True() | False()
+    is_factor_plugin(plugin::PluginInterface) 
 
 Returns whether this plugin should be applied to factor nodes.
-Must return a static boolean value from Static.jl (True() or False()).
 
 # Arguments
 - `plugin::PluginInterface`: The plugin to check
 
 # Returns
-A static boolean value indicating if this plugin applies to factor nodes.
+- `Bool`: Whether this plugin should be applied to factor nodes.
 """
 function is_factor_plugin(plugin::PluginInterface)
     throw(GraphPPLInterfaceNotImplemented(is_factor_plugin, P, PluginInterface))
 end
 
 """
-    is_variable_plugin(plugin::PluginInterface) -> True() | False()
+    is_variable_plugin(plugin::PluginInterface) 
 
 Returns whether this plugin should be applied to variable nodes.
-Must return a static boolean value from Static.jl (True() or False()).
 
 # Arguments
 - `plugin::PluginInterface`: The plugin to check
 
 # Returns
-A static boolean value indicating if this plugin applies to variable nodes.
+- `Bool`: Whether this plugin should be applied to variable nodes.
 """
 function is_variable_plugin(plugin::PluginInterface)
     throw(GraphPPLInterfaceNotImplemented(is_variable_plugin, P, PluginInterface))
 end
 
 """
-    is_edge_plugin(plugin::PluginInterface) -> True() | False()
+    is_edge_plugin(plugin::PluginInterface)
 
 Returns whether this plugin should be applied to edges.
-Must return a static boolean value from Static.jl (True() or False()).
 
 # Arguments
 - `plugin::PluginInterface`: The plugin to check
 
 # Returns
-A static boolean value indicating if this plugin applies to edges.
+- `Bool`: Whether this plugin should be applied to edges.
 """
 function is_edge_plugin(plugin::PluginInterface)
     throw(GraphPPLInterfaceNotImplemented(is_edge_plugin, P, PluginInterface))
