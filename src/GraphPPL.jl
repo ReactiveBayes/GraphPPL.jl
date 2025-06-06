@@ -45,9 +45,9 @@ include("core/variable_ref.jl")
 # The implementations of the interfaces is in the 'impl' folder.
 include("implementation/bipartite/variable_node_data.jl")
 include("implementation/bipartite/factor_node_data.jl")
-include("implementation/bipartite/edge_node_data.jl")
+include("implementation/bipartite/edge_data.jl")
 include("implementation/bipartite/context.jl")
-# include("implementation/bipartite/bipartitemodel.jl")
+include("implementation/bipartite/model.jl")
 
 include("plugins/plugins_collection.jl")
 

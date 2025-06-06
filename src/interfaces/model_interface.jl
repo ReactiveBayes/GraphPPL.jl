@@ -10,8 +10,8 @@ regardless of the underlying graph representation.
 abstract type FactorGraphModelInterface end
 
 """
-    VariableNodeLabel(label::Int)
 
+VariableNodeLabel(label::Int)
 A node label for a variable node in a factor graph. A simple wrapper around an `Int`.
 """
 struct VariableNodeLabel
@@ -147,38 +147,40 @@ end
     get_edge_data(model::M, variable::VariableNodeLabel, factor::FactorNodeLabel) where {M<:FactorGraphModelInterface}
 
 Get the data of the edge between the specified variable and factor nodes.
+
+Returns an instance of edge data that implements `EdgeDataInterface`.
 """
 function get_edge_data(model::M, variable::VariableNodeLabel, factor::FactorNodeLabel) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(get_edge_data, M, FactorGraphModelInterface))
 end
 
 """
-    variable_neighbors(model::M, label::VariableNodeLabel) where {M<:FactorGraphModelInterface}
+    variable_neighbors(model::M, label::FactorNodeLabel) where {M<:FactorGraphModelInterface}
 
 Get all neighboring variable nodes of the specified factor node.
 Returns an iterable of `VariableNodeLabel`s.
 """
-function variable_neighbors(model::M, label::VariableNodeLabel) where {M <: FactorGraphModelInterface}
+function variable_neighbors(model::M, label::FactorNodeLabel) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(variable_neighbors, M, FactorGraphModelInterface))
 end
 
 """
-    factor_neighbors(model::M, label::FactorNodeLabel) where {M<:FactorGraphModelInterface}
+    factor_neighbors(model::M, label::VariableNodeLabel) where {M<:FactorGraphModelInterface}
 
 Get all neighboring factor nodes of the specified variable node.
 Returns an iterable of `FactorNodeLabel`s.
 """
-function factor_neighbors(model::M, label::FactorNodeLabel) where {M <: FactorGraphModelInterface}
+function factor_neighbors(model::M, label::VariableNodeLabel) where {M <: FactorGraphModelInterface}
     throw(GraphPPLInterfaceNotImplemented(factor_neighbors, M, FactorGraphModelInterface))
 end
 
 """
-    get_backend(model::M) where {M<:FactorGraphModelInterface}
+    get_node_strategy(model::M) where {M<:FactorGraphModelInterface}
 
-Get the backend associated with the model.
+Get the node strategy associated with the model.
 """
-function get_backend(model::M) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(get_backend, M, FactorGraphModelInterface))
+function get_node_strategy(model::M) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_node_strategy, M, FactorGraphModelInterface))
 end
 
 """
@@ -218,7 +220,7 @@ function load_model(file::AbstractString, t::Type{<:FactorGraphModelInterface})
 end
 
 """
-    get_variable_node_type(model::M) where {M<:FactorGraphModelInterface}
+    get_variable_data_type(model::M) where {M<:FactorGraphModelInterface}
 
 Returns the type of variable node data used by this model implementation.
 Must return a type that implements VariableNodeDataInterface.
@@ -228,35 +230,44 @@ function get_variable_data_type(model::M) where {M <: FactorGraphModelInterface}
 end
 
 """
-    get_factor_node_type(model::M) where {M<:FactorGraphModelInterface}
+    get_factor_data_type(model::M) where {M<:FactorGraphModelInterface}
 
 Returns the type of factor node data used by this model implementation.
 Must return a type that implements FactorNodeDataInterface.
 """
-function get_factor_node_type(model::M) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(get_factor_node_type, M, FactorGraphModelInterface))
+function get_factor_data_type(model::M) where {M <: FactorGraphModelInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_factor_data_type, M, FactorGraphModelInterface))
 end
 
 """
-    create_factor_data(model::FactorGraphModelInterface, context, fform; kwargs...)
+    create_variable_data(model::M, name::Symbol, index::Any = nothing, kind::UInt8 = VariableNodeKind.Unspecified, link::Any = nothing, value::Any = nothing)
 
-Create factor node data for the given model, context, and functional form. Additional keyword arguments
-can be provided to customize the factor node data creation.
+Create a new variable node data with the given parameters for the specified model.
+
+Returns an instance of variable node data that implements `VariableNodeDataInterface`.
+"""
+function create_variable_data(
+    model::M, name::Symbol, index::Any = nothing, kind::UInt8 = VariableNodeKind.Unspecified, link::Any = nothing, value::Any = nothing
+) where {M <: FactorGraphModelInterface}
+    T = get_variable_data_type(model)
+    return create_variable_data(T, name = name, index = index, kind = kind, link = link, value = value)
+end
+
+"""
+    create_factor_data(model::FactorGraphModelInterface, fform)
+
+Create factor node data for the given model and functional form.
 
 # Arguments
 - `model`: The factor graph model interface instance
-- `context`: The context for the factor node
 - `fform`: The functional form for the factor node
-
-# Keywords
-- `kwargs...`: Additional keyword arguments for customizing the factor node data
 
 # Returns
 - An instance of factor node data that implements `FactorNodeDataInterface`
 """
-function create_factor_data(model::M, context::Any, fform::Any; kwargs...) where {M <: FactorGraphModelInterface}
-    T = get_factor_node_type(model)
-    return create_factor_data(T, context, fform; kwargs...)
+function create_factor_data(model::M, fform::Any) where {M <: FactorGraphModelInterface}
+    T = get_factor_data_type(model)
+    return create_factor_data(T, functional_form = fform)
 end
 
 """
@@ -285,13 +296,13 @@ This payload is intended to be passed to `GraphPPL.add_edge!(model, source, dest
 """
 function create_edge_data(model::M, name::Symbol, index::Any) where {M <: FactorGraphModelInterface}
     T = get_edge_data_type(model)
-    return create_edge_data(T, name, index)
+    return create_edge_data(T; name = name, index = index)
 end
 
 """
-    create_model(::Type{T}; plugins=default_plugins(), backend=default_backend(T), source=nothing) where {T <: FactorGraphModelInterface}
+    create_model(::Type{T}; plugins=default_plugins(), node_strategy=default_node_strategy(T), source=nothing) where {T <: FactorGraphModelInterface}
 
-Create a new model with the specified plugins, backend, and source.
+Create a new model with the specified plugins, node strategy, and source.
 Returns a newly created model instance.
 """
 function create_model(::Type{T}; kwargs...) where {T <: FactorGraphModelInterface}

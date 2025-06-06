@@ -7,27 +7,25 @@ import Graphs
 Concrete implementation of `FactorGraphModelInterface` using BipartiteFactorGraphs.
 """
 struct BipartiteModel{
-    TVar,
-    TFac,
-    E,
-    DVars <: AbstractDict{Int, TVar},
-    DFacs <: AbstractDict{Int, TFac},
-    DE <: AbstractDict{BipartiteFactorGraphs.UnorderedPair{Int}, E},
+    DVars <: AbstractDict{Int, VariableNodeData},
+    DFacs <: AbstractDict{Int, FactorNodeData},
+    DE <: AbstractDict{BipartiteFactorGraphs.UnorderedPair{Int}, EdgeData},
     C,
     B,
     P,
     S
 } <: FactorGraphModelInterface
-    graph::BipartiteFactorGraph{TVar, TFac, E, DVars, DFacs, DE}
+    graph::BipartiteFactorGraph{VariableNodeData, FactorNodeData, EdgeData, DVars, DFacs, DE}
     context::C
-    backend::B
+    node_strategy::B
     plugins::P
     source_code::S
 end
 
-function create_model(::Type{BipartiteModel}; plugins = nothing, backend = nothing, source = nothing)
+function create_model(::Type{BipartiteModel}; plugins = nothing, node_strategy = nothing, source = nothing)
     graph = BipartiteFactorGraph(VariableNodeData, FactorNodeData, EdgeData)
-    context = Context()
+    context = create_root_context(Context)
+    return BipartiteModel(graph, context, node_strategy, plugins, source)
 end
 
 function get_context(model::BipartiteModel)
@@ -57,7 +55,7 @@ function add_edge!(model::BipartiteModel, variable::VariableNodeLabel, factor::F
 end
 
 function has_edge(model::BipartiteModel, source::VariableNodeLabel, destination::FactorNodeLabel)
-    return has_edge(model.graph, source.label, destination.label)
+    return BipartiteFactorGraphs.has_edge(model.graph, source.label, destination.label)
 end
 
 function get_variables(model::BipartiteModel)
@@ -69,27 +67,27 @@ function get_factors(model::BipartiteModel)
 end
 
 function get_variable_data(model::BipartiteModel, label::VariableNodeLabel)
-    return BipartiteFactorGraphs.variable_data(model.graph, label.label)
+    return BipartiteFactorGraphs.get_variable_data(model.graph, label.label)
 end
 
 function get_factor_data(model::BipartiteModel, label::FactorNodeLabel)
-    return BipartiteFactorGraphs.factor_data(model.graph, label.label)
+    return BipartiteFactorGraphs.get_factor_data(model.graph, label.label)
 end
 
 function get_edge_data(model::BipartiteModel, variable::VariableNodeLabel, factor::FactorNodeLabel)
-    return BipartiteFactorGraphs.edge_data(model.graph, variable.label, factor.label)
+    return BipartiteFactorGraphs.get_edge_data(model.graph, variable.label, factor.label)
 end
 
-function variable_neighbors(model::BipartiteModel, label::VariableNodeLabel)
-    return Iterators.map(FactorNodeLabel, BipartiteFactorGraphs.variable_neighbors(model.graph, label.label))
+function variable_neighbors(model::BipartiteModel, label::FactorNodeLabel)
+    return Iterators.map(VariableNodeLabel, BipartiteFactorGraphs.variable_neighbors(model.graph, label.label))
 end
 
-function factor_neighbors(model::BipartiteModel, label::FactorNodeLabel)
-    return Iterators.map(VariableNodeLabel, BipartiteFactorGraphs.factor_neighbors(model.graph, label.label))
+function factor_neighbors(model::BipartiteModel, label::VariableNodeLabel)
+    return Iterators.map(FactorNodeLabel, BipartiteFactorGraphs.factor_neighbors(model.graph, label.label))
 end
 
-function get_backend(model::BipartiteModel)
-    return model.backend
+function get_node_strategy(model::BipartiteModel)
+    return model.node_strategy
 end
 
 function get_plugins(model::BipartiteModel)
@@ -108,20 +106,14 @@ function load_model(file::AbstractString, ::Type{BipartiteModel})
     throw(GraphPPLInterfaceNotImplemented(load_model, BipartiteModel, FactorGraphModelInterface))
 end
 
-function get_variable_node_type(
-    ::BipartiteModel{TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-) where {TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-    return TVar
+function get_variable_data_type(::BipartiteModel{DVars, DFacs, DE, C, B, P, S}) where {DVars, DFacs, DE, C, B, P, S}
+    return VariableNodeData
 end
 
-function get_factor_node_type(
-    ::BipartiteModel{TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-) where {TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-    return TFac
+function get_factor_data_type(::BipartiteModel{DVars, DFacs, DE, C, B, P, S}) where {DVars, DFacs, DE, C, B, P, S}
+    return FactorNodeData
 end
 
-function get_edge_data_type(
-    ::BipartiteModel{TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-) where {TVar, TFac, E, DVars, DFacs, DE, C, B, P, S}
-    return E
+function get_edge_data_type(::BipartiteModel{DVars, DFacs, DE, C, B, P, S}) where {DVars, DFacs, DE, C, B, P, S}
+    return EdgeData
 end
