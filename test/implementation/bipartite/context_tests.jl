@@ -139,35 +139,66 @@ end
 
     ctx = create_root_context(Context)
 
-    # Test scalar variable
+    # Test scalar variable - method overloading equivalence
     var = VariableNodeLabel(1)
-    set_variable!(ctx, var, :x, nothing)
-    @test has_variable(ctx, :x, nothing)
-    @test get_variable(ctx, :x, nothing) === var
 
-    # Check that scalar variables are not accessible at an index
+    # Test that set_variable! with and without nothing index are equivalent
+    set_variable!(ctx, var, :x, nothing)
+    set_variable!(ctx, var, :x_no_index)
+
+    # Test that has_variable with and without nothing index are equivalent for scalars
+    @test has_variable(ctx, :x, nothing)
+    @test has_variable(ctx, :x)
+    @test has_variable(ctx, :x_no_index, nothing)
+    @test has_variable(ctx, :x_no_index)
+
+    # Test that get_variable with and without nothing index are equivalent for scalars
+    @test get_variable(ctx, :x, nothing) === var
+    @test get_variable(ctx, :x) === var
+    @test get_variable(ctx, :x_no_index, nothing) === var
+    @test get_variable(ctx, :x_no_index) === var
+
+    # Check that scalar variables are not accessible at an index (test all method overloads)
     @test !has_variable(ctx, :x, 1)
     @test !has_variable(ctx, :x, 1, 1)
+    @test !has_variable(ctx, :x_no_index, 1)
+    @test !has_variable(ctx, :x_no_index, 1, 1)
     @test_throws Exception get_variable(ctx, :x, 1)
     @test_throws Exception get_variable(ctx, :x, 1, 1)
+    @test_throws Exception get_variable(ctx, :x_no_index, 1)
+    @test_throws Exception get_variable(ctx, :x_no_index, 1, 1)
 
-    # Check that non-existent variables are not accessible
+    # Test that setting individual elements on scalars should fail
+    invalid_var = VariableNodeLabel(999)
+    @test_throws Exception set_variable!(ctx, invalid_var, :x, 1)
+    @test_throws Exception set_variable!(ctx, invalid_var, :x_no_index, 1)
+    @test_throws Exception set_variable!(ctx, invalid_var, :x, (1, 2))
+
+    # Check that non-existent variables are not accessible (test all method overloads)
     @test !has_variable(ctx, :y)
+    @test !has_variable(ctx, :y, nothing)
     @test !has_variable(ctx, :y, 1)
     @test !has_variable(ctx, :y, 1, 1)
     @test_throws Exception get_variable(ctx, :y)
+    @test_throws Exception get_variable(ctx, :y, nothing)
     @test_throws Exception get_variable(ctx, :y, 1)
     @test_throws Exception get_variable(ctx, :y, 1, 1)
 
-    # Test vector variable
+    # Test vector variable - method overloading
     vec_var = ResizableArray(VariableNodeLabel)
-
     vec_var[1] = VariableNodeLabel(1)
     vec_var[2] = VariableNodeLabel(2)
 
     set_variable!(ctx, vec_var, :vec)
 
+    # Test collection-level access (should work with and without nothing)
     @test has_variable(ctx, :vec)
+    @test get_variable(ctx, :vec) === vec_var
+
+    @test has_variable(ctx, :vec, nothing)
+    @test get_variable(ctx, :vec, nothing) === vec_var
+
+    # Test indexed access
     @test has_variable(ctx, :vec, 1)
     @test has_variable(ctx, :vec, 2)
     @test !has_variable(ctx, :vec, 3)
@@ -176,9 +207,25 @@ end
     @test get_variable(ctx, :vec, 2) === vec_var[2]
     @test_throws Exception get_variable(ctx, :vec, 3)
 
-    # Test tensor variable
-    tensor_var = ResizableArray(VariableNodeLabel, Val(2))
+    # Test that vector variables don't work with multiple indices
+    @test !has_variable(ctx, :vec, 1, 1)
+    @test_throws Exception get_variable(ctx, :vec, 1, 1)
 
+    # Test setting individual vector elements via set_variable!
+    new_vec_var = VariableNodeLabel(99)
+    set_variable!(ctx, vec_var, :vec2)  # Set the collection first
+    set_variable!(ctx, new_vec_var, :vec2, 3)  # Set individual element
+    @test has_variable(ctx, :vec2, 3)
+    @test get_variable(ctx, :vec2, 3) === new_vec_var
+
+    # Test setting elements in new vector positions
+    another_var = VariableNodeLabel(88)
+    set_variable!(ctx, another_var, :vec2, 5)
+    @test has_variable(ctx, :vec2, 5)
+    @test get_variable(ctx, :vec2, 5) === another_var
+
+    # Test tensor variable - method overloading with varargs
+    tensor_var = ResizableArray(VariableNodeLabel, Val(2))
     tensor_var[1, 1] = VariableNodeLabel(1)
     tensor_var[1, 2] = VariableNodeLabel(2)
     tensor_var[2, 1] = VariableNodeLabel(3)
@@ -187,28 +234,60 @@ end
 
     set_variable!(ctx, tensor_var, :tensor)
 
+    # Test collection-level access
+    @test has_variable(ctx, :tensor)
+    @test get_variable(ctx, :tensor) === tensor_var
+    @test has_variable(ctx, :tensor, nothing)
+    @test get_variable(ctx, :tensor, nothing) === tensor_var
+
+    # Test two-index access (indices...)
     @test has_variable(ctx, :tensor, 1, 1)
     @test has_variable(ctx, :tensor, 1, 2)
     @test has_variable(ctx, :tensor, 2, 1)
     @test has_variable(ctx, :tensor, 2, 2)
     @test has_variable(ctx, :tensor, 2, 3)
+    @test get_variable(ctx, :tensor, 1, 1) === tensor_var[1, 1]
+    @test get_variable(ctx, :tensor, 1, 2) === tensor_var[1, 2]
+    @test get_variable(ctx, :tensor, 2, 3) === tensor_var[2, 3]
 
+    # Test sparse tensor access (unassigned indices)
     @test !has_variable(ctx, :tensor, 1, 3)
+    @test !has_variable(ctx, :tensor, 3, 1)
+    @test_throws Exception get_variable(ctx, :tensor, 1, 3)
+    @test_throws Exception get_variable(ctx, :tensor, 3, 1)
+
+    # Test that tensor variables don't work with too many indices
     @test !has_variable(ctx, :tensor, 1, 1, 1)
     @test !has_variable(ctx, :tensor, 1, 1, 2)
     @test !has_variable(ctx, :tensor, 1, 2, 1)
     @test !has_variable(ctx, :tensor, 1, 2, 2)
     @test !has_variable(ctx, :tensor, 2, 1, 1)
     @test !has_variable(ctx, :tensor, 2, 1, 2)
-    @test get_variable(ctx, :tensor, 1, 1) === tensor_var[1, 1]
-    @test get_variable(ctx, :tensor, 1, 2) === tensor_var[1, 2]
-    @test get_variable(ctx, :tensor, 2, 3) === tensor_var[2, 3]
-    @test_throws Exception get_variable(ctx, :tensor, 1, 3)
     @test_throws Exception get_variable(ctx, :tensor, 1, 1, 1)
+    @test_throws Exception get_variable(ctx, :tensor, 2, 1, 2)
 
-    # Test non-existent variables
+    # Test setting individual tensor elements via set_variable!
+    new_tensor_var = VariableNodeLabel(199)
+    set_variable!(ctx, tensor_var, :tensor2)  # Set the collection first
+    set_variable!(ctx, new_tensor_var, :tensor2, (3, 3))  # Set individual element with tuple
+    @test has_variable(ctx, :tensor2, 3, 3)
+    @test get_variable(ctx, :tensor2, 3, 3) === new_tensor_var
+
+    # Test setting elements in new tensor positions
+    another_tensor_var = VariableNodeLabel(188)
+    set_variable!(ctx, another_tensor_var, :tensor2, (4, 2))
+    @test has_variable(ctx, :tensor2, 4, 2)
+    @test get_variable(ctx, :tensor2, 4, 2) === another_tensor_var
+
+    # Test non-existent variables with all method overloads
+    @test !has_variable(ctx, :nonexistent)
     @test !has_variable(ctx, :nonexistent, nothing)
+    @test !has_variable(ctx, :nonexistent, 1)
+    @test !has_variable(ctx, :nonexistent, 1, 2)
+    @test_throws Exception get_variable(ctx, :nonexistent)
     @test_throws Exception get_variable(ctx, :nonexistent, nothing)
+    @test_throws Exception get_variable(ctx, :nonexistent, 1)
+    @test_throws Exception get_variable(ctx, :nonexistent, 1, 2)
 end
 
 @testitem "Factor Operations" begin
@@ -224,10 +303,16 @@ end
     # Create test factors
     factor1 = FactorNodeLabel(1)
     factor2 = FactorNodeLabel(2)
+    factor3 = FactorNodeLabel(3)
 
     # Test setting and getting factors
     set_factor!(ctx, factor1, sin)
     set_factor!(ctx, factor2, cos)
+
+    @test has_factor(ctx, sin)
+    @test has_factor(ctx, sin, 1)
+    @test has_factor(ctx, cos)
+    @test has_factor(ctx, cos, 1)
 
     @test get_factor(ctx, sin) == [factor1]
     @test get_factor(ctx, cos) == [factor2]
@@ -236,6 +321,19 @@ end
 
     # Test non-existent factors
     @test_throws Exception get_factor(ctx, :nonexistent)
+
+    # Test method overloading for factors
+    set_factor!(ctx, factor3, sin)
+    @test get_factor(ctx, sin) == [factor1, factor3]
+    @test get_factor(ctx, sin, 1) === factor1
+    @test get_factor(ctx, sin, 2) === factor3
+
+    @test has_factor(ctx, sin, 2)
+    @test !has_factor(ctx, cos, 2)
+
+    @test get_factor(ctx, cos) == [factor2]
+    @test get_factor(ctx, cos, 1) === factor2
+    @test_throws BoundsError get_factor(ctx, cos, 2)
 end
 
 @testitem "Child Context Operations" begin
@@ -243,21 +341,40 @@ end
 
     root_ctx = create_root_context(Context)
 
+    # Test initial state - method overloading
+    @test !has_children(root_ctx, sin)
+    @test !has_children(root_ctx, sin, 1)
+    @test !has_children(root_ctx, cos)
+    @test !has_children(root_ctx, cos, 1)
+    @test !has_children(root_ctx, tan)
+    @test !has_children(root_ctx, tan, 1)
+
     # Create interface variables
     interface_var1 = VariableNodeLabel(1)
     interface_var2 = VariableNodeLabel(2)
+    interface_var3 = VariableNodeLabel(3)
 
     # Create and set child contexts with proper proxy labels
     proxy1 = proxylabel(:inputs, interface_var1, nothing)
     proxy2 = proxylabel(:inputs, interface_var2, nothing)
+    proxy3 = proxylabel(:inputs, interface_var3, nothing)
 
     interfaces1 = (inputs = proxy1,)
     interfaces2 = (inputs = proxy2,)
+    interfaces3 = (inputs = proxy3,)
 
     child1 = create_child_context(root_ctx, sin, interfaces1)
     child2 = create_child_context(root_ctx, cos, interfaces2)
 
-    # Test retrieving child contexts
+    # Test has_children method overloads for single children
+    @test has_children(root_ctx, sin)
+    @test has_children(root_ctx, sin, 1)
+    @test !has_children(root_ctx, sin, 2)
+    @test has_children(root_ctx, cos)
+    @test has_children(root_ctx, cos, 1)
+    @test !has_children(root_ctx, cos, 2)
+
+    # Test get_children method overloads for single children
     @test get_children(root_ctx, sin) == [child1]
     @test get_children(root_ctx, sin, 1) == child1
     @test get_children(root_ctx, cos) == [child2]
@@ -265,17 +382,57 @@ end
     @test has_variable(child1, :inputs)
     @test has_variable(child2, :inputs)
 
+    # Test multiple children of the same functional form
+    child3 = create_child_context(root_ctx, sin, interfaces3)  # Second sin child
+
+    # Test has_children method overloads for multiple children
+    @test has_children(root_ctx, sin)      # Collection exists
+    @test has_children(root_ctx, sin, 1)   # First child exists
+    @test has_children(root_ctx, sin, 2)   # Second child exists
+    @test !has_children(root_ctx, sin, 3)  # Third child doesn't exist
+
+    # Test get_children method overloads for multiple children
+    @test get_children(root_ctx, sin) == [child1, child3]  # Collection
+    @test get_children(root_ctx, sin, 1) == child1         # First child
+    @test get_children(root_ctx, sin, 2) == child3         # Second child
+
+    # Test error conditions with method overloads
+    @test_throws BoundsError get_children(root_ctx, sin, 3)  # Index out of bounds
+    @test_throws BoundsError get_children(root_ctx, cos, 2)  # Index out of bounds for cos
+
     # Test nested child contexts
-    proxy3 = proxylabel(:inputs, interface_var1, nothing)
-    interfaces3 = (inputs = proxy3,)
-    grandchild = create_child_context(child1, tan, interfaces3)
+    grandchild = create_child_context(child1, tan, interfaces1)
+    @test has_children(child1, tan)
+    @test has_children(child1, tan, 1)
+    @test !has_children(child1, tan, 2)
     @test get_children(child1, tan) == [grandchild]
     @test get_children(child1, tan, 1) == grandchild
     @test has_variable(grandchild, :inputs)
 
-    # Test non-existent child contexts
-    @test_throws Exception get_children(root_ctx, tan)
-    @test_throws Exception get_children(root_ctx, tan, 1)
+    # Test non-existent child contexts with all method overloads
+    @test !has_children(root_ctx, exp)
+    @test !has_children(root_ctx, exp, 1)
+    @test !has_children(child1, sin)      # child1 has no sin children
+    @test !has_children(child1, sin, 1)
+    @test_throws Exception get_children(root_ctx, exp)
+    @test_throws Exception get_children(root_ctx, exp, 1)
+    @test_throws Exception get_children(child1, sin)
+    @test_throws Exception get_children(child1, sin, 1)
+
+    # Test that children are properly isolated by functional form
+    child4 = create_child_context(root_ctx, cos, interfaces1)  # Second cos child
+
+    # Verify sin children unchanged
+    @test get_children(root_ctx, sin) == [child1, child3]
+    @test get_children(root_ctx, sin, 1) == child1
+    @test get_children(root_ctx, sin, 2) == child3
+
+    # Verify cos children updated
+    @test get_children(root_ctx, cos) == [child2, child4]
+    @test get_children(root_ctx, cos, 1) == child2
+    @test get_children(root_ctx, cos, 2) == child4
+    @test has_children(root_ctx, cos, 2)
+    @test !has_children(root_ctx, cos, 3)
 end
 
 @testitem "Markov Blanket Operations" begin
@@ -305,246 +462,65 @@ end
     @test !has_variable(grandchild_ctx, :x, nothing)
 end
 
-@testitem "Context" begin
-    import GraphPPL: Context
+@testitem "Postprocess Return Value" begin
+    import GraphPPL: Context, create_root_context, postprocess_returnval, set_returnval!, get_returnval
 
-    ctx1 = Context()
-    @test typeof(ctx1) == Context && ctx1.prefix == "" && length(ctx1.individual_variables) == 0 && ctx1.depth == 0
+    ctx = create_root_context(Context)
 
-    io = IOBuffer()
-    show(io, ctx1)
-    output = String(take!(io))
-    @test !isempty(output)
-    @test contains(output, "identity") # fform
+    # Test that postprocess_returnval returns non-tuple values as-is
+    @test postprocess_returnval(ctx, 42) === 42
+    @test postprocess_returnval(ctx, "test") === "test"
+    @test postprocess_returnval(ctx, [1, 2, 3]) == [1, 2, 3]
+    @test postprocess_returnval(ctx, nothing) === nothing
 
-    # By default `returnval` is not defined
-    @test_throws UndefRefError GraphPPL.returnval(ctx1)
-    for i in 1:10
-        GraphPPL.returnval!(ctx1, (i, "$i"))
-        @test GraphPPL.returnval(ctx1) == (i, "$i")
+    # Test postprocess_returnval with tuples - should process each element
+    simple_tuple = (1, "hello", 3.14)
+    processed_tuple = postprocess_returnval(ctx, simple_tuple)
+    @test processed_tuple == (1, "hello", 3.14)
+    @test processed_tuple isa Tuple
+
+    # Test nested tuples - should recursively process
+    nested_tuple = (1, (2, 3), "test")
+    processed_nested = postprocess_returnval(ctx, nested_tuple)
+    @test processed_nested == (1, (2, 3), "test")
+    @test processed_nested isa Tuple
+
+    # Test deeply nested tuples
+    deep_tuple = (1, (2, (3, 4)), 5)
+    processed_deep = postprocess_returnval(ctx, deep_tuple)
+    @test processed_deep == (1, (2, (3, 4)), 5)
+
+    # Test that set_returnval! uses postprocess_returnval
+    # We can verify this by checking that tuple values are properly stored
+    test_tuple = (42, "processed", [1, 2])
+    set_returnval!(ctx, test_tuple)
+    retrieved_value = get_returnval(ctx)
+    @test retrieved_value == test_tuple
+    @test retrieved_value isa Tuple
+
+    # Test empty tuple
+    empty_tuple = ()
+    set_returnval!(ctx, empty_tuple)
+    @test get_returnval(ctx) == ()
+    @test get_returnval(ctx) isa Tuple
+
+    # Test single element tuple
+    single_tuple = (42,)
+    processed_single = postprocess_returnval(ctx, single_tuple)
+    @test processed_single == (42,)
+    @test processed_single isa Tuple
+
+    # Test mixed types in tuple
+    mixed_tuple = (1, "string", [1, 2, 3], nothing, 3.14)
+    processed_mixed = postprocess_returnval(ctx, mixed_tuple)
+    @test processed_mixed == mixed_tuple
+    @test processed_mixed isa Tuple
+
+    # Test that the postprocessing is consistently applied through set_returnval!
+    for test_value in [42, "test", [1, 2], (1, 2), (1, (2, 3)), nothing]
+        set_returnval!(ctx, test_value)
+        @test get_returnval(ctx) == test_value
+        # Verify direct postprocessing gives same result
+        @test postprocess_returnval(ctx, test_value) == get_returnval(ctx)
     end
-
-    function test end
-
-    ctx2 = Context(0, test, "test", nothing)
-    @test contains(repr(ctx2), "test")
-    @test typeof(ctx2) == Context && ctx2.prefix == "test" && length(ctx2.individual_variables) == 0 && ctx2.depth == 0
-
-    function layer end
-
-    ctx3 = Context(ctx2, layer)
-    @test typeof(ctx3) == Context && ctx3.prefix == "test_layer" && length(ctx3.individual_variables) == 0 && ctx3.depth == 1
-
-    @test_throws MethodError Context(ctx2, :my_model)
-
-    function secondlayer end
-
-    ctx5 = Context(ctx2, secondlayer)
-    @test typeof(ctx5) == Context && ctx5.prefix == "test_secondlayer" && length(ctx5.individual_variables) == 0 && ctx5.depth == 1
-
-    ctx6 = Context(ctx3, secondlayer)
-    @test typeof(ctx6) == Context && ctx6.prefix == "test_layer_secondlayer" && length(ctx6.individual_variables) == 0 && ctx6.depth == 2
-end
-
-@testitem "haskey(::Context)" begin
-    import GraphPPL:
-        Context,
-        NodeLabel,
-        ResizableArray,
-        ProxyLabel,
-        individual_variables,
-        vector_variables,
-        tensor_variables,
-        proxies,
-        children,
-        proxylabel
-
-    ctx = Context()
-    xlab = NodeLabel(:x, 1)
-    @test !haskey(ctx, :x)
-    ctx[:x] = xlab
-    @test haskey(ctx, :x)
-    @test haskey(individual_variables(ctx), :x)
-    @test !haskey(vector_variables(ctx), :x)
-    @test !haskey(tensor_variables(ctx), :x)
-    @test !haskey(proxies(ctx), :x)
-
-    @test !haskey(ctx, :y)
-    ctx[:y] = ResizableArray(NodeLabel, Val(1))
-    @test haskey(ctx, :y)
-    @test !haskey(individual_variables(ctx), :y)
-    @test haskey(vector_variables(ctx), :y)
-    @test !haskey(tensor_variables(ctx), :y)
-    @test !haskey(proxies(ctx), :y)
-
-    @test !haskey(ctx, :z)
-    ctx[:z] = ResizableArray(NodeLabel, Val(2))
-    @test haskey(ctx, :z)
-    @test !haskey(individual_variables(ctx), :z)
-    @test !haskey(vector_variables(ctx), :z)
-    @test haskey(tensor_variables(ctx), :z)
-    @test !haskey(proxies(ctx), :z)
-
-    @test !haskey(ctx, :proxy)
-    ctx[:proxy] = proxylabel(:proxy, xlab, nothing)
-    @test !haskey(individual_variables(ctx), :proxy)
-    @test !haskey(vector_variables(ctx), :proxy)
-    @test !haskey(tensor_variables(ctx), :proxy)
-    @test haskey(proxies(ctx), :proxy)
-
-    @test !haskey(ctx, GraphPPL.FactorID(sum, 1))
-    ctx[GraphPPL.FactorID(sum, 1)] = Context()
-    @test haskey(ctx, GraphPPL.FactorID(sum, 1))
-    @test haskey(children(ctx), GraphPPL.FactorID(sum, 1))
-end
-
-@testitem "getindex(::Context, ::Symbol)" begin
-    import GraphPPL: Context, NodeLabel
-
-    ctx = Context()
-    xlab = NodeLabel(:x, 1)
-    @test_throws KeyError ctx[:x]
-    ctx[:x] = xlab
-    @test ctx[:x] == xlab
-end
-
-@testitem "getindex(::Context, ::FactorID)" begin
-    import GraphPPL: Context, NodeLabel, FactorID
-
-    ctx = Context()
-    @test_throws KeyError ctx[FactorID(sum, 1)]
-    ctx[FactorID(sum, 1)] = Context()
-    @test ctx[FactorID(sum, 1)] == ctx.children[FactorID(sum, 1)]
-
-    @test_throws KeyError ctx[FactorID(sum, 2)]
-    ctx[FactorID(sum, 2)] = NodeLabel(:sum, 1)
-    @test ctx[FactorID(sum, 2)] == ctx.factor_nodes[FactorID(sum, 2)]
-end
-
-@testitem "getcontext(::Model)" setup = [TestUtils] begin
-    import GraphPPL: Context, getcontext, create_model, add_variable_node!, NodeCreationOptions
-
-    model = TestUtils.create_test_model()
-    @test getcontext(model) == model.graph[]
-    add_variable_node!(model, getcontext(model), NodeCreationOptions(), :x, nothing)
-    @test getcontext(model)[:x] == model.graph[][:x]
-end
-
-@testitem "path_to_root(::Context)" setup = [TestUtils] begin
-    import GraphPPL: create_model, Context, path_to_root, getcontext
-
-    ctx = Context()
-    @test path_to_root(ctx) == [ctx]
-
-    model = create_model(TestUtils.outer())
-    ctx = getcontext(model)
-    inner_context = ctx[TestUtils.inner, 1]
-    inner_inner_context = inner_context[TestUtils.inner_inner, 1]
-    @test path_to_root(inner_inner_context) == [inner_inner_context, inner_context, ctx]
-end
-
-@testitem "VarDict" setup = [TestUtils] begin
-    using Distributions
-    import GraphPPL:
-        Context, VarDict, create_model, getorcreate!, datalabel, NodeCreationOptions, getcontext, is_random, is_data, getproperties
-
-    ctx = Context()
-    vardict = VarDict(ctx)
-    @test isa(vardict, VarDict)
-
-    TestUtils.@model function submodel(y, x_prev, x_next)
-        γ ~ Gamma(1, 1)
-        x_next ~ Normal(x_prev, γ)
-        y ~ Normal(x_next, 1)
-    end
-
-    TestUtils.@model function state_space_model_with_new(y)
-        x[1] ~ Normal(0, 1)
-        y[1] ~ Normal(x[1], 1)
-        for i in 2:length(y)
-            y[i] ~ submodel(x_next = new(x[i]), x_prev = x[i - 1])
-        end
-    end
-
-    ydata = ones(10)
-    model = create_model(state_space_model_with_new()) do model, ctx
-        y = datalabel(model, ctx, NodeCreationOptions(kind = :data), :y, ydata)
-        return (y = y,)
-    end
-
-    context = getcontext(model)
-    vardict = VarDict(context)
-
-    @test haskey(vardict, :y)
-    @test haskey(vardict, :x)
-    for i in 1:(length(ydata) - 1)
-        @test haskey(vardict, (submodel, i))
-        @test haskey(vardict[submodel, i], :γ)
-    end
-
-    @test vardict[:y] === context[:y]
-    @test vardict[:x] === context[:x]
-    @test vardict[submodel, 1] == VarDict(context[submodel, 1])
-
-    result = map(identity, vardict)
-    @test haskey(result, :y)
-    @test haskey(result, :x)
-    for i in 1:(length(ydata) - 1)
-        @test haskey(result, (submodel, i))
-        @test haskey(result[submodel, i], :γ)
-    end
-
-    result = map(vardict) do variable
-        return length(variable)
-    end
-    @test haskey(result, :y)
-    @test haskey(result, :x)
-    @test result[:y] === length(ydata)
-    @test result[:x] === length(ydata)
-    for i in 1:(length(ydata) - 1)
-        @test result[(submodel, i)][:γ] === 1
-        @test result[GraphPPL.FactorID(submodel, i)][:γ] === 1
-        @test result[submodel, i][:γ] === 1
-    end
-
-    # Filter only random variables
-    result = filter(vardict) do label
-        if label isa GraphPPL.ResizableArray
-            all(is_random.(getproperties.(model[label])))
-        else
-            return is_random(getproperties(model[label]))
-        end
-    end
-    @test !haskey(result, :y)
-    @test haskey(result, :x)
-    for i in 1:(length(ydata) - 1)
-        @test haskey(result, (submodel, i))
-        @test haskey(result[submodel, i], :γ)
-    end
-
-    # Filter only data variables
-    result = filter(vardict) do label
-        if label isa GraphPPL.ResizableArray
-            all(is_data.(getproperties.(model[label])))
-        else
-            return is_data(getproperties(model[label]))
-        end
-    end
-    @test haskey(result, :y)
-    @test !haskey(result, :x)
-    for i in 1:(length(ydata) - 1)
-        @test haskey(result, (submodel, i))
-        @test !haskey(result[submodel, i], :γ)
-    end
-end
-
-@testitem "setindex!(::Context, ::ResizableArray{NodeLabel}, ::Symbol)" begin
-    import GraphPPL: NodeLabel, ResizableArray, Context, vector_variables, tensor_variables
-
-    context = Context()
-    context[:x] = ResizableArray(NodeLabel, Val(1))
-    @test haskey(vector_variables(context), :x)
-
-    context[:y] = ResizableArray(NodeLabel, Val(2))
-    @test haskey(tensor_variables(context), :y)
 end

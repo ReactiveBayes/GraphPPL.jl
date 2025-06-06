@@ -124,7 +124,7 @@ function postprocess_returnval(context::ContextInterface, value)
 end
 
 function postprocess_returnval(context::ContextInterface, value::Tuple)
-    return map(postprocess_returnval, value)
+    return map(Base.Fix1(postprocess_returnval, context), value)
 end
 
 """
