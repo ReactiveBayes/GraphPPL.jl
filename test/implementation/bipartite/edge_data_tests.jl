@@ -1,21 +1,21 @@
-@testitem "EdgeNodeData creation with `create_edge_data`" begin
-    import GraphPPL: EdgeNodeData, get_name, get_index, create_edge_data
+@testitem "EdgeData creation with `create_edge_data`" begin
+    import GraphPPL: EdgeData, get_name, get_index, create_edge_data
 
     # Test basic creation
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
     @test get_name(edge) === :test
     @test get_index(edge) === nothing
 
     # Test with all fields
-    edge = create_edge_data(EdgeNodeData, name = :full_test, index = 2)
+    edge = create_edge_data(EdgeData, name = :full_test, index = 2)
     @test get_name(edge) === :full_test
     @test get_index(edge) === 2
 end
 
-@testitem "EdgeNodeData implements has_extra with Symbol keys" begin
-    import GraphPPL: EdgeNodeData, has_extra, get_extra, set_extra!, create_edge_data
+@testitem "EdgeData implements has_extra with Symbol keys" begin
+    import GraphPPL: EdgeData, has_extra, get_extra, set_extra!, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
 
     # Initially, no extras should exist
     @test !has_extra(edge, :test_key)
@@ -29,10 +29,10 @@ end
     @test !has_extra(edge, :nonexistent_key)
 end
 
-@testitem "EdgeNodeData implements has_extra with CompileTimeDictionaryKey" begin
-    import GraphPPL: EdgeNodeData, has_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
+@testitem "EdgeData implements has_extra with CompileTimeDictionaryKey" begin
+    import GraphPPL: EdgeData, has_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
     key = CompileTimeDictionaryKey{:test_key, String}()
 
     # Initially, no extras should exist
@@ -47,10 +47,10 @@ end
     @test !has_extra(edge, other_key)
 end
 
-@testitem "EdgeNodeData implements get_extra with Symbol keys" begin
-    import GraphPPL: EdgeNodeData, get_extra, set_extra!, create_edge_data
+@testitem "EdgeData implements get_extra with Symbol keys" begin
+    import GraphPPL: EdgeData, get_extra, set_extra!, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
 
     # Set and get an extra
     set_extra!(edge, :test_key, "test_value")
@@ -66,10 +66,10 @@ end
     @test_throws KeyError get_extra(edge, :nonexistent_key)
 end
 
-@testitem "EdgeNodeData implements get_extra with CompileTimeDictionaryKey" begin
-    import GraphPPL: EdgeNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
+@testitem "EdgeData implements get_extra with CompileTimeDictionaryKey" begin
+    import GraphPPL: EdgeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
     string_key = CompileTimeDictionaryKey{:string_key, String}()
     int_key = CompileTimeDictionaryKey{:int_key, Int}()
 
@@ -93,10 +93,10 @@ end
     @test get_extra(edge, string_key) isa String
 end
 
-@testitem "EdgeNodeData implements set_extra! with Symbol keys" begin
-    import GraphPPL: EdgeNodeData, get_extra, set_extra!, create_edge_data
+@testitem "EdgeData implements set_extra! with Symbol keys" begin
+    import GraphPPL: EdgeData, get_extra, set_extra!, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
 
     # Set a new extra
     @test set_extra!(edge, :test_key, "test_value") == "test_value"
@@ -114,10 +114,10 @@ end
     @test get_extra(edge, :bool_key) == true
 end
 
-@testitem "EdgeNodeData implements set_extra! with CompileTimeDictionaryKey" begin
-    import GraphPPL: EdgeNodeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
+@testitem "EdgeData implements set_extra! with CompileTimeDictionaryKey" begin
+    import GraphPPL: EdgeData, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
     string_key = CompileTimeDictionaryKey{:string_key, String}()
     int_key = CompileTimeDictionaryKey{:int_key, Int}()
 
@@ -133,29 +133,29 @@ end
     @test get_extra(edge, string_key) == "new_value"
 end
 
-@testitem "EdgeNodeData show method" begin
-    import GraphPPL: EdgeNodeData, set_extra!, create_edge_data
+@testitem "EdgeData show method" begin
+    import GraphPPL: EdgeData, set_extra!, create_edge_data
 
-    edge = create_edge_data(EdgeNodeData, name = :test)
+    edge = create_edge_data(EdgeData, name = :test)
     set_extra!(edge, :test_key, "test_value")
 
     # Test string representation
     str = sprint(show, edge)
-    @test occursin("EdgeNodeData", str)
+    @test occursin("EdgeData", str)
     @test occursin(":test", str)
     @test occursin("test_key", str)
     @test occursin("test_value", str)
 end
 
-@testitem "EdgeNodeData satisfies EdgeDataInterface" begin
+@testitem "EdgeData satisfies EdgeDataInterface" begin
     import GraphPPL:
-        EdgeNodeData, EdgeDataInterface, get_name, get_index, has_extra, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
+        EdgeData, EdgeDataInterface, get_name, get_index, has_extra, get_extra, set_extra!, CompileTimeDictionaryKey, create_edge_data
 
-    # Verify EdgeNodeData is a subtype of EdgeDataInterface
-    @test EdgeNodeData <: EdgeDataInterface
+    # Verify EdgeData is a subtype of EdgeDataInterface
+    @test EdgeData <: EdgeDataInterface
 
     # Create a test instance
-    edge = create_edge_data(EdgeNodeData, name = :test, index = 1)
+    edge = create_edge_data(EdgeData, name = :test, index = 1)
 
     # Test all interface methods are implemented
     @test get_name(edge) === :test

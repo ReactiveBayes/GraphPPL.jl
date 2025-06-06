@@ -245,6 +245,7 @@ end
     # Create a simple model
     original_model = create_model(BipartiteModel)
 
+    var_data = create_variable_data(original_model, :test_var, 42)
     var_label = add_variable!(original_model, var_data)
 
     factor_data = create_factor_data(original_model, sum)
