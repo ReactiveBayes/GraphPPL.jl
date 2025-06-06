@@ -227,11 +227,10 @@ end
     @test edge_type !== nothing
 end
 
-@testitem "BipartiteModel: Model save and load (expected to fail)" begin
+@testitem "BipartiteModel: Basic save and load functionality" begin
     import GraphPPL:
         BipartiteModel,
         create_model,
-        get_context,
         add_variable!,
         add_factor!,
         add_edge!,
@@ -240,24 +239,31 @@ end
         create_variable_data,
         create_factor_data,
         create_edge_data,
-        GraphPPLInterfaceNotImplemented
+        nv,
+        ne
 
-    model = create_model(BipartiteModel)
-    context = get_context(model)
+    # Create a simple model
+    original_model = create_model(BipartiteModel)
 
-    var_data = create_variable_data(model, :v_saveload, 1)
-    var_label = add_variable!(model, var_data)
-    factor_data = create_factor_data(model, sum)
-    factor_label = add_factor!(model, factor_data)
-    edge_data = create_edge_data(model, :saveload_edge, 1)
-    add_edge!(model, var_label, factor_label, edge_data)
+    var_label = add_variable!(original_model, var_data)
+
+    factor_data = create_factor_data(original_model, sum)
+    factor_label = add_factor!(original_model, factor_data)
+
+    edge_data = create_edge_data(original_model, :test_edge, 123)
+    add_edge!(original_model, var_label, factor_label, edge_data)
 
     temp_file = tempname()
 
     try
-        # These should throw GraphPPLInterfaceNotImplemented based on the implementation
-        @test_throws GraphPPLInterfaceNotImplemented save_model(temp_file, model)
-        @test_throws GraphPPLInterfaceNotImplemented load_model(temp_file, BipartiteModel)
+        # Test save and load
+        save_model(temp_file, original_model)
+        @test isfile(temp_file)
+
+        loaded_model = load_model(temp_file, BipartiteModel)
+        @test loaded_model !== nothing
+        @test nv(loaded_model) == nv(original_model)
+        @test ne(loaded_model) == ne(original_model)
     finally
         isfile(temp_file) && rm(temp_file)
     end

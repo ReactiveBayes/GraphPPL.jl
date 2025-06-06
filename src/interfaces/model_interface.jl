@@ -1,4 +1,5 @@
 import Graphs
+using JLD2
 
 """
     FactorGraphModelInterface
@@ -207,7 +208,7 @@ end
 Save the model to a file or other storage.
 """
 function save_model(file::AbstractString, model::M) where {M <: FactorGraphModelInterface}
-    throw(GraphPPLInterfaceNotImplemented(save_model, M, FactorGraphModelInterface))
+    save(file, model)
 end
 
 """
@@ -216,7 +217,7 @@ end
 Load a model from a file or other storage.
 """
 function load_model(file::AbstractString, t::Type{<:FactorGraphModelInterface})
-    throw(GraphPPLInterfaceNotImplemented(load_model, t, FactorGraphModelInterface))
+    return load(file, t)
 end
 
 """

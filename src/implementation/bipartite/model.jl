@@ -99,7 +99,9 @@ function get_source_code(model::BipartiteModel)
 end
 
 function save_model(file::AbstractString, model::BipartiteModel)
-    throw(GraphPPLInterfaceNotImplemented(save_model, BipartiteModel, FactorGraphModelInterface))
+    open(file, "w") do io
+        serialize(io, model)
+    end
 end
 
 function load_model(file::AbstractString, ::Type{BipartiteModel})
