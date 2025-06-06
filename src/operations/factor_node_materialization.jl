@@ -82,7 +82,6 @@ function add_edge!(
 )
     edgedata = create_edge_data(model, interface_name, index)
     edgedata = preprocess_edge_plugins(model, edgedata)
-    @show edgedata
     edge_added = add_edge!(model, variable_node_id, factor_node_id, edgedata)
     if !edge_added
         # Double check if the edge has already been added

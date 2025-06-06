@@ -235,8 +235,6 @@ end
     interfaces2 = (left = var_label2, right = var_label3)
 
     @test !has_factor(context, fform2)  # Should not exist initially
-    @test !has_edge(model, var_label2, factor_label2)  # No factor exists yet
-    @test !has_edge(model, var_label3, factor_label2)  # No factor exists yet
 
     factor_label2, factor_data2 = materialize_factor_node!(model, context, options, fform2, interfaces2)
 
