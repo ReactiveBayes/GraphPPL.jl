@@ -64,7 +64,7 @@ getlabel(edge::EdgeData) = edge.label
 getindex(edge::EdgeData) = edge.index
 getextra(edge::EdgeData) = edge.extra
 
-has_extra(edge::EdgeData, key::Symbol) = haskey(edge.extra, key)
+hasextra(edge::EdgeData, key::Symbol) = haskey(edge.extra, key)
 getextra(edge::EdgeData, key::Symbol) = getindex(edge.extra, key)
 getextra(edge::EdgeData, key::Symbol, default) = has_extra(edge, key) ? getextra(edge, key) : default
 setextra!(edge::EdgeData, key::Symbol, value) = insert!(edge.extra, key, value)
