@@ -48,7 +48,7 @@ function Model(fform::F, plugins::PluginsCollection) where {F}
 end
 
 function Model(fform::F, plugins::PluginsCollection, backend, source) where {F}
-    graph = BipartiteFactorGraph(NodeData, NodeData, EdgeLabel)
+    graph = BipartiteFactorGraph(NodeData, NodeData, EdgeData)
     model = Model(graph, Context(fform), plugins, backend, source)
     return model
 end
@@ -63,7 +63,7 @@ Base.setindex!(model::Model, val::NodeData, key::NodeLabel) = begin
     return val
 end
 Base.setindex!(model::Model, val::EdgeLabel, src::NodeLabel, dst::NodeLabel) = begin
-    BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], val)
+    BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], EdgeData(val.name, val.index))
     return val
 end
 Base.getindex(model::Model) = getcontext(model)
@@ -75,8 +75,10 @@ Base.getindex(model::Model, key::NodeLabel) = begin
         return BipartiteFactorGraphs.get_factor_data(model.graph, id)
     end
 end
-Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel) =
-    BipartiteFactorGraphs.get_edge_data(model.graph, model.mapping[src], model.mapping[dst])
+function Base.getindex(model::Model, src::NodeLabel, dst::NodeLabel)
+    edgedata = BipartiteFactorGraphs.get_edge_data(model.graph, model.mapping[src], model.mapping[dst])
+    return EdgeLabel(getlabel(edgedata), getindex(edgedata))
+end
 Base.getindex(model::Model, keys::AbstractArray{NodeLabel}) = map(key -> model[key], keys)
 Base.getindex(model::Model, keys::NTuple{N, NodeLabel}) where {N} = collect(map(key -> model[key], keys))
 
@@ -124,7 +126,8 @@ function add_vertex!(model::Model, label, data)
     return true
 end
 
-function add_edge!(model::Model, src, dst, data)
+function add_edge!(model::Model, src, dst, label::EdgeLabel)
+    data = EdgeData(label.name, label.index)
     return BipartiteFactorGraphs.add_edge!(model.graph, model.mapping[src], model.mapping[dst], data)
 end
 

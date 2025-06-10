@@ -124,7 +124,7 @@ end
 @testitem "add_atomic_factor_node!" setup = [TestUtils] begin
     using Distributions
     using Graphs
-    import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, getcontext, getorcreate!, label_for, getname, NodeCreationOptions
+    import GraphPPL: create_model, add_atomic_factor_node!, getorcreate!, getcontext, getorcreate!, getname, NodeCreationOptions
 
     # Test 1: Add an atomic factor node to the model
     model = TestUtils.create_test_model(plugins = GraphPPL.PluginsCollection(GraphPPL.MetaPlugin()))

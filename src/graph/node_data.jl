@@ -52,6 +52,23 @@ Sets the extra property with the given key to the given value.
 """
 setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
 
+mutable struct EdgeData
+    const label::Symbol
+    const index::Union{Nothing, Int}
+    const extra::UnorderedDictionary{Symbol, Any}
+end
+
+EdgeData(label::Symbol, index::Union{Nothing, Int}) = EdgeData(label, index, UnorderedDictionary{Symbol, Any}())
+
+getlabel(edge::EdgeData) = edge.label
+getindex(edge::EdgeData) = edge.index
+getextra(edge::EdgeData) = edge.extra
+
+has_extra(edge::EdgeData, key::Symbol) = haskey(edge.extra, key)
+getextra(edge::EdgeData, key::Symbol) = getindex(edge.extra, key)
+getextra(edge::EdgeData, key::Symbol, default) = has_extra(edge, key) ? getextra(edge, key) : default
+setextra!(edge::EdgeData, key::Symbol, value) = insert!(edge.extra, key, value)
+
 """
 A compile time key to access the `extra` properties of the `NodeData` structure.
 """
@@ -62,14 +79,26 @@ getkey(::NodeDataExtraKey{K, T}) where {K, T} = K
 function hasextra(node::NodeData, key::NodeDataExtraKey{K}) where {K}
     return haskey(node.extra, K)
 end
+function hasextra(edge::EdgeData, key::NodeDataExtraKey{K}) where {K}
+    return haskey(edge.extra, K)
+end
 function getextra(node::NodeData, key::NodeDataExtraKey{K, T})::T where {K, T}
     return getindex(node.extra, K)::T
+end
+function getextra(edge::EdgeData, key::NodeDataExtraKey{K, T})::T where {K, T}
+    return getindex(edge.extra, K)::T
 end
 function getextra(node::NodeData, key::NodeDataExtraKey{K, T}, default::T)::T where {K, T}
     return hasextra(node, key) ? (getextra(node, key)::T) : default
 end
+function getextra(edge::EdgeData, key::NodeDataExtraKey{K, T}, default::T)::T where {K, T}
+    return hasextra(edge, key) ? (getextra(edge, key)::T) : default
+end
 function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
     return insert!(node.extra, K, value)
+end
+function setextra!(edge::EdgeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
+    return insert!(edge.extra, K, value)
 end
 
 """

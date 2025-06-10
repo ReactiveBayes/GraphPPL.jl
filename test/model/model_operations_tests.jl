@@ -274,7 +274,6 @@ end
         AnonymousVariable,
         proxylabel,
         getname,
-        label_for,
         edges,
         MixedArguments,
         prune!,
@@ -484,7 +483,6 @@ end
         proxylabel,
         prune!,
         getname,
-        label_for,
         edges,
         NodeCreationOptions
 
