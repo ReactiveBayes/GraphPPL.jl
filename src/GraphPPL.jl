@@ -2,6 +2,7 @@ module GraphPPL
 
 using MacroTools
 
+include("small_dict.jl")
 include("resizable_array.jl")
 include("plugins_collection.jl")
 
