@@ -82,3 +82,18 @@ end
 
     @test dict[:one] == 1
 end
+
+@testitem "SmallDict #5" begin
+    import GraphPPL: SmallDict
+    using GraphPPL.Dictionaries
+
+    dict = SmallDict{Symbol, Int}()
+
+    set!(dict, :one, 1)
+    set!(dict, :two, 2)
+
+    for (k, v) in pairs(dict)
+        @test k == :one || k == :two
+        @test v == 1 || v == 2
+    end
+end

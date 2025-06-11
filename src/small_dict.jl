@@ -49,3 +49,7 @@ function Base.haskey(dict::SmallDict{K, V}, key::K) where {K, V}
     end
     return false
 end
+
+function Base.pairs(dict::SmallDict{K, V}) where {K, V}
+    return dict.iter
+end
