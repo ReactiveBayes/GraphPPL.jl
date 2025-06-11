@@ -19,6 +19,19 @@ function Dictionaries.set!(dict::SmallDict{K, V}, key::K, value::V) where {K, V}
     return nothing
 end
 
+function Base.get(callable::C, dict::SmallDict{K, V}, key::K) where {C, K, V}
+    @inbounds for i in eachindex(dict.iter)
+        if isequal(dict.iter[i][1], key)
+            return dict.iter[i][2]
+        end
+    end
+    return callable()
+end
+
+function Base.setindex!(dict::SmallDict{K, V}, value::V, key::K) where {K, V}
+    set!(dict, key, value)
+end
+
 function Base.getindex(dict::SmallDict{K, V}, key::K) where {K, V}
     @inbounds for i in eachindex(dict.iter)
         if isequal(dict.iter[i][1], key)

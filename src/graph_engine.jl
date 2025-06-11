@@ -439,13 +439,13 @@ struct Context
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
-    submodel_counts::UnorderedDictionary{Any, Int}
-    children::UnorderedDictionary{FactorID, Context}
+    submodel_counts::SmallDict{Any, Int}
+    children::SmallDict{FactorID, Context}
     factor_nodes::UnorderedDictionary{FactorID, NodeLabel}
-    individual_variables::UnorderedDictionary{Symbol, NodeLabel}
-    vector_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
-    tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
-    proxies::UnorderedDictionary{Symbol, ProxyLabel}
+    individual_variables::SmallDict{Symbol, NodeLabel}
+    vector_variables::SmallDict{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
+    tensor_variables::SmallDict{Symbol, ResizableArray{NodeLabel}}
+    proxies::SmallDict{Symbol, ProxyLabel}
     returnval::Ref{Any}
 end
 
@@ -455,13 +455,13 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         fform,
         prefix,
         parent,
-        UnorderedDictionary{Any, Int}(),
-        UnorderedDictionary{FactorID, Context}(),
+        SmallDict{Any, Int}(),
+        SmallDict{FactorID, Context}(),
         UnorderedDictionary{FactorID, NodeLabel}(),
-        UnorderedDictionary{Symbol, NodeLabel}(),
-        UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
-        UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
-        UnorderedDictionary{Symbol, ProxyLabel}(),
+        SmallDict{Symbol, NodeLabel}(),
+        SmallDict{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
+        SmallDict{Symbol, ResizableArray{NodeLabel}}(),
+        SmallDict{Symbol, ProxyLabel}(),
         Ref{Any}()
     )
 end

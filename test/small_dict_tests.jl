@@ -50,3 +50,35 @@ end
     @test @allocated(set!(dict, :one, 1)) == 0
     @test @allocated(set!(dict, :two, 2)) == 0
 end
+
+@testitem "SmallDict #3" begin
+    import GraphPPL: SmallDict
+    using GraphPPL.Dictionaries
+
+    dict = SmallDict{Symbol, Int}()
+
+    set!(dict, :one, 1)
+
+    @test get(() -> 0, dict, :one) == 1
+    @test get(() -> 0, dict, :two) == 0
+
+    fn = () -> 0
+
+    @test get(fn, dict, :one) == 1
+    @test get(fn, dict, :two) == 0
+
+    @test @allocated(get(fn, dict, :one)) == 0
+    @test @allocated(get(fn, dict, :two)) == 0
+    @test @allocated(get(fn, dict, :three)) == 0
+end
+
+@testitem "SmallDict #4" begin
+    import GraphPPL: SmallDict
+    using GraphPPL.Dictionaries
+
+    dict = SmallDict{Symbol, Int}()
+
+    dict[:one] = 1
+
+    @test dict[:one] == 1
+end
