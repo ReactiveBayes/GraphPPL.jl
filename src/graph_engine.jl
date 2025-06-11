@@ -589,7 +589,7 @@ A recursive dictionary structure that contains all variables in a probabilistic 
 Iterates over all variables in the model and their children in a linear fashion, but preserves the recursive nature of the actual model.
 """
 struct VarDict{T}
-    variables::UnorderedDictionary{Symbol, T}
+    variables::SmallDict{Symbol, T}
     children::UnorderedDictionary{FactorID, VarDict}
 end
 
