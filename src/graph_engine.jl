@@ -439,8 +439,8 @@ struct Context
     fform::Function
     prefix::String
     parent::Union{Context, Nothing}
-    submodel_counts::SmallDict{Any, Int}
-    children::SmallDict{FactorID, Context}
+    submodel_counts::UnorderedDictionary{Any, Int}
+    children::UnorderedDictionary{FactorID, Context}
     factor_nodes::UnorderedDictionary{FactorID, NodeLabel}
     individual_variables::SmallDict{Symbol, NodeLabel}
     vector_variables::SmallDict{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}
@@ -455,8 +455,8 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         fform,
         prefix,
         parent,
-        SmallDict{Any, Int}(),
-        SmallDict{FactorID, Context}(),
+        UnorderedDictionary{Any, Int}(),
+        UnorderedDictionary{FactorID, Context}(),
         UnorderedDictionary{FactorID, NodeLabel}(),
         SmallDict{Symbol, NodeLabel}(),
         SmallDict{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
