@@ -139,7 +139,7 @@ To use `GraphPPL` package as a standalone package for plotting and testing, use 
 the `@model` macro to the current scope. 
 """
 macro model(model_specification)
-    return esc(GraphPPL.model_macro_interior(DefaultBackend, model_specification))
+    return esc(GraphPPL.model_macro_interior(DefaultStrategy, model_specification))
 end
 
 function __init__()
