@@ -6,16 +6,17 @@
     using Distributions
     import GraphPPL:
         create_model,
-        getcontext,
+        get_context,
         getorcreate!,
         add_toplevel_model!,
-        factor_nodes,
-        variable_nodes,
+        get_factors,
+        get_variables,
         is_constant,
         getproperties,
         as_node,
         as_variable,
-        degree
+        degree,
+        get_variable_data
 
     TestUtils.@model function simple_model_1()
         x ~ Normal(0, 1)
@@ -24,9 +25,8 @@
     end
 
     model = create_model(simple_model_1())
-
-    flabels = collect(factor_nodes(model))
-    vlabels = collect(variable_nodes(model))
+    flabels = collect(get_factors(model))
+    vlabels = collect(get_variables(model))
 
     # Check factors
     @test length(flabels) === 3
@@ -35,15 +35,15 @@
 
     # Check variables
     @test length(vlabels) === 7
-    @test length(collect(filter(label -> !is_constant(getproperties(model[label])), vlabels))) === 3
-    @test length(collect(filter(label -> is_constant(getproperties(model[label])), vlabels))) === 4
+    @test length(collect(filter(label -> !is_constant(get_variable_data(model, label)), vlabels))) === 3
+    @test length(collect(filter(label -> is_constant(get_variable_data(model, label)), vlabels))) === 4
     @test length(collect(filter(as_variable(:x), model))) === 1
     @test length(collect(filter(as_variable(:y), model))) === 1
     @test length(collect(filter(as_variable(:z), model))) === 1
 
-    @test degree(model, first(collect(filter(as_variable(:x), model)))) === 2
-    @test degree(model, first(collect(filter(as_variable(:y), model)))) === 2
-    @test degree(model, first(collect(filter(as_variable(:z), model)))) === 1
+    @test degree(model.graph, first(collect(filter(as_variable(:x), model))).label) === 2
+    @test degree(model.graph, first(collect(filter(as_variable(:y), model))).label) === 2
+    @test degree(model.graph, first(collect(filter(as_variable(:z), model))).label) === 1
 end
 
 @testitem "Simple model 2" setup = [TestUtils] begin

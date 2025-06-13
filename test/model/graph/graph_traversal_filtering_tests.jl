@@ -141,14 +141,14 @@ end
 end
 
 @testitem "filter(::VariableNodePredicate, ::Model)" setup = [TestUtils] begin
-    import GraphPPL: create_model, as_variable, getcontext, variable_nodes
+    import GraphPPL: create_model, as_variable, get_context, get_variables, get_variable
 
     model = create_model(TestUtils.simple_model())
-    context = getcontext(model)
+    context = get_context(model)
     result = filter(as_variable(:x), model)
-    @test collect(result) == [context[:x]...]
+    @test collect(result) == [get_variable(context, :x)]
     result = filter(as_variable(), model)
-    @test collect(result) == collect(variable_nodes(model))
+    @test collect(result) == collect(get_variables(model))
 end
 
 @testitem "filter(::SubmodelPredicate, Model)" setup = [TestUtils] begin

@@ -2,35 +2,35 @@ abstract type AbstractModelFilterPredicate end
 struct FactorNodePredicate{N} <: AbstractModelFilterPredicate end
 
 function apply(::FactorNodePredicate{N}, model, something) where {N}
-    return apply(IsFactorNode(), model, something) && fform(getproperties(model[something])) ∈ aliases(model, N)
+    return apply(IsFactorNode(), model, something) && get_functional_form(get_factor_data(model, something)) ∈ get_aliases(model, N)
 end
 
 struct IsFactorNode <: AbstractModelFilterPredicate end
 
 function apply(::IsFactorNode, model, something)
-    return is_factor(model[something])
+    return is_factor(model.graph, something.label)
 end
 
 struct VariableNodePredicate{V} <: AbstractModelFilterPredicate end
 
 function apply(::VariableNodePredicate{N}, model, something) where {N}
-    return apply(IsVariableNode(), model, something) && getname(getproperties(model[something])) === N
+    return apply(IsVariableNode(), model, something) && get_name(get_variable_data(model, something)) === N
 end
 
 struct IsVariableNode <: AbstractModelFilterPredicate end
 
 function apply(::IsVariableNode, model, something)
-    return is_variable(model[something])
+    return is_variable(model.graph, something.label)
 end
 
 struct SubmodelPredicate{S, C} <: AbstractModelFilterPredicate end
 
 function apply(::SubmodelPredicate{S, False}, model, something) where {S}
-    return fform(getcontext(model[something])) === S
+    # return fform(get_context(model[something])) === S
 end
 
 function apply(::SubmodelPredicate{S, True}, model, something) where {S}
-    return S ∈ fform.(path_to_root(getcontext(model[something])))
+    # return S ∈ fform.(path_to_root(getcontext(model[something])))
 end
 
 struct AndNodePredicate{L, R} <: AbstractModelFilterPredicate
@@ -61,5 +61,7 @@ as_variable() = IsVariableNode()
 as_context(any; children = false) = SubmodelPredicate{any, typeof(static(children))}()
 
 function Base.filter(predicate::AbstractModelFilterPredicate, model::FactorGraphModelInterface)
-    return Iterators.filter(something -> apply(predicate, model, something), labels(model))
+    return Iterators.filter(
+        something -> apply(predicate, model, something), vcat(collect(get_variables(model)), collect(get_factors(model)))
+    )
 end

@@ -150,10 +150,10 @@ struct StaticInterfaceAliases{A} end
 
 StaticInterfaceAliases(A::Tuple) = StaticInterfaceAliases{A}()
 
-interface_aliases(model::FactorGraphModelInterface, fform::F, interfaces::StaticInterfaces) where {F} =
-    interface_aliases(interface_aliases(model, fform), interfaces)
+get_interface_aliases(model::FactorGraphModelInterface, fform::F, interfaces::StaticInterfaces) where {F} =
+    get_interface_aliases(get_interface_aliases(model, fform), interfaces)
 
-function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
+function get_interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
     return StaticInterfaces(
         reduce(aliases; init = interfaces) do acc, alias
             from, to = alias
@@ -176,7 +176,7 @@ Returns the interfaces that are missing for a node. This is used when inferring 
 - `missing_interfaces`: A `Vector` of the missing interfaces.
 """
 function missing_interfaces(model::FactorGraphModelInterface, fform::F, val, known_interfaces::NamedTuple) where {F}
-    return missing_interfaces(interfaces(model, fform, val), StaticInterfaces(keys(known_interfaces)))
+    return missing_interfaces(get_interfaces(model, fform, val), StaticInterfaces(keys(known_interfaces)))
 end
 
 function missing_interfaces(
@@ -209,7 +209,7 @@ function materialze_interfaces(model, context, interfaces)
 end
 
 function sort_interfaces(model::FactorGraphModelInterface, fform::F, defined_interfaces::NamedTuple) where {F}
-    return sort_interfaces(interfaces(model, fform, static(length(defined_interfaces))), defined_interfaces)
+    return sort_interfaces(get_interfaces(model, fform, static(length(defined_interfaces))), defined_interfaces)
 end
 
 function sort_interfaces(::StaticInterfaces{I}, defined_interfaces::NamedTuple) where {I}
@@ -253,7 +253,7 @@ end
 
 make_node!(
     model::FactorGraphModelInterface, ctx::ContextInterface, options::FactorNodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
-) where {F} = make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+) where {F} = make_node!(get_node_type(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 # if it is composite, we assume it should be materialized and it is stochastic
 # TODO: shall we not assume that the `Composite` node is necessarily stochastic?
@@ -286,7 +286,7 @@ make_node!(
     fform::F,
     lhs_interface,
     rhs_interfaces
-) where {F} = make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+) where {F} = make_node!(Atomic(), get_node_behaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
 make_node!(
@@ -386,7 +386,7 @@ make_node!(
     options,
     fform,
     lhs_interface,
-    GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
+    GraphPPL.get_default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
 make_node!(
@@ -463,13 +463,13 @@ function make_node!(
     rhs_interfaces::NamedTuple
 ) where {F}
     aliased_rhs_interfaces = convert(
-        NamedTuple, interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
+        NamedTuple, get_interface_aliases(model, fform, StaticInterfaces(keys(rhs_interfaces))), values(rhs_interfaces)
     )
-    aliased_fform = factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
+    aliased_fform = get_factor_alias(model, fform, StaticInterfaces(keys(aliased_rhs_interfaces)))
     prepared_interfaces = prepare_interfaces(model, aliased_fform, lhs_interface, aliased_rhs_interfaces)
     sorted_interfaces = sort_interfaces(model, aliased_fform, prepared_interfaces)
     interfaces = materialze_interfaces(model, context, sorted_interfaces)
-    nodeid, _, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
+    nodeid, _ = materialize_factor_node!(model, context, options, aliased_fform, interfaces)
     return nodeid, unroll(lhs_interface)
 end
 
@@ -483,7 +483,7 @@ function add_terminated_submodel!(
     model::FactorGraphModelInterface, context::ContextInterface, options::FactorNodeCreationOptions, fform, interfaces::NamedTuple
 )
     returnval = add_terminated_submodel!(model, context, options, fform, interfaces, static(length(interfaces)))
-    returnval!(context, returnval)
+    set_returnval!(context, returnval)
     return returnval
 end
 
@@ -499,7 +499,7 @@ end
 
 function add_toplevel_model!(model::FactorGraphModelInterface, context::ContextInterface, fform, interfaces)
     add_terminated_submodel!(model, context, fform, interfaces)
-    foreach(getplugins(model)) do plugin
+    foreach(get_plugins(model)) do plugin
         postprocess_plugin(plugin, model)
     end
     return model

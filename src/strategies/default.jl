@@ -48,3 +48,5 @@ GraphPPL.get_prettyname(::DefaultStrategy, fform) = string(fform)
 
 # The default backend does not really have any special hyperparameters
 GraphPPL.instantiate(::Type{DefaultStrategy}) = DefaultStrategy()
+
+GraphPPL.get_model_type(::DefaultStrategy) = GraphPPL.BipartiteModel

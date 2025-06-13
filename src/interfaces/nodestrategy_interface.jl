@@ -17,7 +17,7 @@ function get_aliases end
 
 get_aliases(strategy::S, fform) where {S <: FactorNodeStrategy} =
     error("Strategy $(typeof(strategy)) must implement a method for `get_aliases` for `$(fform)`.")
-get_aliases(model::FactorGraphModelInterface, fform::F) where {F} = get_aliases(get_strategy(model), fform)
+get_aliases(model::FactorGraphModelInterface, fform::F) where {F} = get_aliases(get_node_strategy(model), fform)
 
 """
     get_factor_alias(strategy::FactorNodeStrategy, fform, interfaces)
@@ -31,7 +31,7 @@ function get_factor_alias end
 get_factor_alias(strategy::S, fform, interfaces) where {S <: FactorNodeStrategy} =
     error("Strategy $(typeof(strategy)) must implement a method for `get_factor_alias` for `$(fform)` and `$(interfaces)`.")
 get_factor_alias(model::FactorGraphModelInterface, fform::F, interfaces) where {F} =
-    get_factor_alias(get_strategy(model), fform, interfaces)
+    get_factor_alias(get_node_strategy(model), fform, interfaces)
 
 """
     get_interfaces(strategy::FactorNodeStrategy, fform, ninterfaces)
@@ -46,7 +46,8 @@ function get_interfaces end
 get_interfaces(strategy::S, fform, ninterfaces) where {S <: FactorNodeStrategy} = error(
     "Strategy $(typeof(strategy)) must implement a method for `get_interfaces` for `$(fform)` and `$(ninterfaces)` number of interfaces."
 )
-get_interfaces(model::FactorGraphModelInterface, fform::F, ninterfaces) where {F} = get_interfaces(get_strategy(model), fform, ninterfaces)
+get_interfaces(model::FactorGraphModelInterface, fform::F, ninterfaces) where {F} =
+    get_interfaces(get_node_strategy(model), fform, ninterfaces)
 
 """
     get_interface_aliases(strategy::FactorNodeStrategy, fform)
@@ -58,7 +59,7 @@ function get_interface_aliases end
 
 get_interface_aliases(strategy::S, fform) where {S <: FactorNodeStrategy} =
     error("Strategy $(typeof(strategy)) must implement a method for `get_interface_aliases` for `$(fform)`.")
-get_interface_aliases(model::FactorGraphModelInterface, fform::F) where {F} = get_interface_aliases(get_strategy(model), fform)
+get_interface_aliases(model::FactorGraphModelInterface, fform::F) where {F} = get_interface_aliases(get_node_strategy(model), fform)
 
 """
     get_default_parametrization(strategy::FactorNodeStrategy, nodetype, fform, rhs)
@@ -73,7 +74,7 @@ get_default_parametrization(strategy::S, nodetype, fform, rhs) where {S <: Facto
     "Strategy $(typeof(strategy)) must implement a method for `get_default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`."
 )
 get_default_parametrization(model::FactorGraphModelInterface, nodetype, fform::F, rhs) where {F} =
-    get_default_parametrization(get_strategy(model), nodetype, fform, rhs)
+    get_default_parametrization(get_node_strategy(model), nodetype, fform, rhs)
 
 """
     get_prettyname(strategy::FactorNodeStrategy, fform)
@@ -85,7 +86,7 @@ function get_prettyname end
 
 get_prettyname(strategy::S, fform) where {S <: FactorNodeStrategy} =
     error("Strategy $(typeof(strategy)) must implement a method for `get_prettyname` for `$(fform)`.")
-get_prettyname(model::FactorGraphModelInterface, fform) = get_prettyname(get_strategy(model), fform)
+get_prettyname(model::FactorGraphModelInterface, fform) = get_prettyname(get_node_strategy(model), fform)
 
 """
     instantiate(strategy_type::Type{<:FactorNodeStrategy})
@@ -135,7 +136,7 @@ This function must be implemented by concrete strategy subtypes if the default e
 function get_node_type(strategy::S, fform) where {S <: FactorNodeStrategy}
     error("Strategy $(typeof(strategy)) must implement a method for `get_node_type` for `$(fform)`.")
 end
-get_node_type(model::FactorGraphModelInterface, fform) = get_node_type(get_strategy(model), fform)
+get_node_type(model::FactorGraphModelInterface, fform) = get_node_type(get_node_strategy(model), fform)
 
 """
     NodeBehaviour
@@ -167,4 +168,6 @@ This function must be implemented by concrete strategy subtypes if the default e
 function get_node_behaviour(strategy::S, fform) where {S <: FactorNodeStrategy}
     error("Strategy $(typeof(strategy)) must implement a method for `get_node_behaviour` for `$(fform)`.")
 end
-get_node_behaviour(model::FactorGraphModelInterface, fform) = get_node_behaviour(get_strategy(model), fform)
+get_node_behaviour(model::FactorGraphModelInterface, fform) = get_node_behaviour(get_node_strategy(model), fform)
+
+get_model_type(strategy::FactorNodeStrategy) = error("Strategy $(typeof(strategy)) must implement a method for `get_model_type`.")

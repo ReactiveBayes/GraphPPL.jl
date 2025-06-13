@@ -329,7 +329,7 @@ function generate_get_or_create(s::Symbol, index::Expr, rhs)
     type = @capture(rhs, (f_()) | (f_(args__) | (f_(; kwargs__)) | (f_(args__; kwargs__)))) ? f : :(GraphPPL.Composite())
     return quote
         $s = if !@isdefined($s)
-            GraphPPL.makevarref($type, __model__, __context__, GraphPPL.NodeCreationOptions(), $(QuoteNode(s)), $(index))
+            GraphPPL.makevarref($type, __model__, __context__, $(QuoteNode(s)), $(index))
         else
             $s
         end
@@ -538,7 +538,12 @@ function convert_tilde_expression(e::Expr)
         return quote
             begin
                 $nodesym, $varsym = GraphPPL.make_node!(
-                    __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
+                    __model__,
+                    __context__,
+                    GraphPPL.FactorNodeCreationOptions($(options)),
+                    $fform,
+                    $(generate_lhs_proxylabel(var, index)),
+                    $args
                 )
                 $varsym
             end
@@ -555,7 +560,7 @@ function convert_tilde_expression(e::Expr)
             $combinablesym = ($(combinable_args...),)
             $getorcreate_lhs
             $returnvalsym = broadcast($lhs, $combinablesym...) do ilhs, args...
-                return GraphPPL.make_node!(__model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, ilhs, $parsed_args)
+                return GraphPPL.make_node!(__model__, __context__, GraphPPL.FactorNodeCreationOptions($(options)), $fform, ilhs, $parsed_args)
             end
             GraphPPL.__check_vectorized_input($returnvalsym)
         end
@@ -607,8 +612,8 @@ function get_boilerplate_functions(backend_type, ms_name, ms_args, num_interface
         GraphPPL.get_interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
         GraphPPL.get_interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
             GraphPPL.StaticInterfaces(Tuple($ms_args))
-        GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
-        GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
+        GraphPPL.get_node_type(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
+        GraphPPL.get_node_behaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
         GraphPPL.get_aliases(::$backend_type, f::typeof($ms_name)) = (f,)
         GraphPPL.default_backend(::typeof($ms_name)) = $(GraphPPL.instantiate(backend_type))
     end
@@ -648,17 +653,16 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
     make_node_function = quote
         function GraphPPL.make_node!(
             ::GraphPPL.Composite,
-            __model__::GraphPPL.Model,
-            __parent_context__::GraphPPL.Context,
-            __options__::GraphPPL.NodeCreationOptions,
+            __model__::GraphPPL.FactorGraphModelInterface,
+            __parent_context__::GraphPPL.ContextInterface,
+            __options__::GraphPPL.FactorNodeCreationOptions,
             ::typeof($ms_name),
-            __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.VariableRef},
+            __lhs_interface__::Union{GraphPPL.VariableNodeLabel, GraphPPL.ProxyLabel, GraphPPL.VariableRef},
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
             __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
-            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
-            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            __context__ = GraphPPL.create_child_context(__parent_context__, $ms_name, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
             __returnval__ = GraphPPL.add_terminated_submodel!(
                 __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
@@ -668,9 +672,9 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
         end
 
         function GraphPPL.add_terminated_submodel!(
-            __model__::GraphPPL.Model,
-            __context__::GraphPPL.Context,
-            __options__::GraphPPL.NodeCreationOptions,
+            __model__::GraphPPL.FactorGraphModelInterface,
+            __context__::GraphPPL.ContextInterface,
+            __options__::GraphPPL.FactorNodeCreationOptions,
             ::typeof($ms_name),
             __interfaces__::NamedTuple,
             ::GraphPPL.StaticInt{$(length(ms_args))}
@@ -680,9 +684,9 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
         end
 
         function GraphPPL.add_terminated_submodel!(
-            __model__::GraphPPL.Model,
-            __context__::GraphPPL.Context,
-            __options__::GraphPPL.NodeCreationOptions,
+            __model__::GraphPPL.FactorGraphModelInterface,
+            __context__::GraphPPL.ContextInterface,
+            __options__::GraphPPL.FactorNodeCreationOptions,
             __fform__::typeof($ms_name),
             __interfaces__::NamedTuple,
             any::GraphPPL.StaticInt{N}

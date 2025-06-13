@@ -37,8 +37,8 @@
     # The `TestGraphPPLBackend` redirects some of the methods to the `DefaultStrategy`
     # (not all though, `TestGraphPPLBackend` implements some of them for the custom structures defined also below)
     # The `DefaultStrategy` has extension rules for `Distributions.jl` types for example
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, fform) = GraphPPL.NodeBehaviour(GraphPPL.DefaultStrategy(), fform)
-    GraphPPL.NodeType(::TestGraphPPLStrategy, fform) = GraphPPL.NodeType(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, fform) = GraphPPL.get_node_behaviour(GraphPPL.DefaultStrategy(), fform)
+    GraphPPL.get_node_type(::TestGraphPPLStrategy, fform) = GraphPPL.get_node_type(GraphPPL.DefaultStrategy(), fform)
     GraphPPL.get_aliases(::TestGraphPPLStrategy, fform) = GraphPPL.get_aliases(GraphPPL.DefaultStrategy(), fform)
     GraphPPL.get_interfaces(::TestGraphPPLStrategy, fform, n) = GraphPPL.get_interfaces(GraphPPL.DefaultStrategy(), fform, n)
     GraphPPL.get_factor_alias(::TestGraphPPLStrategy, f, interfaces) = GraphPPL.get_factor_alias(GraphPPL.DefaultStrategy(), f, interfaces)
@@ -47,6 +47,7 @@
         GraphPPL.get_default_parametrization(GraphPPL.DefaultStrategy(), nodetype, f, rhs)
     GraphPPL.get_prettyname(::TestGraphPPLStrategy, fform) = GraphPPL.get_prettyname(GraphPPL.DefaultStrategy(), fform)
     GraphPPL.instantiate(::Type{TestGraphPPLStrategy}) = TestGraphPPLStrategy()
+    GraphPPL.get_model_type(::TestGraphPPLStrategy) = GraphPPL.BipartiteModel
 
     # Check that we can alias the `+` into `sum` and `*` into `prod`
     GraphPPL.get_factor_alias(::TestGraphPPLStrategy, ::typeof(+), interfaces) = sum
@@ -77,25 +78,25 @@
 
     GraphPPL.get_prettyname(::Type{PointMass}) = "δ"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{PointMass}) = GraphPPL.Deterministic()
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, ::Type{PointMass}) = GraphPPL.Deterministic()
 
     struct ArbitraryNode end
 
     GraphPPL.get_prettyname(::Type{ArbitraryNode}) = "ArbitraryNode"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, ::Type{ArbitraryNode}) = GraphPPL.Stochastic()
 
     struct NormalMeanVariance end
 
     GraphPPL.get_prettyname(::Type{NormalMeanVariance}) = "𝓝(μ, σ^2)"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, ::Type{NormalMeanVariance}) = GraphPPL.Stochastic()
 
     struct NormalMeanPrecision end
 
     GraphPPL.get_prettyname(::Type{NormalMeanPrecision}) = "𝓝(μ, σ^-2)"
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, ::Type{NormalMeanPrecision}) = GraphPPL.Stochastic()
 
     GraphPPL.get_aliases(::TestGraphPPLStrategy, ::Type{Normal}) = (Normal, NormalMeanVariance, NormalMeanPrecision)
 
@@ -135,7 +136,7 @@
 
     GraphPPL.get_interfaces(::TestGraphPPLStrategy, ::Type{Mixture}, ::StaticInt{3}) = GraphPPL.StaticInterfaces((:out, :m, :τ))
 
-    GraphPPL.NodeBehaviour(::TestGraphPPLStrategy, ::Type{Mixture}) = GraphPPL.Stochastic()
+    GraphPPL.get_node_behaviour(::TestGraphPPLStrategy, ::Type{Mixture}) = GraphPPL.Stochastic()
 
     # Model zoo for tests
 
@@ -350,11 +351,11 @@
         end
     end
 
-    GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
-        begin
-            q(a, d) = q(a)q(d)
-        end
-    )
+    # GraphPPL.default_constraints(::typeof(model_with_default_constraints)) = @constraints(
+    #     begin
+    #         q(a, d) = q(a)q(d)
+    #     end
+    # )
 
     @model function mixture()
         m1 ~ Normal(0, 1)
@@ -559,35 +560,35 @@ end
 
     model = TestUtils.create_test_model()
 
-    @test NodeType(model, Composite) == Atomic()
-    @test NodeType(model, Atomic) == Atomic()
-    @test NodeType(model, abs) == Atomic()
-    @test NodeType(model, Normal) == Atomic()
-    @test NodeType(model, TestUtils.NormalMeanVariance) == Atomic()
-    @test NodeType(model, TestUtils.NormalMeanPrecision) == Atomic()
+    @test get_node_type(model, Composite) == Atomic()
+    @test get_node_type(model, Atomic) == Atomic()
+    @test get_node_type(model, abs) == Atomic()
+    @test get_node_type(model, Normal) == Atomic()
+    @test get_node_type(model, TestUtils.NormalMeanVariance) == Atomic()
+    @test get_node_type(model, TestUtils.NormalMeanPrecision) == Atomic()
 
     # Could test all here 
     for model_fn in TestUtils.ModelsInTheZooWithoutArguments
-        @test NodeType(model, model_fn) == Composite()
+        @test get_node_type(model, model_fn) == Composite()
     end
 end
 
 @testitem "NodeBehaviour" setup = [TestUtils] begin
     using Distributions
-    import GraphPPL: NodeBehaviour, Deterministic, Stochastic
+    import GraphPPL: get_node_behaviour, Deterministic, Stochastic
 
     model = TestUtils.create_test_model()
 
-    @test NodeBehaviour(model, () -> 1) == Deterministic()
-    @test NodeBehaviour(model, Matrix) == Deterministic()
-    @test NodeBehaviour(model, abs) == Deterministic()
-    @test NodeBehaviour(model, Normal) == Stochastic()
-    @test NodeBehaviour(model, TestUtils.NormalMeanVariance) == Stochastic()
-    @test NodeBehaviour(model, TestUtils.NormalMeanPrecision) == Stochastic()
+    @test get_node_behaviour(model, () -> 1) == Deterministic()
+    @test get_node_behaviour(model, Matrix) == Deterministic()
+    @test get_node_behaviour(model, abs) == Deterministic()
+    @test get_node_behaviour(model, Normal) == Stochastic()
+    @test get_node_behaviour(model, TestUtils.NormalMeanVariance) == Stochastic()
+    @test get_node_behaviour(model, TestUtils.NormalMeanPrecision) == Stochastic()
 
     # Could test all here 
     for model_fn in TestUtils.ModelsInTheZooWithoutArguments
-        @test NodeBehaviour(model, model_fn) == Stochastic()
+        @test get_node_behaviour(model, model_fn) == Stochastic()
     end
 end
 

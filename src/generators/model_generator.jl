@@ -133,8 +133,9 @@ true
 ```
 """
 function create_model(callback, generator::ModelGenerator)
-    model = Model(getmodel(generator), getplugins(generator), getbackend(generator), getsource(generator))
-    context = getcontext(model)
+    T = get_model_type(get_backend(generator))
+    model = create_model(T, plugins = get_plugins(generator), source = get_source(generator), node_strategy = get_backend(generator))
+    context = get_context(model)
 
     extrakwargs = callback(model, context)
 
@@ -144,7 +145,7 @@ function create_model(callback, generator::ModelGenerator)
         )
     end
 
-    fixedkwargs = getkwargs(generator)
+    fixedkwargs = get_kwargs(generator)
     fixedkwargskeys = keys(fixedkwargs)
 
     # if keys intersect
@@ -156,7 +157,7 @@ function create_model(callback, generator::ModelGenerator)
     # and the extra keyword arguments obtained from the callback
     interfaces = (; fixedkwargs..., extrakwargs...)
 
-    add_toplevel_model!(model, context, getmodel(generator), interfaces)
+    add_toplevel_model!(model, context, get_model(generator), interfaces)
 
     return model
 end
