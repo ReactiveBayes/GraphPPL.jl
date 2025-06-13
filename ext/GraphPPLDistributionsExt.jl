@@ -2,10 +2,10 @@ module GraphPPLDistributionsExt
 
 using GraphPPL, Distributions, Static
 
-GraphPPL.get_node_behaviour(::GraphPPL.DefaultBackend, ::Type{<:Distributions.Distribution}) = GraphPPL.Stochastic()
+GraphPPL.get_node_behaviour(::GraphPPL.DefaultStrategy, ::Type{<:Distributions.Distribution}) = GraphPPL.Stochastic()
 
 function GraphPPL.get_default_parametrization(
-    ::GraphPPL.DefaultBackend, ::GraphPPL.Atomic, t::Type{<:Distributions.Distribution}, interface_values::Tuple
+    ::GraphPPL.DefaultStrategy, ::GraphPPL.Atomic, t::Type{<:Distributions.Distribution}, interface_values::Tuple
 )
     return distributions_ext_default_parametrization(t, distributions_ext_input_interfaces(t), interface_values)
 end
@@ -19,7 +19,7 @@ function distributions_ext_default_parametrization(
     return NamedTuple{interfaces}(interface_values)
 end
 
-function GraphPPL.get_interfaces(::GraphPPL.DefaultBackend, T::Type{<:Distributions.Distribution}, _)
+function GraphPPL.get_interfaces(::GraphPPL.DefaultStrategy, T::Type{<:Distributions.Distribution}, _)
     return distributions_ext_interfaces(T)
 end
 
