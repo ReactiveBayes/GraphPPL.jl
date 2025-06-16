@@ -201,7 +201,7 @@ function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_
 end
 
 function materialize_interface(model, context, interface)
-    return getifcreated(model, context, unroll(interface))
+    return getifcreated(model, context, unroll(interface))::VariableNodeLabel
 end
 
 function materialze_interfaces(model, context, interfaces)

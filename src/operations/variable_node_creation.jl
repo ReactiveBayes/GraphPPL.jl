@@ -151,7 +151,7 @@ getifcreated(
     var::Union{Tuple, AbstractArray{T}} where {T <: Union{<:VariableNodeLabel, <:ProxyLabel, <:VariableRef}}
 ) = map((v) -> getifcreated(model, context, v), var)
 getifcreated(model::FactorGraphModelInterface, context::ContextInterface, var) =
-    add_variable_node!(model, context, gensym(), nothing, VariableNodeKind.Constant, nothing, var)
+    add_variable_node!(model, context, :const, nothing, VariableNodeKind.Constant, nothing, var)
 
 """
     add_variable_node!(model::FactorGraphModelInterface, context::ContextInterface, name::Symbol, index, kind, link, value)
