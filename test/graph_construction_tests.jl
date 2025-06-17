@@ -48,7 +48,7 @@ end
 
 @testitem "Simple model 2" setup = [TestUtils] begin
     using Distributions
-    import GraphPPL: create_model, getcontext, getorcreate!, add_toplevel_model!, as_node, NodeCreationOptions, prune!
+    import GraphPPL: create_model, getorcreate!, add_toplevel_model!, as_node, datalabel
 
     TestUtils.@model function simple_model_2(a, b, c)
         x ~ Gamma(α = b, θ = sqrt(c))
@@ -56,8 +56,8 @@ end
     end
 
     model = create_model(simple_model_2()) do model, context
-        a = getorcreate!(model, context, NodeCreationOptions(kind = :data), :a, nothing)
-        b = getorcreate!(model, context, NodeCreationOptions(kind = :data), :b, nothing)
+        a = datalabel(model, context, :a)
+        b = datalabel(model, context, :b)
         c = 1.0
         return (a = a, b = b, c = c)
     end
@@ -69,7 +69,7 @@ end
 
 @testitem "Simple model but wrong indexing into a single random variable" setup = [TestUtils] begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions
+    import GraphPPL: create_model, getorcreate!, datalabel
 
     TestUtils.@model function simple_model_with_wrong_indexing(y)
         x ~ MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])
@@ -80,13 +80,13 @@ end
     @test_throws "Indexing a single node label `x` with an index `[1]` is not allowed." create_model(
         simple_model_with_wrong_indexing()
     ) do model, context
-        return (y = getorcreate!(model, context, NodeCreationOptions(kind = :data), :y, nothing),)
+        return (y = datalabel(model, context, :y),)
     end
 end
 
 @testitem "Simple model with lazy data (number) creation" setup = [TestUtils] begin
     using Distributions
-    import GraphPPL: create_model, getorcreate!, NodeCreationOptions, is_data, is_constant, is_random, getproperties, datalabel
+    import GraphPPL: create_model, getorcreate!, get_variable_data, is_data, is_constant, is_random, datalabel
 
     TestUtils.@model function simple_model_3(a, b, c, d)
         x ~ Beta(a, b)
@@ -95,10 +95,10 @@ end
     end
 
     model = create_model(simple_model_3()) do model, context
-        a = datalabel(model, context, NodeCreationOptions(kind = :data), :a, 1)
-        b = datalabel(model, context, NodeCreationOptions(kind = :data), :b, 2.0)
-        c = datalabel(model, context, NodeCreationOptions(kind = :data), :c, π)
-        d = datalabel(model, context, NodeCreationOptions(kind = :data), :d, missing)
+        a = datalabel(model, context, :a, 1)
+        b = datalabel(model, context, :b, 2.0)
+        c = datalabel(model, context, :c, π)
+        d = datalabel(model, context, :d, missing)
         return (a = a, b = b, c = c, d = d)
     end
 
@@ -106,9 +106,9 @@ end
     @test length(collect(filter(as_node(Gamma), model))) === 1
     @test length(collect(filter(as_node(Normal), model))) === 1
 
-    @test length(filter(label -> is_data(getproperties(model[label])), collect(filter(as_variable(), model)))) === 4
-    @test length(filter(label -> is_random(getproperties(model[label])), collect(filter(as_variable(), model)))) === 3
-    @test length(filter(label -> is_constant(getproperties(model[label])), collect(filter(as_variable(), model)))) === 0
+    @test length(filter(label -> is_data(get_variable_data(model, label)), collect(filter(as_variable(), model)))) === 4
+    @test length(filter(label -> is_random(get_variable_data(model, label)), collect(filter(as_variable(), model)))) === 3
+    @test length(filter(label -> is_constant(get_variable_data(model, label)), collect(filter(as_variable(), model)))) === 0
 end
 
 @testitem "Simple model with lazy data (vector) creation" setup = [TestUtils] begin
