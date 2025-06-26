@@ -137,42 +137,79 @@ function get_path_to_root(context::C) where {C <: ContextInterface}
 end
 
 """
-    get_variable(context::C, name::Symbol) where {C<:ContextInterface}
-    get_variable(context::C, name::Symbol, index) where {C<:ContextInterface}
-    get_variable(context::C, name::Symbol, indices...) where {C<:ContextInterface}
+    get_variable(context::C, name::Symbol, index::Index) where {C<:ContextInterface}
 
-Get a variable (or a collection of variables) by name. Does not check if the variable exists.
+Get a single variable by name and `index`. Does not check if the variable exists.
 Use [`has_variable`](@ref) to check if a variable exists. 
-If `index` (or `indices`) is provided, a single variable should be returned (not a collection).
+
+!!! note
+    This function always returns a single variable.
+    To retrieve a collection of variables, which matches the given `index`, use [`get_collection_of_variables`](@ref).
 """
-function get_variable(context::C, name::Symbol) where {C <: ContextInterface}
+function get_variable(context::C, name::Symbol, index::Index) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(get_variable, C, ContextInterface))
 end
 
 """
-    has_variable(context::C, name::Symbol) where {C<:ContextInterface}
-    has_variable(context::C, name::Symbol, index) where {C<:ContextInterface}
-    has_variable(context::C, name::Symbol, indices...) where {C<:ContextInterface}
-    
-Check if a variable (or a collection of variables) with the given name exists in the context.
-Use [`get_variable`](@ref) to retrieve a variable.
-If `index` (or `indices`) is provided, the function checks if a variable with that index exists.
+    get_variable_or_collection(context::C, name::Symbol, index_or_dimensionality::Union{Index, StaticInt}) where {C<:ContextInterface}
+
+Get a collection of variables by name, which matches the given `index`. 
+If the index has dimensionality 0, the function will return a single variable and is equivalent to [`get_variable`](@ref).
+The actual content of the `index` is not important, only the dimensionality of the index is used.
+Use [`get_variable`](@ref) to retrieve a single variable.
+Instead of `index`, you can also provide a `StaticInt` of the dimensionality of the index.
+
+Use [`has_variable_or_collection`](@ref) to check if a collection of variables exists.
 """
-function has_variable(context::C, name::Symbol) where {C <: ContextInterface}
+function get_variable_or_collection(context::C, name::Symbol, index::Index) where {C <: ContextInterface}
+    return get_variable_or_collection(context, name, get_index_dimensionality(index))
+end
+
+function get_variable_or_collection(context::C, name::Symbol, dimensionality::StaticInt) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(get_variable_or_collection, C, ContextInterface))
+end
+
+"""
+    has_variable(context::C, name::Symbol, index::Index) where {C<:ContextInterface}
+
+Check if a variable with the given name and `index` exists in the context.
+Use [`get_variable`](@ref) to retrieve a variable.
+
+!!! note
+    This function always check if a single variable exists. 
+    For example a collection of variables may exist, but a particular variable with the given name index may not be defined yet.
+    To check if a collection of variables exists, use [`has_variable_or_collection`](@ref).
+"""
+function has_variable(context::C, name::Symbol, index::Index) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(has_variable, C, ContextInterface))
 end
 
 """
-    set_variable!(context::C, variable_or_collection, name::Symbol) where {C<:ContextInterface}
-    set_variable!(context::C, variable_or_collection, name::Symbol, index) where {C<:ContextInterface}
-    set_variable!(context::C, variable_or_collection, name::Symbol, indices...) where {C<:ContextInterface}
-    
-Set a variable (or a collection of variables) in the context at the specified index. 
-If index is specified, a single variable should be provided (not a collection).
-The variable typically will be a [`VariableNodeLabel`](@ref), but can also be a [`ProxyLabel`](@ref) or a [`VariableRef`](@ref).
-The collection typically will be a [`ResizableArray`](@ref).
+    has_variable_or_collection(context::C, name::Symbol, index_or_dimensionality::Union{Index, StaticInt}) where {C<:ContextInterface}
+
+Check if a variable with the given name and `index` exists in the context.
+If the index has dimensionality 0, the function checks if a single variable exists and is equivalent to [`has_variable`](@ref).
+The actual content of the `index` is not important, only the dimensionality of the index is used.
+Use [`has_variable`](@ref) to check if a single variable exists.
+Instead of `index`, you can also provide a `StaticInt` of the dimensionality of the index.
+
+Use [`get_variable_or_collection`](@ref) to retrieve a variable or a collection of variables.
 """
-function set_variable!(context::C, variable_or_collection, name::Symbol, index = nothing) where {C <: ContextInterface}
+function has_variable_or_collection(context::C, name::Symbol, index::Index) where {C <: ContextInterface}
+    return has_variable_or_collection(context, name, get_index_dimensionality(index))
+end
+
+function has_variable_or_collection(context::C, name::Symbol, dimensionality::StaticInt) where {C <: ContextInterface}
+    throw(GraphPPLInterfaceNotImplemented(has_variable_or_collection, C, ContextInterface))
+end
+
+"""
+    set_variable!(context::C, variable_or_collection, name::Symbol, index::Index) where {C<:ContextInterface}
+    
+Set a variable in the context at the specified index. 
+The variable typically will be a [`VariableNodeLabel`](@ref), but can also be a [`ProxyLabel`](@ref) or a [`VariableRef`](@ref).
+"""
+function set_variable!(context::C, variable_or_collection, name::Symbol, index::Index) where {C <: ContextInterface}
     throw(GraphPPLInterfaceNotImplemented(set_variable!, C, ContextInterface))
 end
 

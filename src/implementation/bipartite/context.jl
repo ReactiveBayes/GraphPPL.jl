@@ -128,12 +128,26 @@ function Base.show(io::IO, mime::MIME"text/plain", context::Context)
     end
 end
 
-function get_variable(c::Context, key::Symbol)
+function get_variable_or_collection(c::Context, key::Symbol, dimensionality::StaticInt{0})
     if haskey(c.individual_variables, key)
         return c.individual_variables[key]
-    elseif haskey(c.vector_variables, key)
+    elseif haskey(c.proxies, key)
+        return c.proxies[key]
+    end
+    throw(KeyError(key))
+end
+
+function get_variable_or_collection(c::Context, key::Symbol, dimensionality::StaticInt{1})
+    if haskey(c.vector_variables, key)
         return c.vector_variables[key]
-    elseif haskey(c.tensor_variables, key)
+    elseif haskey(c.proxies, key)
+        return c.proxies[key]
+    end
+    throw(KeyError(key))
+end
+
+function get_variable_or_collection(c::Context, key::Symbol, dimensionality::StaticInt{N}) where {N}
+    if haskey(c.tensor_variables, key)
         return c.tensor_variables[key]
     elseif haskey(c.proxies, key)
         return c.proxies[key]
@@ -141,48 +155,61 @@ function get_variable(c::Context, key::Symbol)
     throw(KeyError(key))
 end
 
-function get_variable(c::Context, key::Symbol, index::Nothing)
-    return get_variable(c, key)
+function get_variable(c::Context, key::Symbol, index::Index{0})
+    return c.individual_variables[key]
 end
 
-function get_variable(c::Context, key::Symbol, index)
-    return c.vector_variables[key][index]
+function get_variable(c::Context, key::Symbol, index::Index{1})
+    return c.vector_variables[key][index.indices[1]]
 end
 
-function get_variable(c::Context, key::Symbol, index, indices...)
-    return c.tensor_variables[key][index, indices...]
+function get_variable(c::Context, key::Symbol, index::Index{N}) where {N}
+    return c.tensor_variables[key][index.indices...]
 end
 
-function has_variable(context::Context, key::Symbol)
-    return haskey(context.individual_variables, key) ||
-           haskey(context.vector_variables, key) ||
-           haskey(context.tensor_variables, key) ||
-           haskey(context.proxies, key)
+function has_variable(c::Context, key::Symbol, index::Index{0})
+    return haskey(c.individual_variables, key) || haskey(c.proxies, key)
 end
 
-function has_variable(c::Context, key::Symbol, index::Nothing)
-    return has_variable(c, key)
+function has_variable(c::Context, key::Symbol, index::Index{1})
+    return haskey(c.vector_variables, key) && isassigned(c.vector_variables[key], index.indices[1])
 end
 
-function has_variable(c::Context, key::Symbol, index)
-    return haskey(c.vector_variables, key) && isassigned(c.vector_variables[key], index)
+function has_variable(c::Context, key::Symbol, index::Index{N}) where {N}
+    return haskey(c.tensor_variables, key) && isassigned(c.tensor_variables[key], index.indices...)
 end
 
-function has_variable(c::Context, key::Symbol, index, indices...)
-    return haskey(c.tensor_variables, key) && isassigned(c.tensor_variables[key], index, indices...)
+function set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Index{0})
+    set!(c.individual_variables, key, val)
 end
 
-set_variable!(c::Context, val::VariableNodeLabel, key::Symbol) = set!(c.individual_variables, key, val)
-set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Nothing) = set!(c.individual_variables, key, val)
-set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Int) = c.vector_variables[key][index] = val
-set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::NTuple{N, Int64} where {N}) = c.tensor_variables[key][index...] = val
-set_variable!(c::Context, val::ResizableArray{VariableNodeLabel, T, 1} where {T}, key::Symbol) = set!(c.vector_variables, key, val)
-set_variable!(c::Context, val::ResizableArray{VariableNodeLabel}, key::Symbol) = set!(c.tensor_variables, key, val)
+function set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Index{1})
+    if !haskey(c.vector_variables, key)
+        new_array = ResizableArray(VariableNodeLabel, Val(1))
+        new_array[index.indices[1]] = val
+        set!(c.vector_variables, key, new_array)
+    else
+        c.vector_variables[key][index.indices[1]] = val
+    end
+end
 
-set_variable!(c::Context, val::ProxyLabel, key::Symbol) = set!(c.proxies, key, val)
-set_variable!(c::Context, val::ProxyLabel, key::Symbol, index::Nothing) = set!(c.proxies, key, val)
-set_variable!(c::Context, val::ProxyLabel, key::Symbol, index) = error("Proxy labels cannot be set at an index")
-set_variable!(c::Context, val::ProxyLabel, key::Symbol, index, indices...) = error("Proxy labels cannot be set at an index")
+function set_variable!(c::Context, val::VariableNodeLabel, key::Symbol, index::Index{N}) where {N}
+    if !haskey(c.tensor_variables, key)
+        new_array = ResizableArray(VariableNodeLabel, Val(N))
+        new_array[index.indices...] = val
+        set!(c.tensor_variables, key, new_array)
+    else
+        c.tensor_variables[key][index.indices...] = val
+    end
+end
+
+function set_variable!(c::Context, val::ProxyLabel, key::Symbol, index::Index{0})
+    set!(c.proxies, key, val)
+end
+
+function set_variable!(c::Context, val::ProxyLabel, key::Symbol, index::Index{N}) where {N}
+    error("Proxy labels cannot be set at an index, with dimensionality $N")
+end
 
 function has_factor(context::Context, functional_form)
     return haskey(context.factor_nodes, functional_form)
