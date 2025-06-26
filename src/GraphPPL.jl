@@ -14,6 +14,9 @@ import BipartiteFactorGraphs.Graphs: neighbors, degree
 
 export as_node, as_variable, as_context, savegraph, loadgraph
 
+# Bootstrap core
+include("core/index.jl")
+
 # Interfaces - these define the core interfaces for the package
 # The interfaces are split into three groups:
 
