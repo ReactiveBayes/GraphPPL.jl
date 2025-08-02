@@ -29,7 +29,7 @@ GraphPPLPlottingExt = ["Cairo", "GraphPlot"]
 [compat]
 BitSetTuples = "1.1"
 Cairo = "1.0"
-DataStructures = "0.18"
+DataStructures = "0.18, 0.19"
 Dictionaries = "0.4"
 Distributions = "0.25"
 Documenter = "1.0"
