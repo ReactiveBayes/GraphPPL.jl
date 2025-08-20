@@ -1,4 +1,4 @@
-@testitem "NodeCreatedByPlugin: model with the plugin" begin
+@testitem "NodeCreatedByPlugin: model with the plugin" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -13,9 +13,7 @@
         hasextra,
         getextra
 
-    include("../testutils.jl")
-
-    model = create_test_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
+    model = TestUtils.create_test_model(plugins = PluginsCollection(NodeCreatedByPlugin()))
     ctx = getcontext(model)
 
     @testset begin
@@ -52,7 +50,7 @@
     end
 end
 
-@testitem "NodeCreatedByPlugin: model without the plugin" begin
+@testitem "NodeCreatedByPlugin: model without the plugin" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -67,9 +65,7 @@ end
         hasextra,
         getextra
 
-    include("../testutils.jl")
-
-    model = create_test_model(plugins = PluginsCollection())
+    model = TestUtils.create_test_model(plugins = PluginsCollection())
     ctx = getcontext(model)
 
     @testset begin
@@ -90,7 +86,7 @@ end
     end
 end
 
-@testitem "Usage with the actual model" begin
+@testitem "Usage with the actual model" setup = [TestUtils] begin
     using Distributions
 
     import GraphPPL:
@@ -105,9 +101,7 @@ end
         NodeCreatedByPlugin,
         getextra
 
-    include("../testutils.jl")
-
-    @model function simple_model()
+    TestUtils.@model function simple_model()
         x ~ Normal(0, 1)
         y ~ Gamma(1, 1)
         z ~ Beta(x, y)

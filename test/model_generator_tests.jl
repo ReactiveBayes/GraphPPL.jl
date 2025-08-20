@@ -1,10 +1,8 @@
-@testitem "Basic creation" begin
+@testitem "Basic creation" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!
 
-    include("testutils.jl")
-
-    @model function basic_model(a, b)
+    TestUtils.@model function basic_model(a, b)
         x ~ Normal(a, b)
         z ~ Gamma(1, 1)
         y ~ Normal(x, z)
@@ -33,13 +31,11 @@
     @test_throws "b = ..." basic_model(a = 1, 2)
 end
 
-@testitem "Data creation via callback" begin
+@testitem "Data creation via callback" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: ModelGenerator, create_model, Model, NodeCreationOptions, getorcreate!, NodeLabel
 
-    include("testutils.jl")
-
-    @model function simple_model_for_model_generator(observation, a, b)
+    TestUtils.@model function simple_model_for_model_generator(observation, a, b)
         x ~ Beta(0, 1)
         y ~ Gamma(a, b)
         observation ~ Normal(x, y)
@@ -72,13 +68,11 @@ end
     @test GraphPPL.getname(outedge[2]) === :out
 end
 
-@testitem "Indexing in provided fixed kwargs" begin
+@testitem "Indexing in provided fixed kwargs" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: ModelGenerator, create_model, Model, as_node, neighbors, NodeLabel, getname, is_data, is_constant, getproperties, value
 
-    include("testutils.jl")
-
-    @model function basic_model(inputs)
+    TestUtils.@model function basic_model(inputs)
         x ~ Beta(inputs[1], inputs[2])
         z ~ Gamma(1, 1)
         y ~ Normal(x, z)
@@ -112,13 +106,11 @@ end
     end
 end
 
-@testitem "Error messages" begin
+@testitem "Error messages" setup = [TestUtils] begin
     using Distributions
     import GraphPPL: create_model, Model, ModelGenerator
 
-    include("testutils.jl")
-
-    @model function simple_model_for_model_generator(observation, a, b)
+    TestUtils.@model function simple_model_for_model_generator(observation, a, b)
         x ~ Beta(0, 1)
         y ~ Gamma(a, b)
         observation ~ Normal(x, y)
@@ -166,8 +158,9 @@ end
     end
 end
 
-@testitem "with_plugins" begin
-    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins, @model
+@testitem "with_plugins" setup = [TestUtils] begin
+    using Distributions
+    import GraphPPL: ModelGenerator, PluginsCollection, AbstractPluginTraitType, getplugins, with_plugins
 
     struct ArbitraryPluginForModelGeneratorTestsType1 <: AbstractPluginTraitType end
     struct ArbitraryPluginForModelGeneratorTestsType2 <: AbstractPluginTraitType end
@@ -178,7 +171,7 @@ end
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests1) = ArbitraryPluginForModelGeneratorTestsType1()
     GraphPPL.plugin_type(::ArbitraryPluginForModelGeneratorTests2) = ArbitraryPluginForModelGeneratorTestsType2()
 
-    @model function simple_model(a)
+    TestUtils.@model function simple_model(a)
         y ~ Normal(a, 1)
     end
 
@@ -210,13 +203,12 @@ end
     end
 end
 
-@testitem "with_backend" begin
-    import GraphPPL: ModelGenerator, DefaultBackend, with_backend, getbackend, create_model
+@testitem "with_backend" setup = [TestUtils] begin
+    using Distributions
+    import GraphPPL: ModelGenerator, DefaultBackend, with_backend, getbackend, create_model, @model
 
-    include("testutils.jl")
-
-    # `GraphPPL.@model` uses the `DefaultBackend`, while `@model` from `testutils.jl` uses the `TestBackend`
-    GraphPPL.@model function simple_model(a)
+    # `GraphPPL.TestUtils.@model` uses the `DefaultBackend`, while `TestUtils.@model` from `testutils.jl` uses the `TestBackend`
+    @model function simple_model(a)
         y ~ Normal(a, 1)
     end
 
@@ -235,11 +227,10 @@ end
     @test getbackend(model_with_a_different_backend) === TestUtils.TestGraphPPLBackend()
 end
 
-@testitem "source code retrieval from ModelGenerator #1" begin
-    import GraphPPL: @model
+@testitem "source code retrieval from ModelGenerator #1" setup = [TestUtils] begin
     using Distributions
 
-    @model function beta_bernoulli(y)
+    TestUtils.@model function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i in eachindex(y)
             y[i] ~ Bernoulli(θ)
@@ -255,19 +246,18 @@ end
     end"""
 end
 
-@testitem "source code retrieval from ModelGenerator #2" begin
-    import GraphPPL: @model
+@testitem "source code retrieval from ModelGenerator #2" setup = [TestUtils] begin
     using Distributions
 
     # Define a model with some random variables and deterministic statements
-    @model function test_model(x, y)
+    TestUtils.@model function test_model(x, y)
         z ~ Normal(x, 1)
         w := z + y
         q ~ Normal(w, 1)
     end
 
     # Define a second model with different structure
-    @model function another_model(μ, σ)
+    TestUtils.@model function another_model(μ, σ)
         x ~ Normal(μ, σ)
         y := x^2
         z ~ Gamma(y, 1)
@@ -304,11 +294,10 @@ end
     @test source1 != source2
 end
 
-@testitem "source code retrieval from ModelGenerator #3 partial kwargs" begin
-    import GraphPPL: @model
+@testitem "source code retrieval from ModelGenerator #3 partial kwargs" setup = [TestUtils] begin
     using Distributions
 
-    @model function beta_bernoulli(y)
+    TestUtils.@model function beta_bernoulli(y)
         θ ~ Beta(1, 1)
         for i in eachindex(y)
             y[i] ~ Bernoulli(θ)

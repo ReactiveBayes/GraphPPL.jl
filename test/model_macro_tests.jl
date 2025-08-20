@@ -1,4 +1,4 @@
-@testitem "__guard_f" begin
+@testitem "__guard_f" setup = [TestUtils] begin
     import GraphPPL.__guard_f
 
     f(e::Expr) = 10
@@ -6,10 +6,9 @@
     @test __guard_f(f, :(1 + 1)) == 10
 end
 
-@testitem "apply_pipeline" begin
+@testitem "apply_pipeline" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: apply_pipeline
-
-    include("testutils.jl")
 
     @testset "Default `what_walk`" begin
         # `Pipeline` that finds all `Expr` nodes in the AST in the form of `:(x + 1)`
@@ -24,19 +23,19 @@ end
 
         input = :(x + 1)
         output = :(x + 2)
-        @test_expression_generating apply_pipeline(input, pipeline1) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline1) output
 
         input = :(x + y)
         output = :(x + y)
-        @test_expression_generating apply_pipeline(input, pipeline1) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline1) output
 
         input = :(x * 1)
         output = :(x * 1)
-        @test_expression_generating apply_pipeline(input, pipeline1) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline1) output
 
         input = :(y ~ Normal(x + 1, z))
         output = :(y ~ Normal(x + 2, z))
-        @test_expression_generating apply_pipeline(input, pipeline1) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline1) output
     end
 
     @testset "Guarded `what_walk`" begin
@@ -55,27 +54,26 @@ end
 
         input = :(x + 1)
         output = :(x + 2)
-        @test_expression_generating apply_pipeline(input, pipeline2) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline2) output
 
         input = :(x + y)
         output = :(x + y)
-        @test_expression_generating apply_pipeline(input, pipeline2) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline2) output
 
         input = :(x * 1)
         output = :(x * 1)
-        @test_expression_generating apply_pipeline(input, pipeline2) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline2) output
 
         # Should not modift this one, since its guarded walk
         input = :(y ~ Normal(x + 1, z))
         output = :(y ~ Normal(x + 1, z))
-        @test_expression_generating apply_pipeline(input, pipeline2) output
+        TestUtils.@test_expression_generating apply_pipeline(input, pipeline2) output
     end
 end
 
-@testitem "check_reserved_variable_names_model" begin
+@testitem "check_reserved_variable_names_model" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: apply_pipeline, check_reserved_variable_names_model
-
-    include("testutils.jl")
 
     # Test 1: test that reserved variable name __parent_options__ throws an error
     input = quote
@@ -99,10 +97,9 @@ end
     @test apply_pipeline(input, check_reserved_variable_names_model) == input
 end
 
-@testitem "check_incomplete_factorization_constraint" begin
+@testitem "check_incomplete_factorization_constraint" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: apply_pipeline, check_incomplete_factorization_constraint
-
-    include("testutils.jl")
 
     input = quote
         q(x)q(y)
@@ -130,11 +127,9 @@ end
     @test apply_pipeline(input, check_incomplete_factorization_constraint) == input
 end
 
-@testitem "guarded_walk" begin
-    import MacroTools: @capture
+@testitem "guarded_walk" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: guarded_walk
-
-    include("testutils.jl")
 
     #Test 1: walk with indexing operation as guard
     g_walk = guarded_walk((x) -> x isa Expr && x.head == :ref)
@@ -155,7 +150,7 @@ end
         end
     end
 
-    @test_expression_generating result output
+    TestUtils.@test_expression_generating result output
 
     #Test 2: walk with complexer guard function
     custom_guard(x) = x isa Expr && (x.head == :ref || x.head == :call)
@@ -178,7 +173,7 @@ end
         end
     end
 
-    @test_expression_generating result output
+    TestUtils.@test_expression_generating result output
 
     #Test 3: walk with guard function that always returns true
     g_walk = guarded_walk((x) -> true)
@@ -195,7 +190,7 @@ end
         end
     end
 
-    @test_expression_generating result input
+    TestUtils.@test_expression_generating result input
 
     #Test 4: walk with guard function that should not go into body if created_by is key
     g_walk = guarded_walk((x) -> x isa Expr && :created_by ∈ x.args)
@@ -214,18 +209,17 @@ end
             return x
         end
     end
-    @test_expression_generating result output
+    TestUtils.@test_expression_generating result output
 end
 
-@testitem "save_expression_in_tilde" begin
+@testitem "save_expression_in_tilde" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: save_expression_in_tilde, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: save expression in tilde
     input = :(x ~ Normal(0, 1))
     output = :(x ~ Normal(0, 1) where {created_by = () -> :(x ~ Normal(0, 1))})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 2: save expression in tilde with multiple expressions
     input = quote
@@ -236,12 +230,12 @@ end
         x ~ Normal(0, 1) where {created_by = () -> :(x ~ Normal(0, 1))}
         y ~ Normal(0, 1) where {created_by = () -> :(y ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
+    TestUtils.@test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 3: save expression in tilde with broadcasted operation
     input = :(x .~ Normal(0, 1))
     output = :(x .~ Normal(0, 1) where {created_by = () -> :(x .~ Normal(0, 1))})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 4: save expression in tilde with multiple broadcast expressions
     input = quote
@@ -254,12 +248,12 @@ end
         y .~ Normal(0, 1) where {created_by = () -> :(y .~ Normal(0, 1))}
     end
 
-    @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
+    TestUtils.@test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 5: save expression in tilde with deterministic operation
     input = :(x := Normal(0, 1))
     output = :(x := Normal(0, 1) where {created_by = () -> :(x := Normal(0, 1))})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 6: save expression in tilde with multiple deterministic expressions
     input = quote
@@ -272,7 +266,7 @@ end
         y := Normal(0, 1) where {created_by = () -> :(y := Normal(0, 1))}
     end
 
-    @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
+    TestUtils.@test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 7: save expression in tilde with additional options
     input = quote
@@ -283,22 +277,22 @@ end
         x ~ Normal(0, 1) where {q = MeanField(), created_by = () -> :(x ~ Normal(0, 1) where {q = MeanField()})}
         y ~ Normal(0, 1) where {q = MeanField(), created_by = () -> :(y ~ Normal(0, 1) where {q = MeanField()})}
     end
-    @test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
+    TestUtils.@test_expression_generating apply_pipeline(input, save_expression_in_tilde) output
 
     # Test 8: with different variable names
     input = :(y ~ Normal(0, 1))
     output = :(y ~ Normal(0, 1) where {created_by = () -> :(y ~ Normal(0, 1))})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 9: with different parameter options
     input = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})
     output = :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5, created_by = () -> :(x ~ Normal(0, 1) where {mu = 2.0, sigma = 0.5})})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 10: with different parameter options
     input = :(y ~ Normal(0, 1) where {mu = 1.0})
     output = :(y ~ Normal(0, 1) where {mu = 1.0, created_by = () -> :(y ~ Normal(0, 1) where {mu = 1.0})})
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 11: with no parameter options
     input = :(x ~ Normal(0, 1) where {})
@@ -312,7 +306,7 @@ end
             x = i
         end
     end
-    @test_expression_generating save_expression_in_tilde(input) input
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) input
 
     # Test 13: check matching pattern in loop
     input = quote
@@ -325,7 +319,7 @@ end
             x[i] ~ Normal(0, 1) where {created_by = () -> :(x[i] ~ Normal(0, 1))}
         end
     end
-    @test_expression_generating save_expression_in_tilde(input) input
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) input
 
     # Test 14: check local statements
     input = quote
@@ -338,7 +332,7 @@ end
         local y ~ (Normal(0, 1)) where {created_by = () -> :(local y ~ Normal(0, 1))}
     end
 
-    @test_expression_generating save_expression_in_tilde(input) input
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) input
 
     # Test 15: check arithmetic operations
     input = quote
@@ -347,7 +341,7 @@ end
     output = quote
         x := (a + b) where {created_by = () -> :(x := a + b)}
     end
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 16: test local for deterministic statement
     input = quote
@@ -356,7 +350,7 @@ end
     output = quote
         local x := (a + b) where {created_by = () -> :(local x := a + b)}
     end
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 17: test local for deterministic statement
     input = quote
@@ -365,7 +359,7 @@ end
     output = quote
         local x := (a + b) where {q = q(x)q(a)q(b), created_by = () -> :(local x := (a + b) where {q = q(x)q(a)q(b)})}
     end
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 18: test local for broadcasting statement
     input = quote
@@ -374,7 +368,7 @@ end
     output = quote
         local x .~ Normal(μ, σ) where {created_by = () -> :(local x .~ Normal(μ, σ))}
     end
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 
     # Test 19: test local for broadcasting statement
     input = quote
@@ -383,13 +377,12 @@ end
     output = quote
         local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ), created_by = () -> :(local x .~ Normal(μ, σ) where {q = q(x)q(μ)q(σ)})}
     end
-    @test_expression_generating save_expression_in_tilde(input) output
+    TestUtils.@test_expression_generating save_expression_in_tilde(input) output
 end
 
-@testitem "get_created_by" begin
+@testitem "get_created_by" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL.get_created_by
-
-    include("testutils.jl")
 
     # Test 1: only created by
     input = [:(created_by = (x ~ Normal(0, 1)))]
@@ -401,22 +394,21 @@ end
 
     # Test 3: created by and other parameters
     input = [:(created_by = (x ~ Normal(0, 1) where {q} = MeanField())), :(q = MeanField())]
-    @test_expression_generating get_created_by(input) :(x ~ Normal(0, 1) where {q} = MeanField())
+    TestUtils.@test_expression_generating get_created_by(input) :(x ~ Normal(0, 1) where {q} = MeanField())
 
     @test_throws ErrorException get_created_by([:(q = MeanField())])
 end
 
-@testitem "convert_deterministic_statement" begin
+@testitem "convert_deterministic_statement" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: convert_deterministic_statement, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: no deterministic statement
     input = quote
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
         y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_deterministic_statement) input
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_deterministic_statement) input
 
     # Test 2: deterministic statement
     input = quote
@@ -427,7 +419,7 @@ end
         x ~ Normal(0, 1) where {created_by = (x := Normal(0, 1)), is_deterministic = true}
         y ~ Normal(0, 1) where {created_by = (y := Normal(0, 1)), is_deterministic = true}
     end
-    @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
     # Test case 3: Input expression with multiple matching patterns
     input = quote
@@ -440,7 +432,7 @@ end
         y ~ Normal(0, 1) where {created_by = (y := Normal(0, 1)), is_deterministic = true}
         z ~ Bernoulli(0.5) where {created_by = (z := Bernoulli(0.5))}
     end
-    @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 
     # Test case 5: Input expression with multiple matching patterns
     input = quote
@@ -449,13 +441,12 @@ end
     output = quote
         x ~ (a + b) where {q = q(x)q(a)q(b), created_by = (x := a + b where {q = q(x)q(a)q(b)}), is_deterministic = true}
     end
-    @test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_deterministic_statement) output
 end
 
-@testitem "convert_local_statement" begin
+@testitem "convert_local_statement" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: convert_local_statement, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: one local statement
     input = quote
@@ -465,7 +456,7 @@ end
         x = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :x))
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_local_statement) output
 
     # Test 2: two local statements
     input = quote
@@ -478,7 +469,7 @@ end
         y = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :y))
         y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_local_statement) output
 
     # Test 3: mixed local and non-local statements
     input = quote
@@ -491,7 +482,7 @@ end
         y ~ Normal(0, 1) where {created_by = (y ~ Normal(0, 1))}
     end
 
-    @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_local_statement) output
     #Test 4: local statement with multiple matching patterns
     input = quote
         local x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by = (x ~ Normal(a, b) where {q = q(x)q(a)q(b)})}
@@ -500,7 +491,7 @@ end
         x = GraphPPL.add_variable_node!(__model__, __context__, gensym(__model__, :x))
         x ~ Normal(a, b) where {q = q(x)q(a)q(b), created_by = (x ~ Normal(a, b) where {q = q(x)q(a)q(b)})}
     end
-    @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_local_statement) output
 
     # Test 5: local statement with broadcasting statement
     input = quote
@@ -509,14 +500,12 @@ end
     output = quote
         x .~ Normal(μ, σ) where {created_by = (x .~ Normal(μ, σ))}
     end
-    @test_expression_generating apply_pipeline(input, convert_local_statement) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_local_statement) output
 end
 
-@testitem "is_kwargs_expression(::AbstractArray)" begin
+@testitem "is_kwargs_expression(::AbstractArray)" setup = [TestUtils] begin
     import MacroTools: @capture
     import GraphPPL: is_kwargs_expression
-
-    include("testutils.jl")
 
     func_def = :(foo(a, b))
     @capture(func_def, (f_(args__)))
@@ -550,52 +539,52 @@ end
     @test !is_kwargs_expression(args)
 end
 
-@testitem "convert_to_kwargs_expression" begin
+@testitem "convert_to_kwargs_expression" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: convert_to_kwargs_expression, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: Input expression with ~ expression and args and kwargs expressions
     input = quote
         x ~ Normal(0, 1; a = 1, b = 2) where {created_by = (x ~ Normal(0, 1; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 2: Input expression with ~ expression and args and kwargs expressions with symbols
     input = quote
         x ~ Normal(μ, σ; a = τ, b = θ) where {created_by = (x ~ Normal(μ, σ; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 3: Input expression with ~ expression and only kwargs expression
     input = quote
         x ~ Normal(; a = 1, b = 2) where {created_by = (x ~ Normal(; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 4: Input expression with ~ expression and only kwargs expression with symbols
     input = quote
         x ~ Normal(; a = τ, b = θ) where {created_by = (x ~ Normal(; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 5: Input expression with ~ expression and only args expression
     input = quote
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 6: Input expression with ~ expression and only args expression with symbols
     input = quote
         x ~ Normal(μ, σ) where {created_by = (x ~ Normal(μ, σ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 7: Input expression with ~ expression and named args expression
     input = quote
@@ -604,7 +593,7 @@ end
     output = quote
         x ~ Normal(; μ = 0, σ = 1) where {created_by = (x ~ Normal(μ = 0, σ = 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 8: Input expression with ~ expression and named args expression with symbols
     input = quote
@@ -613,49 +602,49 @@ end
     output = quote
         x ~ Normal(; μ = μ, σ = σ) where {created_by = (x ~ Normal(μ = μ, σ = σ))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 9: Input expression with .~ expression and args and kwargs expressions
     input = quote
         x .~ Normal(0, 1; a = 1, b = 2) where {created_by = (x .~ Normal(0, 1; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 10: Input expression with .~ expression and args and kwargs expressions with symbols
     input = quote
         x .~ Normal(μ, σ; a = τ, b = θ) where {created_by = (x .~ Normal(μ, σ; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 11: Input expression with .~ expression and only kwargs expression
     input = quote
         x .~ Normal(; a = 1, b = 2) where {created_by = (x .~ Normal(; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 12: Input expression with .~ expression and only kwargs expression with symbols
     input = quote
         x .~ Normal(; a = τ, b = θ) where {created_by = (x .~ Normal(; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 13: Input expression with .~ expression and only args expression
     input = quote
         x .~ Normal(0, 1) where {created_by = (x .~ Normal(0, 1))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 14: Input expression with .~ expression and only args expression with symbols
     input = quote
         x .~ Normal(μ, σ) where {created_by = (x .~ Normal(μ, σ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 15: Input expression with .~ expression and named args expression
     input = quote
@@ -664,7 +653,7 @@ end
     output = quote
         x .~ Normal(; μ = 0, σ = 1) where {created_by = (x .~ Normal(μ = 0, σ = 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 16: Input expression with .~ expression and named args expression with symbols
     input = quote
@@ -673,49 +662,49 @@ end
     output = quote
         x .~ Normal(; μ = μ, σ = σ) where {created_by = (x .~ Normal(μ = μ, σ = σ))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 17: Input expression with := expression and args and kwargs expressions
     input = quote
         x := Normal(0, 1; a = 1, b = 2) where {created_by = (x := Normal(0, 1; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 18: Input expression with := expression and args and kwargs expressions with symbols
     input = quote
         x := Normal(μ, σ; a = τ, b = θ) where {created_by = (x := Normal(μ, σ; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 19: Input expression with := expression and only kwargs expression
     input = quote
         x := Normal(; a = 1, b = 2) where {created_by = (x := Normal(; a = 1, b = 2))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 20: Input expression with := expression and only kwargs expression with symbols
     input = quote
         x := Normal(; a = τ, b = θ) where {created_by = (x := Normal(; a = τ, b = θ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 21: Input expression with := expression and only args expression
     input = quote
         x := Normal(0, 1) where {created_by = (x := Normal(0, 1))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 22: Input expression with := expression and only args expression with symbols
     input = quote
         x := Normal(μ, σ) where {created_by = (x := Normal(μ, σ))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 23: Input expression with := expression and named args as args expression
     input = quote
@@ -724,7 +713,7 @@ end
     output = quote
         x := Normal(; μ = 0, σ = 1) where {created_by = (x := Normal(μ = 0, σ = 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 24: Input expression with := expression and named args as args expression with symbols
     input = quote
@@ -733,21 +722,21 @@ end
     output = quote
         x := Normal(; μ = μ, σ = σ) where {created_by = (x := Normal(μ = μ, σ = σ))}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 25: Input expression with ~ expression and additional arguments in where clause
     input = quote
         x ~ Normal(0, 1) where {q = MeanField(), created_by = (x ~ Normal(0, 1)) where {q} = MeanField()}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 26: Input expression with nested call in rhs
     input = quote
         x ~ Normal(Normal(0, 1)) where {created_by = (x ~ Normal(Normal(0, 1)))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 
     # Test 27: Input expression with additional where clause on rhs
     input = quote
@@ -756,13 +745,13 @@ end
     output = quote
         x ~ Normal(; μ = μ, σ = σ) where {created_by = (x ~ Normal(μ = μ, σ = σ) where {q = MeanField()}), q = MeanField()}
     end
-    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
 end
 
-@testitem "convert_to_anonymous" begin
+@testitem "convert_to_anonymous" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: convert_to_anonymous, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: convert function to anonymous function
     input = quote
@@ -774,7 +763,7 @@ end
             var"#anon" ~ Normal(0, 1) where {anonymous = true, created_by = x ~ Normal(0, 1)}
         end
     end
-    @test_expression_generating convert_to_anonymous(input, created_by) output
+    TestUtils.@test_expression_generating convert_to_anonymous(input, created_by) output
 
     # Test 2: leave number expression
     input = quote
@@ -782,7 +771,7 @@ end
     end
     created_by = :(x ~ Normal(0, 1))
     output = input
-    @test_expression_generating convert_to_anonymous(input, created_by) output
+    TestUtils.@test_expression_generating convert_to_anonymous(input, created_by) output
 
     # Test 3: leave symbol expression
     input = quote
@@ -790,7 +779,7 @@ end
     end
     created_by = :(x ~ Normal(0, 1))
     output = input
-    @test_expression_generating convert_to_anonymous(input, created_by) output
+    TestUtils.@test_expression_generating convert_to_anonymous(input, created_by) output
 
     # Test 4: handle broadcasted expression
     input = quote
@@ -802,7 +791,7 @@ end
             var"#anon" .~ Normal(fill(0, 10), fill(1, 10)) where {anonymous = true, created_by = x ~ Normal(0, 1)}
         end
     end
-    @test_expression_generating convert_to_anonymous(input, created_by) output
+    TestUtils.@test_expression_generating convert_to_anonymous(input, created_by) output
 
     # Test 5: handle broadcasted expression with special cases
     input = quote
@@ -814,13 +803,12 @@ end
             var"#anon" .~ ((a + b) where {anonymous = true, created_by = x ~ Normal(0, 1)})
         end
     end
-    @test_expression_generating convert_to_anonymous(input, created_by) output
+    TestUtils.@test_expression_generating convert_to_anonymous(input, created_by) output
 end
 
-@testitem "not_enter_indexed_walk" begin
+@testitem "not_enter_indexed_walk" setup = [TestUtils] begin
+    using MacroTools
     import GraphPPL: not_enter_indexed_walk
-
-    include("testutils.jl")
 
     # Test 1: not enter indexed walk
     input = quote
@@ -841,10 +829,10 @@ end
     end
 end
 
-@testitem "convert_anonymous_variables" begin
+@testitem "convert_anonymous_variables" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: convert_anonymous_variables, apply_pipeline
-
-    include("testutils.jl")
 
     #Test 1: Input expression with a function call in rhs arguments
     input = quote
@@ -858,7 +846,7 @@ end
             1
         ) where {created_by = (x ~ Normal(Normal(0, 1), 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 2: Input expression without pattern matching
     input = quote
@@ -867,7 +855,7 @@ end
     output = quote
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 3: Input expression with a function call as kwargs
     input = quote
@@ -880,7 +868,7 @@ end
             end, σ = 1
         ) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 4: Input expression without pattern matching and kwargs
     input = quote
@@ -889,7 +877,7 @@ end
     output = quote
         x ~ Normal(; μ = 0, σ = 1) where {created_by = (x ~ Normal(μ = 0, σ = 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 5: Input expression with multiple function calls in rhs arguments
     input = quote
@@ -905,7 +893,7 @@ end
             end
         ) where {created_by = (x ~ Normal(Normal(0, 1), Normal(0, 1)))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 6: Input expression with multiple function calls in rhs arguments and kwargs
     input = quote
@@ -921,7 +909,7 @@ end
             end
         ) where {created_by = (x ~ Normal(; μ = Normal(0, 1), σ = Normal(0, 1)))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 7: Input expression with nested function call in rhs arguments
     input = quote
@@ -941,7 +929,7 @@ end
         ) where {created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1))}
     end
 
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     #Test 8: Input expression with nested function call in rhs arguments and kwargs and additional where clause
     input = quote
@@ -964,14 +952,14 @@ end
             1
         ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     # Test 9: Input expression with arithmetic indexed call on rhs
     input = quote
         x ~ Normal(x[i - 1], 1) where {created_by = (x ~ Normal(y[i - 1], 1))}
     end
     output = input
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     # Test 10: Input expression with broadcasted call
     input = quote
@@ -994,7 +982,7 @@ end
             1
         ) where {q = MeanField(), created_by = (x ~ Normal(Normal(Normal(0, 1), 1), 1) where {q = MeanField()})}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     # Test 11: Input expression with broadcasted call as anonymous variable
     input = quote
@@ -1008,7 +996,7 @@ end
             1
         ) where {created_by = (x ~ Normal(f.(y), 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     # Test 12: Input expression with nested broadcasted call as anonymous variable
     input = quote
@@ -1026,7 +1014,7 @@ end
             1
         ) where {created_by = (x ~ Normal(f.(g.(y)), 1))}
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     input = quote
         y .~ Normal(a .* y .+ b, 1) where {created_by = y .~ Normal(a .* y .+ b, 1)}
@@ -1047,7 +1035,7 @@ end
             ) where {(created_by = (y .~ Normal(a .* y .+ b, 1)))}
         )
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
     input = quote
         y .~ Normal(
@@ -1178,20 +1166,20 @@ end
             )
         )
     end
-    @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 end
 
-@testitem "proxy_args_rhs" begin
+@testitem "proxy_args_rhs" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: proxy_args_rhs, apply_pipeline, recursive_rhs_indexing
-
-    include("testutils.jl")
 
     # Test 1: Input expression with a function call in rhs arguments
     input = :x
     output = quote
         GraphPPL.proxylabel(:x, x, nothing, GraphPPL.False())
     end
-    @test_expression_generating proxy_args_rhs(input) output
+    TestUtils.@test_expression_generating proxy_args_rhs(input) output
 
     input = quote
         x[1]
@@ -1199,7 +1187,7 @@ end
     output = quote
         GraphPPL.proxylabel(:x, x, (1,), GraphPPL.False())
     end
-    @test_expression_generating proxy_args_rhs(input) output
+    TestUtils.@test_expression_generating proxy_args_rhs(input) output
 
     input = quote
         x[1, 2]
@@ -1207,7 +1195,7 @@ end
     output = quote
         GraphPPL.proxylabel(:x, x, (1, 2), GraphPPL.False())
     end
-    @test_expression_generating proxy_args_rhs(input) output
+    TestUtils.@test_expression_generating proxy_args_rhs(input) output
 
     input = quote
         x[1][1]
@@ -1215,13 +1203,13 @@ end
     output = quote
         GraphPPL.proxylabel(:x, GraphPPL.proxylabel(:x, x, (1,), GraphPPL.False()), (1,), GraphPPL.False())
     end
-    @test_expression_generating proxy_args_rhs(input) output
+    TestUtils.@test_expression_generating proxy_args_rhs(input) output
 end
 
-@testitem "add_get_or_create_expression" begin
+@testitem "add_get_or_create_expression" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: add_get_or_create_expression, apply_pipeline
-
-    include("testutils.jl")
 
     #Test 1: test scalar variable
     input = quote
@@ -1235,7 +1223,7 @@ end
         end
         x ~ (Normal(0, 1) where {(created_by = (x ~ Normal(0, 1)))})
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 1.1: test scalar variable
     input = quote
@@ -1249,7 +1237,7 @@ end
         end
         x ~ (Gamma(0, 1) where {(created_by = (x ~ Gamma(0, 1)))})
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 2: test vector variable 
     input = quote
@@ -1263,7 +1251,7 @@ end
         end
         x[1] ~ Normal(0, 1) where {created_by = (x[1] ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 3: test matrix variable
     input = quote
@@ -1277,7 +1265,7 @@ end
         end
         x[1, 2] ~ Normal(0, 1) where {created_by = (x[1, 2] ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 4: test vector variable with variable as index
     input = quote
@@ -1291,7 +1279,7 @@ end
         end
         x[i] ~ Normal(0, 1) where {created_by = (x[i] ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 5: test matrix variable with symbol as index
     input = quote
@@ -1305,7 +1293,7 @@ end
         end
         x[i, j] ~ Normal(0, 1) where {created_by = (x[i, j] ~ Normal(0, 1))}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     #Test 4: test function call  in parameters on rhs
     sym = gensym(:anon)
@@ -1335,7 +1323,7 @@ end
             1
         ) where {created_by = (x ~ Normal(Normal(0, 1), 1))}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     # Test 5: Input expression with NodeLabel on rhs
     input = quote
@@ -1349,7 +1337,7 @@ end
         end
         y ~ x where {created_by = (y := x), is_deterministic = true}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 
     # Test 6: Input expression with additional options on rhs
     input = quote
@@ -1363,13 +1351,13 @@ end
         end
         x ~ Normal(0, 1) where {created_by = (x ~ Normal(0, 1) where {q = q(x)q(y)}), q = q(x)q(y)}
     end
-    @test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, add_get_or_create_expression) output
 end
 
-@testitem "generate_get_or_create" begin
+@testitem "generate_get_or_create" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: generate_get_or_create, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: test scalar variable
     output = generate_get_or_create(:x, nothing, :(Normal(0, 1)))
@@ -1380,7 +1368,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 2: test vector variable
     output = generate_get_or_create(:x, [1], :(Gamma(0, 1)))
@@ -1391,7 +1379,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 3: test matrix variable
     output = generate_get_or_create(:x, [1, 2], :(unknownsymbol))
@@ -1402,7 +1390,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 5: test symbol-indexed variable
     output = generate_get_or_create(:x, [:i, :j], :(unknownsymbol))
@@ -1413,7 +1401,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 6: test vector of single symbol
     output = generate_get_or_create(:x, [:i], :(f(argument)))
@@ -1424,7 +1412,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 7: test vector of symbols
     output = generate_get_or_create(:x, [:i, :j], :(f(keyword = 1)))
@@ -1435,7 +1423,7 @@ end
             x
         end
     end
-    @test_expression_generating output desired_result
+    TestUtils.@test_expression_generating output desired_result
 
     # Test 8: test error if un-unrollable index
     @test_throws MethodError generate_get_or_create(:x, 2, :(Normal()))
@@ -1444,11 +1432,10 @@ end
     @test_throws MethodError generate_get_or_create(:x, prod(0, 1), :(Normal()))
 end
 
-@testitem "keyword_expressions_to_named_tuple" begin
+@testitem "keyword_expressions_to_named_tuple" setup = [TestUtils] begin
     import MacroTools: @capture
+    using Distributions
     import GraphPPL: keyword_expressions_to_named_tuple, apply_pipeline, convert_to_kwargs_expression
-
-    include("testutils.jl")
 
     expr = [:($(Expr(:kw, :in1, :y))), :($(Expr(:kw, :in2, :z)))]
     @test keyword_expressions_to_named_tuple(expr) == :((in1 = y, in2 = z))
@@ -1472,26 +1459,26 @@ end
     @test keyword_expressions_to_named_tuple(kwargs) == :((a = 1, b = 2))
 end
 
-@testitem "combine_broadcast_args" begin
+@testitem "combine_broadcast_args" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: combine_broadcast_args
 
-    include("testutils.jl")
-
-    @test_expression_generating combine_broadcast_args([:μ, :σ], nothing) quote
+    TestUtils.@test_expression_generating combine_broadcast_args([:μ, :σ], nothing) quote
         args
     end
-    @test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+    TestUtils.@test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
         NamedTuple{$(:μ, :σ)}(args)
     end
-    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
+    TestUtils.@test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
         GraphPPL.MixedArguments((μ, σ), NamedTuple{$(:μ, :σ)}(args))
     end
 end
 
-@testitem "convert_tilde_expression" begin
+@testitem "convert_tilde_expression" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: convert_tilde_expression, apply_pipeline
-
-    include("testutils.jl")
 
     # Test 1: Test regular node creation input
     input = quote
@@ -1513,7 +1500,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 2: Test regular node creation input with kwargs
     input = quote
@@ -1535,7 +1522,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 3: Test regular node creation with indexed input
     input = quote
@@ -1554,7 +1541,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 4: Test node creation with anonymous variable
     input = quote
@@ -1603,7 +1590,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 5: Test node creation with non-function on rhs
 
@@ -1623,7 +1610,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 6: Test node creation with non-function on rhs with indexed statement
 
@@ -1643,7 +1630,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 7: Test node creation with non-function on rhs with multidimensional array
 
@@ -1663,7 +1650,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 8: Test node creation with mixed args and kwargs on rhs
     input = quote
@@ -1691,7 +1678,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 9: Test node creation with additional options
     input = quote
@@ -1710,7 +1697,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 10: Test node creation with kwargs and symbols_to_expression
     input = quote
@@ -1729,7 +1716,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     input = quote
         y ~ prior() where {created_by = :(y ~ prior())}
@@ -1747,7 +1734,7 @@ end
             var"#var"
         end
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 11: Test node creation with broadcasting call
     input = quote
@@ -1772,7 +1759,7 @@ end
         end
         GraphPPL.__check_vectorized_input(var"#rvar#")
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 12: Test node creation with broadcasting call with kwargs
     input = quote
@@ -1798,7 +1785,7 @@ end
         GraphPPL.__check_vectorized_input(var"#rvar")
     end
 
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 13: Test node creation with broadcasting call with mixed args and kwargs
     input = quote
@@ -1828,7 +1815,7 @@ end
         end
         GraphPPL.__check_vectorized_input(var"#rvar")
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 
     # Test 14: Test node creation with splatting inside
     input = quote
@@ -1845,13 +1832,13 @@ end
         )
         var"#var"
     end
-    @test_expression_generating apply_pipeline(input, convert_tilde_expression) output
+    TestUtils.@test_expression_generating apply_pipeline(input, convert_tilde_expression) output
 end
 
-@testitem "options_vector_to_factoroptions" begin
+@testitem "options_vector_to_factoroptions" setup = [TestUtils] begin
+    using Distributions
+    using MacroTools
     import GraphPPL: options_vector_to_named_tuple
-
-    include("testutils.jl")
 
     # Test 1: Test with empty input
     input = []
@@ -1878,8 +1865,11 @@ end
     @test_throws ErrorException options_vector_to_named_tuple(input)
 end
 
-@testitem "model_macro_interior" begin
-    using LinearAlgebra, MetaGraphsNext, Graphs
+@testitem "model_macro_interior" setup = [TestUtils] begin
+    using Distributions
+    using LinearAlgebra
+    using MacroTools
+    using Static
     import GraphPPL:
         model_macro_interior,
         create_model,
@@ -1890,17 +1880,16 @@ end
         add_terminated_submodel!,
         NodeCreationOptions,
         getproperties,
-        Context
-
-    include("testutils.jl")
-
-    using .TestUtils.ModelZoo
+        Context,
+        @model,
+        nv,
+        ne
 
     # Test 1: Test regular node creation input
     @model function test_model(μ, σ)
         x ~ sum(μ, σ)
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1917,7 +1906,7 @@ end
         y ~ x[1] + x[10]
     end
 
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1939,7 +1928,7 @@ end
         end
         y ~ x[1] + x[10] + x[11]
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     μ = getorcreate!(model, ctx, :μ, nothing)
@@ -1956,7 +1945,7 @@ end
             x ~ y + z
         end
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -1969,7 +1958,7 @@ end
         z ~ Normal(x, Matrix{Float64}(Diagonal(ones(4))))
         y ~ Normal(z, 1)
     end
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     x = getorcreate!(model, ctx, :x, nothing)
@@ -2013,18 +2002,18 @@ end
     @test GraphPPL.nv(model) == 7 && GraphPPL.ne(model) == 6
 
     # Test add_terminated_submodel!
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     for i in 1:10
         getorcreate!(model, ctx, :y, i)
     end
     y = getorcreate!(model, ctx, :y, 1)
-    GraphPPL.add_terminated_submodel!(model, ctx, options, hgf, (y = y,), static(1))
+    GraphPPL.add_terminated_submodel!(model, ctx, options, TestUtils.hgf, (y = y,), static(1))
     @test haskey(ctx, :ω_2) && haskey(ctx, :x_1) && haskey(ctx, :x_2) && haskey(ctx, :x_3)
 
     # Test anonymous variable creation
-    model = create_test_model()
+    model = TestUtils.create_test_model()
     ctx = getcontext(model)
     options = NodeCreationOptions()
     for i in 1:10
@@ -2032,16 +2021,15 @@ end
     end
     x_arr = getorcreate!(model, ctx, :x, 1)
     y = getorcreate!(model, ctx, :y, nothing)
-    make_node!(model, ctx, options, anonymous_in_loop, proxylabel(:y, y, nothing), (x = x_arr,))
+    make_node!(model, ctx, options, TestUtils.anonymous_in_loop, proxylabel(:y, y, nothing), (x = x_arr,))
     @test nv(model) == 67
 end
 
-@testitem "ModelGenerator based constructor is being created" begin
+@testitem "ModelGenerator based constructor is being created" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: ModelGenerator
 
-    include("testutils.jl")
-
-    @model function foo(x, y)
+    TestUtils.@model function foo(x, y)
         x ~ y + 1
     end
 
@@ -2050,10 +2038,9 @@ end
     @test foo(x = 1, y = 1) isa ModelGenerator
 end
 
-@testitem "`default_backend` should be set from the `model_macro_interior`" begin
+@testitem "`default_backend` should be set from the `model_macro_interior`" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: default_backend, model_macro_interior
-
-    include("testutils.jl")
 
     model_spec = quote
         function hello(a, b, c)
@@ -2066,10 +2053,8 @@ end
     @test default_backend(hello) === TestUtils.TestGraphPPLBackend()
 end
 
-@testitem "error message for other number of interfaces" begin
-    using GraphPPL
+@testitem "error message for other number of interfaces" setup = [TestUtils] begin
     using Distributions
-
     import GraphPPL: @model
 
     @model function somemodel(a, b, c)
@@ -2085,8 +2070,8 @@ end
     @test !isnothing(GraphPPL.create_model(somemodel(a = 1, b = 2)))
 end
 
-@testitem "model should warn users against incorrect usages of `=` operator with random variables" begin
-    using GraphPPL, Distributions
+@testitem "model should warn users against incorrect usages of `=` operator with random variables" setup = [TestUtils] begin
+    using Distributions
     import GraphPPL: @model
 
     @model function somemodel()
