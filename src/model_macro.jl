@@ -14,12 +14,12 @@ function (w::guarded_walk)(f, x)
     return w.guard(x) ? x : walk(x, x -> w(f, x), f)
 end
 
+not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
+not_created_by = guarded_walk((x) -> (x isa Expr && !isempty(x.args) && x.args[1] == :created_by))
+
 struct walk_until_occurrence{E}
     patterns::E
 end
-
-not_enter_indexed_walk = guarded_walk((x) -> (x isa Expr && x.head == :ref) || (x isa Expr && x.head == :call && x.args[1] == :new))
-not_created_by = guarded_walk((x) -> (x isa Expr && !isempty(x.args) && x.args[1] == :created_by))
 
 function (w::walk_until_occurrence{E})(f, x) where {E <: Tuple}
     return walk(x, z -> any(pattern -> @capture(x, $(pattern)), w.patterns) ? z : w(f, z), f)
@@ -28,6 +28,55 @@ end
 function (w::walk_until_occurrence{E})(f, x) where {E <: Expr}
     return walk(x, z -> @capture(x, $(w.patterns)) ? z : w(f, z), f)
 end
+
+"""
+    conditional_walk{C}
+
+A walking strategy that applies a function only when a condition is met.
+The condition is checked at each level, and once met, the function is applied
+to all subsequent expressions in that branch.
+
+# Fields
+- `condition`: Function that determines when to start applying the transformation
+
+# Example
+```julia
+# Only convert : to CombinedRange when inside a :ref expression
+is_inside_indexing = conditional_walk(x -> x isa Expr && x.head == :ref)
+what_walk(::typeof(convert_to_combined_range)) = is_inside_indexing
+```
+"""
+struct conditional_walk{C}
+    condition::C
+end
+
+function (w::conditional_walk{C})(f, x, should_apply::Bool = false) where {C}
+    # Check if we should flip the flag
+    new_should_apply = should_apply || w.condition(x)
+
+    if new_should_apply
+        # Apply the function
+        return walk(x, z -> w(f, z, new_should_apply), f)
+    else
+        # Continue walking recursively, passing down the flag
+        return walk(x, z -> w(f, z, new_should_apply), identity)
+    end
+end
+
+"""
+    is_inside_indexing
+
+A walking strategy that only applies transformations when inside an indexing expression.
+This is useful for converting ranged statements (like `1:10`) to `CombinedRange` only
+when they appear in array indexing contexts like `x[1:10]`.
+
+# Example
+```julia
+# Only convert : to CombinedRange when inside a :ref expression
+what_walk(::typeof(convert_to_combined_range)) = is_inside_indexing
+```
+"""
+is_inside_indexing = conditional_walk(x -> x isa Expr && x.head == :ref)
 
 what_walk(anything) = postwalk
 
