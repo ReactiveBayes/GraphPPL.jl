@@ -910,21 +910,17 @@ end
 Base.:(==)(left::VariableRef, right::VariableRef) =
     left.model == right.model && left.context == right.context && left.name == right.name && left.index == right.index
 
-function Base.:(==)(left::VariableRef, right)
+function variable_ref_compare_error(variable::VariableRef, value)
     error(
-        "Comparing Factor Graph variable `$left` with a value. This is not possible as the value of `$left` is not known at model construction time."
+        "Comparing Factor Graph variable `$variable` with a value `$value`. This is not possible as `$variable` has a probabilistic nature and its value is not known at model construction time."
     )
 end
-Base.:(==)(left, right::VariableRef) = right == left
 
-Base.:(>)(left::VariableRef, right) = left == right
-Base.:(>)(left, right::VariableRef) = left == right
-Base.:(<)(left::VariableRef, right) = left == right
-Base.:(<)(left, right::VariableRef) = left == right
-Base.:(>=)(left::VariableRef, right) = left == right
-Base.:(>=)(left, right::VariableRef) = left == right
-Base.:(<=)(left::VariableRef, right) = left == right
-Base.:(<=)(left, right::VariableRef) = left == right
+Base.:(==)(variable::VariableRef, value) = variable_ref_compare_error(variable, value)
+Base.:(==)(value, variable::VariableRef) = variable_ref_compare_error(variable, value)
+
+Base.isless(variable::VariableRef, value) = variable_ref_compare_error(variable, value)
+Base.isless(value, variable::VariableRef) = variable_ref_compare_error(variable, value)
 
 is_proxied(::Type{T}) where {T <: VariableRef} = True()
 
