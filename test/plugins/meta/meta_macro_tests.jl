@@ -386,3 +386,19 @@ end
     end
     @test_expression_generating meta_macro_interior(input) output
 end
+
+@testitem "meta_macro_interior_with_where" begin
+    import GraphPPL: meta_macro_interior
+
+    include("../../testutils.jl")
+
+    @meta function make_learning_meta(f::F) where {F}
+        ContinuousTransition() -> CTMeta(f)
+    end
+
+    @meta function make_learning_meta(f::F, b::G; a::G) where {F, G}
+        ContinuousTransition() -> CTMeta(f)
+    end
+
+    @test length(methods(make_learning_meta)) == 2
+end
