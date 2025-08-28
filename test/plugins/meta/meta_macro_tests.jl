@@ -299,6 +299,15 @@ end
         push!(__meta__, GraphPPL.MetaObject(GraphPPL.VariableMetaDescriptor(GraphPPL.IndexedVariable(:x, nothing)), some_meta()))
     end
     @test_expression_generating apply_pipeline(input, convert_meta_object) output
+
+    # Test 3: convert_meta_object with  ->
+    input = quote
+        ContinuousTransition() -> CTMeta((H) -> reshape(H, dim, dim))
+    end
+    output = quote
+        push!(__meta__, GraphPPL.MetaObject(GraphPPL.FactorMetaDescriptor(ContinuousTransition, ()), CTMeta((H -> reshape(H, dim, dim)))))
+    end
+    @test_expression_generating apply_pipeline(input, convert_meta_object) output
 end
 
 @testitem "meta_macro_interior" begin

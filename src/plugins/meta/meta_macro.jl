@@ -2,6 +2,7 @@ export @meta
 using MacroTools
 
 check_for_returns_meta = (x) -> check_for_returns(x; tag = "meta")
+not_enter_call_walk = guarded_walk((x) -> x isa Expr && x.head == :call)
 
 """
     add_meta_construction(e::Expr)
@@ -98,7 +99,6 @@ Converts all variable references on the left hand side of a meta specification t
 
 # Examples
 """
-
 function convert_meta_variables(e::Expr)
     if @capture(e, (fform_(vars__) -> meta_obj_))
         vars = map(var -> __convert_to_indexed_statement(var), vars)
@@ -145,8 +145,10 @@ function convert_meta_object(e::Expr)
     end
 end
 
+what_walk(::typeof(convert_meta_object)) = not_enter_call_walk
+
 function meta_macro_interior(meta_body::Expr)
-    meta_body = apply_pipeline(meta_body, (x) -> check_for_returns(x; tag = "meta"))
+    meta_body = apply_pipeline(meta_body, check_for_returns_meta)
     meta_body = add_meta_construction(meta_body)
     meta_body = apply_pipeline(meta_body, create_submodel_meta)
     meta_body = apply_pipeline(meta_body, convert_meta_variables)
