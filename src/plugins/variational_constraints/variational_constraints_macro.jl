@@ -99,6 +99,8 @@ function create_factorization_combinedrange(e::Expr)
     return e
 end
 
+what_walk(::typeof(create_factorization_combinedrange)) = is_inside_indexing
+
 __convert_to_indexed_statement(e::Symbol) = :(GraphPPL.IndexedVariable($(QuoteNode(e)), nothing))
 function __convert_to_indexed_statement(e::Expr)
     if @capture(e, (var_[index_]))

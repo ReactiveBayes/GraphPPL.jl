@@ -452,6 +452,15 @@ end
         q(x) = q(x[GraphPPL.CombinedRange(begin, end)])
     end
     @test_expression_generating apply_pipeline(input, create_factorization_combinedrange) output
+
+    # Test 2: Make sure create_factorization_combinedrange only works within indexed statements
+    input = quote
+        for i in 1:10
+            q(state[i]) = q(state[i])
+        end
+    end
+    output = input
+    @test_expression_generating apply_pipeline(input, create_factorization_combinedrange) output
 end
 
 @testitem "convert_variable_statements" begin
