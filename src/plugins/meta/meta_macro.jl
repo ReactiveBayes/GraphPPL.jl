@@ -34,6 +34,22 @@ function add_meta_construction(e::Expr)
                 return __meta__
             end
         end
+    elseif @capture(
+        e, (function m_name_(m_args__; m_kwargs__) where {m_where_args__}
+            c_body_
+        end) | (function m_name_(m_args__) where {m_where_args__}
+            c_body_
+        end)
+    )
+        m_kwargs = m_kwargs === nothing ? [] : m_kwargs
+        return quote
+            $(c_body_string_symbol)::String = $(c_body_string)
+            function $m_name($(m_args...); $(m_kwargs...)) where {$(m_where_args...)}
+                __meta__ = GraphPPL.MetaSpecification($(c_body_string_symbol))
+                $c_body
+                return __meta__
+            end
+        end
     else
         return quote
             $(c_body_string_symbol)::String = $(c_body_string)
