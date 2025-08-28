@@ -197,6 +197,8 @@ GraphPPL.options_vector_to_named_tuple
 GraphPPL.get_created_by
 GraphPPL.convert_to_anonymous
 GraphPPL.convert_meta_variables
+GraphPPL.is_inside_indexing
+GraphPPL.conditional_walk
 ```
 
 ## Auxiliary functionality 
