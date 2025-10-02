@@ -917,12 +917,8 @@ function Base.:(==)(left::VariableRef, right)
 end
 Base.:(==)(left, right::VariableRef) = right == left
 
-Base.:(>)(left::VariableRef, right) = left == right
-Base.:(>)(left, right::VariableRef) = left == right
 Base.:(<)(left::VariableRef, right) = left == right
 Base.:(<)(left, right::VariableRef) = left == right
-Base.:(>=)(left::VariableRef, right) = left == right
-Base.:(>=)(left, right::VariableRef) = left == right
 Base.:(<=)(left::VariableRef, right) = left == right
 Base.:(<=)(left, right::VariableRef) = left == right
 
