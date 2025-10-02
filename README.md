@@ -10,7 +10,7 @@
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-stable-url]: https://reactivebayes.github.io/GraphPPL.jl/stable
 
-[ci-img]: https://github.com/reactivebayes/GraphPPL.jl/actions/workflows/ci.yml/badge.svg?branch=master
+[ci-img]: https://github.com/reactivebayes/GraphPPL.jl/actions/workflows/ci.yml/badge.svg?branch=main
 [ci-url]: https://github.com/reactivebayes/GraphPPL.jl/actions
 
 [codecov-img]: https://codecov.io/gh/ReactiveBayes/GraphPPL.jl/graph/badge.svg?token=JESDYZVU9N
