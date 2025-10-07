@@ -1835,14 +1835,14 @@ end
 
 function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_interfaces::NamedTuple) where {I, F}
     if length(I) == 0
-        error(
-            lazy"Node '$(fform)' needs to be defined with one unspecified interface.\n\nNode '$(fform)' is currently specified with all interfaces: $(keys(rhs_interfaces)), but one needs to be left out."
-        )
-    elseif length(I) > 1
-        inner = :out in I ? " (possibly $(join(setdiff(I, (:out,)), " and ")))" : ""
         n = "\n"
         error(
-            lazy"Node '$(fform)' is defined with too few interfaces (arguments), you need $(length(I)-1) more$(inner).$(n)$(n)Currently specified interfaces are: $(keys(rhs_interfaces))."
+            lazy"Node '$(fform)' needs to be defined with one unspecified interface.$(n)$(n)Node '$(fform)' is currently specified with all interfaces: $(keys(rhs_interfaces)), but one needs to be left out."
+        )
+    elseif length(I) > 1
+        n = "\n"
+        error(
+            lazy"Node '$(fform)' is defined with too few interfaces (arguments), you need $(length(I)-1) more.$(n)$(n)Currently specified interfaces are: $(keys(rhs_interfaces)). Possible missing interfaces are: $(I), but check the documentation to see the specification options."
         )
     end
     missing_interface = first(I)
