@@ -1,0 +1,54 @@
+name: Test dependent packages
+
+# based on https://github.com/SciML/SciMLBase.jl/blob/master/.github/workflows/Downstream.yml, thanks!
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+    pull_request:
+
+jobs:
+    test:
+        name: ${{ matrix.package.repo }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                julia-version: ['1']
+                os: [ubuntu-latest]
+                package:
+                    # you can add more packages to this list, they will run in parallel
+                    - { user: ReactiveBayes, repo: RxInfer.jl }
+
+        steps:
+            - uses: actions/checkout@v5
+            - uses: julia-actions/setup-julia@v2
+              with:
+                  version: ${{ matrix.julia-version }}
+                  arch: x64
+            - uses: julia-actions/julia-buildpkg@v1
+            - name: Clone Downstream
+              uses: actions/checkout@v5
+              with:
+                  repository: ${{ matrix.package.user }}/${{ matrix.package.repo }}
+                  path: downstream
+            - name: Load this and run the downstream tests
+              shell: julia --project=downstream {0}
+              run: |
+                  using Pkg
+                  try
+                    # force it to use this PR's version of the package
+                    Pkg.develop(PackageSpec(path="."))  # resolver may fail with main deps
+                    Pkg.update()
+                    Pkg.test()  # resolver may fail with test time deps 
+                  catch err
+                    err isa Pkg.Resolve.ResolverError || rethrow()
+                    # If we can't resolve that means this is incompatible by SemVer and this is fine
+                    # It means we marked this as a breaking change, so we don't need to worry about
+                    # Mistakenly introducing a breaking change, as we have intentionally made one
+
+                    @info "Not compatible with this release. No problem." exception=err
+                    exit(0)  # Exit immediately, as a success
+                  end
