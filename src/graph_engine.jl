@@ -1238,6 +1238,10 @@ function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, propert
     return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
 end
 
+function MetaGraphsNext.code_for(graph::MetaGraph, label::NodeLabel)
+    return label.global_counter
+end
+
 Graphs.degree(model::Model, label::NodeLabel) = Graphs.degree(model.graph, MetaGraphsNext.code_for(model.graph, label))
 
 abstract type AbstractModelFilterPredicate end
