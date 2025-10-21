@@ -2243,7 +2243,7 @@ end
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_throws "Expected only one missing interface, got () of length 0 (node sum with interfaces (:in, :out))" make_node!(
+    @test_throws "needs to be defined with one unspecified interface" make_node!(
         model, ctx, options, +, out, (in = in1, out = in2)
     )
 
