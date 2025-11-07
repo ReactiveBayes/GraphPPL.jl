@@ -382,8 +382,9 @@ function convert_anonymous_variables(e::Expr)
 end
 
 # This is necessary to ensure that we don't change the `created_by` option as well.
-what_walk(::typeof(convert_anonymous_variables)) =
-    walk_until_occurrence((:(lhs_ ~ rhs_ where {options__}), :(lhs_ .~ rhs_ where {options__})))
+what_walk(::typeof(convert_anonymous_variables)) = walk_until_occurrence((
+    :(lhs_ ~ rhs_ where {options__}), :(lhs_ .~ rhs_ where {options__})
+))
 
 """
     add_get_or_create_expression(e::Expr)
@@ -717,8 +718,9 @@ function get_boilerplate_functions(backend_type, ms_name, ms_args, num_interface
     return quote
         function $ms_name end
         GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), val) = error($error_msg * " $val keywords")
-        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) =
-            GraphPPL.StaticInterfaces(Tuple($ms_args))
+        GraphPPL.interfaces(::$backend_type, ::typeof($ms_name), ::GraphPPL.StaticInt{$num_interfaces}) = GraphPPL.StaticInterfaces(
+            Tuple($ms_args)
+        )
         GraphPPL.NodeType(::$backend_type, ::typeof($ms_name)) = GraphPPL.Composite()
         GraphPPL.NodeBehaviour(::$backend_type, ::typeof($ms_name)) = GraphPPL.Stochastic()
         GraphPPL.aliases(::$backend_type, f::typeof($ms_name)) = (f,)

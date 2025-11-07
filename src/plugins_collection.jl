@@ -43,8 +43,9 @@ Base.:(+)(left::PluginsCollection, right::PluginsCollection) = PluginsCollection
 Adds a plugin to the collection. The plugin must be of a type that is supported by the collection.
 """
 add_plugin(collection::PluginsCollection, plugin) = add_plugin(collection, plugin_type(plugin), plugin)
-add_plugin(collection::PluginsCollection, ::UnknownPluginType, plugin) =
-    error("The plugin $(plugin) has `UnknownPluginType`. Consider implementing `plugin_type` method.")
+add_plugin(collection::PluginsCollection, ::UnknownPluginType, plugin) = error(
+    "The plugin $(plugin) has `UnknownPluginType`. Consider implementing `plugin_type` method."
+)
 add_plugin(collection::PluginsCollection, _, plugin) = PluginsCollection((collection.collection..., plugin))
 
 function Base.filter(::UnknownPluginType, collection::PluginsCollection)

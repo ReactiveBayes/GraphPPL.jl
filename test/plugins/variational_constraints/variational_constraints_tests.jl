@@ -860,9 +860,7 @@ end
     constraints = [constraints_1, constraints_2, constraints_3]
 
     for constraint in constraints,
-        case in [1, 2, 3],
-        submodel_1 in [submodel_1_1, submodel_1_2],
-        submodel_2 in [submodel_2_1, submodel_2_2],
+        case in [1, 2, 3], submodel_1 in [submodel_1_1, submodel_1_2], submodel_2 in [submodel_2_1, submodel_2_2],
         submodel_3 in [submodel_3_1, submodel_3_2]
 
         model = create_model(
@@ -882,8 +880,7 @@ end
 
     # Double check for the full factorization to make sure that the mean-field was not the default one
     for case in [1, 2, 3],
-        submodel_1 in [submodel_1_1, submodel_1_2],
-        submodel_2 in [submodel_2_1, submodel_2_2],
+        submodel_1 in [submodel_1_1, submodel_1_2], submodel_2 in [submodel_2_1, submodel_2_2],
         submodel_3 in [submodel_3_1, submodel_3_2]
 
         model = create_model(

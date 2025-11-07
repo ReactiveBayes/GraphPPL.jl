@@ -57,8 +57,9 @@ Base.show(io::IO, range::SplittedRange) = print(io, repr(range.from), "..", repr
 # placeholders in a form of the `FunctionalIndex` structure. This function correctly resolves all indices and check bounds as an extra step.
 function __factorization_specification_resolve_index end
 
-__factorization_specification_resolve_index(index::Any, collection::NodeLabel) =
-    error("Attempt to access a single variable $(getname(collection)) at index [$(index)].") # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
+__factorization_specification_resolve_index(index::Any, collection::NodeLabel) = error(
+    "Attempt to access a single variable $(getname(collection)) at index [$(index)]."
+) # `index` here is guaranteed to be not `nothing`, because of dispatch. `Nothing, Nothing` version will dispatch on the method below
 __factorization_specification_resolve_index(index::Nothing, collection::NodeLabel) = nothing
 __factorization_specification_resolve_index(index::Nothing, collection::AbstractArray{<:NodeLabel}) = nothing
 __factorization_specification_resolve_index(index::Integer, collection::AbstractArray{<:NodeLabel}) =
@@ -69,14 +70,16 @@ __factorization_specification_resolve_index(index::Integer, collection::Abstract
             "Index out of bounds happened during indices resolution in factorization constraints. Attempt to access collection $(collection) of variable $(getname(collection)) at index [$(index)]."
         )
     end
-__factorization_specification_resolve_index(index::FunctionalIndex, collection::AbstractArray{<:NodeLabel}) =
-    __factorization_specification_resolve_index(index(collection)::Integer, collection)::Integer
+__factorization_specification_resolve_index(index::FunctionalIndex, collection::AbstractArray{<:NodeLabel}) = __factorization_specification_resolve_index(
+    index(collection)::Integer, collection
+)::Integer
 __factorization_specification_resolve_index(index::CombinedRange, collection::AbstractArray{<:NodeLabel}) = CombinedRange(
     __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
 )
-__factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, N}) where {N} =
-    throw(NotImplementedError("Splitted ranges are not supported for more than 1 dimension."))
+__factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, N}) where {N} = throw(
+    NotImplementedError("Splitted ranges are not supported for more than 1 dimension.")
+)
 __factorization_specification_resolve_index(index::SplittedRange, collection::AbstractArray{<:NodeLabel, 1}) = SplittedRange(
     __factorization_specification_resolve_index(firstindex(index), collection)::Integer,
     __factorization_specification_resolve_index(lastindex(index), collection)::Integer
@@ -112,8 +115,9 @@ getindices(entry::FactorizationConstraintEntry) = map(index, entries(entry))
 Base.:(*)(left::FactorizationConstraintEntry, right::FactorizationConstraintEntry) = (left, right)
 Base.:(*)(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::FactorizationConstraintEntry) = (left..., right)
 Base.:(*)(left::FactorizationConstraintEntry, right::NTuple{N, FactorizationConstraintEntry} where {N}) = (left, right...)
-Base.:(*)(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::NTuple{N, FactorizationConstraintEntry} where {N}) =
-    (left..., right...)
+Base.:(*)(left::NTuple{N, FactorizationConstraintEntry} where {N}, right::NTuple{N, FactorizationConstraintEntry} where {N}) = (
+    left..., right...
+)
 
 # Because of a parsing issue, q(x)(q(y)) is not parsed as q(x) * q(y), but as (q(x))(q(y)) (function call). So we implement the function call as multiplication. 
 (left::FactorizationConstraintEntry)(right::FactorizationConstraintEntry) = left * right
@@ -201,8 +205,9 @@ struct FactorizationConstraint{V, F}
     end
 end
 
-FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} =
-    FactorizationConstraint(variables, (constriant,))
+FactorizationConstraint(variables::V, constriant::FactorizationConstraintEntry) where {V} = FactorizationConstraint(
+    variables, (constriant,)
+)
 
 Base.:(==)(left::FactorizationConstraint, right::FactorizationConstraint) =
     left.variables == right.variables && left.constraint == right.constraint
@@ -230,10 +235,12 @@ struct MarginalFormConstraint{V, F}
     constraint::F
 end
 
-Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: AbstractArray, F}) =
-    print(io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: IndexedVariable, F}) =
-    print(io, "q(", getvariables(constraint), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: AbstractArray, F}) = print(
+    io, "q(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint
+)
+Base.show(io::IO, constraint::MarginalFormConstraint{V, F} where {V <: IndexedVariable, F}) = print(
+    io, "q(", getvariables(constraint), ") :: ", constraint.constraint
+)
 
 """
 A `MessageConstraint` represents a single constraint on the messages in a message passing schema. 
@@ -244,10 +251,12 @@ struct MessageFormConstraint{V, F}
     constraint::F
 end
 
-Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: AbstractArray, F}) =
-    print(io, "μ(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint)
-Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: IndexedVariable, F}) =
-    print(io, "μ(", getvariables(constraint), ") :: ", constraint.constraint)
+Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: AbstractArray, F}) = print(
+    io, "μ(", join(getvariables(constraint), ", "), ") :: ", constraint.constraint
+)
+Base.show(io::IO, constraint::MessageFormConstraint{V, F} where {V <: IndexedVariable, F}) = print(
+    io, "μ(", getvariables(constraint), ") :: ", constraint.constraint
+)
 
 const MaterializedConstraints = Union{FactorizationConstraint, MarginalFormConstraint, MessageFormConstraint}
 
@@ -430,9 +439,9 @@ Base.show(io::IO, var::ResolvedIndexedVariable{T}) where {T} = print(io, getvari
 
 Base.in(nodedata::NodeData, var::ResolvedIndexedVariable) = in(nodedata, getproperties(nodedata), var)
 
-Base.in(
-    nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}
-) = Base.in(nodedata, properties, var, index(properties))
+Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{Int, NTuple{N, Int} where N}}) = Base.in(
+    nodedata, properties, var, index(properties)
+)
 
 Base.in(
     nodedata::NodeData,
@@ -454,11 +463,9 @@ Base.in(
 Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) =
     (getname(var) == getname(properties)) && (getcontext(var) == getcontext(nodedata))
 
-Base.in(
-    nodedata::NodeData,
-    properties::VariableNodeProperties,
-    var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}
-) = Base.in(nodedata, properties, var, index(properties))
+Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Union{SplittedRange, CombinedRange, UnitRange}}) = Base.in(
+    nodedata, properties, var, index(properties)
+)
 
 Base.in(
     nodedata::NodeData,
@@ -682,8 +689,9 @@ edge case but don't know how we can resolve this, let alone efficiently. Please 
 end
 
 __resolve(model::Model, label::VariableRef) = __resolve(model, getifcreated(model, label.context, label))
-__resolve(model::Model, label::AbstractArray{T}) where {T <: VariableRef} =
-    __resolve(model, map(l -> getifcreated(model, l.context, l), label))
+__resolve(model::Model, label::AbstractArray{T}) where {T <: VariableRef} = __resolve(
+    model, map(l -> getifcreated(model, l.context, l), label)
+)
 
 function __resolve(model::Model, label::NodeLabel)
     data = model[label]
@@ -772,8 +780,9 @@ function resolve(model::Model, context::Context, variable::IndexedVariable)
     return __resolve(model, global_label)
 end
 
-resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} =
-    throw(UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2."))
+resolve(model::Model, context::Context, variable::IndexedVariable{CombinedRange{NTuple{N, Int}, NTuple{N, Int}}}) where {N} = throw(
+    UnresolvableFactorizationConstraintError("Cannot resolve factorization constraint for a combined range of dimension > 2.")
+)
 
 function resolve(model::Model, context::Context, variable::IndexedVariable{<:CombinedRange})
     global_label = view(unroll_nocreate(context[getname(variable)]), firstindex(index(variable)):lastindex(index(variable)))

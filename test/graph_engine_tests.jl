@@ -2243,9 +2243,7 @@ end
     in1 = getorcreate!(model, ctx, :in1, nothing)
     in2 = getorcreate!(model, ctx, :in2, nothing)
     out = getorcreate!(model, ctx, :out, nothing)
-    @test_throws "needs to be defined with one unspecified interface" make_node!(
-        model, ctx, options, +, out, (in = in1, out = in2)
-    )
+    @test_throws "needs to be defined with one unspecified interface" make_node!(model, ctx, options, +, out, (in = in1, out = in2))
 
     # Test 8: Stochastic node with nodelabel objects where we have an array on the rhs (so should create 1 node for [0, 1])
     model = create_test_model()

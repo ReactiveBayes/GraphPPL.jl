@@ -137,8 +137,9 @@ function apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} wher
     apply_meta!(model, context, meta, nodes)
 end
 
-apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel) =
-    save_meta!(model, node, meta)
+apply_meta!(model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, node::NodeLabel) = save_meta!(
+    model, node, meta
+)
 
 function apply_meta!(
     model::Model, context::Context, meta::MetaObject{S, T} where {S <: VariableMetaDescriptor, T}, nodes::AbstractArray{NodeLabel}

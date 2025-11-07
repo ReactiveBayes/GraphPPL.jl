@@ -311,7 +311,7 @@ end
     global x = entry
     for i in 1:3
         global x = x * x
-        @test x == Tuple([entry for _ in 1:(2^i)])
+        @test x == Tuple([entry for _ in 1:(2 ^ i)])
     end
 end
 
