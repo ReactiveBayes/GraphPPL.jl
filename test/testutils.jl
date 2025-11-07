@@ -6,17 +6,15 @@ export @test_expression_generating
 
 macro test_expression_generating(lhs, rhs)
     test_expr_gen = gensym(:text_expr_gen)
-    return esc(
-        quote
-            $test_expr_gen = (prettify($lhs) == prettify($rhs))
-            if !$test_expr_gen
-                println("Expressions do not match: ")
-                println("lhs: ", prettify($lhs))
-                println("rhs: ", prettify($rhs))
-            end
-            @test (prettify($lhs) == prettify($rhs))
+    return esc(quote
+        $test_expr_gen = (prettify($lhs) == prettify($rhs))
+        if !$test_expr_gen
+            println("Expressions do not match: ")
+            println("lhs: ", prettify($lhs))
+            println("rhs: ", prettify($rhs))
         end
-    )
+        @test (prettify($lhs) == prettify($rhs))
+    end)
 end
 
 export @test_expression_generating_broken
@@ -41,8 +39,9 @@ GraphPPL.aliases(::TestGraphPPLBackend, fform) = GraphPPL.aliases(GraphPPL.Defau
 GraphPPL.interfaces(::TestGraphPPLBackend, fform, n) = GraphPPL.interfaces(GraphPPL.DefaultBackend(), fform, n)
 GraphPPL.factor_alias(::TestGraphPPLBackend, f, interfaces) = GraphPPL.factor_alias(GraphPPL.DefaultBackend(), f, interfaces)
 GraphPPL.interface_aliases(::TestGraphPPLBackend, f) = GraphPPL.interface_aliases(GraphPPL.DefaultBackend(), f)
-GraphPPL.default_parametrization(::TestGraphPPLBackend, nodetype, f, rhs) =
-    GraphPPL.default_parametrization(GraphPPL.DefaultBackend(), nodetype, f, rhs)
+GraphPPL.default_parametrization(::TestGraphPPLBackend, nodetype, f, rhs) = GraphPPL.default_parametrization(
+    GraphPPL.DefaultBackend(), nodetype, f, rhs
+)
 GraphPPL.instantiate(::Type{TestGraphPPLBackend}) = TestGraphPPLBackend()
 
 # Check that we can alias the `+` into `sum` and `*` into `prod`

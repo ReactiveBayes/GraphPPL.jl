@@ -40,8 +40,9 @@ GraphPPL.interface_aliases(::DefaultBackend, _) = GraphPPL.StaticInterfaceAliase
 # By default only one default parametrization is provided for all nodes, which maps the provided arguments to the `in` interface
 # And throws an error for `Composite` nodes since those has to be called with named arguments anyway
 default_parametrization(::DefaultBackend, ::Atomic, fform::F, rhs::Tuple) where {F} = (in = rhs,)
-default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} =
-    error("Composite nodes always have to be initialized with named arguments")
+default_parametrization(::DefaultBackend, ::Composite, fform::F, rhs) where {F} = error(
+    "Composite nodes always have to be initialized with named arguments"
+)
 
 # The default backend does not really have any special hyperparameters
 GraphPPL.instantiate(::Type{DefaultBackend}) = DefaultBackend()

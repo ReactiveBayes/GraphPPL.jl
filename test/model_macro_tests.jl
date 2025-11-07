@@ -1032,20 +1032,18 @@ end
         y .~ Normal(a .* y .+ b, 1) where {created_by = y .~ Normal(a .* y .+ b, 1)}
     end
     output = quote
-        y .~ (
-            Normal(
-                let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                    var"#anon1" .~ (
-                        (
-                            let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                var"#anon2" .~ ((a * y) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))})
-                            end + b
-                        ) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))}
-                    )
-                end,
-                1
-            ) where {(created_by = (y .~ Normal(a .* y .+ b, 1)))}
-        )
+        y .~ (Normal(
+            let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                var"#anon1" .~ (
+                    (
+                        let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                            var"#anon2" .~ ((a * y) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))})
+                        end + b
+                    ) where {anonymous = true, created_by = (y .~ Normal(a .* y .+ b, 1))}
+                )
+            end,
+            1
+        ) where {(created_by = (y .~ Normal(a .* y .+ b, 1)))})
     end
     @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
 
@@ -1056,99 +1054,48 @@ end
     end
     output = quote
         (
-            y .~ (
-                Normal(
-                    mean = let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        var"#anon1" .~ (
-                            (
-                                let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                    var"#anon2" .~ (
-                                        (
-                                            x * b
-                                        ) where {
-                                            anonymous = true,
-                                            created_by = (
-                                                y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
-                                            )
-                                        }
-                                    )
-                                end + a
-                            ) where {
-                                anonymous = true,
-                                created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
-                            }
-                        )
-                    end,
-                    var = let var"#anon3" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                        var"#anon3" ~ (
-                            det(
-                                let var"#anon4" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                    var"#anon4" .~ (
-                                        (
-                                            let var"#anon5" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                                var"#anon5" .~ (
-                                                    (
-                                                        let var"#anon6" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                                            var"#anon6" ~ (
-                                                                diagm(
-                                                                    let var"#anon7" = GraphPPL.create_anonymous_variable!(
-                                                                            __model__, __context__
-                                                                        )
-                                                                        var"#anon7" ~ (
-                                                                            ones(
-                                                                                2
-                                                                            ) where {
-                                                                                anonymous = true,
-                                                                                created_by = (
-                                                                                    y .~ Normal(
-                                                                                        mean = x .* b .+ a,
-                                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
-                                                                                    )
-                                                                                )
-                                                                            }
-                                                                        )
-                                                                    end
-                                                                ) where {
-                                                                    anonymous = true,
-                                                                    created_by = (
-                                                                        y .~ Normal(
-                                                                            mean = x .* b .+ a,
-                                                                            var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
-                                                                        )
+            y .~ (Normal(
+                mean = let var"#anon1" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                    var"#anon1" .~ (
+                        (
+                            let var"#anon2" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                var"#anon2" .~ (
+                                    (
+                                        x * b
+                                    ) where {
+                                        anonymous = true,
+                                        created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                                    }
+                                )
+                            end + a
+                        ) where {
+                            anonymous = true,
+                            created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                        }
+                    )
+                end,
+                var = let var"#anon3" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                    var"#anon3" ~ (det(
+                        let var"#anon4" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                            var"#anon4" .~ (
+                                (
+                                    let var"#anon5" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                        var"#anon5" .~ (
+                                            (
+                                                let var"#anon6" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                    var"#anon6" ~ (diagm(
+                                                        let var"#anon7" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                            var"#anon7" ~ (ones(
+                                                                2
+                                                            ) where {
+                                                                anonymous = true,
+                                                                created_by = (
+                                                                    y .~ Normal(
+                                                                        mean = x .* b .+ a,
+                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
                                                                     )
-                                                                }
-                                                            )
-                                                        end +
-                                                        let var"#anon8" = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                                                            var"#anon8" ~ (
-                                                                diagm(
-                                                                    let var"#anon9" = GraphPPL.create_anonymous_variable!(
-                                                                            __model__, __context__
-                                                                        )
-                                                                        var"#anon9" ~ (
-                                                                            ones(
-                                                                                2
-                                                                            ) where {
-                                                                                anonymous = true,
-                                                                                created_by = (
-                                                                                    y .~ Normal(
-                                                                                        mean = x .* b .+ a,
-                                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
-                                                                                    )
-                                                                                )
-                                                                            }
-                                                                        )
-                                                                    end
-                                                                ) where {
-                                                                    anonymous = true,
-                                                                    created_by = (
-                                                                        y .~ Normal(
-                                                                            mean = x .* b .+ a,
-                                                                            var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
-                                                                        )
-                                                                    )
-                                                                }
-                                                            )
+                                                                )
+                                                            })
                                                         end
                                                     ) where {
                                                         anonymous = true,
@@ -1157,25 +1104,51 @@ end
                                                                 mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
                                                             )
                                                         )
-                                                    }
+                                                    })
+                                                end + let var"#anon8" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                    var"#anon8" ~ (diagm(
+                                                        let var"#anon9" = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                                                            var"#anon9" ~ (ones(
+                                                                2
+                                                            ) where {
+                                                                anonymous = true,
+                                                                created_by = (
+                                                                    y .~ Normal(
+                                                                        mean = x .* b .+ a,
+                                                                        var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                                    )
+                                                                )
+                                                            })
+                                                        end
+                                                    ) where {
+                                                        anonymous = true,
+                                                        created_by = (
+                                                            y .~ Normal(
+                                                                mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)
+                                                            )
+                                                        )
+                                                    })
+                                                end
+                                            ) where {
+                                                anonymous = true,
+                                                created_by = (
+                                                    y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
                                                 )
-                                            end / 2
-                                        ) where {
-                                            anonymous = true,
-                                            created_by = (
-                                                y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))
-                                            )
-                                        }
-                                    )
-                                end
-                            ) where {
-                                anonymous = true,
-                                created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
-                            }
-                        )
-                    end
-                ) where {(created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))))}
-            )
+                                            }
+                                        )
+                                    end / 2
+                                ) where {
+                                    anonymous = true,
+                                    created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                                }
+                            )
+                        end
+                    ) where {
+                        anonymous = true,
+                        created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2)))
+                    })
+                end
+            ) where {(created_by = (y .~ Normal(mean = x .* b .+ a, var = det((diagm(ones(2)) .+ diagm(ones(2))) ./ 2))))})
         )
     end
     @test_expression_generating apply_pipeline(input, convert_anonymous_variables) output
@@ -1558,14 +1531,12 @@ end
 
     # Test 4: Test node creation with anonymous variable
     input = quote
-        z ~ (
-            Normal(
-                let anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                    anon_1 ~ ((x + 1) where {anonymous = true, created_by = :(z ~ Normal(x + 1, y))})
-                end,
-                y
-            ) where {(created_by = :(z ~ Normal(x + 1, y)))}
-        )
+        z ~ (Normal(
+            let anon_1 = GraphPPL.create_anonymous_variable!(__model__, __context__)
+                anon_1 ~ ((x + 1) where {anonymous = true, created_by = :(z ~ Normal(x + 1, y))})
+            end,
+            y
+        ) where {(created_by = :(z ~ Normal(x + 1, y)))})
     end
     output = quote
         begin

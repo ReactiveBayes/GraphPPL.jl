@@ -105,12 +105,13 @@ end
 (::Colon)(left::FunctionalIndex, right) = FunctionalRange(left, right)
 (::Colon)(left::FunctionalIndex, right::FunctionalIndex) = FunctionalRange(left, right)
 
-Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L, R <: FunctionalIndex} =
-    collection[(range.left):range.right(collection)]
-Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R} =
-    collection[range.left(collection):(range.right)]
-Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R <: FunctionalIndex} =
-    collection[range.left(collection):range.right(collection)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L, R <: FunctionalIndex} = collection[(range.left):range.right(
+    collection
+)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R} = collection[range.left(collection):(range.right)]
+Base.getindex(collection::AbstractArray, range::FunctionalRange{L, R}) where {L <: FunctionalIndex, R <: FunctionalIndex} = collection[range.left(collection):range.right(
+    collection
+)]
 
 function Base.show(io::IO, range::FunctionalRange)
     print(io, range.left, ":", range.right)
@@ -318,8 +319,9 @@ is_proxied(::Type{T}) where {T <: NodeLabel} = True()
 is_proxied(::Type{T}) where {T <: ProxyLabel} = True()
 is_proxied(::Type{T}) where {T <: AbstractArray} = is_proxied(eltype(T))
 
-proxylabel(name::Symbol, proxied::Splat{T}, index, maycreate) where {T} =
-    [proxylabel(name, proxiedelement, index, maycreate) for proxiedelement in proxied.collection]
+proxylabel(name::Symbol, proxied::Splat{T}, index, maycreate) where {T} = [
+    proxylabel(name, proxiedelement, index, maycreate) for proxiedelement in proxied.collection
+]
 
 # By default, `proxylabel` set `maycreate` to `False`
 proxylabel(name::Symbol, proxied, index) = proxylabel(name, proxied, index, False())
@@ -346,8 +348,9 @@ index(label::ProxyLabel) = label.index
 
 # This function allows to overwrite the `maycreate` flag on a proxy label, might be useful for situations where code should
 # definitely not create a new variable, e.g in the variational constraints plugin
-set_maycreate(proxylabel::ProxyLabel, maycreate::Union{True, False}) =
-    ProxyLabel(proxylabel.name, proxylabel.proxied, proxylabel.index, maycreate)
+set_maycreate(proxylabel::ProxyLabel, maycreate::Union{True, False}) = ProxyLabel(
+    proxylabel.name, proxylabel.proxied, proxylabel.index, maycreate
+)
 set_maycreate(something, maycreate::Union{True, False}) = something
 
 function unroll(something)
@@ -375,10 +378,12 @@ checked_getindex(something, index::Tuple) = Base.getindex(something, index...)
 checked_getindex(something, index::Nothing) = something
 
 checked_getindex(nodelabel::NodeLabel, index::Nothing) = nodelabel
-checked_getindex(nodelabel::NodeLabel, index::Tuple) =
-    error("Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed.")
-checked_getindex(nodelabel::NodeLabel, index) =
-    error("Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed.")
+checked_getindex(nodelabel::NodeLabel, index::Tuple) = error(
+    "Indexing a single node label `$(getname(nodelabel))` with an index `[$(join(index, ", "))]` is not allowed."
+)
+checked_getindex(nodelabel::NodeLabel, index) = error(
+    "Indexing a single node label `$(getname(nodelabel))` with an index `$index` is not allowed."
+)
 
 """
 The `lift_index` function "lifts" (or tracks) the index that is going to be used to determine the shape of the container upon creation
@@ -466,8 +471,9 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
     )
 end
 
-Context(parent::Context, model_fform::Function) =
-    Context(parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent)
+Context(parent::Context, model_fform::Function) = Context(
+    parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent
+)
 Context(fform) = Context(0, fform, "", nothing)
 Context() = Context(identity)
 
@@ -682,8 +688,9 @@ struct VariableNodeProperties
     value::Any
 end
 
-VariableNodeProperties(; name, index, kind = VariableKindRandom, link = nothing, value = nothing) =
-    VariableNodeProperties(name, index, kind, link, value)
+VariableNodeProperties(; name, index, kind = VariableKindRandom, link = nothing, value = nothing) = VariableNodeProperties(
+    name, index, kind, link, value
+)
 
 is_factor(::VariableNodeProperties)   = false
 is_variable(::VariableNodeProperties) = true
@@ -754,8 +761,9 @@ prettyname(fform::Any) = string(fform) # Can be overloaded for custom pretty nam
 
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
-addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) =
-    push!(properties.neighbors, (variable, edge, data))
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) = push!(
+    properties.neighbors, (variable, edge, data)
+)
 neighbor_data(properties::FactorNodeProperties) = Iterators.map(neighbor -> neighbor[3], neighbors(properties))
 
 function Base.show(io::IO, properties::FactorNodeProperties)
@@ -1025,14 +1033,16 @@ Base.IteratorSize(ref::VariableRef) = Base.IteratorSize(typeof(ref))
 Base.IteratorEltype(ref::VariableRef) = Base.IteratorEltype(typeof(ref))
 Base.eltype(ref::VariableRef) = Base.eltype(typeof(ref))
 
-Base.IteratorSize(::Type{R}) where {R <: VariableRef} =
-    variable_ref_iterator_size(external_collection_typeof(R), internal_collection_typeof(R))
+Base.IteratorSize(::Type{R}) where {R <: VariableRef} = variable_ref_iterator_size(
+    external_collection_typeof(R), internal_collection_typeof(R)
+)
 variable_ref_iterator_size(::Type{Nothing}, ::Type{Nothing}) = Base.SizeUnknown()
 variable_ref_iterator_size(::Type{E}, ::Type{L}) where {E, L} = Base.IteratorSize(E)
 variable_ref_iterator_size(::Type{Nothing}, ::Type{L}) where {L} = Base.IteratorSize(L)
 
-Base.IteratorEltype(::Type{R}) where {R <: VariableRef} =
-    variable_ref_iterator_eltype(external_collection_typeof(R), internal_collection_typeof(R))
+Base.IteratorEltype(::Type{R}) where {R <: VariableRef} = variable_ref_iterator_eltype(
+    external_collection_typeof(R), internal_collection_typeof(R)
+)
 variable_ref_iterator_eltype(::Type{Nothing}, ::Type{Nothing}) = Base.EltypeUnknown()
 variable_ref_iterator_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.IteratorEltype(E)
 variable_ref_iterator_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.IteratorEltype(L)
@@ -1092,8 +1102,9 @@ A placeholder collection for `VariableRef` when the actual external collection i
 """
 struct MissingCollection end
 
-__err_missing_collection_missing_method(method::Symbol) =
-    error("The `$method` method is not defined for a lazy node label without data attached.")
+__err_missing_collection_missing_method(method::Symbol) = error(
+    "The `$method` method is not defined for a lazy node label without data attached."
+)
 
 Base.IteratorSize(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorSize)
 Base.IteratorEltype(::Type{MissingCollection}) = __err_missing_collection_missing_method(:IteratorEltype)
@@ -1129,8 +1140,9 @@ end
 
 # We can't really check if the data compatible or not if we get the `MissingCollection`
 __check_external_collection_compatibility(label::VariableRef, ::MissingCollection, index::Tuple) = true
-__check_external_collection_compatibility(label::VariableRef, collection::AbstractArray, indices::Tuple) =
-    checkbounds(Bool, collection, indices...)
+__check_external_collection_compatibility(label::VariableRef, collection::AbstractArray, indices::Tuple) = checkbounds(
+    Bool, collection, indices...
+)
 __check_external_collection_compatibility(label::VariableRef, collection::Tuple, indices::Tuple) =
     length(indices) === 1 && first(indices) ∈ 1:length(collection)
 # A number cannot really be queried with non-empty indices
@@ -1231,8 +1243,9 @@ Graphs.edges(model::Model, node::NodeLabel) = Graphs.edges(model, node, model[no
 Graphs.edges(model::Model, nodes::AbstractArray{<:NodeLabel}) = Iterators.flatten(map(node -> Graphs.edges(model, node), nodes))
 
 Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData) = Graphs.edges(model, node, nodedata, getproperties(nodedata))
-Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties) =
-    map(neighbor -> neighbor[2], neighbors(properties))
+Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::FactorNodeProperties) = map(
+    neighbor -> neighbor[2], neighbors(properties)
+)
 
 function Graphs.edges(model::Model, node::NodeLabel, nodedata::NodeData, properties::VariableNodeProperties)
     return (model[node, dst] for dst in MetaGraphsNext.neighbor_labels(model.graph, node))
@@ -1427,8 +1440,9 @@ The variable (name) found or created in the factor graph model and context.
 function getorcreate! end
 
 getorcreate!(::Model, ::Context, name::Symbol) = error("Index is required in the `getorcreate!` function for variable `$(name)`")
-getorcreate!(::Model, ::Context, options::NodeCreationOptions, name::Symbol) =
-    error("Index is required in the `getorcreate!` function for variable `$(name)`")
+getorcreate!(::Model, ::Context, options::NodeCreationOptions, name::Symbol) = error(
+    "Index is required in the `getorcreate!` function for variable `$(name)`"
+)
 
 function getorcreate!(model::Model, ctx::Context, name::Symbol, index...)
     return getorcreate!(model, ctx, EmptyNodeCreationOptions, name, index...)
@@ -1492,11 +1506,13 @@ end
 
 getifcreated(model::Model, context::Context, var::NodeLabel) = var
 getifcreated(model::Model, context::Context, var::ResizableArray) = var
-getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}} where {T <: Union{NodeLabel, ProxyLabel, VariableRef}}) =
-    map((v) -> getifcreated(model, context, v), var)
+getifcreated(model::Model, context::Context, var::Union{Tuple, AbstractArray{T}} where {T <: Union{NodeLabel, ProxyLabel, VariableRef}}) = map(
+    (v) -> getifcreated(model, context, v), var
+)
 getifcreated(model::Model, context::Context, var::ProxyLabel) = var
-getifcreated(model::Model, context::Context, var) =
-    add_constant_node!(model, context, NodeCreationOptions(value = var, kind = :constant), :constvar, nothing)
+getifcreated(model::Model, context::Context, var) = add_constant_node!(
+    model, context, NodeCreationOptions(value = var, kind = :constant), :constvar, nothing
+)
 
 """
     add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
@@ -1667,8 +1683,9 @@ Returns the alias for a given `fform` and `interfaces` with a given `backend`.
 """
 function factor_alias end
 
-factor_alias(backend, fform, interfaces) =
-    error("The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`.")
+factor_alias(backend, fform, interfaces) = error(
+    "The backend $backend must implement a method for `factor_alias` for `$(fform)` and `$(interfaces)`."
+)
 factor_alias(model::Model, fform::F, interfaces) where {F} = factor_alias(getbackend(model), fform, interfaces)
 
 """
@@ -1713,14 +1730,9 @@ function add_edge!(
     return add_edge!(model, factor_node_id, factor_node_propeties, variable_node_id, interface_name, 1)
 end
 
-add_edge!(
-    model::Model,
-    factor_node_id::NodeLabel,
-    factor_node_propeties::FactorNodeProperties,
-    variable_node_id::Union{ProxyLabel, VariableRef},
-    interface_name::Symbol,
-    index
-) = add_edge!(model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index)
+add_edge!(model::Model, factor_node_id::NodeLabel, factor_node_propeties::FactorNodeProperties, variable_node_id::Union{ProxyLabel, VariableRef}, interface_name::Symbol, index) = add_edge!(
+    model, factor_node_id, factor_node_propeties, unroll(variable_node_id), interface_name, index
+)
 
 function add_edge!(
     model::Model,
@@ -1776,8 +1788,9 @@ Returns the interfaces for a given `fform` and `backend` with a given amount of 
 """
 function interfaces end
 
-interfaces(backend, fform, ninputs) =
-    error("The backend $(backend) must implement a method for `interfaces` for `$(fform)` and `$(ninputs)` number of inputs.")
+interfaces(backend, fform, ninputs) = error(
+    "The backend $(backend) must implement a method for `interfaces` for `$(fform)` and `$(ninputs)` number of inputs."
+)
 interfaces(model::Model, fform::F, ninputs) where {F} = interfaces(getbackend(model), fform, ninputs)
 
 struct StaticInterfaceAliases{A} end
@@ -1793,8 +1806,9 @@ function interface_aliases end
 
 interface_aliases(backend, fform) = error("The backend $backend must implement a method for `interface_aliases` for `$(fform)`.")
 interface_aliases(model::Model, fform::F) where {F} = interface_aliases(getbackend(model), fform)
-interface_aliases(model::Model, fform::F, interfaces::StaticInterfaces) where {F} =
-    interface_aliases(interface_aliases(model, fform), interfaces)
+interface_aliases(model::Model, fform::F, interfaces::StaticInterfaces) where {F} = interface_aliases(
+    interface_aliases(model, fform), interfaces
+)
 
 function interface_aliases(::StaticInterfaceAliases{aliases}, ::StaticInterfaces{interfaces}) where {aliases, interfaces}
     return StaticInterfaces(
@@ -1864,8 +1878,9 @@ Returns the default parametrization for a given `fform` and `backend` with a giv
 """
 function default_parametrization end
 
-default_parametrization(backend, nodetype, fform, rhs) =
-    error("The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`.")
+default_parametrization(backend, nodetype, fform, rhs) = error(
+    "The backend $backend must implement a method for `default_parametrization` for `$(fform)` (`$(nodetype)`) and `$(rhs)`."
+)
 default_parametrization(model::Model, nodetype, fform::F, rhs) where {F} = default_parametrization(getbackend(model), nodetype, fform, rhs)
 
 """
@@ -1901,35 +1916,30 @@ function make_node!(model::Model, ctx::Context, fform::F, lhs_interfaces, rhs_in
     return make_node!(model, ctx, EmptyNodeCreationOptions, fform, lhs_interfaces, rhs_interfaces)
 end
 
-make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} = make_node!(
+    NodeType(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
 
 # if it is composite, we assume it should be materialized and it is stochastic
 # TODO: shall we not assume that the `Composite` node is necessarily stochastic?
-make_node!(
-    nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
-) where {F} = make_node!(True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} = make_node!(
+    True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
 
 # If a node is an object and not a function, we materialize it as a stochastic atomic node
-make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing) where {F} =
-    make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}())
+make_node!(model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Nothing) where {F} = make_node!(
+    True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, NamedTuple{}()
+)
 
 # If node is Atomic, check stochasticity
-make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} =
-    make_node!(Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(::Atomic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} = make_node!(
+    Atomic(), NodeBehaviour(model, fform), model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
 
 #If a node is deterministic, we check if there are any NodeLabel objects in the rhs_interfaces (direct check if node should be materialized)
-make_node!(
-    atomic::Atomic,
-    deterministic::Deterministic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface,
-    rhs_interfaces
-) where {F} =
-    make_node!(contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(atomic::Atomic, deterministic::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} = make_node!(
+    contains_nodelabel(rhs_interfaces), atomic, deterministic, model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
 
 # If the node should not be materialized (if it's Atomic, Deterministic and contains no NodeLabel objects), we return the `fform` evaluated at the interfaces
 # This works only if the `lhs_interface` is `AnonymousVariable` (or the corresponding `ProxyLabel` with `AnonymousVariable` as the proxied variable)
@@ -1937,36 +1947,20 @@ __evaluate_fform(fform::F, args::Tuple) where {F} = fform(args...)
 __evaluate_fform(fform::F, args::NamedTuple) where {F} = fform(; args...)
 __evaluate_fform(fform::F, args::MixedArguments) where {F} = fform(args.args...; args.kwargs...)
 
-make_node!(
-    ::False,
-    ::Atomic,
-    ::Deterministic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{AnonymousVariable, ProxyLabel{<:T, <:AnonymousVariable} where {T}},
-    rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
-) where {F} = (nothing, __evaluate_fform(fform, rhs_interfaces))
+make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{AnonymousVariable, ProxyLabel{<:T, <:AnonymousVariable} where {T}}, rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}) where {F} = (
+    nothing, __evaluate_fform(fform, rhs_interfaces)
+)
 
 # In case if the `lhs_interface` is something else we throw an error saying that `fform` cannot be instantiated since
 # arguments are not stochastic and the `fform` is not stochastic either, thus the usage of `~` is invalid
-make_node!(
-    ::False,
-    ::Atomic,
-    ::Deterministic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface,
-    rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}
-) where {F} = error("`$(fform)` cannot be used as a factor node. Both the arguments and the node are not stochastic.")
+make_node!(::False, ::Atomic, ::Deterministic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces::Union{Tuple, NamedTuple, MixedArguments}) where {F} = error(
+    "`$(fform)` cannot be used as a factor node. Both the arguments and the node are not stochastic."
+)
 
 # If a node is Stochastic, we always materialize.
-make_node!(
-    ::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces
-) where {F} = make_node!(True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces)
+make_node!(::Atomic, ::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface, rhs_interfaces) where {F} = make_node!(
+    True(), Atomic(), Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
 
 function make_node!(
     materialize::True,
@@ -1990,17 +1984,7 @@ function make_node!(
 end
 
 # If we have to materialize but the rhs_interfaces argument is not a NamedTuple, we convert it
-make_node!(
-    materialize::True,
-    node_type::NodeType,
-    behaviour::NodeBehaviour,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
-    rhs_interfaces::Tuple
-) where {F} = make_node!(
+make_node!(materialize::True, node_type::NodeType, behaviour::NodeBehaviour, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::Tuple) where {F} = make_node!(
     materialize,
     node_type,
     behaviour,
@@ -2012,53 +1996,21 @@ make_node!(
     GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
-make_node!(
-    ::True,
-    node_type::NodeType,
-    behaviour::NodeBehaviour,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
-    rhs_interfaces::MixedArguments
-) where {F} = error("MixedArguments not supported for rhs_interfaces when node has to be materialized")
+make_node!(::True, node_type::NodeType, behaviour::NodeBehaviour, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::MixedArguments) where {F} = error(
+    "MixedArguments not supported for rhs_interfaces when node has to be materialized"
+)
 
-make_node!(
-    materialize::True,
-    node_type::Composite,
-    behaviour::Stochastic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
-    rhs_interfaces::Tuple{}
-) where {F} = make_node!(materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}())
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::Tuple{}) where {F} = make_node!(
+    materialize, node_type, behaviour, model, ctx, options, fform, lhs_interface, NamedTuple{}()
+)
 
-make_node!(
-    materialize::True,
-    node_type::Composite,
-    behaviour::Stochastic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
-    rhs_interfaces::Tuple
-) where {F} = error(lazy"Composite node $fform cannot should be called with explicitly naming the interface names")
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::Tuple) where {F} = error(
+    lazy"Composite node $fform cannot should be called with explicitly naming the interface names"
+)
 
-make_node!(
-    materialize::True,
-    node_type::Composite,
-    behaviour::Stochastic,
-    model::Model,
-    ctx::Context,
-    options::NodeCreationOptions,
-    fform::F,
-    lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef},
-    rhs_interfaces::NamedTuple
-) where {F} = make_node!(Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1))
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1)
+)
 
 """
     make_node!
