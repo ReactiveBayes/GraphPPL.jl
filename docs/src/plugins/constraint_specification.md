@@ -1,6 +1,15 @@
 # [Constraint Specification](@id constraints-specification)
 
-`GraphPPL` represents your probabilistic model and as a Bethe Free Energy (BFE), which means that users can define constraints on the variational posterior that influence the inference procedure. The BFE is chosen as the objective function because it is a generalization of many well-known inference algorithms. In this section we will explain how to specify constraints on the variational posterior. There are two major types of constraints we can apply: We can apply factorization constraints to factor nodes, which specify how the variational posterior factorizes around a factor node. We can also apply functional form constraints to variable nodes, which specify the functional form of the variational posterior that a variable takes. We can specify all constraints using the `@constraints` macro.
+Variational inference on factor graphs requires specifying the structure of the approximate posterior distribution `q`, namely how it factorizes and what functional forms individual marginals take. These choices determine the variational family over which an objective function, such as the Bethe Free Energy (BFE), is optimized, and in `GraphPPL` they are called **constraints** and are specified using the `@constraints` macro.
+
+For more background on the Bethe Free Energy and its connection to message passing on factor graphs, see:
+- [Yedidia et al. (2005)](https://ieeexplore.ieee.org/iel5/18/31406/01459044.pdf) on belief propagation and regional approximations to the variational free energy;
+- [Dauwels (2007)](https://ieeexplore.ieee.org/iel5/4497218/4557062/04557602.pdf) on variational message passing on Forney-style factor graphs;
+- [Senoz et al. (2021)](https://doi.org/10.3390/e23070807) on constraint manipulation and message passing on factor graphs.
+
+There are two types of constraints:
+- **Factorization constraints** define how the variational posterior factorizes around factor nodes (e.g. ``q(x, y, z) = q(x, y)q(z)``).
+- **Functional form constraints** specify the distributional family for a variable's posterior (e.g. ``q(x) \sim \mathrm{Normal}``).
 
 ## The constraints macro
 
@@ -18,7 +27,7 @@ end
 Suppose we want to apply the following constraints over the variational posterior `q`:
 ```math
 q(x, y, z) = q(x, y)q(z) \\
-q(x) \sim Normal
+q(x) \sim \mathrm{Normal}
 ```
 We can write this in the constraints macro using the following code:
 ```@example constraints
@@ -68,6 +77,40 @@ We can specify constraints over the first `toy_model` submodel using the followi
     end
 end
 ```
+
+## Constraints over vector variables
+
+When a model contains vector (or array) latent variables, we can specify factorization constraints over individual elements using the `begin` and `end` indexing syntax. For example, consider a random walk model where latent states `x` are coupled through sequential dependencies:
+```@example constraints
+@model function random_walk_model(y, n)
+    local x
+    x[1] ~ NormalMeanVariance(0.0, 1.0)
+    for i in 2:n
+        x[i] ~ Normal(x[i - 1], 1.0)
+    end
+    for i in 1:n
+        y[i] ~ Normal(x[i], 1.0)
+    end
+end
+```
+Since the latent states `x` are coupled through the random walk prior, they are not conditionally independent. To enforce a mean-field factorization over the elements of `x`, we can write:
+```@example constraints
+@constraints begin
+    q(x) = q(x[begin])..q(x[end])
+end
+```
+This specifies that the joint posterior over `x` factorizes into independent marginals for each element: ``q(\mathbf{x}) = \prod_i q(x_i)``.
+The `..` operator creates a factorization range from the first to the last element of the vector.
+
+Alternatively, `MeanField()` can be used as a shorthand to factorize all variables into independent marginals:
+```@example constraints
+@constraints begin
+    q(x) = MeanField()
+end
+```
+
+!!! note
+    For a full example using vector variable constraints in practice, see the [Gamma Mixture](https://reactivebayes.github.io/RxInfer.jl/stable/examples/gamma_mixture/) example in the RxInfer documentation.
 
 ## Stacked functional form constraints
 In the constraints macro, we can specify multiple functional form constraints over the same variable. For example, suppose we have the following model:
@@ -120,7 +163,8 @@ end
 
 ## Plugin's internals
 
-```@docs 
+```@docs
+GraphPPL.@constraints
 GraphPPL.VariationalConstraintsPlugin
 GraphPPL.Constraints
 GraphPPL.SpecificSubModelConstraints
