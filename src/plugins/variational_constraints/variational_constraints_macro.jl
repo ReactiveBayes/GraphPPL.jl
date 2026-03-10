@@ -184,6 +184,21 @@ function constraints_macro_interior(cs_body::Expr)
     return cs_body
 end
 
+"""
+    @constraints begin
+        q(x, y, z) = q(x, y)q(z)
+        q(x) :: Normal
+    end
+
+Specify factorization and functional form constraints on the variational posterior for use with Bethe Free Energy-based inference.
+
+Factorization constraints define how the variational posterior factorizes (e.g. `q(x, y, z) = q(x, y)q(z)`).
+Functional form constraints specify the distributional form of the variational posterior for a variable (e.g. `q(x) :: Normal`).
+
+Use `for q in submodel ... end` blocks to apply constraints to variables within submodels.
+
+See the [Constraint Specification](@ref constraints-specification) section for more details.
+"""
 macro constraints(constraints_specification)
     return esc(GraphPPL.constraints_macro_interior(constraints_specification))
 end

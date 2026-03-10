@@ -120,7 +120,8 @@ end
 
 ## Plugin's internals
 
-```@docs 
+```@docs
+GraphPPL.@constraints
 GraphPPL.VariationalConstraintsPlugin
 GraphPPL.Constraints
 GraphPPL.SpecificSubModelConstraints
