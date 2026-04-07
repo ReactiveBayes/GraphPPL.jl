@@ -135,7 +135,7 @@ data_for_x = [ 1.0, 0.0, 0.0, 1.0 ]
 
 model = GraphPPL.create_model(coin_toss()) do model, context
     return (; 
-        # This expression creates data handle for `x` in the model using the `xdata` as the underlying collection
+        # This expression creates data handle for `x` in the model using the `data_for_x` as the underlying collection
         x = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = GraphPPL.VariableKindData), :x, data_for_x)
     )
 end
