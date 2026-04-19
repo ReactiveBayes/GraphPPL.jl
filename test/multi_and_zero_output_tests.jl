@@ -68,14 +68,6 @@ end
     end
 
     # Only one missing interface (a) but providing two on LHS
-    @model function main_wrong_count(x)
-        (a, b) ~ two_iface_sub(x = x, b = b_val) where {b_val = 1.0}
-    end
-
-    # Actually let's define a simpler test that errors:
-    # two_iface_sub has 3 interfaces: a, b, x
-    # If we provide x and b on RHS, only a is missing
-    # But we try to capture (p, q) on LHS (2 outputs for 1 missing) -> error
     @model function main_mismatch(x)
         b ~ Normal(0, 1)
         (p, q) ~ two_iface_sub(x = x, b = b)
