@@ -291,6 +291,14 @@ Base.:(==)(label1::EdgeLabel, label2::EdgeLabel) = label1.name == label2.name &&
 Base.hash(label::EdgeLabel, h::UInt) = hash(label.name, hash(label.index, h))
 
 """
+    NothingInterface
+
+A sentinel type used to represent a zero-output submodel invocation (no LHS variable).
+When used as the `lhs_interface` in `make_node!`, all interfaces must be specified on the RHS.
+"""
+struct NothingInterface end
+
+"""
     Splat{T}
 
 A type used to represent splatting in the model macro. Any call on the right hand side of ~ that uses splatting will be wrapped in this type.
@@ -1863,6 +1871,41 @@ function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
+# Multi-output: lhs_interfaces is a Tuple of multiple interfaces
+function prepare_interfaces(model::Model, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {F}
+    n_lhs = length(lhs_interfaces)
+    missing = missing_interfaces(model, fform, static(length(rhs_interfaces) + n_lhs), rhs_interfaces)
+    return prepare_interfaces_multi(missing, fform, lhs_interfaces, rhs_interfaces)
+end
+
+function prepare_interfaces_multi(::StaticInterfaces{I}, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {I, F}
+    if length(I) != length(lhs_interfaces)
+        n = "\n"
+        error(
+            lazy"Node '$(fform)' has $(length(I)) missing interface(s) $(I) but $(length(lhs_interfaces)) were provided on the LHS.$(n)$(n)Currently specified interfaces are: $(keys(rhs_interfaces))."
+        )
+    end
+    all_keys = (I..., keys(rhs_interfaces)...)
+    all_vals = (lhs_interfaces..., values(rhs_interfaces)...)
+    return NamedTuple{all_keys}(all_vals)
+end
+
+# Zero-output: NothingInterface means all interfaces are on the RHS
+function prepare_interfaces(model::Model, fform::F, ::NothingInterface, rhs_interfaces::NamedTuple) where {F}
+    missing = missing_interfaces(model, fform, static(length(rhs_interfaces)), rhs_interfaces)
+    return prepare_interfaces_zero(missing, fform, rhs_interfaces)
+end
+
+function prepare_interfaces_zero(::StaticInterfaces{I}, fform::F, rhs_interfaces::NamedTuple) where {I, F}
+    if length(I) != 0
+        n = "\n"
+        error(
+            lazy"Zero-output call to '$(fform)' but $(length(I)) interface(s) are still missing: $(I).$(n)$(n)Currently specified interfaces are: $(keys(rhs_interfaces)). All interfaces must be provided for a zero-output submodel call."
+        )
+    end
+    return rhs_interfaces
+end
+
 function materialize_interface(model, context, interface)
     return getifcreated(model, context, unroll(interface))
 end
@@ -2010,6 +2053,20 @@ make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model
 
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::NamedTuple) where {F} = make_node!(
     Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1)
+)
+
+# Multi-output: Tuple LHS for composite nodes
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Tuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
+)
+
+# Zero-output: NothingInterface LHS for composite nodes
+make_node!(nodetype::Composite, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::NothingInterface, rhs_interfaces) where {F} = make_node!(
+    True(), nodetype, Stochastic(), model, ctx, options, fform, lhs_interface, rhs_interfaces
+)
+
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::NothingInterface, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces))
 )
 
 """

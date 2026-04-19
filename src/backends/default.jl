@@ -8,6 +8,7 @@ struct DefaultBackend end
 function GraphPPL.model_macro_interior_pipelines(::DefaultBackend)
     return (
         GraphPPL.check_reserved_variable_names_model,
+        GraphPPL.convert_zero_output_tilde,
         GraphPPL.save_expression_in_tilde,
         GraphPPL.convert_deterministic_statement,
         GraphPPL.convert_local_statement,
