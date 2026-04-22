@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Visualization · GraphPPL.jl</title><meta name="title" content="Visualization · GraphPPL.jl"/><meta property="og:title" content="Visualization · GraphPPL.jl"/><meta property="twitter:title" content="Visualization · GraphPPL.jl"/><meta name="description" content="Documentation for GraphPPL.jl."/><meta property="og:description" content="Documentation for GraphPPL.jl."/><meta property="twitter:description" content="Documentation for GraphPPL.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">GraphPPL.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../syntax_guide/">Syntax Guide</a></li><li><a class="tocitem" href="../nested_models/">Nested Models</a></li><li class="is-active"><a class="tocitem" href>Visualization</a><ul class="internal"><li><a class="tocitem" href="#GraphViz-extension"><span>GraphViz extension</span></a></li><li><a class="tocitem" href="#GraphPlot-extension"><span>GraphPlot extension</span></a></li><li><a class="tocitem" href="#Choosing-an-extension"><span>Choosing an extension</span></a></li></ul></li><li><span class="tocitem">Plugins</span><ul><li><a class="tocitem" href="../plugins/overview/">Overview</a></li><li><a class="tocitem" href="../plugins/constraint_specification/">Variational Inference &amp; Constraints</a></li><li><a class="tocitem" href="../plugins/meta_specification/">Attaching metadata to nodes</a></li><li><a class="tocitem" href="../plugins/created_by/">Tracking creation of nodes</a></li><li><a class="tocitem" href="../plugins/node_tag/">Setting tag of nodes</a></li><li><a class="tocitem" href="../plugins/node_id/">Setting ID of nodes</a></li></ul></li><li><a class="tocitem" href="../migration_3_to_4/">Migration Guide (from v3 to v4)</a></li><li><a class="tocitem" href="../developers_guide/">Developers Guide</a></li><li><a class="tocitem" href="../custom_backend/">Custom backend</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Visualization</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Visualization</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/ReactiveBayes/GraphPPL.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/ReactiveBayes/GraphPPL.jl/blob/main/docs/src/visualization.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="visualization"><a class="docs-heading-anchor" href="#visualization">Visualization</a><a id="visualization-1"></a><a class="docs-heading-anchor-permalink" href="#visualization" title="Permalink"></a></h1><p><code>GraphPPL.jl</code> ships with two optional visualization extensions that let you inspect the factor graph of a model. Both are loaded automatically through Julia&#39;s package extension mechanism — no explicit <code>using GraphPPL.Ext...</code> call is needed. Simply load the relevant packages alongside <code>GraphPPL</code>.</p><h2 id="GraphViz-extension"><a class="docs-heading-anchor" href="#GraphViz-extension">GraphViz extension</a><a id="GraphViz-extension-1"></a><a class="docs-heading-anchor-permalink" href="#GraphViz-extension" title="Permalink"></a></h2><p>The <code>GraphPPLGraphVizExt</code> extension is activated when <code>GraphViz.jl</code> is loaded alongside <code>GraphPPL</code>. It renders the model as a <a href="https://graphviz.org/doc/info/lang.html">DOT</a>-format graph using GraphViz&#39;s layout engines, producing high-quality SVG output that displays inline in notebooks and IDEs.</p><h3 id="Basic-usage"><a class="docs-heading-anchor" href="#Basic-usage">Basic usage</a><a id="Basic-usage-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-usage" title="Permalink"></a></h3><pre><code class="language-julia hljs">using GraphPPL, GraphViz, Distributions
+import GraphPPL: @model
+
+@model function coin_toss(x)
+    θ ~ Beta(1, 1)
+    x .~ Bernoulli(θ)
+end
+
+model = GraphPPL.create_model(coin_toss()) do model, context
+    return (;
+        x = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = GraphPPL.VariableKindData), :x, [1.0, 0.0, 1.0])
+    )
+end
+
+GraphViz.load(model; strategy = :simple)</code></pre><img src='data:image/svg+xml;utf-8,<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.50.0 (20211204.2007)
+ -->
+<!-- Title: G Pages: 1 -->
+<svg width="300pt" height="720pt"
+ viewBox="0.00 0.00 300.17 720.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(2.03 2.03) rotate(0) translate(4 351)">
+<title>G</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-351 144,-351 144,4 -4,4"/>
+<!-- θ_1:nothing -->
+<g id="node1" class="node">
+<title>θ_1:nothing</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-162" rx="18" ry="18"/>
+<text text-anchor="middle" x="18" y="-158.9" font-family="Helvetica,sans-Serif" font-size="12.00">θ</text>
+</g>
+<!-- Distributions.Beta_4 -->
+<g id="node4" class="node">
+<title>Distributions.Beta_4</title>
+<polygon fill="lightgray" stroke="black" points="128,-302 84,-302 84,-258 128,-258 128,-302"/>
+<text text-anchor="middle" x="106" y="-276.9" font-family="Helvetica,sans-Serif" font-size="12.00">Beta</text>
+</g>
+<!-- θ_1:nothing&%2345;&%2345;Distributions.Beta_4 -->
+<g id="edge1" class="edge">
+<title>θ_1:nothing&%2345;&%2345;Distributions.Beta_4</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M27.74,-177.33C40.15,-177.33 60,-177.33 60,-177.33 60,-177.33 60,-269.67 60,-269.67 60,-269.67 72.05,-269.67 83.81,-269.67"/>
+</g>
+<!-- Distributions.Bernoulli_8 -->
+<g id="node8" class="node">
+<title>Distributions.Bernoulli_8</title>
+<polygon fill="lightgray" stroke="black" points="140,-240 72,-240 72,-172 140,-172 140,-240"/>
+<text text-anchor="middle" x="106" y="-202.9" font-family="Helvetica,sans-Serif" font-size="12.00">Bernoulli</text>
+</g>
+<!-- θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_8 -->
+<g id="edge2" class="edge">
+<title>θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_8</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M30.98,-174.67C41.69,-174.67 57.39,-174.67 71.66,-174.67"/>
+</g>
+<!-- Distributions.Bernoulli_9 -->
+<g id="node9" class="node">
+<title>Distributions.Bernoulli_9</title>
+<polygon fill="lightgray" stroke="black" points="140,-154 72,-154 72,-86 140,-86 140,-154"/>
+<text text-anchor="middle" x="106" y="-116.9" font-family="Helvetica,sans-Serif" font-size="12.00">Bernoulli</text>
+</g>
+<!-- θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_9 -->
+<g id="edge3" class="edge">
+<title>θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_9</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M32.14,-150.67C42.83,-150.67 57.97,-150.67 71.76,-150.67"/>
+</g>
+<!-- Distributions.Bernoulli_10 -->
+<g id="node10" class="node">
+<title>Distributions.Bernoulli_10</title>
+<polygon fill="lightgray" stroke="black" points="140,-68 72,-68 72,0 140,0 140,-68"/>
+<text text-anchor="middle" x="106" y="-30.9" font-family="Helvetica,sans-Serif" font-size="12.00">Bernoulli</text>
+</g>
+<!-- θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_10 -->
+<g id="edge4" class="edge">
+<title>θ_1:nothing&%2345;&%2345;Distributions.Bernoulli_10</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M28.49,-147.33C37.14,-147.33 48,-147.33 48,-147.33 48,-147.33 48,-60 48,-60 48,-60 59.3,-60 71.93,-60"/>
+</g>
+<!-- constvar_2:1 -->
+<g id="node2" class="node">
+<title>constvar_2:1</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-329" rx="18" ry="18"/>
+<text text-anchor="middle" x="18" y="-325.9" font-family="Helvetica,sans-Serif" font-size="12.00">1</text>
+</g>
+<!-- constvar_2:1&%2345;&%2345;Distributions.Beta_4 -->
+<g id="edge5" class="edge">
+<title>constvar_2:1&%2345;&%2345;Distributions.Beta_4</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M18,-310.68C18,-303.75 18,-297.5 18,-297.5 18,-297.5 57.72,-297.5 83.79,-297.5"/>
+</g>
+<!-- constvar_3:1 -->
+<g id="node3" class="node">
+<title>constvar_3:1</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-275" rx="18" ry="18"/>
+<text text-anchor="middle" x="18" y="-271.9" font-family="Helvetica,sans-Serif" font-size="12.00">1</text>
+</g>
+<!-- constvar_3:1&%2345;&%2345;Distributions.Beta_4 -->
+<g id="edge6" class="edge">
+<title>constvar_3:1&%2345;&%2345;Distributions.Beta_4</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M34.97,-281.33C48.85,-281.33 68.6,-281.33 83.75,-281.33"/>
+</g>
+<!-- x_5:nothing -->
+<g id="node5" class="node">
+<title>x_5:nothing</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-216" rx="18" ry="18"/>
+<text text-anchor="start" x="12.5" y="-213.9" font-family="Helvetica,sans-Serif" font-size="12.00">x</text>
+<text text-anchor="start" x="19.5" y="-213.9" font-family="Helvetica,sans-Serif" baseline-shift="sub" font-size="6.00">1</text>
+</g>
+<!-- x_5:nothing&%2345;&%2345;Distributions.Bernoulli_8 -->
+<g id="edge7" class="edge">
+<title>x_5:nothing&%2345;&%2345;Distributions.Bernoulli_8</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M36.23,-216C46.5,-216 59.67,-216 71.78,-216"/>
+</g>
+<!-- x_6:nothing -->
+<g id="node6" class="node">
+<title>x_6:nothing</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-108" rx="18" ry="18"/>
+<text text-anchor="start" x="12.5" y="-105.9" font-family="Helvetica,sans-Serif" font-size="12.00">x</text>
+<text text-anchor="start" x="19.5" y="-105.9" font-family="Helvetica,sans-Serif" baseline-shift="sub" font-size="6.00">2</text>
+</g>
+<!-- x_6:nothing&%2345;&%2345;Distributions.Bernoulli_9 -->
+<g id="edge8" class="edge">
+<title>x_6:nothing&%2345;&%2345;Distributions.Bernoulli_9</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M36.23,-108C46.5,-108 59.67,-108 71.78,-108"/>
+</g>
+<!-- x_7:nothing -->
+<g id="node7" class="node">
+<title>x_7:nothing</title>
+<ellipse fill="none" stroke="black" cx="18" cy="-34" rx="18" ry="18"/>
+<text text-anchor="start" x="12.5" y="-31.9" font-family="Helvetica,sans-Serif" font-size="12.00">x</text>
+<text text-anchor="start" x="19.5" y="-31.9" font-family="Helvetica,sans-Serif" baseline-shift="sub" font-size="6.00">3</text>
+</g>
+<!-- x_7:nothing&%2345;&%2345;Distributions.Bernoulli_10 -->
+<g id="edge9" class="edge">
+<title>x_7:nothing&%2345;&%2345;Distributions.Bernoulli_10</title>
+<path fill="none" stroke="%23888888" stroke-width="1.2" d="M36.23,-34C46.5,-34 59.67,-34 71.78,-34"/>
+</g>
+</g>
+</svg>
+'/><p>The return value is a <code>GraphVizGraphWrapper</code>. It renders as SVG in any environment that supports it. The underlying objects are accessible via:</p><ul><li><code>viz.graph</code> — the raw <code>GraphViz.Graph</code> object</li><li><code>viz.dot_string</code> — the generated DOT source string</li></ul><h3 id="Saving-to-a-file"><a class="docs-heading-anchor" href="#Saving-to-a-file">Saving to a file</a><a id="Saving-to-a-file-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-to-a-file" title="Permalink"></a></h3><p>To write the visualization to disk as an SVG file, pass a path to <code>save_to</code>:</p><pre><code class="language-julia hljs">GraphViz.load(model; strategy = :simple, save_to = &quot;model.svg&quot;)</code></pre><h3 id="Traversal-strategies"><a class="docs-heading-anchor" href="#Traversal-strategies">Traversal strategies</a><a id="Traversal-strategies-1"></a><a class="docs-heading-anchor-permalink" href="#Traversal-strategies" title="Permalink"></a></h3><p>The <code>strategy</code> keyword controls the order in which nodes and edges are written into the DOT source, which influences how the layout engine positions them.</p><ul><li><strong><code>:simple</code></strong> — iterates directly over all vertices and edges. Fast and sufficient for most models.</li><li><strong><code>:bfs</code></strong> — traverses the graph breadth-first starting from the first created node. Tends to produce more structured layouts for models with a natural sequential or hierarchical order.</li></ul><h3 id="Visual-encoding"><a class="docs-heading-anchor" href="#Visual-encoding">Visual encoding</a><a id="Visual-encoding-1"></a><a class="docs-heading-anchor-permalink" href="#Visual-encoding" title="Permalink"></a></h3><p>The extension distinguishes node types visually:</p><table><tr><th style="text-align: left">Node type</th><th style="text-align: left">Shape</th><th style="text-align: left">Fill</th><th style="text-align: left">Text</th></tr><tr><td style="text-align: left">Factor node</td><td style="text-align: left">square</td><td style="text-align: left">blue (<code>#4A90D9</code>)</td><td style="text-align: left">white</td></tr><tr><td style="text-align: left">Variable node</td><td style="text-align: left">circle</td><td style="text-align: left">white</td><td style="text-align: left">black</td></tr></table><p>Variable labels are rendered depending on their kind:</p><ul><li><strong>Constants</strong> — shown as their quoted value (e.g. <code>&quot;1.0&quot;</code>)</li><li><strong>Indexed variables</strong> — rendered with an HTML subscript (e.g. <code>x₁</code>)</li><li><strong>Plain variables</strong> — shown as their quoted name (e.g. <code>&quot;x&quot;</code>)</li></ul><p>Factor node labels use <code>GraphPPL.prettyname</code> on the node&#39;s properties.</p><h3 id="Configuration-options"><a class="docs-heading-anchor" href="#Configuration-options">Configuration options</a><a id="Configuration-options-1"></a><a class="docs-heading-anchor-permalink" href="#Configuration-options" title="Permalink"></a></h3><table><tr><th style="text-align: left">Keyword</th><th style="text-align: left">Type</th><th style="text-align: left">Default</th><th style="text-align: left">Description</th></tr><tr><td style="text-align: left"><code>strategy</code></td><td style="text-align: left"><code>Symbol</code></td><td style="text-align: left">(required)</td><td style="text-align: left">Traversal order: <code>:simple</code> or <code>:bfs</code></td></tr><tr><td style="text-align: left"><code>layout</code></td><td style="text-align: left"><code>String</code></td><td style="text-align: left"><code>&quot;dot&quot;</code></td><td style="text-align: left">GraphViz layout engine (<code>&quot;dot&quot;</code>, <code>&quot;neato&quot;</code>, <code>&quot;fdp&quot;</code>, …)</td></tr><tr><td style="text-align: left"><code>font_size</code></td><td style="text-align: left"><code>Int</code></td><td style="text-align: left"><code>12</code></td><td style="text-align: left">Font size for node labels</td></tr><tr><td style="text-align: left"><code>edge_length</code></td><td style="text-align: left"><code>Float64</code></td><td style="text-align: left"><code>1.0</code></td><td style="text-align: left">Visual length of edges (interpreted by the layout engine)</td></tr><tr><td style="text-align: left"><code>overlap</code></td><td style="text-align: left"><code>Bool</code></td><td style="text-align: left"><code>false</code></td><td style="text-align: left">Whether nodes are allowed to overlap</td></tr><tr><td style="text-align: left"><code>width</code></td><td style="text-align: left"><code>Float64</code></td><td style="text-align: left"><code>10.0</code></td><td style="text-align: left">Canvas width in inches</td></tr><tr><td style="text-align: left"><code>height</code></td><td style="text-align: left"><code>Float64</code></td><td style="text-align: left"><code>10.0</code></td><td style="text-align: left">Canvas height in inches</td></tr><tr><td style="text-align: left"><code>save_to</code></td><td style="text-align: left"><code>String</code> or <code>Nothing</code></td><td style="text-align: left"><code>nothing</code></td><td style="text-align: left">If set, writes the SVG to this file path</td></tr></table><div class="admonition is-success" id="Tip-51225262754d4e00"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-51225262754d4e00" title="Permalink"></a></header><div class="admonition-body"><p>For dense or large models, try <code>layout = &quot;fdp&quot;</code> or <code>layout = &quot;dot&quot;</code> combined with <code>overlap = false</code> to reduce visual clutter.</p></div></div><h2 id="GraphPlot-extension"><a class="docs-heading-anchor" href="#GraphPlot-extension">GraphPlot extension</a><a id="GraphPlot-extension-1"></a><a class="docs-heading-anchor-permalink" href="#GraphPlot-extension" title="Permalink"></a></h2><p>The <code>GraphPPLPlottingExt</code> extension activates when both <code>GraphPlot</code> and <code>Cairo</code> are loaded. It is a lighter-weight alternative that renders the graph through GraphPlot and saves the result as a PNG.</p><h3 id="Basic-usage-2"><a class="docs-heading-anchor" href="#Basic-usage-2">Basic usage</a><a class="docs-heading-anchor-permalink" href="#Basic-usage-2" title="Permalink"></a></h3><pre><code class="language-julia hljs">using GraphPPL, GraphPlot, Cairo
+import GraphPPL: @model
+using Distributions
+
+@model function coin_toss(x)
+    θ ~ Beta(1, 1)
+    x .~ Bernoulli(θ)
+end
+
+model = GraphPPL.create_model(coin_toss()) do model, context
+    return (;
+        x = GraphPPL.datalabel(model, context, GraphPPL.NodeCreationOptions(kind = GraphPPL.VariableKindData), :x, [1.0, 0.0, 1.0])
+    )
+end
+
+GraphPlot.gplot(model)</code></pre><img src='data:image/svg+xml;utf-8,<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     version="1.2"
+     width="100mm" height="100mm" viewBox="0 0 100 100"
+     stroke="none"
+     fill="%23000000"
+     stroke-width="0.3"
+     font-size="3.88"
+>
+<defs>
+  <marker id="arrow" markerWidth="15" markerHeight="7" refX="5" refY="3.5" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L15,3.5 L0,7 z" stroke="context-stroke" fill="context-stroke"/>
+  </marker>
+</defs>
+<g fill="%23000000" fill-opacity="0.000" id="img-c7ffbe5e-1">
+  <g transform="translate(50,50)">
+    <path d="M-50,-50 L50,-50 50,50 -50,50  z" class="primitive"/>
+  </g>
+</g>
+<g stroke-width="0.95" stroke="%23D3D3D3" id="img-c7ffbe5e-2">
+</g>
+<g stroke-width="0.95" stroke="%23D3D3D3" id="img-c7ffbe5e-3">
+  <g transform="translate(50.85,37.71)">
+    <path fill="none" d="M-0.33,9.48 L0.33,-9.48 " class="primitive"/>
+  </g>
+  <g transform="translate(38.68,51.62)">
+    <path fill="none" d="M8.45,-0.83 L-8.45,0.83 " class="primitive"/>
+  </g>
+  <g transform="translate(49.73,62.01)">
+    <path fill="none" d="M0.48,-8.25 L-0.48,8.25 " class="primitive"/>
+  </g>
+  <g transform="translate(61.78,52.77)">
+    <path fill="none" d="M-8.14,-1.64 L8.14,1.64 " class="primitive"/>
+  </g>
+  <g transform="translate(46.73,16.64)">
+    <path fill="none" d="M-2.98,-5.42 L2.98,5.42 " class="primitive"/>
+  </g>
+  <g transform="translate(56.63,17.26)">
+    <path fill="none" d="M3.46,-4.97 L-3.46,4.97 " class="primitive"/>
+  </g>
+  <g transform="translate(17.64,53.79)">
+    <path fill="none" d="M-6.03,0.66 L6.03,-0.66 " class="primitive"/>
+  </g>
+  <g transform="translate(48.57,82.61)">
+    <path fill="none" d="M-0.31,5.77 L0.31,-5.77 " class="primitive"/>
+  </g>
+  <g transform="translate(82.41,57.03)">
+    <path fill="none" d="M6.04,1.28 L-6.04,-1.28 " class="primitive"/>
+  </g>
+</g>
+<g fill="%23D3D3D3" id="img-c7ffbe5e-4">
+</g>
+<g fill="%23D3D3D3" id="img-c7ffbe5e-5">
+</g>
+<g font-size="4" fill="%23000000" id="img-c7ffbe5e-6">
+</g>
+<g stroke-width="0" stroke="%23000000" stroke-opacity="0.000" fill="%2340E0D0" id="img-c7ffbe5e-7">
+  <g transform="translate(50.41,50.48)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(42.16,8.33)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(61.96,9.58)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(51.29,24.94)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(8.33,54.81)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(48.07,91.67)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(91.67,59)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(26.95,52.77)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(49.06,73.55)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+  <g transform="translate(73.15,55.07)">
+    <circle cx="0" cy="0" r="3.16" class="primitive"/>
+  </g>
+</g>
+<g font-family="Helvetica" font-size="4" fill="%23000000" id="img-c7ffbe5e-8">
+  <g transform="translate(50.41,50.48)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">θ</text>
+    </g>
+  </g>
+  <g transform="translate(42.16,8.33)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">constvar</text>
+    </g>
+  </g>
+  <g transform="translate(61.96,9.58)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">constvar</text>
+    </g>
+  </g>
+  <g transform="translate(51.29,24.94)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">Distributions.Beta</text>
+    </g>
+  </g>
+  <g transform="translate(8.33,54.81)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">x</text>
+    </g>
+  </g>
+  <g transform="translate(48.07,91.67)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">x</text>
+    </g>
+  </g>
+  <g transform="translate(91.67,59)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">x</text>
+    </g>
+  </g>
+  <g transform="translate(26.95,52.77)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">Distributions.Bernoulli</text>
+    </g>
+  </g>
+  <g transform="translate(49.06,73.55)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">Distributions.Bernoulli</text>
+    </g>
+  </g>
+  <g transform="translate(73.15,55.07)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em">Distributions.Bernoulli</text>
+    </g>
+  </g>
+</g>
+<g font-family="Helvetica" font-size="4" fill="%23000000" id="img-c7ffbe5e-9">
+  <g transform="translate(50,0)">
+    <g class="primitive">
+      <text text-anchor="middle" dy="0.35em"></text>
+    </g>
+  </g>
+</g>
+</svg>
+'/><p>The plot is saved to <code>tmp.png</code> in the current directory and the plot object is returned.</p><h3 id="Local-subgraph-visualization"><a class="docs-heading-anchor" href="#Local-subgraph-visualization">Local subgraph visualization</a><a id="Local-subgraph-visualization-1"></a><a class="docs-heading-anchor-permalink" href="#Local-subgraph-visualization" title="Permalink"></a></h3><p>For large models it is often more useful to visualize only the neighborhood around a specific node. Pass a <code>NodeLabel</code> (or a vector of <code>NodeLabel</code>s) and a <code>depth</code> to expand the local neighborhood by that many hops:</p><pre><code class="language-julia hljs"># show all nodes within 2 hops of `my_node`
+GraphPlot.gplot(model, my_node; depth = 2)</code></pre><p>This extracts the induced subgraph over the expanded node set and plots only that portion of the factor graph.</p><table><tr><th style="text-align: left">Keyword</th><th style="text-align: left">Default</th><th style="text-align: left">Description</th></tr><tr><td style="text-align: left"><code>depth</code></td><td style="text-align: left"><code>1</code></td><td style="text-align: left">Number of hops to expand from the seed node(s)</td></tr><tr><td style="text-align: left"><code>file_name</code></td><td style="text-align: left"><code>&quot;tmp.png&quot;</code></td><td style="text-align: left">Output PNG file path</td></tr></table><div class="admonition is-info" id="Note-5f554c7c9b0d575f"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-5f554c7c9b0d575f" title="Permalink"></a></header><div class="admonition-body"><p>The GraphPlot extension does not distinguish factor nodes from variable nodes visually — all nodes are rendered as circles with their label as the name. Use the GraphViz extension for richer visual encoding.</p></div></div><h2 id="Choosing-an-extension"><a class="docs-heading-anchor" href="#Choosing-an-extension">Choosing an extension</a><a id="Choosing-an-extension-1"></a><a class="docs-heading-anchor-permalink" href="#Choosing-an-extension" title="Permalink"></a></h2><p>The two extensions serve different purposes:</p><ul><li>Use the <strong>GraphViz extension</strong> when you want publication-quality SVG output, need control over the layout engine, or want nodes color- and shape-coded by type.</li><li>Use the <strong>GraphPlot extension</strong> when you want a quick PNG render or need to zoom into a local neighborhood of the graph using the <code>depth</code> parameter.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nested_models/">« Nested Models</a><a class="docs-footer-nextpage" href="../plugins/overview/">Overview »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 22 April 2026 12:06">Wednesday 22 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
