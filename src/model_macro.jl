@@ -149,7 +149,8 @@ function check_reserved_variable_names_model(e::Expr)
             :(__lhs_interface__),
             :(__rhs_interfaces__),
             :(__interfaces__),
-            :(__n_interfaces__)
+            :(__n_interfaces__),
+            :(__nothing__)
         ]
     )
         error("Variable name in $(prettify(e)) cannot be used as it is a reserved variable name in the model macro.")
@@ -165,6 +166,21 @@ function check_incomplete_factorization_constraint(e::Expr)
 end
 
 what_walk(::typeof(check_incomplete_factorization_constraint)) = walk_until_occurrence((:(lhs_ = rhs_), :(lhs_::rhs_)))
+
+"""
+    convert_zero_output_tilde(e::Expr)
+
+Converts a zero-output submodel call using unary `~` syntax to a binary `~` with `__nothing__` as the LHS.
+This transforms `~ submodel(x = val1, y = val2)` into `__nothing__ ~ submodel(x = val1, y = val2)`.
+"""
+function convert_zero_output_tilde(e::Expr)
+    # Unary ~ is parsed as Expr(:call, :~, rhs)
+    if e.head == :call && length(e.args) == 2 && e.args[1] == :~
+        rhs = e.args[2]
+        return Expr(:call, :~, :__nothing__, rhs)
+    end
+    return e
+end
 
 """
     save_expression_in_tilde(expr::Expr)
@@ -399,10 +415,25 @@ A `quote` block with the modified expression.
 """
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
-        @capture(lhs, (var_[index__]) | (var_))
-        return quote
-            $(generate_get_or_create(var, index, rhs))
-            $e
+        if lhs === :__nothing__
+            # Zero-output: no variable to get or create
+            return e
+        elseif lhs isa Expr && lhs.head == :tuple
+            # Multi-output: get_or_create each element in the tuple
+            creates = map(lhs.args) do elem
+                @capture(elem, (var_[index__]) | (var_)) || error("Invalid tuple element on LHS: $(elem). Must be in a `var` or `var[index]` form.")
+                generate_get_or_create(var, index, rhs)
+            end
+            return quote
+                $(creates...)
+                $e
+            end
+        else
+            @capture(lhs, (var_[index__]) | (var_))
+            return quote
+                $(generate_get_or_create(var, index, rhs))
+                $e
+            end
         end
     end
     return e
@@ -647,13 +678,40 @@ function convert_tilde_expression(e::Expr)
         options = GraphPPL.options_vector_to_named_tuple(options)
         nodesym = gensym(:node)
         varsym = gensym(:var)
-        @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
-        return quote
-            begin
-                $nodesym, $varsym = GraphPPL.make_node!(
-                    __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
-                )
-                $varsym
+        if lhs === :__nothing__
+            # Zero-output: pass NothingInterface as lhs
+            return quote
+                begin
+                    $nodesym, $varsym = GraphPPL.make_node!(
+                        __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, GraphPPL.NothingInterface(), $args
+                    )
+                    $varsym
+                end
+            end
+        elseif lhs isa Expr && lhs.head == :tuple
+            # Multi-output: generate a tuple of proxy labels for the LHS
+            proxy_labels = map(lhs.args) do elem
+                @capture(elem, (var_[index__]) | (var_)) || error("Invalid tuple element on LHS: $(elem). Must be in a `var` or `var[index]` form.")
+                generate_lhs_proxylabel(var, index)
+            end
+            lhs_tuple = Expr(:tuple, proxy_labels...)
+            return quote
+                begin
+                    $nodesym, $varsym = GraphPPL.make_node!(
+                        __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $lhs_tuple, $args
+                    )
+                    $varsym
+                end
+            end
+        else
+            @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
+            return quote
+                begin
+                    $nodesym, $varsym = GraphPPL.make_node!(
+                        __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
+                    )
+                    $varsym
+                end
             end
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
@@ -767,6 +825,50 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
             __options__::GraphPPL.NodeCreationOptions,
             ::typeof($ms_name),
             __lhs_interface__::Union{GraphPPL.NodeLabel, GraphPPL.ProxyLabel, GraphPPL.VariableRef},
+            __rhs_interfaces__::NamedTuple,
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
+        )
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
+            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
+            __returnval__ = GraphPPL.add_terminated_submodel!(
+                __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
+            )
+            GraphPPL.returnval!(__context__, __returnval__)
+            return __context__, __lhs_interface__
+        end
+
+        # Multi-output: Tuple LHS
+        function GraphPPL.make_node!(
+            ::GraphPPL.Composite,
+            __model__::GraphPPL.Model,
+            __parent_context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
+            ::typeof($ms_name),
+            __lhs_interface__::Tuple,
+            __rhs_interfaces__::NamedTuple,
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
+        )
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
+            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
+            __returnval__ = GraphPPL.add_terminated_submodel!(
+                __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
+            )
+            GraphPPL.returnval!(__context__, __returnval__)
+            return __context__, __lhs_interface__
+        end
+
+        # Zero-output: NothingInterface LHS
+        function GraphPPL.make_node!(
+            ::GraphPPL.Composite,
+            __model__::GraphPPL.Model,
+            __parent_context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
+            ::typeof($ms_name),
+            __lhs_interface__::GraphPPL.NothingInterface,
             __rhs_interfaces__::NamedTuple,
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
