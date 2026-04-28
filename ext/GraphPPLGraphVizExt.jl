@@ -218,8 +218,9 @@ Returns a quoted display label for a factor node.
 - `String`: The factor node's pretty name enclosed in double quotes
 """
 function get_displayed_label(properties::GraphPPL.FactorNodeProperties)
-    # Ensure that the result of prettyname is enclosed in quotes
     label = GraphPPL.prettyname(properties)
+    # Strip module prefix (e.g. "Distributions.Normal" -> "Normal")
+    label = last(split(label, "."))
     return "\"" * label * "\""
 end
 
@@ -255,7 +256,7 @@ end
 Writes DOT notation for nodes in a graph using simple iteration.
 
 Iterates through vertices and writes DOT format for:
-- Factor nodes: Light gray squares
+- Factor nodes: Blue filled squares
 - Variable nodes: Circles
 
 # Arguments
@@ -294,7 +295,7 @@ end
 Writes DOT syntax for nodes in a graph visualization using breadth-first search traversal.
 
 Traverses the graph starting from the first created node and writes DOT notation for each node:
-- Factor nodes are drawn as light gray squares
+- Factor nodes are drawn as blue filled squares
 - Variable nodes are drawn as circles
 
 # Arguments
@@ -330,9 +331,9 @@ function add_nodes!(io_buffer::IOBuffer, model_graph::GraphPPL.Model, global_nam
 
             if isa(properties, GraphPPL.FactorNodeProperties)
                 displayed_label = replace(displayed_label, "\"" => "", "#" => "")
-                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=lightgray, label=\"$(displayed_label)\"];\n")
+                write(io_buffer, "    \"$(san_label)\" [shape=square, style=filled, fillcolor=\"#4A90D9\", fontcolor=white, penwidth=1.5, label=\"$(displayed_label)\"];\n")
             elseif isa(properties, GraphPPL.VariableNodeProperties)
-                write(io_buffer, "    \"$(san_label)\" [shape=circle, label=$(displayed_label)];\n")
+                write(io_buffer, "    \"$(san_label)\" [shape=circle, style=filled, fillcolor=white, penwidth=1.5, label=$(displayed_label)];\n")
             else
                 error("Unknown node type for label $(san_label)")
             end
@@ -501,7 +502,7 @@ Converts a GraphPPL.Model to a DOT string for visualization with GraphViz.jl.
 - `strategy::Symbol`: Graph traversal strategy (`:simple` or `:bfs`)
 - `font_size::Int=12`: Font size for node labels
 - `edge_length::Float64=1.0`: Visual length of edges
-- `layout::String="neato"`: GraphViz layout engine ("dot", "neato", "fdp", etc)
+- `layout::String="dot"`: GraphViz layout engine ("dot", "neato", "fdp", etc)
 - `overlap::Bool=false`: Whether to allow node overlap
 - `width::Float64=10.0`: Display width in inches
 - `height::Float64=10.0`: Display height in inches 
@@ -521,7 +522,7 @@ function GraphViz.load(
     strategy::Symbol,
     font_size::Int = 12,
     edge_length::Float64 = 1.0,
-    layout::String = "neato",
+    layout::String = "dot",
     overlap::Bool = false,
     width::Float64 = 10.0,
     height::Float64 = 10.0,
@@ -537,9 +538,12 @@ function GraphViz.load(
 
     write(io_buffer, "graph G {\n")
     write(io_buffer, "    layout=$(layout);\n")
-    write(io_buffer, "    overlap =$(string(overlap));\n") # control if allowing node overlaps
+    write(io_buffer, "    rankdir=LR;\n")
+    write(io_buffer, "    splines=ortho;\n")
+    write(io_buffer, "    overlap=$(string(overlap));\n")
     write(io_buffer, "    size=\"$(width),$(height)!\";\n")
-    write(io_buffer, "    node [shape=circle, fontsize=$(font_size)];\n")
+    write(io_buffer, "    node [fontsize=$(font_size), fontname=Helvetica];\n")
+    write(io_buffer, "    edge [color=\"#888888\", penwidth=1.2];\n")
 
     # Nodes
     add_nodes!(io_buffer, model_graph, global_namespace_dict, traversal_strategy)

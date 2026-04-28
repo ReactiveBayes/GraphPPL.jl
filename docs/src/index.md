@@ -11,12 +11,11 @@ For inference, you may need a `GraphPPL.jl` compatible package, for example [`Rx
 Pages = [
   "getting_started.md",
   "nested_models.md",
-  "constraint_specification.md",
-  "plugins.md",
-  "migration.md",
+  "plugins/constraint_specification.md",
+  "plugins/overview.md",
+  "migration_3_to_4.md",
   "developers_guide.md",
-  "custom_backend.md",
-  "reference.md"
+  "custom_backend.md"
 ]
 Depth = 2
 ```

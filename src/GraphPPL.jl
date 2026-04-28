@@ -23,7 +23,7 @@ include("backends/default.jl")
     end
 
 Note that the `@model` macro is not exported by default and the recommended way of using it is 
-in the combination with some inference backend. The `GraphPPL` package provides the `DefaultGraphPPLBackend` structure 
+in the combination with some inference backend. The `GraphPPL` package provides the [`DefaultBackend`](@ref) structure
 for plotting and test purposes, but some backends may specify different behaviour for different structures. For example,
 the interface names of a node `Normal` or its behaviour may (and should) depend on the specified backend. 
 

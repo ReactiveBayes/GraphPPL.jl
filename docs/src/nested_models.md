@@ -19,12 +19,12 @@ Here, we see that the `κ, ω, z, x` and `y` variables define the boundary of th
 If we want to chain these `gcv` submodels together into a Hierarchical Gaussian Filter, we still use the `~` operator. Here, in the arguments to `gcv`, we specify all-but-one interface. `GraphPPL` will interpolate which interface is missing and assign it to the left-hand-side:
 
 ``` @example nested-models
-@model function hgf(κ, ω, θ, prior_x, depth)
+@model function hgf(κ, ω, z, prior_x, depth)
     for i = 1:depth
-        if i == 0
-            means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = prior_x)
+        if i == 1
+            means[i] ~ gcv(κ = κ, ω = ω, z = z, x = prior_x)
         else
-            means[i] ~ gcv(κ = κ, ω = ω, θ = θ, x = means[i - 1])
+            means[i] ~ gcv(κ = κ, ω = ω, z = z, x = means[i - 1])
         end
     end
 end
