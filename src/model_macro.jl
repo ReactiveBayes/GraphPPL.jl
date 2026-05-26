@@ -829,7 +829,7 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
             __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
-            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name, __options__)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
             __returnval__ = GraphPPL.add_terminated_submodel!(

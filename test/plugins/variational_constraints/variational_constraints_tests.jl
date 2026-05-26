@@ -1132,6 +1132,92 @@ end
     @test length(collect(filter(as_node(Normal), model))) == 11
 end
 
+@testitem "inline constraints on submodel calls" begin
+    using Distributions
+    import GraphPPL:
+        create_model,
+        with_plugins,
+        getcontext,
+        getextra,
+        hasextra,
+        context_options,
+        VariationalConstraintsPlugin,
+        PluginsCollection,
+        Constraints
+
+    include("../../testutils.jl")
+
+    @model function inline_constraints_inner(y, x)
+        theta ~ Normal(0.0, 1.0)
+        y ~ Normal(x, theta)
+    end
+
+    @model function inline_constraints_middle(y, x)
+        y ~ inline_constraints_inner(x = x) where {
+            constraints = @constraints begin
+                q(x, y, theta) = MeanField()
+            end
+        }
+    end
+
+    @model function inline_constraints_outer()
+        x ~ Normal(0.0, 1.0)
+        y ~ inline_constraints_inner(x = x) where {
+            constraints = @constraints begin
+                q(x, y, theta) = MeanField()
+            end
+        }
+    end
+
+    @constraints function make_inline_constraints()
+        q(x, y, theta) = MeanField()
+    end
+
+    @model function inline_constraints_function_outer()
+        x ~ Normal(0.0, 1.0)
+        y ~ inline_constraints_inner(x = x) where { constraints = make_inline_constraints() }
+    end
+
+    @model function nested_inline_constraints_outer()
+        x ~ Normal(0.0, 1.0)
+        y ~ inline_constraints_middle(x = x)
+    end
+
+    model = create_model(with_plugins(inline_constraints_outer(), PluginsCollection(VariationalConstraintsPlugin())))
+    context = getcontext(model)
+    inner_context = context[inline_constraints_inner, 1]
+    node = inner_context[NormalMeanVariance, 2]
+    @test get(context_options(inner_context), :constraints, nothing) isa Constraints
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
+
+    model = create_model(with_plugins(inline_constraints_function_outer(), PluginsCollection(VariationalConstraintsPlugin())))
+    context = getcontext(model)
+    inner_context = context[inline_constraints_inner, 1]
+    node = inner_context[NormalMeanVariance, 2]
+    @test get(context_options(inner_context), :constraints, nothing) isa Constraints
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
+
+    model = create_model(with_plugins(nested_inline_constraints_outer(), PluginsCollection(VariationalConstraintsPlugin())))
+    context = getcontext(model)
+    inner_context = context[inline_constraints_middle, 1][inline_constraints_inner, 1]
+    node = inner_context[NormalMeanVariance, 2]
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
+
+    external_constraints = @constraints begin
+        for q in inline_constraints_inner
+            q(x, y, theta) = q(x, y, theta)
+        end
+    end
+    model = create_model(with_plugins(inline_constraints_outer(), PluginsCollection(VariationalConstraintsPlugin(external_constraints))))
+    context = getcontext(model)
+    node = context[inline_constraints_inner, 1][NormalMeanVariance, 2]
+    @test hasextra(model[node], :factorization_constraint_indices)
+    @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1, 2, 3),)
+end
+
 @testitem "`@constraints` should save the source code #1" begin
     using GraphPPL
 

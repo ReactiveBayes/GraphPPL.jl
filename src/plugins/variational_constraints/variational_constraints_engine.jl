@@ -1000,10 +1000,13 @@ function apply_constraints!(model::Model, context::Context, constraint_set::Cons
         apply_constraints!(model, context, rfc)
     end
     for (factor_id, child) in pairs(children(context))
+        inline_constraints = get(context_options(child), :constraints, nothing)
         if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
             apply_constraints!(model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), stack)
         elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
             apply_constraints!(model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), stack)
+        elseif inline_constraints !== nothing
+            apply_constraints!(model, child, inline_constraints, stack)
         else
             apply_constraints!(model, child, default_constraints(fform(factor_id)), stack)
         end

@@ -460,9 +460,10 @@ struct Context
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
     proxies::UnorderedDictionary{Symbol, ProxyLabel}
     returnval::Ref{Any}
+    options::Any
 end
 
-function Context(depth::Int, fform::Function, prefix::String, parent)
+function Context(depth::Int, fform::Function, prefix::String, parent, options = nothing)
     return Context(
         depth,
         fform,
@@ -475,12 +476,16 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
         UnorderedDictionary{Symbol, ProxyLabel}(),
-        Ref{Any}()
+        Ref{Any}(),
+        options
     )
 end
 
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent
+)
+Context(parent::Context, model_fform::Function, options) = Context(
+    parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent, options
 )
 Context(fform) = Context(0, fform, "", nothing)
 Context() = Context(identity)
@@ -667,6 +672,8 @@ Base.haskey(::NodeCreationOptions{Nothing}, key::Symbol) = false
 Base.getindex(::NodeCreationOptions{Nothing}, keys...) = error("type `NodeCreationOptions{Nothing}` has no field $(keys)")
 Base.keys(::NodeCreationOptions{Nothing}) = ()
 Base.get(::NodeCreationOptions{Nothing}, key::Symbol, default) = default
+
+context_options(context::Context) = something(context.options, EmptyNodeCreationOptions)
 
 withopts(::NodeCreationOptions{Nothing}, options::NamedTuple) = NodeCreationOptions(options)
 withopts(options::NodeCreationOptions, extra::NamedTuple) = NodeCreationOptions((; options.options..., extra...))
