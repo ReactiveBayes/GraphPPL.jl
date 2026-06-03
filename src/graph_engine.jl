@@ -1203,6 +1203,7 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
+iface_names(::StaticInterfaces{I}) where {I} = I
 
 function Base.convert(::Type{NamedTuple}, ::StaticInterfaces{I}, t::Tuple) where {I}
     return NamedTuple{I}(t)
@@ -1870,6 +1871,37 @@ function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
+# Multi-output: lhs_interfaces is a Tuple of multiple interfaces (positional)
+function prepare_interfaces(model::Model, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {F}
+    n_lhs = length(lhs_interfaces)
+    missing = missing_interfaces(model, fform, static(length(rhs_interfaces) + n_lhs), rhs_interfaces)
+    return prepare_interfaces_multi(missing, fform, lhs_interfaces, rhs_interfaces)
+end
+
+function prepare_interfaces_multi(::StaticInterfaces{I}, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {I, F}
+    all_keys = (I..., keys(rhs_interfaces)...)
+    all_vals = (lhs_interfaces..., values(rhs_interfaces)...)
+    return NamedTuple{all_keys}(all_vals)
+end
+
+# Named-output: lhs_interfaces is a NamedTuple (kwarg-style, e.g. (a = m_a, b = m_b) ~ sub(x = x))
+function prepare_interfaces(model::Model, fform::F, lhs_interfaces::NamedTuple, rhs_interfaces::NamedTuple) where {F}
+    for k in keys(lhs_interfaces)
+        if k ∈ keys(rhs_interfaces)
+            error(lazy"Interface ':$(k)' of '$(fform)' is specified on both LHS and RHS.")
+        end
+    end
+    merged = merge(lhs_interfaces, rhs_interfaces)
+    all_ifaces = interfaces(model, fform, static(length(merged)))
+    valid_names = iface_names(all_ifaces)
+    for k in keys(lhs_interfaces)
+        if k ∉ valid_names
+            error(lazy"Interface ':$(k)' does not exist in '$(fform)'. Valid interfaces are: $(valid_names).")
+        end
+    end
+    return merged
+end
+
 function materialize_interface(model, context, interface)
     return getifcreated(model, context, unroll(interface))
 end
@@ -2017,6 +2049,16 @@ make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model
 
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::NamedTuple) where {F} = make_node!(
     Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1)
+)
+
+# Multi-output: Tuple LHS for composite nodes (positional)
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Tuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
+)
+
+# Named-output: NamedTuple LHS for composite nodes (kwarg-style)
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::NamedTuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
 )
 
 """
