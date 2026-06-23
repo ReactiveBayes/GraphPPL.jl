@@ -636,7 +636,7 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 
     if !is_valid_partition(constraint_set)
         error(
-            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)"
+            lazy"Factorization constraint set at node $node_label is not a valid constraint set. Please check your model definition and constraint specification. (Constraint set: $constraint_bitset)\n\nHint: A valid constraint set requires that each interface belongs to exactly one factorization group. In the constraint matrix, each column must have exactly one non-zero entry per group. Make sure all variables appearing in your model are included in your factorization constraint."
         )
     end
 

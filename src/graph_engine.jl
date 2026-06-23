@@ -254,6 +254,7 @@ end
 Base.length(label::NodeLabel) = 1
 Base.size(label::NodeLabel) = ()
 Base.getindex(label::NodeLabel, any) = label
+Base.getindex(label::NodeLabel, i1, is...) = label
 Base.:(<)(left::NodeLabel, right::NodeLabel) = left.global_counter < right.global_counter
 Base.broadcastable(label::NodeLabel) = Ref(label)
 
