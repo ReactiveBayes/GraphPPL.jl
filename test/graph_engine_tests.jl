@@ -1090,7 +1090,7 @@ end
     @test has_edge(model, b, a)
     @test length(edges(model)) == 1
 
-    c = NodeLabel(:c, 2)
+    c = NodeLabel(:c, 3)
     model[c] = NodeData(ctx, FactorNodeProperties(fform = sum))
     @test !has_edge(model, a, c)
     @test !has_edge(model, c, a)
