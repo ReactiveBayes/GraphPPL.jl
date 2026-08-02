@@ -173,11 +173,14 @@ function vec(array::ResizableArray{T, V, N}) where {T, V, N}
 end
 
 function Base.iterate(array::ResizableArray)
-    # We want to emulate the same iteration protocol as for the `Array` structure 
-    # which iterates over the last dimension first
+    # We want to emulate the same iteration protocol as for the `Array` structure
+    # which iterates over the last dimension first. Unassigned slots (possible in
+    # ragged / sparsely filled tensors) are skipped, consistent with `vec`/`first`.
     indx = CartesianIndices(size(array))
-    pindex, pstate = iterate(indx)
-    return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+    niterate = iterate(indx)
+    isnothing(niterate) && return nothing
+    pindex, pstate = niterate
+    return _resizable_iterate_step(array, indx, pindex, pstate)
 end
 
 function Base.iterate(array::ResizableArray, state)
@@ -186,11 +189,24 @@ function Base.iterate(array::ResizableArray, state)
     end
     indx, pstate = state
     niterate = iterate(indx, pstate)
-    if isnothing(niterate)
+    isnothing(niterate) && return nothing
+    pindex, pstate = niterate
+    return _resizable_iterate_step(array, indx, pindex, pstate)
+end
+
+# `pindex` is the candidate CartesianIndex (nothing => exhausted); `pstate` is the
+# iterator state *after* pindex (nothing => pindex was the last index).
+function _resizable_iterate_step(array::ResizableArray, indx, pindex, pstate)
+    if pindex === nothing
         return nothing
     end
-    nindex, nstate = niterate
-    return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+    if (isassigned(array, pindex.I...)::Bool)
+        # A filled slot: yield it. If it was the last index, signal the end of iteration.
+        return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+    end
+    # Unfilled slot: skip it. If it was the last index there is nothing more to yield.
+    isnothing(pstate) && return nothing
+    return Base.iterate(array, (indx, pstate))
 end
 
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
