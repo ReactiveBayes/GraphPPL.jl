@@ -951,7 +951,7 @@ function apply_constraints!(
     applicable_nodes = unroll_nocreate(context[getvariables(marginal_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
-            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+            @warn "Node $node already has functional form constraint $(getconstraint(marginal_constraint)) applied, therefore it will not be applied"
         else
             setextra!(model[node], VariationalConstraintsMarginalFormConstraintKey, getconstraint(marginal_constraint))
         end
@@ -966,7 +966,7 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
     applicable_nodes = unroll_nocreate(context[getvariables(message_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
-            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+            @warn "Node $node already has functional form constraint $(getconstraint(message_constraint)) applied, therefore it will not be applied"
         else
             setextra!(model[node], VariationalConstraintsMessagesFormConstraintKey, getconstraint(message_constraint))
         end
