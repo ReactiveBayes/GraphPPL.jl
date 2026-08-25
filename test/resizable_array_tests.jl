@@ -371,4 +371,17 @@ end
             @test elem[] === 1
         end
     end
+
+    @testset "sparse ResizableArray direct iteration skips unassigned slots" begin
+        s = ResizableArray(Float64, Val(2))
+
+        s[1, 1] = 1.0
+        s[1, 2] = 2.0
+        s[2, 1] = 3.0
+        # `s[2, 2]` is left unassigned, so `size(s) == (2, 2)` reports a slot
+        # that isn't actually there
+
+        @test !isassigned(s, 2, 2)
+        @test sort(collect(s)) == sort(vec(s)) == [1.0, 2.0, 3.0]
+    end
 end
