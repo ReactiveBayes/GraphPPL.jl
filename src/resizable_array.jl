@@ -173,11 +173,18 @@ function vec(array::ResizableArray{T, V, N}) where {T, V, N}
 end
 
 function Base.iterate(array::ResizableArray)
-    # We want to emulate the same iteration protocol as for the `Array` structure 
+    # We want to emulate the same iteration protocol as for the `Array` structure
     # which iterates over the last dimension first
     indx = CartesianIndices(size(array))
-    pindex, pstate = iterate(indx)
-    return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+    state = iterate(indx)
+    while !isnothing(state)
+        pindex, pstate = state
+        if isassigned(array, pindex.I...)::Bool
+            return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+        end
+        state = iterate(indx, pstate)
+    end
+    return nothing
 end
 
 function Base.iterate(array::ResizableArray, state)
@@ -186,11 +193,14 @@ function Base.iterate(array::ResizableArray, state)
     end
     indx, pstate = state
     niterate = iterate(indx, pstate)
-    if isnothing(niterate)
-        return nothing
+    while !isnothing(niterate)
+        nindex, nstate = niterate
+        if isassigned(array, nindex.I...)::Bool
+            return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+        end
+        niterate = iterate(indx, nstate)
     end
-    nindex, nstate = niterate
-    return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+    return nothing
 end
 
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
