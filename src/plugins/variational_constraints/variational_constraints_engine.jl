@@ -7,6 +7,13 @@ end
 Base.showerror(io::IO, e::UnresolvableFactorizationConstraintError) = println(io, "Unresolvable factorization constraint: " * e.message)
 
 const VariationalConstraintsFactorizationIndicesKey = NodeDataExtraKey{:factorization_constraint_indices, Tuple}()
+
+# Finalized partitions are immutable in compact storage. Identical local
+# partitions share one small object instead of allocating vectors per factor.
+function compact_metadata_value(::Val{:factorization_constraint_indices}, columns, value)
+    immutable = map(Tuple, value)
+    return get!(columns.interned, immutable, immutable)
+end
 const VariationalConstraintsFactorizationBitSetKey = NodeDataExtraKey{:factorization_constraint_bitset, BoundedBitSetTuple}()
 const VariationalConstraintsMarginalFormConstraintKey = NodeDataExtraKey{:marginal_form_constraint, Any}()
 const VariationalConstraintsMessagesFormConstraintKey = NodeDataExtraKey{:messages_form_constraint, Any}()

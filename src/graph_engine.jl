@@ -4,6 +4,8 @@ using Static
 using NamedTupleTools
 using Dictionaries
 
+include("compact_extras.jl")
+
 import Base: put!, haskey, getindex, getproperty, setproperty!, setindex!, vec, iterate, showerror, Exception
 import MetaGraphsNext.Graphs: neighbors, degree
 
@@ -748,9 +750,14 @@ end
 
 Data associated with a factor node in a probabilistic graphical model.
 """
+struct CompactFactorNeighbors{D} <: AbstractVector{Tuple{NodeLabel, EdgeLabel, D}}
+    graph::Any
+    node::Int
+end
+
 struct FactorNodeProperties{D}
     fform::Any
-    neighbors::Vector{Tuple{NodeLabel, EdgeLabel, D}}
+    neighbors::Union{Vector{Tuple{NodeLabel, EdgeLabel, D}}, CompactFactorNeighbors{D}}
 end
 
 FactorNodeProperties(; fform, neighbors = Tuple{NodeLabel, EdgeLabel, NodeData}[]) = FactorNodeProperties(fform, neighbors)
@@ -768,9 +775,11 @@ prettyname(fform::Any) = string(fform) # Can be overloaded for custom pretty nam
 
 fform(properties::FactorNodeProperties) = properties.fform
 neighbors(properties::FactorNodeProperties) = properties.neighbors
-addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) = push!(
-    properties.neighbors, (variable, edge, data)
-)
+addneighbor!(properties::FactorNodeProperties, variable::NodeLabel, edge::EdgeLabel, data) =
+    record_factor_neighbor!(properties.neighbors, variable, edge, data)
+record_factor_neighbor!(neighbors::Vector, variable, edge, data) = push!(neighbors, (variable, edge, data))
+# Compact adjacency is updated by add_edge! immediately after this call.
+record_factor_neighbor!(::CompactFactorNeighbors, variable, edge, data) = nothing
 neighbor_data(properties::FactorNodeProperties) = Iterators.map(neighbor -> neighbor[3], neighbors(properties))
 
 function Base.show(io::IO, properties::FactorNodeProperties)
@@ -788,10 +797,12 @@ The `plugins` field stores additional properties of the node depending on which 
 mutable struct NodeData
     const context    :: Context
     const properties :: Union{VariableNodeProperties, FactorNodeProperties{NodeData}}
-    const extra      :: UnorderedDictionary{Symbol, Any}
+    const extra      :: Union{UnorderedDictionary{Symbol, Any}, CompactNodeExtras}
 end
 
 NodeData(context, properties) = NodeData(context, properties, UnorderedDictionary{Symbol, Any}())
+
+new_node_data(model::Model, label::NodeLabel, context, properties) = NodeData(context, properties)
 
 function Base.show(io::IO, nodedata::NodeData)
     context = getcontext(nodedata)
@@ -827,9 +838,14 @@ getextra(node::NodeData, key::Symbol, default) = hasextra(node, key) ? getextra(
 """ 
     setextra!(node::NodeData, key::Symbol, value)
 
-Sets the extra property with the given key to the given value.
+Sets the extra property with the given key to the given value and returns the
+node. The return value does not expose the selected metadata storage backend;
+use `getextra(node)` to access the metadata container.
 """
-setextra!(node::NodeData, key::Symbol, value) = insert!(node.extra, key, value)
+function setextra!(node::NodeData, key::Symbol, value)
+    insert!(node.extra, key, value)
+    return node
+end
 
 """
 A compile time key to access the `extra` properties of the `NodeData` structure.
@@ -848,7 +864,8 @@ function getextra(node::NodeData, key::NodeDataExtraKey{K, T}, default::T)::T wh
     return hasextra(node, key) ? (getextra(node, key)::T) : default
 end
 function setextra!(node::NodeData, key::NodeDataExtraKey{K}, value::T) where {K, T}
-    return insert!(node.extra, K, value)
+    insert!(node.extra, K, value)
+    return node
 end
 
 """
@@ -1218,10 +1235,7 @@ function Model(fform::F, plugins::PluginsCollection) where {F}
 end
 
 function Model(fform::F, plugins::PluginsCollection, backend, source) where {F}
-    label_type = NodeLabel
-    edge_data_type = EdgeLabel
-    vertex_data_type = NodeData
-    graph = MetaGraph(Graph(), label_type, vertex_data_type, edge_data_type, Context(fform))
+    graph = create_graph_storage(fform, plugins)
     model = Model(graph, plugins, backend, source)
     return model
 end
@@ -1558,7 +1572,7 @@ end
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
-    potential_nodedata = NodeData(context, convert(VariableNodeProperties, name, index, options))
+    potential_nodedata = new_node_data(model, potential_label, context, convert(VariableNodeProperties, name, index, options))
     label, nodedata = preprocess_plugins(
         UnionPluginType(VariableNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
     )
@@ -1672,7 +1686,7 @@ function add_atomic_factor_node!(model::Model, context::Context, options::NodeCr
     factornode_id = generate_factor_nodelabel(context, fform)
 
     potential_label = generate_nodelabel(model, fform)
-    potential_nodedata = NodeData(context, convert(FactorNodeProperties, fform, options))
+    potential_nodedata = new_node_data(model, potential_label, context, convert(FactorNodeProperties, fform, options))
 
     label, nodedata = preprocess_plugins(
         UnionPluginType(FactorNodePlugin(), FactorAndVariableNodesPlugin()), model, context, potential_label, potential_nodedata, options
