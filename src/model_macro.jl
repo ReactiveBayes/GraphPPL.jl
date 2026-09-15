@@ -614,6 +614,11 @@ combine_broadcast_args(args::Vector, kwargs::Nothing) = quote
     args
 end
 
+# Inside the broadcasted expression `args` is the varargs tail of the broadcast closure, holding the
+# per-element slice of every combinable argument: the positional ones first, then the keyword values, in
+# declaration order. Both halves therefore have to be sliced out of that runtime tuple. Splicing the
+# original positional expressions here instead would capture the outer, un-broadcast collections, and
+# building the keyword `NamedTuple` out of the whole tuple mismatches its arity.
 function combine_broadcast_args(args::Vector, kwargs::Vector)
     kwargs_keys = [arg.args[1] for arg in kwargs]
     if length(args) == 0
@@ -621,9 +626,13 @@ function combine_broadcast_args(args::Vector, kwargs::Vector)
             NamedTuple{$(Tuple(kwargs_keys))}(args)
         end
     else
-        return quote
-            GraphPPL.MixedArguments($(Expr(:tuple, args...)), NamedTuple{$(Tuple(kwargs_keys))}(args))
-        end
+        npositional = length(args)
+        # A tuple literal and a named-tuple literal, mirroring the non-broadcast `combine_args`, so that
+        # `proxy_args` wraps each element in its own `proxylabel` and the two halves stay a `Tuple` and a
+        # `NamedTuple` as `MixedArguments{A <: Tuple, K <: NamedTuple}` requires
+        positional_args = Expr(:tuple, [:(args[$i]) for i in 1:npositional]...)
+        keyword_args = Expr(:tuple, [Expr(:(=), key, :(args[$(npositional + j)])) for (j, key) in enumerate(kwargs_keys)]...)
+        return :(GraphPPL.MixedArguments($positional_args, $keyword_args))
     end
 end
 
