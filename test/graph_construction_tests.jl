@@ -2018,3 +2018,38 @@ end
         return (;)
     end
 end
+
+@testitem "Multiple anonymous variables in one context should not collapse to a single key" begin
+    using Distributions
+    import GraphPPL:
+        create_model, getcontext, children, individual_variables, variable_nodes, as_variable, is_anonymous, getproperties, VariableNameAnonymous
+
+    include("testutils.jl")
+
+    # `x + 1` and `y + 1` each create an anonymous variable inside the same submodel context
+    @model function two_anonymous_submodel(z, x, y)
+        z ~ Normal(x + 1, y + 1)
+    end
+
+    @model function two_anonymous_outer()
+        a ~ Normal(0, 1)
+        b ~ Normal(0, 1)
+        z ~ two_anonymous_submodel(x = a, y = b)
+    end
+
+    model = create_model(two_anonymous_outer())
+    context = getcontext(model)
+    inner_context = first(values(children(context)))
+
+    # Both anonymous variables exist as distinct vertices in the graph ...
+    anonymous_in_graph = length(collect(filter(as_variable(VariableNameAnonymous), model)))
+    @test anonymous_in_graph === 2
+
+    # ... and both must be reachable through the context registry, not just the last one
+    anonymous_keys = filter(key -> startswith(String(key), String(VariableNameAnonymous)), collect(keys(individual_variables(inner_context))))
+    @test length(anonymous_keys) === anonymous_in_graph
+    @test length(unique(anonymous_keys)) === anonymous_in_graph
+
+    # The node property `name` is untouched, so `is_anonymous` keeps working
+    @test length(collect(filter(v -> is_anonymous(getproperties(model[v])), collect(variable_nodes(model))))) === 2
+end

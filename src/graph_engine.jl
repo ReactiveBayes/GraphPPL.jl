@@ -1555,6 +1555,17 @@ function add_constant_node!(model::Model, context::Context, options::NodeCreatio
     return label
 end
 
+# Anonymous variables are registered under a unique key, the same way `add_constant_node!` does it for
+# constants. Registering all of them under the constant `VariableNameAnonymous` key would make every new
+# anonymous variable overwrite the previous one in `context.individual_variables`, so a context holding
+# more than one would only ever expose the last. The node property `name` stays `VariableNameAnonymous`,
+# so `is_anonymous` and `as_variable(VariableNameAnonymous)` are unaffected.
+function add_anonymous_node!(model::Model, context::Context, options::NodeCreationOptions)
+    label = __add_variable_node!(model, context, options, VariableNameAnonymous, nothing)
+    context[to_symbol(VariableNameAnonymous, label.global_counter), nothing] = label
+    return label
+end
+
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
@@ -1603,27 +1614,19 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 
     if !link_const && !link_const_or_data
         # Most likely case goes first, we need to create a new factor node and a new random variable
-        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
+        (true, add_anonymous_node!(model, context, NodeCreationOptions(link = linked)))
     elseif link_const
         # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
         val = fform(map(arg -> arg isa NodeLabel ? value(getproperties(model[arg])) : arg, unroll.(args))...)
         (
             false,
-            add_variable_node!(
-                model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), VariableNameAnonymous, nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :constant, value = val, link = linked))
         )
     elseif link_const_or_data
         # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
         (
             false,
-            add_variable_node!(
-                model,
-                context,
-                NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked),
-                VariableNameAnonymous,
-                nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked))
         )
     else
         # This should not really happen
@@ -1647,7 +1650,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 end
 
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
-    return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
+    return (true, add_anonymous_node!(model, context, NodeCreationOptions()))
 end
 
 """
