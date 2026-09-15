@@ -957,7 +957,13 @@ function model_macro_interior(backend_type, model_specification)
 
     num_interfaces = Base.length(ms_args)
     if !isnothing(ms_kwargs) && length(ms_kwargs) > 0
-        @warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
+        # Keyword arguments in a model signature were previously parsed and then silently dropped, with only
+        # a warning. The body never saw them, so the only real signal was a later `UndefVarError`. Fail here
+        # instead, consistent with how unsupported positional arguments are rejected at the call site.
+        kwargs_names = map(kwarg -> (kwarg isa Expr && kwarg.head === :kw) ? kwarg.args[1] : kwarg, ms_kwargs)
+        error(
+            "The `$(ms_name)` model macro does not support keyword arguments in the model signature, but got $(length(ms_kwargs)): $(join(kwargs_names, ", ")). Declare all model interfaces as positional arguments, `$(ms_name)($(join(ms_args, ", ")))`, they are passed by name at the call site."
+        )
     end
 
     boilerplate_functions = GraphPPL.get_boilerplate_functions(backend_type, ms_name, ms_args, num_interfaces)

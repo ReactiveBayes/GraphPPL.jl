@@ -2070,3 +2070,28 @@ end
         somemodel()
     )
 end
+
+@testitem "`@model` should reject keyword arguments in the model signature" begin
+    import GraphPPL: model_macro_interior
+
+    include("testutils.jl")
+
+    # Keyword arguments used to be parsed and then silently dropped with only a warning, so the body
+    # never saw them and the user's only signal was a later `UndefVarError`
+    kwargs_spec = :(function model_with_kwargs(x; a = 1, b = 2)
+        y ~ Normal(x, a)
+    end)
+
+    @test_throws "does not support keyword arguments in the model signature" model_macro_interior(
+        TestUtils.TestGraphPPLBackend, kwargs_spec
+    )
+    # the offending keyword arguments are named, and the supported form is shown
+    @test_throws "but got 2: a, b" model_macro_interior(TestUtils.TestGraphPPLBackend, kwargs_spec)
+    @test_throws "model_with_kwargs(x)" model_macro_interior(TestUtils.TestGraphPPLBackend, kwargs_spec)
+
+    # positional-only signatures are unaffected
+    positional_spec = :(function model_without_kwargs(x, a)
+        y ~ Normal(x, a)
+    end)
+    @test model_macro_interior(TestUtils.TestGraphPPLBackend, positional_spec) isa Expr
+end
