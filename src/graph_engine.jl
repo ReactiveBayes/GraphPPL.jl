@@ -2057,6 +2057,26 @@ make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model
     Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
 )
 
+# A multi-output submodel call must provide exactly as many outputs on the left-hand side as there are
+# interfaces left unspecified on the right-hand side. When it does not, the total arity does not match the
+# `StaticInt{N}` of any generated `make_node!` method and dispatch fails with a `MethodError` that says
+# nothing about the real problem, so this less specific fallback reports it instead.
+function make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface::Union{Tuple, NamedTuple},
+    rhs_interfaces::NamedTuple,
+    ::StaticInt{N}
+) where {F, N}
+    n = "\n"
+    error(
+        lazy"Node '$(fform)' cannot be called with $(length(lhs_interface)) output(s) on the left-hand side and $(length(rhs_interfaces)) interface(s) on the right-hand side, $(N) in total.$(n)$(n)The number of outputs on the left-hand side must be equal to the number of interfaces of '$(fform)' that are left unspecified on the right-hand side. Currently specified interfaces are: $(keys(rhs_interfaces)), but check the documentation to see the specification options."
+    )
+end
+
 """
     make_node!
 

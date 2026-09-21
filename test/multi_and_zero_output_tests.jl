@@ -73,7 +73,33 @@ end
         (p, q) ~ two_iface_sub(x = x, b = b)
     end
 
-    @test_throws "no method matching make_node!" create_model(main_mismatch()) do model, ctx
+    # Too many outputs on the LHS: only `a` is missing, but two are provided
+    @test_throws "cannot be called with 2 output(s) on the left-hand side" create_model(main_mismatch()) do model, ctx
+        x = datalabel(model, ctx, NodeCreationOptions(kind = :data), :x, 1.0)
+        return (x = x,)
+    end
+    @test_throws "must be equal to the number of interfaces" create_model(main_mismatch()) do model, ctx
+        x = datalabel(model, ctx, NodeCreationOptions(kind = :data), :x, 1.0)
+        return (x = x,)
+    end
+
+    # Too few outputs on the LHS: both `a` and `b` are missing, but only one is provided
+    @model function main_too_few(x)
+        (p,) ~ two_iface_sub(x = x)
+    end
+
+    @test_throws "cannot be called with 1 output(s) on the left-hand side" create_model(main_too_few()) do model, ctx
+        x = datalabel(model, ctx, NodeCreationOptions(kind = :data), :x, 1.0)
+        return (x = x,)
+    end
+
+    # The same applies to the named-output (NamedTuple LHS) form
+    @model function main_named_mismatch(x)
+        b ~ Normal(0, 1)
+        (a = p, b = q) ~ two_iface_sub(x = x, b = b)
+    end
+
+    @test_throws "cannot be called with 2 output(s) on the left-hand side" create_model(main_named_mismatch()) do model, ctx
         x = datalabel(model, ctx, NodeCreationOptions(kind = :data), :x, 1.0)
         return (x = x,)
     end
