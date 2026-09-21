@@ -172,12 +172,31 @@ function vec(array::ResizableArray{T, V, N}) where {T, V, N}
     return result
 end
 
+# `ResizableArray` is an `AbstractArray`, so `length` (and thus `collect`, `map`, broadcasting, ...)
+# reports the maximum extent, not the number of assigned elements. Silently skipping unassigned slots
+# would therefore break the iteration protocol and leave uninitialized memory in the result, so
+# iteration over a ragged or sparsely filled array fails loudly instead. Use `vec` to traverse
+# only the assigned elements.
+function __resizable_array_checked_getindex(array::ResizableArray, index::CartesianIndex)
+    if !(isassigned(array, index.I...)::Bool)
+        error(
+            lazy"Cannot iterate over `ResizableArray` at index $(index.I) because this slot is unassigned. Ragged or sparsely filled arrays cannot be iterated densely, use `GraphPPL.vec(array)` to iterate over the assigned elements only."
+        )
+    end
+    return array[index.I...]
+end
+
 function Base.iterate(array::ResizableArray)
     # We want to emulate the same iteration protocol as for the `Array` structure 
     # which iterates over the last dimension first
     indx = CartesianIndices(size(array))
-    pindex, pstate = iterate(indx)
-    return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+    piterate = iterate(indx)
+    # An empty array has nothing to iterate over
+    if isnothing(piterate)
+        return nothing
+    end
+    pindex, pstate = piterate
+    return (__resizable_array_checked_getindex(array, pindex), isnothing(pstate) ? nothing : (indx, pstate))
 end
 
 function Base.iterate(array::ResizableArray, state)
@@ -190,7 +209,7 @@ function Base.iterate(array::ResizableArray, state)
         return nothing
     end
     nindex, nstate = niterate
-    return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+    return (__resizable_array_checked_getindex(array, nindex), isnothing(nstate) ? nothing : (indx, nstate))
 end
 
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)

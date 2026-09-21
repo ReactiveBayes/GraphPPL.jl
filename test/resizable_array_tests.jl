@@ -371,4 +371,36 @@ end
             @test elem[] === 1
         end
     end
+
+    # Iterating a ragged / sparsely filled array must fail loudly and point at `vec`.
+    # It must never silently skip the unassigned slots: `ResizableArray <: AbstractArray` reports
+    # `length == prod(size)`, so skipping would leave uninitialized memory in `collect`/`map` results.
+    @testset "sparse ResizableArray should throw a descriptive error on iteration" begin
+        a = ResizableArray(Float64, Val(2))
+        a[1, 1] = 1.0
+        a[1, 2] = 2.0
+        a[2, 1] = 3.0
+
+        @test size(a) === (2, 2)
+        @test !isassigned(a, 2, 2)
+
+        for f in (collect, x -> map(identity, x), x -> [e for e in x], x -> (for e in x
+        end))
+            @test_throws "this slot is unassigned" f(a)
+            @test_throws "GraphPPL.vec" f(a)
+        end
+
+        # `vec` remains the supported way to traverse the assigned elements
+        @test GraphPPL.vec(a) == [1.0, 3.0, 2.0]
+    end
+
+    # An empty array has nothing to iterate over, it should not throw
+    @testset "empty ResizableArray" begin
+        for N in (1, 2, 3)
+            empty_array = ResizableArray(Float64, Val(N))
+            @test isempty(collect(empty_array))
+            @test length(collect(empty_array)) === 0
+            @test isempty(GraphPPL.vec(empty_array))
+        end
+    end
 end

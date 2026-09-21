@@ -1059,10 +1059,6 @@ variable_ref_eltype(::Type{Nothing}, ::Type{Nothing}) = Any
 variable_ref_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.eltype(E)
 variable_ref_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.eltype(L)
 
-function variableref_checked_collection_typeof(::VariableRef)
-    return variableref_checked_iterator_call(typeof, :typeof, ref)
-end
-
 Base.length(ref::VariableRef) = variableref_checked_iterator_call(Base.length, :length, ref)
 Base.firstindex(ref::VariableRef) = variableref_checked_iterator_call(Base.firstindex, :firstindex, ref)
 Base.lastindex(ref::VariableRef) = variableref_checked_iterator_call(Base.lastindex, :lastindex, ref)
@@ -1555,6 +1551,17 @@ function add_constant_node!(model::Model, context::Context, options::NodeCreatio
     return label
 end
 
+# Anonymous variables are registered under a unique key, the same way `add_constant_node!` does it for
+# constants. Registering all of them under the constant `VariableNameAnonymous` key would make every new
+# anonymous variable overwrite the previous one in `context.individual_variables`, so a context holding
+# more than one would only ever expose the last. The node property `name` stays `VariableNameAnonymous`,
+# so `is_anonymous` and `as_variable(VariableNameAnonymous)` are unaffected.
+function add_anonymous_node!(model::Model, context::Context, options::NodeCreationOptions)
+    label = __add_variable_node!(model, context, options, VariableNameAnonymous, nothing)
+    context[to_symbol(VariableNameAnonymous, label.global_counter), nothing] = label
+    return label
+end
+
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
@@ -1603,27 +1610,19 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 
     if !link_const && !link_const_or_data
         # Most likely case goes first, we need to create a new factor node and a new random variable
-        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
+        (true, add_anonymous_node!(model, context, NodeCreationOptions(link = linked)))
     elseif link_const
         # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
         val = fform(map(arg -> arg isa NodeLabel ? value(getproperties(model[arg])) : arg, unroll.(args))...)
         (
             false,
-            add_variable_node!(
-                model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), VariableNameAnonymous, nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :constant, value = val, link = linked))
         )
     elseif link_const_or_data
         # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
         (
             false,
-            add_variable_node!(
-                model,
-                context,
-                NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked),
-                VariableNameAnonymous,
-                nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked))
         )
     else
         # This should not really happen
@@ -1647,7 +1646,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 end
 
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
-    return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
+    return (true, add_anonymous_node!(model, context, NodeCreationOptions()))
 end
 
 """
@@ -2060,6 +2059,26 @@ make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::NamedTuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
     Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
 )
+
+# A multi-output submodel call must provide exactly as many outputs on the left-hand side as there are
+# interfaces left unspecified on the right-hand side. When it does not, the total arity does not match the
+# `StaticInt{N}` of any generated `make_node!` method and dispatch fails with a `MethodError` that says
+# nothing about the real problem, so this less specific fallback reports it instead.
+function make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface::Union{Tuple, NamedTuple},
+    rhs_interfaces::NamedTuple,
+    ::StaticInt{N}
+) where {F, N}
+    n = "\n"
+    error(
+        lazy"Node '$(fform)' cannot be called with $(length(lhs_interface)) output(s) on the left-hand side and $(length(rhs_interfaces)) interface(s) on the right-hand side, $(N) in total.$(n)$(n)The number of outputs on the left-hand side must be equal to the number of interfaces of '$(fform)' that are left unspecified on the right-hand side. Currently specified interfaces are: $(keys(rhs_interfaces)), but check the documentation to see the specification options."
+    )
+end
 
 """
     make_node!

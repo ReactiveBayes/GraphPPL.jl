@@ -613,6 +613,52 @@ end
     end
 end
 
+
+@testitem "Applying a second form constraint warns and preserves the original" begin
+    import GraphPPL:
+        create_model,
+        MarginalFormConstraint,
+        MessageFormConstraint,
+        IndexedVariable,
+        apply_constraints!,
+        getextra,
+        VariationalConstraintsMarginalFormConstraintKey,
+        VariationalConstraintsMessagesFormConstraintKey
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    struct FirstArbitraryFormConstraint end
+    struct SecondArbitraryFormConstraint end
+
+    # A node that already carries a marginal form constraint must warn (not throw) and keep the first one
+    model = create_model(simple_model())
+    context = GraphPPL.getcontext(model)
+    apply_constraints!(model, context, MarginalFormConstraint(IndexedVariable(:x, nothing), FirstArbitraryFormConstraint()))
+
+    @test_logs (:warn, r"already has functional form constraint") match_mode = :any apply_constraints!(
+        model, context, MarginalFormConstraint(IndexedVariable(:x, nothing), SecondArbitraryFormConstraint())
+    )
+
+    for node in filter(GraphPPL.as_variable(:x), model)
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == FirstArbitraryFormConstraint()
+    end
+
+    # ... and the same for message form constraints
+    model = create_model(simple_model())
+    context = GraphPPL.getcontext(model)
+    apply_constraints!(model, context, MessageFormConstraint(IndexedVariable(:x, nothing), FirstArbitraryFormConstraint()))
+
+    @test_logs (:warn, r"already has functional form constraint") match_mode = :any apply_constraints!(
+        model, context, MessageFormConstraint(IndexedVariable(:x, nothing), SecondArbitraryFormConstraint())
+    )
+
+    for node in filter(GraphPPL.as_variable(:x), model)
+        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == FirstArbitraryFormConstraint()
+    end
+end
+
 @testitem "save constraints with constants via `mean_field_constraint!`" begin
     using BitSetTuples
     import GraphPPL:
