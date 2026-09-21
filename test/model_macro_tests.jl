@@ -1456,8 +1456,14 @@ end
     @test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
         NamedTuple{$(:μ, :σ)}(args)
     end
-    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
-        GraphPPL.MixedArguments((μ, σ), NamedTuple{$(:μ, :σ)}(args))
+    # Both halves are sliced out of the broadcast closure's `args` tuple: the positional arguments come
+    # first, the keyword values after them. Splicing the original expressions (`(μ, σ)`) would capture the
+    # outer, un-broadcast collections instead of the per-element slots.
+    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :τ, :τ), Expr(:kw, :θ, :θ)]) quote
+        GraphPPL.MixedArguments((args[1], args[2]), (τ = args[3], θ = args[4]))
+    end
+    @test_expression_generating combine_broadcast_args([:μ], [Expr(:kw, :σ, :σ)]) quote
+        GraphPPL.MixedArguments((args[1],), (σ = args[2],))
     end
 end
 
@@ -1792,8 +1798,14 @@ end
                 some_node,
                 ilhs,
                 GraphPPL.MixedArguments(
-                    (GraphPPL.proxylabel(:a, a, nothing, GraphPPL.False()), GraphPPL.proxylabel(:b, b, nothing, GraphPPL.False())),
-                    GraphPPL.proxylabel(:anonymous, NamedTuple{$(:μ, :σ)}(args), nothing, GraphPPL.False())
+                    (
+                        GraphPPL.proxylabel(:args, args, (1,), GraphPPL.False()),
+                        GraphPPL.proxylabel(:args, args, (2,), GraphPPL.False())
+                    ),
+                    (
+                        μ = GraphPPL.proxylabel(:args, args, (3,), GraphPPL.False()),
+                        σ = GraphPPL.proxylabel(:args, args, (4,), GraphPPL.False())
+                    )
                 )
             )
         end

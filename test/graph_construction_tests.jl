@@ -2019,6 +2019,41 @@ end
     end
 end
 
+@testitem "Broadcasting with mixed positional and keyword arguments" begin
+    using Distributions
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function bc_mixed_sub(out, x, y)
+        out ~ Normal(x, y)
+    end
+
+    @model function bc_mixed_main()
+        local mu
+        local sg
+        for i in 1:5
+            mu[i] ~ Normal(0, 1)
+            sg[i] ~ Gamma(1, 1)
+        end
+        z .~ bc_mixed_sub(mu; y = sg)
+        out ~ Normal(z[5], 1)
+    end
+
+    # A broadcast mixing positional and keyword arguments now lowers to a well-formed `MixedArguments`,
+    # built by slicing the broadcast closure's `args` tuple. Materializing a node from `MixedArguments`
+    # is still unsupported (same as for the non-broadcast `~`), but the user gets that stated limitation
+    # instead of an opaque `MethodError: no method matching tuple(...)` from the broken lowering.
+    @test_throws "MixedArguments not supported" create_model(bc_mixed_main())
+
+    # Keyword-only and positional-only broadcasts are unaffected
+    @model function bc_kwargs_only()
+        y .~ Normal(fill(0.0, 5), 1.0)
+        z .~ Normal(mean = y, var = fill(1.0, 5))
+    end
+    @test create_model(bc_kwargs_only()) isa GraphPPL.Model
+end
+
 @testitem "Multiple anonymous variables in one context should not collapse to a single key" begin
     using Distributions
     import GraphPPL:
