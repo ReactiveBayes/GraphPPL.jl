@@ -1252,3 +1252,60 @@ end
     source = GraphPPL.source_code(nc_constraints)
     @test occursin("NoConstraints", source)
 end
+
+@testitem "inline constraints on multi-output and named-output submodel calls" begin
+    using Distributions
+    import GraphPPL:
+        create_model,
+        with_plugins,
+        getcontext,
+        getextra,
+        hasextra,
+        context_options,
+        VariationalConstraintsPlugin,
+        PluginsCollection,
+        Constraints
+
+    include("../../testutils.jl")
+
+    @model function multi_out_inner(a, b, x)
+        theta ~ Normal(0.0, 1.0)
+        a ~ Normal(x, theta)
+        b ~ Normal(a, 1.0)
+    end
+
+    # Tuple LHS (positional multi-output): `(a, b) ~ sub(...) where { constraints = ... }`
+    @model function multi_out_tuple_outer()
+        x ~ Normal(0.0, 1.0)
+        (a, b) ~ multi_out_inner(x = x) where {
+            constraints = @constraints begin
+                q(x, a, b, theta) = MeanField()
+            end
+        }
+    end
+
+    # NamedTuple LHS (named multi-output): `(a = ..., b = ...) ~ sub(...) where { constraints = ... }`
+    @model function multi_out_named_outer()
+        x ~ Normal(0.0, 1.0)
+        (a = ma, b = mb) ~ multi_out_inner(x = x) where {
+            constraints = @constraints begin
+                q(x, a, b, theta) = MeanField()
+            end
+        }
+    end
+
+    for generator in (multi_out_tuple_outer(), multi_out_named_outer())
+        model = create_model(with_plugins(generator, PluginsCollection(VariationalConstraintsPlugin())))
+        context = getcontext(model)
+        inner_context = context[multi_out_inner, 1]
+
+        # The `where { constraints = ... }` options must reach the child context, exactly as
+        # they do for single-output submodel calls
+        @test get(context_options(inner_context), :constraints, nothing) isa Constraints
+
+        # ... and the requested factorization must actually materialize on the inner nodes
+        node = inner_context[NormalMeanVariance, 2]
+        @test hasextra(model[node], :factorization_constraint_indices)
+        @test Tuple.(getextra(model[node], :factorization_constraint_indices)) == ((1,), (2,), (3,))
+    end
+end

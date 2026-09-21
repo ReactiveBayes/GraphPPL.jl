@@ -757,6 +757,79 @@ end
         x ~ Normal(; μ = μ, σ = σ) where {created_by = (x ~ Normal(μ = μ, σ = σ) where {q = MeanField()}), q = MeanField()}
     end
     @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 28: mixed positional and keyword arguments written in the comma form are split into
+    # the keyword form, exactly as if they had been written with an explicit `;`. Previously the
+    # `var = v` stayed among the positional arguments and `combine_args` emitted a tuple literal
+    # containing a `:kw` node, which is not valid syntax.
+    input = quote
+        x ~ Normal(m, var = v) where {created_by = (x ~ Normal(m, var = v))}
+    end
+    output = quote
+        x ~ Normal(m; var = v) where {created_by = (x ~ Normal(m, var = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 29: the same for `.~`
+    input = quote
+        x .~ Normal(m, var = v) where {created_by = (x .~ Normal(m, var = v))}
+    end
+    output = quote
+        x .~ Normal(m; var = v) where {created_by = (x .~ Normal(m, var = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 30: ... and for `:=`
+    input = quote
+        x := f(m, s = v) where {created_by = (x := f(m, s = v))}
+    end
+    output = quote
+        x := f(m; s = v) where {created_by = (x := f(m, s = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 31: both spellings at once collapse into a single keyword group. Julia puts the explicit
+    # `;` group first in the argument list, so the keywords from it lead
+    input = quote
+        x ~ Normal(m, var = v; mean = q) where {created_by = (x ~ Normal(m, var = v; mean = q))}
+    end
+    output = quote
+        x ~ Normal(m; mean = q, var = v) where {created_by = (x ~ Normal(m, var = v; mean = q))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 32: a call with several positional arguments and several comma-form keywords
+    input = quote
+        x ~ Normal(μ, σ, a = τ, b = θ) where {created_by = (x ~ Normal(μ, σ, a = τ, b = θ))}
+    end
+    output = quote
+        x ~ Normal(μ, σ; a = τ, b = θ) where {created_by = (x ~ Normal(μ, σ, a = τ, b = θ))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+end
+
+@testitem "split_positional_and_keyword_args" begin
+    import GraphPPL: split_positional_and_keyword_args
+    import MacroTools: @capture
+
+    include("testutils.jl")
+
+    split_of(s) = (@capture(s, f_(args__)); split_positional_and_keyword_args(args))
+
+    # Comma form: the keyword sits inline among the positional arguments as a `:kw` node
+    @test split_of(:(foo(a, b = c))) == (Any[:a], Any[Expr(:kw, :b, :c)])
+
+    # Semicolon form: Julia collects it into a leading `:parameters` node instead. Both spellings
+    # mean the same call, so both must produce the same split
+    @test split_of(:(foo(a; b = c))) == (Any[:a], Any[Expr(:kw, :b, :c)])
+
+    # Both at once -- the `:parameters` group comes first in the argument list
+    @test split_of(:(foo(a, b = c; d = e))) == (Any[:a], Any[Expr(:kw, :d, :e), Expr(:kw, :b, :c)])
+
+    # Degenerate cases: nothing to split
+    @test split_of(:(foo(a, b))) == (Any[:a, :b], Any[])
+    @test split_of(:(foo(a = 1, b = 2))) == (Any[], Any[Expr(:kw, :a, 1), Expr(:kw, :b, 2)])
+    @test split_of(:(foo())) == (Any[], Any[])
 end
 
 @testitem "convert_to_anonymous" begin
@@ -1456,8 +1529,14 @@ end
     @test_expression_generating combine_broadcast_args([], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
         NamedTuple{$(:μ, :σ)}(args)
     end
-    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :μ, :μ), Expr(:kw, :σ, :σ)]) quote
-        GraphPPL.MixedArguments((μ, σ), NamedTuple{$(:μ, :σ)}(args))
+    # Both halves are sliced out of the broadcast closure's `args` tuple: the positional arguments come
+    # first, the keyword values after them. Splicing the original expressions (`(μ, σ)`) would capture the
+    # outer, un-broadcast collections instead of the per-element slots.
+    @test_expression_generating combine_broadcast_args([:μ, :σ], [Expr(:kw, :τ, :τ), Expr(:kw, :θ, :θ)]) quote
+        GraphPPL.MixedArguments((args[1], args[2]), (τ = args[3], θ = args[4]))
+    end
+    @test_expression_generating combine_broadcast_args([:μ], [Expr(:kw, :σ, :σ)]) quote
+        GraphPPL.MixedArguments((args[1],), (σ = args[2],))
     end
 end
 
@@ -1792,8 +1871,14 @@ end
                 some_node,
                 ilhs,
                 GraphPPL.MixedArguments(
-                    (GraphPPL.proxylabel(:a, a, nothing, GraphPPL.False()), GraphPPL.proxylabel(:b, b, nothing, GraphPPL.False())),
-                    GraphPPL.proxylabel(:anonymous, NamedTuple{$(:μ, :σ)}(args), nothing, GraphPPL.False())
+                    (
+                        GraphPPL.proxylabel(:args, args, (1,), GraphPPL.False()),
+                        GraphPPL.proxylabel(:args, args, (2,), GraphPPL.False())
+                    ),
+                    (
+                        μ = GraphPPL.proxylabel(:args, args, (3,), GraphPPL.False()),
+                        σ = GraphPPL.proxylabel(:args, args, (4,), GraphPPL.False())
+                    )
                 )
             )
         end
@@ -2069,4 +2154,29 @@ end
     @test_throws "One of the arguments to `exp` is of type `GraphPPL.VariableRef`. Did you mean to create a new random variable with `:=` operator instead?" GraphPPL.create_model(
         somemodel()
     )
+end
+
+@testitem "`@model` should reject keyword arguments in the model signature" begin
+    import GraphPPL: model_macro_interior
+
+    include("testutils.jl")
+
+    # Keyword arguments used to be parsed and then silently dropped with only a warning, so the body
+    # never saw them and the user's only signal was a later `UndefVarError`
+    kwargs_spec = :(function model_with_kwargs(x; a = 1, b = 2)
+        y ~ Normal(x, a)
+    end)
+
+    @test_throws "does not support keyword arguments in the model signature" model_macro_interior(
+        TestUtils.TestGraphPPLBackend, kwargs_spec
+    )
+    # the offending keyword arguments are named, and the supported form is shown
+    @test_throws "but got 2: a, b" model_macro_interior(TestUtils.TestGraphPPLBackend, kwargs_spec)
+    @test_throws "model_with_kwargs(x)" model_macro_interior(TestUtils.TestGraphPPLBackend, kwargs_spec)
+
+    # positional-only signatures are unaffected
+    positional_spec = :(function model_without_kwargs(x, a)
+        y ~ Normal(x, a)
+    end)
+    @test model_macro_interior(TestUtils.TestGraphPPLBackend, positional_spec) isa Expr
 end
