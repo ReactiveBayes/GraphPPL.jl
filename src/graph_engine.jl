@@ -1059,10 +1059,6 @@ variable_ref_eltype(::Type{Nothing}, ::Type{Nothing}) = Any
 variable_ref_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.eltype(E)
 variable_ref_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.eltype(L)
 
-function variableref_checked_collection_typeof(::VariableRef)
-    return variableref_checked_iterator_call(typeof, :typeof, ref)
-end
-
 Base.length(ref::VariableRef) = variableref_checked_iterator_call(Base.length, :length, ref)
 Base.firstindex(ref::VariableRef) = variableref_checked_iterator_call(Base.firstindex, :firstindex, ref)
 Base.lastindex(ref::VariableRef) = variableref_checked_iterator_call(Base.lastindex, :lastindex, ref)
