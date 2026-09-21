@@ -277,6 +277,66 @@ end
 is_kwargs_expression(e) = false
 
 """
+    split_positional_and_keyword_args(args::Vector)
+
+Split a call's argument list into its positional and keyword parts, returning them as a
+`(positional, keywords)` tuple.
+
+Julia writes an explicit `; ...` group into a single leading `:parameters` node, but keyword
+arguments written in the comma form stay inline as `:kw` nodes among the positional arguments.
+`f(a; b = c)` and `f(a, b = c)` are the same call, so both spellings are normalized here to the
+same split. Everything downstream assumes the `:parameters` form, so the comma form has to be
+rewritten into it before it reaches `combine_args`.
+"""
+function split_positional_and_keyword_args(args::Vector)
+    positional = Any[]
+    keywords = Any[]
+    for arg in args
+        if arg isa Expr && arg.head === :parameters
+            append!(keywords, arg.args)
+        elseif arg isa Expr && arg.head === :kw
+            push!(keywords, arg)
+        else
+            push!(positional, arg)
+        end
+    end
+    return positional, keywords
+end
+
+"""
+    mixed_kwargs_rhs(f, args::Vector, options::Vector)
+
+Rebuild the right-hand side `f(a, b = c) where { ... }` in the canonical form
+`f(a; b = c) where { ... }`, or return `nothing` if `args` holds no such mix and the expression
+should be left alone.
+
+Returns only the right-hand side, because the three operators this serves do not share an
+expression head: `~` and `.~` are `:call`s, while `:=` has its own head.
+"""
+function mixed_kwargs_rhs(f, args::Vector, options::Vector)
+    positional, keywords = split_positional_and_keyword_args(args)
+    if isempty(positional) || isempty(keywords)
+        return nothing
+    end
+    return :($f($(positional...); $(keywords...)) where {$(options...)})
+end
+
+"""
+    reconstruct_call(f, args::Vector)
+
+Rebuild the call `f(args...)` with its keyword arguments in the canonical `:parameters` form.
+
+`convert_anonymous_variables` runs *after* `convert_to_kwargs_expression` in the pipeline, so the
+tilde expressions it generates for nested calls never pass through that normalization. Splicing
+the captured arguments back verbatim would reintroduce the comma form there, so anything that
+generates a new call expression builds it through this function instead.
+"""
+function reconstruct_call(f, args::Vector)
+    positional, keywords = split_positional_and_keyword_args(args)
+    return isempty(keywords) ? :($f($(positional...))) : :($f($(positional...); $(keywords...)))
+end
+
+"""
     convert_to_kwargs_expression(expr::Expr)
 
 Convert an expression to a keyword argument expression. This function is used in the conversion of tilde and dot-tilde expressions to ensure that the arguments are passed as keyword arguments.
@@ -289,7 +349,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs ~ $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs ~ $rhs)
         end
         # Logic for .~ operator
     elseif @capture(e, (lhs_ .~ f_(; kwargs__) where {options__}))
@@ -298,7 +361,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs .~ $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs .~ $rhs)
         end
         # Logic for := operator
     elseif @capture(e, (lhs_ := f_(; kwargs__) where {options__}))
@@ -307,7 +373,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs := $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs := $rhs)
         end
     else
         return e
@@ -329,21 +398,21 @@ function convert_to_anonymous(e::Expr, created_by)
             f = Symbol(string(f)[2:end])
             return quote
                 let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                    $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                    $sym .~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
                 end
             end
         end
         sym = gensym(:anon)
         return quote
             let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym ~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                $sym ~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
             end
         end
     elseif @capture(e, f_.(args__))
         sym = gensym(:anon)
         return quote
             let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                $sym .~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
             end
         end
     end

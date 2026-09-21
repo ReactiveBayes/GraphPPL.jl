@@ -757,6 +757,79 @@ end
         x ~ Normal(; μ = μ, σ = σ) where {created_by = (x ~ Normal(μ = μ, σ = σ) where {q = MeanField()}), q = MeanField()}
     end
     @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 28: mixed positional and keyword arguments written in the comma form are split into
+    # the keyword form, exactly as if they had been written with an explicit `;`. Previously the
+    # `var = v` stayed among the positional arguments and `combine_args` emitted a tuple literal
+    # containing a `:kw` node, which is not valid syntax.
+    input = quote
+        x ~ Normal(m, var = v) where {created_by = (x ~ Normal(m, var = v))}
+    end
+    output = quote
+        x ~ Normal(m; var = v) where {created_by = (x ~ Normal(m, var = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 29: the same for `.~`
+    input = quote
+        x .~ Normal(m, var = v) where {created_by = (x .~ Normal(m, var = v))}
+    end
+    output = quote
+        x .~ Normal(m; var = v) where {created_by = (x .~ Normal(m, var = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 30: ... and for `:=`
+    input = quote
+        x := f(m, s = v) where {created_by = (x := f(m, s = v))}
+    end
+    output = quote
+        x := f(m; s = v) where {created_by = (x := f(m, s = v))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 31: both spellings at once collapse into a single keyword group. Julia puts the explicit
+    # `;` group first in the argument list, so the keywords from it lead
+    input = quote
+        x ~ Normal(m, var = v; mean = q) where {created_by = (x ~ Normal(m, var = v; mean = q))}
+    end
+    output = quote
+        x ~ Normal(m; mean = q, var = v) where {created_by = (x ~ Normal(m, var = v; mean = q))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+
+    # Test 32: a call with several positional arguments and several comma-form keywords
+    input = quote
+        x ~ Normal(μ, σ, a = τ, b = θ) where {created_by = (x ~ Normal(μ, σ, a = τ, b = θ))}
+    end
+    output = quote
+        x ~ Normal(μ, σ; a = τ, b = θ) where {created_by = (x ~ Normal(μ, σ, a = τ, b = θ))}
+    end
+    @test_expression_generating apply_pipeline(input, convert_to_kwargs_expression) output
+end
+
+@testitem "split_positional_and_keyword_args" begin
+    import GraphPPL: split_positional_and_keyword_args
+    import MacroTools: @capture
+
+    include("testutils.jl")
+
+    split_of(s) = (@capture(s, f_(args__)); split_positional_and_keyword_args(args))
+
+    # Comma form: the keyword sits inline among the positional arguments as a `:kw` node
+    @test split_of(:(foo(a, b = c))) == (Any[:a], Any[Expr(:kw, :b, :c)])
+
+    # Semicolon form: Julia collects it into a leading `:parameters` node instead. Both spellings
+    # mean the same call, so both must produce the same split
+    @test split_of(:(foo(a; b = c))) == (Any[:a], Any[Expr(:kw, :b, :c)])
+
+    # Both at once -- the `:parameters` group comes first in the argument list
+    @test split_of(:(foo(a, b = c; d = e))) == (Any[:a], Any[Expr(:kw, :d, :e), Expr(:kw, :b, :c)])
+
+    # Degenerate cases: nothing to split
+    @test split_of(:(foo(a, b))) == (Any[:a, :b], Any[])
+    @test split_of(:(foo(a = 1, b = 2))) == (Any[], Any[Expr(:kw, :a, 1), Expr(:kw, :b, 2)])
+    @test split_of(:(foo())) == (Any[], Any[])
 end
 
 @testitem "convert_to_anonymous" begin
