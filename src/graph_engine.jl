@@ -2034,8 +2034,11 @@ make_node!(materialize::True, node_type::NodeType, behaviour::NodeBehaviour, mod
     GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
+# A node that gets materialized takes its arguments either all positionally or all by name, since the
+# two have to be matched against the node's interfaces. Mixing them is reported here rather than
+# further down, where the mismatch would surface as an unreadable dispatch failure.
 make_node!(::True, node_type::NodeType, behaviour::NodeBehaviour, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::MixedArguments) where {F} = error(
-    "MixedArguments not supported for rhs_interfaces when node has to be materialized"
+    lazy"MixedArguments not supported for `$(fform)`: a node that has to be materialized cannot be called with both positional and keyword arguments. Got $(length(rhs_interfaces.args)) positional argument(s) and the keyword argument(s) $(keys(rhs_interfaces.kwargs)). Use either all positional or all keyword arguments."
 )
 
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::Tuple{}) where {F} = make_node!(
