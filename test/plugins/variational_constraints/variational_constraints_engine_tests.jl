@@ -1569,3 +1569,30 @@ end
     @test occursin(r"q\(x, y\) = q\(x\)q\(y\)", repr(constraint))
     @test occursin(r"μ\(x\) ::(.*?)PointMass", repr(constraint))
 end
+
+@testitem "ConstraintStack" begin
+    import GraphPPL:
+        ConstraintStack, constraints, Context, ResolvedFunctionalFormConstraint, ResolvedConstraintLHS, ResolvedIndexedVariable, rhs
+
+    context = Context()
+    other = Context()
+    constraint(form) = ResolvedFunctionalFormConstraint(ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),)), form)
+
+    stack = ConstraintStack()
+    push!(stack, constraint(:a), context)
+    push!(stack, constraint(:b), context)
+    push!(stack, constraint(:c), other)
+    # read from the top, the constraint pushed last first
+    @test length(stack) == 3
+    @test map(rhs, collect(stack)) == [:c, :b, :a]
+    @test map(rhs, collect(constraints(stack))) == [:c, :b, :a]
+    @test stack[context] == 2 && stack[other] == 1
+
+    # each context pops as many as it pushed, from the top
+    @test pop!(stack, other) === true
+    @test map(rhs, collect(stack)) == [:b, :a]
+    @test pop!(stack, other) === false
+    @test pop!(stack, context) === true
+    @test map(rhs, collect(stack)) == [:a]
+end
+

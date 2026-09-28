@@ -245,6 +245,25 @@ function __flattened_index(::Val{N}, array::Vector{V}, findex, index...) where {
     end
 end
 
+# `flattened_index` sums the lengths of every slice before `index`, so resolving the index of each
+# element of an array is quadratic in its size. While constraints are applied the model is complete,
+# so the plugin binds a cache of those prefix sums per array (see `with_flattened_index_cache`).
+const FLATTENED_INDEX_CACHE_KEY = :graphppl_flattened_index_cache
+
+with_flattened_index_cache(f) = task_local_storage(f, FLATTENED_INDEX_CACHE_KEY, IdDict{Any, Vector{Int}}())
+
+function cached_flattened_index(array::ResizableArray{T, V, N}, index::NTuple{N, Int}) where {T, V, N}
+    cache = get(task_local_storage(), FLATTENED_INDEX_CACHE_KEY, nothing)
+    cache === nothing && return flattened_index(array, index)
+    prefix = get!(cache::IdDict{Any, Vector{Int}}, array) do
+        counts = map(slice -> __recursive_length(Val(N - 1), slice), array.data)
+        return pushfirst!(cumsum(counts), 0)
+    end
+    findex = first(index)
+    return prefix[findex] + __flattened_index(Val(N - 1), array.data[findex], Base.tail(index)...)
+end
+cached_flattened_index(array::ResizableArray{T, V, 1}, index::NTuple{1, Int}) where {T, V} = flattened_index(array, first(index))
+
 function Base.first(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in CartesianIndices(size(array)) #TODO improve performance of this function since it uses splatting
         if isassigned(array, index.I...)::Bool
