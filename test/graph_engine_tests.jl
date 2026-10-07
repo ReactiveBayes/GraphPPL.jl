@@ -1378,6 +1378,40 @@ end
     @test ctx[FactorID(sum, 2)] == ctx.factor_nodes[FactorID(sum, 2)]
 end
 
+@testitem "Factors of an object are counted and identified by its type, never by its value" begin
+    import GraphPPL: Context, NodeLabel, FactorID, generate_factor_nodelabel, factor_key
+
+    # An object whose value must not be hashed or compared, as one holding arrays traced by a compiler
+    struct UnhashablePrior
+        parameters::Vector{Float64}
+    end
+    Base.hash(::UnhashablePrior, ::UInt) = error("the value of this object must not be hashed")
+    Base.:(==)(::UnhashablePrior, ::UnhashablePrior) = error("the value of this object must not be compared")
+
+    @test factor_key(sum) === sum
+    @test factor_key(Context) === Context
+    @test factor_key(UnhashablePrior([1.0])) === UnhashablePrior
+
+    ctx = Context()
+    a, b = UnhashablePrior([1.0]), UnhashablePrior([1.0])
+    ida = generate_factor_nodelabel(ctx, a)
+    idb = generate_factor_nodelabel(ctx, b)
+    @test (ida.index, idb.index) == (1, 2)
+    @test ida != idb
+
+    ctx[ida] = NodeLabel(:a, 1)
+    ctx[idb] = NodeLabel(:b, 2)
+    @test ctx[a, 1] == NodeLabel(:a, 1)
+    @test ctx[b, 2] == NodeLabel(:b, 2)
+    @test haskey(ctx, FactorID(a, 2))
+    @test !haskey(ctx, FactorID(a, 3))
+
+    # Functions and types are counted separately from each other and from objects
+    @test generate_factor_nodelabel(ctx, sum).index == 1
+    @test generate_factor_nodelabel(ctx, Context).index == 1
+    @test generate_factor_nodelabel(ctx, sum).index == 2
+end
+
 @testitem "getcontext(::Model)" begin
     import GraphPPL: Context, getcontext, create_model, add_variable_node!, NodeCreationOptions
 
@@ -2146,6 +2180,31 @@ end
     @test @inferred(contains_nodelabel(MixedArguments((c,), (; b = b)))) === True()
     @test @inferred(contains_nodelabel(MixedArguments((c,), (;)))) === False()
     @test @inferred(contains_nodelabel(MixedArguments((), (; c = c)))) === False()
+end
+
+@testitem "is_nodelabel does not visit the elements of arrays of numbers" begin
+    import GraphPPL: create_model, getcontext, getorcreate!, is_nodelabel, contains_nodelabel, False
+
+    include("testutils.jl")
+
+    # An array whose elements must not be read, as one traced by a compiler
+    struct UnreadableVector <: AbstractVector{Float64} end
+    Base.size(::UnreadableVector) = (2,)
+    Base.getindex(::UnreadableVector, i::Int) = error("the elements of this array must not be read")
+    Base.iterate(::UnreadableVector, state...) = error("the elements of this array must not be read")
+
+    @test !is_nodelabel(UnreadableVector())
+    @test !is_nodelabel([UnreadableVector(), UnreadableVector()])
+    @test contains_nodelabel((UnreadableVector(), 1.0)) === False()
+    @test !is_nodelabel([1.0, 2.0])
+    @test !is_nodelabel([[1.0], [2.0]])
+
+    model = create_test_model()
+    ctx = getcontext(model)
+    x = getorcreate!(model, ctx, :x, nothing)
+    @test is_nodelabel([x])
+    @test is_nodelabel(Any[1.0, x])
+    @test !is_nodelabel(Any[1.0, 2.0])
 end
 
 @testitem "make_node!(::Atomic)" begin
