@@ -201,8 +201,20 @@ fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
 
 Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
-Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.fform == id2.fform && id1.index == id2.index
-Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
+Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.index == id2.index && factor_key(id1.fform) == factor_key(id2.fform)
+Base.hash(id::FactorID, h::UInt) = hash(factor_key(id.fform), hash(id.index, h))
+
+"""
+    factor_key(fform)
+
+The key under which factors of `fform` are counted and identified in a context: a function or a type
+is its own key, and any other object, such as a distribution instance on the right of `~`, is keyed by
+its type, so its value is never hashed or compared. Hashing a value can be expensive, or impossible,
+as for arrays traced by a compiler; and equal values, such as `Beta(1, 1)` and `Beta(1.0, 1.0)`, must
+not share an identifier.
+"""
+factor_key(fform::Union{Function, Type}) = fform
+factor_key(::F) where {F} = F
 
 """
     Model(graph::MetaGraph)
@@ -491,7 +503,7 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
-count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+count(context::Context, fform::F) where {F} = get(context.submodel_counts, factor_key(fform), 0)
 shortname(context::Context) = string(context.prefix)
 
 returnval(context::Context) = context.returnval[]
@@ -509,12 +521,9 @@ path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
 
 function generate_factor_nodelabel(context::Context, fform::F) where {F}
-    if count(context, fform) == 0
-        set!(context.submodel_counts, fform, 1)
-    else
-        context.submodel_counts[fform] += 1
-    end
-    return FactorID(fform, count(context, fform))
+    index = count(context, fform) + 1
+    set!(context.submodel_counts, factor_key(fform), index)
+    return FactorID(fform, index)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", context::Context)
@@ -1933,6 +1942,10 @@ instantiate(backendtype) = error("The backend of type $backendtype must implemen
 
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
+# An array of numbers, or of arrays of numbers, holds no label; its elements are not visited, which a
+# compiler tracing the array may not allow
+is_nodelabel(x::AbstractArray{<:Number}) = false
+is_nodelabel(x::AbstractArray{<:AbstractArray{<:Number}}) = false
 is_nodelabel(x::GraphPPL.NodeLabel) = true
 is_nodelabel(x::ProxyLabel) = true
 is_nodelabel(x::VariableRef) = true

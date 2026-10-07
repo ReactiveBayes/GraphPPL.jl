@@ -788,6 +788,28 @@ end
     @test length(collect(filter(as_node(prior), model))) === 1
 end
 
+@testitem "Equal distribution objects as priors make distinct nodes" begin
+    using Distributions
+    import GraphPPL: create_model, getcontext, NodeCreationOptions, datalabel
+
+    include("testutils.jl")
+
+    @model function two_priors(y, prior1, prior2)
+        θ ~ prior1
+        ϕ ~ prior2
+        y ~ Bernoulli(θ * ϕ)
+    end
+
+    # `Beta(1, 1) == Beta(1.0, 1.0)` in Distributions, and both are `Beta{Float64}`
+    model = create_model(two_priors(prior1 = Beta(1, 1), prior2 = Beta(1.0, 1.0))) do model, context
+        return (; y = datalabel(model, context, NodeCreationOptions(kind = :data), :y, 1.0))
+    end
+
+    @test length(collect(filter(as_node(Beta(1, 1)), model))) === 2
+    ctx = getcontext(model)
+    @test ctx[Beta(1, 1), 1] != ctx[Beta(1, 1), 2]
+end
+
 @testitem "Model that passes a slice to child model" begin
     using GraphPPL
     include("testutils.jl")
