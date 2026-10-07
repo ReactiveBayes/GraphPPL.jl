@@ -318,6 +318,31 @@ end
     @test flattened_index(s, (2, 1, 1)) == 4
 end
 
+@testitem "cached_flattened_index agrees with flattened_index" begin
+    import GraphPPL: ResizableArray, flattened_index, cached_flattened_index, with_flattened_index_cache
+
+    # a ragged array: the slices have different lengths, so the prefix sums differ from a product
+    s = ResizableArray(Ref, Val(3))
+    for (i, j, k) in ((1, 1, 1), (1, 1, 2), (1, 2, 3), (2, 1, 1), (3, 2, 2), (3, 3, 1), (3, 3, 4))
+        s[i, j, k] = Ref(i + j + k)
+    end
+    indices = [(i, j, k) for i in 1:3, j in 1:3, k in 1:4 if isassigned(s, i, j, k)]
+
+    # without a cache bound, it computes the index as `flattened_index` does
+    @test all(i -> cached_flattened_index(s, i) == flattened_index(s, i), indices)
+    # with one, from prefix sums computed once per array
+    with_flattened_index_cache() do
+        @test all(i -> cached_flattened_index(s, i) == flattened_index(s, i), indices)
+    end
+
+    v = ResizableArray(Ref, Val(1))
+    v[1] = Ref(1)
+    v[3] = Ref(3)
+    with_flattened_index_cache() do
+        @test cached_flattened_index(v, (3,)) == flattened_index(v, 3)
+    end
+end
+
 @testitem "iterate" begin
     import GraphPPL: ResizableArray
 
