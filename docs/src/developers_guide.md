@@ -117,6 +117,7 @@ GraphPPL.ResizableArray
 ```@docs
 GraphPPL.Context
 GraphPPL.FactorID
+GraphPPL.factor_key
 GraphPPL.NodeData
 GraphPPL.NodeLabel
 GraphPPL.EdgeLabel
