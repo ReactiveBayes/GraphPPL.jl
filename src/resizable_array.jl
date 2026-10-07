@@ -172,12 +172,31 @@ function vec(array::ResizableArray{T, V, N}) where {T, V, N}
     return result
 end
 
+# `ResizableArray` is an `AbstractArray`, so `length` (and thus `collect`, `map`, broadcasting, ...)
+# reports the maximum extent, not the number of assigned elements. Silently skipping unassigned slots
+# would therefore break the iteration protocol and leave uninitialized memory in the result, so
+# iteration over a ragged or sparsely filled array fails loudly instead. Use `vec` to traverse
+# only the assigned elements.
+function __resizable_array_checked_getindex(array::ResizableArray, index::CartesianIndex)
+    if !(isassigned(array, index.I...)::Bool)
+        error(
+            lazy"Cannot iterate over `ResizableArray` at index $(index.I) because this slot is unassigned. Ragged or sparsely filled arrays cannot be iterated densely, use `GraphPPL.vec(array)` to iterate over the assigned elements only."
+        )
+    end
+    return array[index.I...]
+end
+
 function Base.iterate(array::ResizableArray)
     # We want to emulate the same iteration protocol as for the `Array` structure 
     # which iterates over the last dimension first
     indx = CartesianIndices(size(array))
-    pindex, pstate = iterate(indx)
-    return (array[pindex.I...], isnothing(pstate) ? nothing : (indx, pstate))
+    piterate = iterate(indx)
+    # An empty array has nothing to iterate over
+    if isnothing(piterate)
+        return nothing
+    end
+    pindex, pstate = piterate
+    return (__resizable_array_checked_getindex(array, pindex), isnothing(pstate) ? nothing : (indx, pstate))
 end
 
 function Base.iterate(array::ResizableArray, state)
@@ -190,7 +209,7 @@ function Base.iterate(array::ResizableArray, state)
         return nothing
     end
     nindex, nstate = niterate
-    return (array[nindex.I...], isnothing(nstate) ? nothing : (indx, nstate))
+    return (__resizable_array_checked_getindex(array, nindex), isnothing(nstate) ? nothing : (indx, nstate))
 end
 
 __length(array::ResizableArray{T, V, N}) where {T, V, N} = __recursive_length(Val(N), array.data)
@@ -225,6 +244,25 @@ function __flattened_index(::Val{N}, array::Vector{V}, findex, index...) where {
         return sum(i -> __recursive_length(Val(N - 1), array[i]), 1:(findex - 1)) + __flattened_index(Val(N - 1), array[findex], index...)
     end
 end
+
+# `flattened_index` sums the lengths of every slice before `index`, so resolving the index of each
+# element of an array is quadratic in its size. While constraints are applied the model is complete,
+# so the plugin binds a cache of those prefix sums per array (see `with_flattened_index_cache`).
+const FLATTENED_INDEX_CACHE_KEY = :graphppl_flattened_index_cache
+
+with_flattened_index_cache(f) = task_local_storage(f, FLATTENED_INDEX_CACHE_KEY, IdDict{Any, Vector{Int}}())
+
+function cached_flattened_index(array::ResizableArray{T, V, N}, index::NTuple{N, Int}) where {T, V, N}
+    cache = get(task_local_storage(), FLATTENED_INDEX_CACHE_KEY, nothing)
+    cache === nothing && return flattened_index(array, index)
+    prefix = get!(cache::IdDict{Any, Vector{Int}}, array) do
+        counts = map(slice -> __recursive_length(Val(N - 1), slice), array.data)
+        return pushfirst!(cumsum(counts), 0)
+    end
+    findex = first(index)
+    return prefix[findex] + __flattened_index(Val(N - 1), array.data[findex], Base.tail(index)...)
+end
+cached_flattened_index(array::ResizableArray{T, V, 1}, index::NTuple{1, Int}) where {T, V} = flattened_index(array, first(index))
 
 function Base.first(array::ResizableArray{T, V, N}) where {T, V, N}
     for index in CartesianIndices(size(array)) #TODO improve performance of this function since it uses splatting

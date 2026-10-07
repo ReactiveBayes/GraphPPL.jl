@@ -457,7 +457,7 @@ Base.in(
     i::NTuple{M, Int} where {M}
 ) =
     (getname(properties) == getname(var)) &&
-    (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
+    (cached_flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
     (getcontext(var) == getcontext(nodedata))
 
 Base.in(nodedata::NodeData, properties::VariableNodeProperties, var::ResolvedIndexedVariable{T} where {T <: Nothing}) =
@@ -474,7 +474,7 @@ Base.in(
     i::NTuple{N, Int} where {N}
 ) =
     (getname(properties) == getname(var)) &&
-    (flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
+    (cached_flattened_index(getcontext(var)[getname(var)], i) ∈ index(var)) &&
     (getcontext(var) == getcontext(nodedata))
 
 Base.in(
@@ -540,16 +540,18 @@ rhs(constraint::ResolvedFunctionalFormConstraint) = constraint.rhs
 
 const ResolvedConstraint = Union{ResolvedFactorizationConstraint, ResolvedFunctionalFormConstraint}
 
+# A `Vector` used as a stack, read from the top as `DataStructures.Stack` iterates: a `Stack`
+# allocates a 1024-element block on creation, once per model even without constraints.
 struct ConstraintStack
-    constraints::Stack{ResolvedConstraint}
+    constraints::Vector{ResolvedConstraint}
     context_counts::Dict{Context, Int}
 end
 
-constraints(stack::ConstraintStack) = stack.constraints
+constraints(stack::ConstraintStack) = Iterators.reverse(stack.constraints)
 context_counts(stack::ConstraintStack) = stack.context_counts
 Base.getindex(stack::ConstraintStack, context::Context) = context_counts(stack)[context]
 
-ConstraintStack() = ConstraintStack(Stack{ResolvedConstraint}(), Dict{Context, Int}())
+ConstraintStack() = ConstraintStack(ResolvedConstraint[], Dict{Context, Int}())
 
 function Base.push!(stack::ConstraintStack, constraint::Any, context::Context)
     push!(stack.constraints, constraint)
@@ -566,13 +568,15 @@ function Base.pop!(stack::ConstraintStack, context::Context)
             return false
         end
         context_counts(stack)[context] -= 1
-        pop!(constraints(stack))
+        pop!(stack.constraints)
         return true
     end
     return false
 end
 
-Base.iterate(stack::ConstraintStack, state = 1) = iterate(constraints(stack), state)
+Base.iterate(stack::ConstraintStack, state...) = iterate(constraints(stack), state...)
+Base.length(stack::ConstraintStack) = length(stack.constraints)
+Base.eltype(::Type{ConstraintStack}) = ResolvedConstraint
 
 function mean_field_constraint!(constraint::BoundedBitSetTuple)
     fill!(contents(constraint), false)
@@ -631,6 +635,12 @@ function materialize_constraints!(model::Model, node_label::NodeLabel, node_data
 
     # Factorize out `neighbors` for which `is_factorized` is `true`
     materialize_is_factorized_neighbors!(constraint_bitset, neighbor_data(properties))
+
+    # No factorisation at all, the common case: one cluster of every interface.
+    if all(contents(constraint_bitset))
+        setextra!(node_data, VariationalConstraintsFactorizationIndicesKey, (collect(1:size(contents(constraint_bitset), 1)),))
+        return nothing
+    end
 
     constraint_set = unique(eachcol(contents(constraint_bitset)))
 
@@ -951,7 +961,7 @@ function apply_constraints!(
     applicable_nodes = unroll_nocreate(context[getvariables(marginal_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMarginalFormConstraintKey)
-            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+            @warn lazy"Node $node already has functional form constraint $(getextra(model[node], VariationalConstraintsMarginalFormConstraintKey)) applied, therefore $(getconstraint(marginal_constraint)) will not be applied"
         else
             setextra!(model[node], VariationalConstraintsMarginalFormConstraintKey, getconstraint(marginal_constraint))
         end
@@ -966,7 +976,7 @@ function apply_constraints!(model::Model, context::Context, message_constraint::
     applicable_nodes = unroll_nocreate(context[getvariables(message_constraint)])
     for node in applicable_nodes
         if hasextra(model[node], VariationalConstraintsMessagesFormConstraintKey)
-            @warn lazy"Node $node already has functional form constraint $(opt[:q]) applied, therefore $constraint_data will not be applied"
+            @warn lazy"Node $node already has functional form constraint $(getextra(model[node], VariationalConstraintsMessagesFormConstraintKey)) applied, therefore $(getconstraint(message_constraint)) will not be applied"
         else
             setextra!(model[node], VariationalConstraintsMessagesFormConstraintKey, getconstraint(message_constraint))
         end
@@ -1000,10 +1010,13 @@ function apply_constraints!(model::Model, context::Context, constraint_set::Cons
         apply_constraints!(model, context, rfc)
     end
     for (factor_id, child) in pairs(children(context))
+        inline_constraints = get(context_options(child), :constraints, nothing)
         if factor_id ∈ keys(specific_submodel_constraints(constraint_set))
             apply_constraints!(model, child, getconstraint(specific_submodel_constraints(constraint_set)[factor_id]), stack)
         elseif fform(factor_id) ∈ keys(general_submodel_constraints(constraint_set))
             apply_constraints!(model, child, getconstraint(general_submodel_constraints(constraint_set)[fform(child)]), stack)
+        elseif inline_constraints !== nothing
+            apply_constraints!(model, child, inline_constraints, stack)
         else
             apply_constraints!(model, child, default_constraints(fform(factor_id)), stack)
         end

@@ -277,6 +277,66 @@ end
 is_kwargs_expression(e) = false
 
 """
+    split_positional_and_keyword_args(args::Vector)
+
+Split a call's argument list into its positional and keyword parts, returning them as a
+`(positional, keywords)` tuple.
+
+Julia writes an explicit `; ...` group into a single leading `:parameters` node, but keyword
+arguments written in the comma form stay inline as `:kw` nodes among the positional arguments.
+`f(a; b = c)` and `f(a, b = c)` are the same call, so both spellings are normalized here to the
+same split. Everything downstream assumes the `:parameters` form, so the comma form has to be
+rewritten into it before it reaches `combine_args`.
+"""
+function split_positional_and_keyword_args(args::Vector)
+    positional = Any[]
+    keywords = Any[]
+    for arg in args
+        if arg isa Expr && arg.head === :parameters
+            append!(keywords, arg.args)
+        elseif arg isa Expr && arg.head === :kw
+            push!(keywords, arg)
+        else
+            push!(positional, arg)
+        end
+    end
+    return positional, keywords
+end
+
+"""
+    mixed_kwargs_rhs(f, args::Vector, options::Vector)
+
+Rebuild the right-hand side `f(a, b = c) where { ... }` in the canonical form
+`f(a; b = c) where { ... }`, or return `nothing` if `args` holds no such mix and the expression
+should be left alone.
+
+Returns only the right-hand side, because the three operators this serves do not share an
+expression head: `~` and `.~` are `:call`s, while `:=` has its own head.
+"""
+function mixed_kwargs_rhs(f, args::Vector, options::Vector)
+    positional, keywords = split_positional_and_keyword_args(args)
+    if isempty(positional) || isempty(keywords)
+        return nothing
+    end
+    return :($f($(positional...); $(keywords...)) where {$(options...)})
+end
+
+"""
+    reconstruct_call(f, args::Vector)
+
+Rebuild the call `f(args...)` with its keyword arguments in the canonical `:parameters` form.
+
+`convert_anonymous_variables` runs *after* `convert_to_kwargs_expression` in the pipeline, so the
+tilde expressions it generates for nested calls never pass through that normalization. Splicing
+the captured arguments back verbatim would reintroduce the comma form there, so anything that
+generates a new call expression builds it through this function instead.
+"""
+function reconstruct_call(f, args::Vector)
+    positional, keywords = split_positional_and_keyword_args(args)
+    return isempty(keywords) ? :($f($(positional...))) : :($f($(positional...); $(keywords...)))
+end
+
+"""
     convert_to_kwargs_expression(expr::Expr)
 
 Convert an expression to a keyword argument expression. This function is used in the conversion of tilde and dot-tilde expressions to ensure that the arguments are passed as keyword arguments.
@@ -289,7 +349,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs ~ $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs ~ $rhs)
         end
         # Logic for .~ operator
     elseif @capture(e, (lhs_ .~ f_(; kwargs__) where {options__}))
@@ -298,7 +361,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs .~ $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs .~ $rhs)
         end
         # Logic for := operator
     elseif @capture(e, (lhs_ := f_(; kwargs__) where {options__}))
@@ -307,7 +373,10 @@ function convert_to_kwargs_expression(e::Expr)
         if GraphPPL.is_kwargs_expression(args)
             return :($lhs := $f(; $(args...)) where {$(options...)})
         else
-            return e
+            # Mixed positional and keyword arguments, e.g. `f(a, b = c)`. Everything downstream
+            # expects the keywords in a `:parameters` group, so normalize before giving up.
+            rhs = GraphPPL.mixed_kwargs_rhs(f, args, options)
+            return isnothing(rhs) ? e : :($lhs := $rhs)
         end
     else
         return e
@@ -329,21 +398,21 @@ function convert_to_anonymous(e::Expr, created_by)
             f = Symbol(string(f)[2:end])
             return quote
                 let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                    $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                    $sym .~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
                 end
             end
         end
         sym = gensym(:anon)
         return quote
             let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym ~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                $sym ~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
             end
         end
     elseif @capture(e, f_.(args__))
         sym = gensym(:anon)
         return quote
             let $sym = GraphPPL.create_anonymous_variable!(__model__, __context__)
-                $sym .~ $f($(args...)) where {anonymous = true, created_by = $created_by}
+                $sym .~ $(reconstruct_call(f, args)) where {anonymous = true, created_by = $created_by}
             end
         end
     end
@@ -399,14 +468,40 @@ A `quote` block with the modified expression.
 """
 function add_get_or_create_expression(e::Expr)
     if @capture(e, (lhs_ ~ rhs_ where {options__}))
-        @capture(lhs, (var_[index__]) | (var_))
-        return quote
-            $(generate_get_or_create(var, index, rhs))
-            $e
+        if lhs isa Expr && lhs.head == :tuple
+            if is_named_tuple_lhs(lhs)
+                # Named-output: (a = m_a, b = m_b) ~ sub(...) — get_or_create the outer (RHS) variables
+                creates = map(lhs.args) do elem
+                    outer_var_expr = elem.args[2]
+                    @capture(outer_var_expr, (var_[index__]) | (var_)) ||
+                        error("Invalid named LHS value in $(elem). Value must be in a `var` or `var[index]` form.")
+                    generate_get_or_create(var, index, rhs)
+                end
+            else
+                # Positional-output: (m_a, m_b) ~ sub(...)
+                creates = map(lhs.args) do elem
+                    @capture(elem, (var_[index__]) | (var_)) ||
+                        error("Invalid tuple element on LHS: $(elem). Must be in a `var` or `var[index]` form.")
+                    generate_get_or_create(var, index, rhs)
+                end
+            end
+            return quote
+                $(creates...)
+                $e
+            end
+        else
+            @capture(lhs, (var_[index__]) | (var_))
+            return quote
+                $(generate_get_or_create(var, index, rhs))
+                $e
+            end
         end
     end
     return e
 end
+
+is_named_tuple_lhs(lhs) = false
+is_named_tuple_lhs(lhs::Expr) = lhs.head === :tuple && !isempty(lhs.args) && all(elem -> elem isa Expr && elem.head === :(=), lhs.args)
 
 what_walk(::typeof(add_get_or_create_expression)) = not_created_by
 
@@ -588,6 +683,11 @@ combine_broadcast_args(args::Vector, kwargs::Nothing) = quote
     args
 end
 
+# Inside the broadcasted expression `args` is the varargs tail of the broadcast closure, holding the
+# per-element slice of every combinable argument: the positional ones first, then the keyword values, in
+# declaration order. Both halves therefore have to be sliced out of that runtime tuple. Splicing the
+# original positional expressions here instead would capture the outer, un-broadcast collections, and
+# building the keyword `NamedTuple` out of the whole tuple mismatches its arity.
 function combine_broadcast_args(args::Vector, kwargs::Vector)
     kwargs_keys = [arg.args[1] for arg in kwargs]
     if length(args) == 0
@@ -595,9 +695,13 @@ function combine_broadcast_args(args::Vector, kwargs::Vector)
             NamedTuple{$(Tuple(kwargs_keys))}(args)
         end
     else
-        return quote
-            GraphPPL.MixedArguments($(Expr(:tuple, args...)), NamedTuple{$(Tuple(kwargs_keys))}(args))
-        end
+        npositional = length(args)
+        # A tuple literal and a named-tuple literal, mirroring the non-broadcast `combine_args`, so that
+        # `proxy_args` wraps each element in its own `proxylabel` and the two halves stay a `Tuple` and a
+        # `NamedTuple` as `MixedArguments{A <: Tuple, K <: NamedTuple}` requires
+        positional_args = Expr(:tuple, [:(args[$i]) for i in 1:npositional]...)
+        keyword_args = Expr(:tuple, [Expr(:(=), key, :(args[$(npositional + j)])) for (j, key) in enumerate(kwargs_keys)]...)
+        return :(GraphPPL.MixedArguments($positional_args, $keyword_args))
     end
 end
 
@@ -647,13 +751,51 @@ function convert_tilde_expression(e::Expr)
         options = GraphPPL.options_vector_to_named_tuple(options)
         nodesym = gensym(:node)
         varsym = gensym(:var)
-        @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
-        return quote
-            begin
-                $nodesym, $varsym = GraphPPL.make_node!(
-                    __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
-                )
-                $varsym
+        if lhs isa Expr && lhs.head == :tuple
+            if is_named_tuple_lhs(lhs)
+                # Named-output: (a = m_a, b = m_b) ~ sub(...) — build a NamedTuple of proxy labels
+                proxy_pairs = map(lhs.args) do elem
+                    iface_name = elem.args[1]
+                    outer_var_expr = elem.args[2]
+                    @capture(outer_var_expr, (var_[index__]) | (var_)) ||
+                        error("Invalid named LHS value in $(elem). Value must be in a `var` or `var[index]` form.")
+                    Expr(:(=), iface_name, generate_lhs_proxylabel(var, index))
+                end
+                lhs_named = Expr(:tuple, proxy_pairs...)
+                return quote
+                    begin
+                        $nodesym, $varsym = GraphPPL.make_node!(
+                            __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $lhs_named, $args
+                        )
+                        $varsym
+                    end
+                end
+            else
+                # Positional-output: (m_a, m_b) ~ sub(...) — build a plain Tuple of proxy labels
+                proxy_labels = map(lhs.args) do elem
+                    @capture(elem, (var_[index__]) | (var_)) ||
+                        error("Invalid tuple element on LHS: $(elem). Must be in a `var` or `var[index]` form.")
+                    generate_lhs_proxylabel(var, index)
+                end
+                lhs_tuple = Expr(:tuple, proxy_labels...)
+                return quote
+                    begin
+                        $nodesym, $varsym = GraphPPL.make_node!(
+                            __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $lhs_tuple, $args
+                        )
+                        $varsym
+                    end
+                end
+            end
+        else
+            @capture(lhs, (var_[index__]) | (var_)) || error("Invalid left-hand side $(lhs). Must be in a `var` or `var[index]` form.")
+            return quote
+                begin
+                    $nodesym, $varsym = GraphPPL.make_node!(
+                        __model__, __context__, GraphPPL.NodeCreationOptions($(options)), $fform, $(generate_lhs_proxylabel(var, index)), $args
+                    )
+                    $varsym
+                end
             end
         end
     elseif @capture(e, (lhs_ .~ fform_(args__; kwargs__) where {options__}) | (lhs_ .~ fform_(args__) where {options__}))
@@ -771,7 +913,51 @@ function get_make_node_function(model_specification, ms_body, ms_args, ms_name)
             __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
         )
             __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
-            __context__ = GraphPPL.Context(__parent_context__, $ms_name)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name, __options__)
+            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
+            __returnval__ = GraphPPL.add_terminated_submodel!(
+                __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
+            )
+            GraphPPL.returnval!(__context__, __returnval__)
+            return __context__, __lhs_interface__
+        end
+
+        # Multi-output: Tuple LHS (positional)
+        function GraphPPL.make_node!(
+            ::GraphPPL.Composite,
+            __model__::GraphPPL.Model,
+            __parent_context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
+            ::typeof($ms_name),
+            __lhs_interface__::Tuple,
+            __rhs_interfaces__::NamedTuple,
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
+        )
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name, __options__)
+            GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
+            GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
+            __returnval__ = GraphPPL.add_terminated_submodel!(
+                __model__, __context__, __options__, $ms_name, __interfaces__, __n_interfaces__
+            )
+            GraphPPL.returnval!(__context__, __returnval__)
+            return __context__, __lhs_interface__
+        end
+
+        # Named-output: NamedTuple LHS (kwarg-style)
+        function GraphPPL.make_node!(
+            ::GraphPPL.Composite,
+            __model__::GraphPPL.Model,
+            __parent_context__::GraphPPL.Context,
+            __options__::GraphPPL.NodeCreationOptions,
+            ::typeof($ms_name),
+            __lhs_interface__::NamedTuple,
+            __rhs_interfaces__::NamedTuple,
+            __n_interfaces__::GraphPPL.StaticInt{$(length(ms_args))}
+        )
+            __interfaces__ = GraphPPL.prepare_interfaces(__model__, $ms_name, __lhs_interface__, __rhs_interfaces__)
+            __context__ = GraphPPL.Context(__parent_context__, $ms_name, __options__)
             GraphPPL.copy_markov_blanket_to_child_context(__context__, __interfaces__)
             GraphPPL.add_composite_factor_node!(__model__, __parent_context__, __context__, $ms_name)
             __returnval__ = GraphPPL.add_terminated_submodel!(
@@ -849,7 +1035,13 @@ function model_macro_interior(backend_type, model_specification)
 
     num_interfaces = Base.length(ms_args)
     if !isnothing(ms_kwargs) && length(ms_kwargs) > 0
-        @warn("Model specification language does not support keyword arguments. Ignoring $(length(ms_kwargs)) keyword arguments.")
+        # Keyword arguments in a model signature were previously parsed and then silently dropped, with only
+        # a warning. The body never saw them, so the only real signal was a later `UndefVarError`. Fail here
+        # instead, consistent with how unsupported positional arguments are rejected at the call site.
+        kwargs_names = map(kwarg -> (kwarg isa Expr && kwarg.head === :kw) ? kwarg.args[1] : kwarg, ms_kwargs)
+        error(
+            "The `$(ms_name)` model macro does not support keyword arguments in the model signature, but got $(length(ms_kwargs)): $(join(kwargs_names, ", ")). Declare all model interfaces as positional arguments, `$(ms_name)($(join(ms_args, ", ")))`, they are passed by name at the call site."
+        )
     end
 
     boilerplate_functions = GraphPPL.get_boilerplate_functions(backend_type, ms_name, ms_args, num_interfaces)

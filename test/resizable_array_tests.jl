@@ -318,6 +318,31 @@ end
     @test flattened_index(s, (2, 1, 1)) == 4
 end
 
+@testitem "cached_flattened_index agrees with flattened_index" begin
+    import GraphPPL: ResizableArray, flattened_index, cached_flattened_index, with_flattened_index_cache
+
+    # a ragged array: the slices have different lengths, so the prefix sums differ from a product
+    s = ResizableArray(Ref, Val(3))
+    for (i, j, k) in ((1, 1, 1), (1, 1, 2), (1, 2, 3), (2, 1, 1), (3, 2, 2), (3, 3, 1), (3, 3, 4))
+        s[i, j, k] = Ref(i + j + k)
+    end
+    indices = [(i, j, k) for i in 1:3, j in 1:3, k in 1:4 if isassigned(s, i, j, k)]
+
+    # without a cache bound, it computes the index as `flattened_index` does
+    @test all(i -> cached_flattened_index(s, i) == flattened_index(s, i), indices)
+    # with one, from prefix sums computed once per array
+    with_flattened_index_cache() do
+        @test all(i -> cached_flattened_index(s, i) == flattened_index(s, i), indices)
+    end
+
+    v = ResizableArray(Ref, Val(1))
+    v[1] = Ref(1)
+    v[3] = Ref(3)
+    with_flattened_index_cache() do
+        @test cached_flattened_index(v, (3,)) == flattened_index(v, 3)
+    end
+end
+
 @testitem "iterate" begin
     import GraphPPL: ResizableArray
 
@@ -369,6 +394,38 @@ end
 
         for elem in vec(s)
             @test elem[] === 1
+        end
+    end
+
+    # Iterating a ragged / sparsely filled array must fail loudly and point at `vec`.
+    # It must never silently skip the unassigned slots: `ResizableArray <: AbstractArray` reports
+    # `length == prod(size)`, so skipping would leave uninitialized memory in `collect`/`map` results.
+    @testset "sparse ResizableArray should throw a descriptive error on iteration" begin
+        a = ResizableArray(Float64, Val(2))
+        a[1, 1] = 1.0
+        a[1, 2] = 2.0
+        a[2, 1] = 3.0
+
+        @test size(a) === (2, 2)
+        @test !isassigned(a, 2, 2)
+
+        for f in (collect, x -> map(identity, x), x -> [e for e in x], x -> (for e in x
+        end))
+            @test_throws "this slot is unassigned" f(a)
+            @test_throws "GraphPPL.vec" f(a)
+        end
+
+        # `vec` remains the supported way to traverse the assigned elements
+        @test GraphPPL.vec(a) == [1.0, 3.0, 2.0]
+    end
+
+    # An empty array has nothing to iterate over, it should not throw
+    @testset "empty ResizableArray" begin
+        for N in (1, 2, 3)
+            empty_array = ResizableArray(Float64, Val(N))
+            @test isempty(collect(empty_array))
+            @test length(collect(empty_array)) === 0
+            @test isempty(GraphPPL.vec(empty_array))
         end
     end
 end

@@ -78,6 +78,42 @@ We can specify constraints over the first `toy_model` submodel using the followi
 end
 ```
 
+## Inline constraints on submodel calls
+
+Constraints can also be specified **inline** at the call site of a submodel using the `where` keyword. This is useful when you want to attach constraints to a specific invocation without modifying the outer model's `@constraints` block. For example:
+
+```@example constraints
+@model function outer_toy_model(a, b, c)
+    a ~ toy_model(y = b, z = c) where {
+        constraints = @constraints begin
+            q(x, y, z) = q(x, y)q(z)
+            q(x) :: Normal
+        end
+    }
+end
+```
+
+The `where { constraints = ... }` syntax accepts any constraint set produced by the `@constraints` macro. Constraint sets defined with the `@constraints function` form can also be passed by reference:
+
+```@example constraints
+@constraints function my_constraints()
+    q(x, y, z) = q(x, y)q(z)
+    q(x) :: Normal
+end
+
+@model function outer_toy_model(a, b, c)
+    a ~ toy_model(y = b, z = c) where { constraints = my_constraints() }
+end
+```
+
+Inline constraints apply only to the specific submodel invocation they are attached to and propagate to any submodels nested within it. Their priority relative to other constraint sources, from highest to lowest, is:
+
+1. **External constraints** — passed at model creation via `for q in submodel` or `for q in (submodel, index)` blocks.
+2. **Inline constraints** — specified with `where { constraints = ... }` at the call site.
+3. **Default constraints** — defined via `GraphPPL.default_constraints`.
+
+This means that if external constraints also target the same submodel, they will override the inline constraints.
+
 ## Constraints over vector variables
 
 When a model contains vector (or array) latent variables, we can specify factorization constraints over individual elements using the `begin` and `end` indexing syntax. For example, consider a random walk model where latent states `x` are coupled through sequential dependencies:

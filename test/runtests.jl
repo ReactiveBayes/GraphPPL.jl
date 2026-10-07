@@ -6,7 +6,7 @@ end
 
 nthreads, ncores = Hwloc.num_virtual_cores(), Hwloc.num_physical_cores()
 nthreads, ncores = max(nthreads, 1), max(ncores, 1)
-nworker_threads = Int(nthreads / ncores)
+nworker_threads = max(1, div(nthreads, ncores))
 memory_threshold = 1.0
 
 pkg_root = dirname(pathof(GraphPPL)) |> dirname

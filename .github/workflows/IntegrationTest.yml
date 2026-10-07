@@ -9,6 +9,12 @@ on:
             - main
     pull_request:
 
+# Only the newest run per branch is useful, so supersede any run still in flight.
+# `main` is exempt: its runs are the record of what actually passed on the release branch.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
     test:
         name: ${{ matrix.package.repo }}

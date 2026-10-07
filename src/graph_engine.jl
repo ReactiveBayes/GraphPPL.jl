@@ -201,8 +201,20 @@ fform(id::FactorID) = id.fform
 index(id::FactorID) = id.index
 
 Base.show(io::IO, id::FactorID) = print(io, "(", fform(id), ", ", index(id), ")")
-Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.fform == id2.fform && id1.index == id2.index
-Base.hash(id::FactorID, h::UInt) = hash(id.fform, hash(id.index, h))
+Base.:(==)(id1::FactorID{F}, id2::FactorID{T}) where {F, T} = id1.index == id2.index && factor_key(id1.fform) == factor_key(id2.fform)
+Base.hash(id::FactorID, h::UInt) = hash(factor_key(id.fform), hash(id.index, h))
+
+"""
+    factor_key(fform)
+
+The key under which factors of `fform` are counted and identified in a context: a function or a type
+is its own key, and any other object, such as a distribution instance on the right of `~`, is keyed by
+its type, so its value is never hashed or compared. Hashing a value can be expensive, or impossible,
+as for arrays traced by a compiler; and equal values, such as `Beta(1, 1)` and `Beta(1.0, 1.0)`, must
+not share an identifier.
+"""
+factor_key(fform::Union{Function, Type}) = fform
+factor_key(::F) where {F} = F
 
 """
     Model(graph::MetaGraph)
@@ -267,7 +279,8 @@ to_symbol(label::NodeLabel) = to_symbol(label.name, label.global_counter)
 to_symbol(name::Any, index::Int) = Symbol(string(name, "_", index))
 
 Base.show(io::IO, label::NodeLabel) = print(io, label.name, "_", label.global_counter)
-Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.name == label2.name && label1.global_counter == label2.global_counter
+# The counter first: it is unique per node and an `Int`, where `name` is untyped and compared by a dynamic call.
+Base.:(==)(label1::NodeLabel, label2::NodeLabel) = label1.global_counter == label2.global_counter && label1.name == label2.name
 Base.hash(label::NodeLabel, h::UInt) = hash(label.global_counter, h)
 
 """
@@ -453,9 +466,10 @@ struct Context
     tensor_variables::UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}
     proxies::UnorderedDictionary{Symbol, ProxyLabel}
     returnval::Ref{Any}
+    options::Any
 end
 
-function Context(depth::Int, fform::Function, prefix::String, parent)
+function Context(depth::Int, fform::Function, prefix::String, parent, options = nothing)
     return Context(
         depth,
         fform,
@@ -468,12 +482,16 @@ function Context(depth::Int, fform::Function, prefix::String, parent)
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel, Vector{NodeLabel}, 1}}(),
         UnorderedDictionary{Symbol, ResizableArray{NodeLabel}}(),
         UnorderedDictionary{Symbol, ProxyLabel}(),
-        Ref{Any}()
+        Ref{Any}(),
+        options
     )
 end
 
 Context(parent::Context, model_fform::Function) = Context(
     parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent
+)
+Context(parent::Context, model_fform::Function, options) = Context(
+    parent.depth + 1, model_fform, (parent.prefix == "" ? parent.prefix : parent.prefix * "_") * getname(model_fform), parent, options
 )
 Context(fform) = Context(0, fform, "", nothing)
 Context() = Context(identity)
@@ -486,7 +504,7 @@ tensor_variables(context::Context) = context.tensor_variables
 factor_nodes(context::Context) = context.factor_nodes
 proxies(context::Context) = context.proxies
 children(context::Context) = context.children
-count(context::Context, fform::F) where {F} = haskey(context.submodel_counts, fform) ? context.submodel_counts[fform] : 0
+count(context::Context, fform::F) where {F} = get(context.submodel_counts, factor_key(fform), 0)
 shortname(context::Context) = string(context.prefix)
 
 returnval(context::Context) = context.returnval[]
@@ -504,12 +522,9 @@ path_to_root(::Nothing) = []
 path_to_root(context::Context) = [context, path_to_root(parent(context))...]
 
 function generate_factor_nodelabel(context::Context, fform::F) where {F}
-    if count(context, fform) == 0
-        set!(context.submodel_counts, fform, 1)
-    else
-        context.submodel_counts[fform] += 1
-    end
-    return FactorID(fform, count(context, fform))
+    index = count(context, fform) + 1
+    set!(context.submodel_counts, factor_key(fform), index)
+    return FactorID(fform, index)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", context::Context)
@@ -660,6 +675,8 @@ Base.haskey(::NodeCreationOptions{Nothing}, key::Symbol) = false
 Base.getindex(::NodeCreationOptions{Nothing}, keys...) = error("type `NodeCreationOptions{Nothing}` has no field $(keys)")
 Base.keys(::NodeCreationOptions{Nothing}) = ()
 Base.get(::NodeCreationOptions{Nothing}, key::Symbol, default) = default
+
+context_options(context::Context) = something(context.options, EmptyNodeCreationOptions)
 
 withopts(::NodeCreationOptions{Nothing}, options::NamedTuple) = NodeCreationOptions(options)
 withopts(options::NodeCreationOptions, extra::NamedTuple) = NodeCreationOptions((; options.options..., extra...))
@@ -1053,10 +1070,6 @@ variable_ref_eltype(::Type{Nothing}, ::Type{Nothing}) = Any
 variable_ref_eltype(::Type{E}, ::Type{L}) where {E, L} = Base.eltype(E)
 variable_ref_eltype(::Type{Nothing}, ::Type{L}) where {L} = Base.eltype(L)
 
-function variableref_checked_collection_typeof(::VariableRef)
-    return variableref_checked_iterator_call(typeof, :typeof, ref)
-end
-
 Base.length(ref::VariableRef) = variableref_checked_iterator_call(Base.length, :length, ref)
 Base.firstindex(ref::VariableRef) = variableref_checked_iterator_call(Base.firstindex, :firstindex, ref)
 Base.lastindex(ref::VariableRef) = variableref_checked_iterator_call(Base.lastindex, :lastindex, ref)
@@ -1197,6 +1210,7 @@ struct StaticInterfaces{I} end
 
 StaticInterfaces(I::Tuple) = StaticInterfaces{I}()
 Base.getindex(::StaticInterfaces{I}, index) where {I} = I[index]
+iface_names(::StaticInterfaces{I}) where {I} = I
 
 function Base.convert(::Type{NamedTuple}, ::StaticInterfaces{I}, t::Tuple) where {I}
     return NamedTuple{I}(t)
@@ -1548,6 +1562,17 @@ function add_constant_node!(model::Model, context::Context, options::NodeCreatio
     return label
 end
 
+# Anonymous variables are registered under a unique key, the same way `add_constant_node!` does it for
+# constants. Registering all of them under the constant `VariableNameAnonymous` key would make every new
+# anonymous variable overwrite the previous one in `context.individual_variables`, so a context holding
+# more than one would only ever expose the last. The node property `name` stays `VariableNameAnonymous`,
+# so `is_anonymous` and `as_variable(VariableNameAnonymous)` are unaffected.
+function add_anonymous_node!(model::Model, context::Context, options::NodeCreationOptions)
+    label = __add_variable_node!(model, context, options, VariableNameAnonymous, nothing)
+    context[to_symbol(VariableNameAnonymous, label.global_counter), nothing] = label
+    return label
+end
+
 function __add_variable_node!(model::Model, context::Context, options::NodeCreationOptions, name::Symbol, index)
     # In theory plugins are able to overwrite this
     potential_label = generate_nodelabel(model, name)
@@ -1596,27 +1621,19 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 
     if !link_const && !link_const_or_data
         # Most likely case goes first, we need to create a new factor node and a new random variable
-        (true, add_variable_node!(model, context, NodeCreationOptions(link = linked), VariableNameAnonymous, nothing))
+        (true, add_anonymous_node!(model, context, NodeCreationOptions(link = linked)))
     elseif link_const
         # If all `links` are constant nodes we can evaluate the `fform` here and create another constant rather than creating a new factornode
         val = fform(map(arg -> arg isa NodeLabel ? value(getproperties(model[arg])) : arg, unroll.(args))...)
         (
             false,
-            add_variable_node!(
-                model, context, NodeCreationOptions(kind = :constant, value = val, link = linked), VariableNameAnonymous, nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :constant, value = val, link = linked))
         )
     elseif link_const_or_data
         # If all `links` are constant or data we can create a new data variable with `fform` attached to it as a value rather than creating a new factornode
         (
             false,
-            add_variable_node!(
-                model,
-                context,
-                NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked),
-                VariableNameAnonymous,
-                nothing
-            )
+            add_anonymous_node!(model, context, NodeCreationOptions(kind = :data, value = (fform, unroll.(args)), link = linked))
         )
     else
         # This should not really happen
@@ -1640,7 +1657,7 @@ function materialize_anonymous_variable!(::Deterministic, model::Model, context:
 end
 
 function materialize_anonymous_variable!(::Stochastic, model::Model, context::Context, fform, _)
-    return (true, add_variable_node!(model, context, NodeCreationOptions(), VariableNameAnonymous, nothing))
+    return (true, add_anonymous_node!(model, context, NodeCreationOptions()))
 end
 
 """
@@ -1864,6 +1881,37 @@ function prepare_interfaces(::StaticInterfaces{I}, fform::F, lhs_interface, rhs_
     return NamedTuple{(missing_interface, keys(rhs_interfaces)...)}((lhs_interface, values(rhs_interfaces)...))
 end
 
+# Multi-output: lhs_interfaces is a Tuple of multiple interfaces (positional)
+function prepare_interfaces(model::Model, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {F}
+    n_lhs = length(lhs_interfaces)
+    missing = missing_interfaces(model, fform, static(length(rhs_interfaces) + n_lhs), rhs_interfaces)
+    return prepare_interfaces_multi(missing, fform, lhs_interfaces, rhs_interfaces)
+end
+
+function prepare_interfaces_multi(::StaticInterfaces{I}, fform::F, lhs_interfaces::Tuple, rhs_interfaces::NamedTuple) where {I, F}
+    all_keys = (I..., keys(rhs_interfaces)...)
+    all_vals = (lhs_interfaces..., values(rhs_interfaces)...)
+    return NamedTuple{all_keys}(all_vals)
+end
+
+# Named-output: lhs_interfaces is a NamedTuple (kwarg-style, e.g. (a = m_a, b = m_b) ~ sub(x = x))
+function prepare_interfaces(model::Model, fform::F, lhs_interfaces::NamedTuple, rhs_interfaces::NamedTuple) where {F}
+    for k in keys(lhs_interfaces)
+        if k ∈ keys(rhs_interfaces)
+            error(lazy"Interface ':$(k)' of '$(fform)' is specified on both LHS and RHS.")
+        end
+    end
+    merged = merge(lhs_interfaces, rhs_interfaces)
+    all_ifaces = interfaces(model, fform, static(length(merged)))
+    valid_names = iface_names(all_ifaces)
+    for k in keys(lhs_interfaces)
+        if k ∉ valid_names
+            error(lazy"Interface ':$(k)' does not exist in '$(fform)'. Valid interfaces are: $(valid_names).")
+        end
+    end
+    return merged
+end
+
 function materialize_interface(model, context, interface)
     return getifcreated(model, context, unroll(interface))
 end
@@ -1895,6 +1943,10 @@ instantiate(backendtype) = error("The backend of type $backendtype must implemen
 
 is_nodelabel(x) = false
 is_nodelabel(x::AbstractArray) = any(element -> is_nodelabel(element), x)
+# An array of numbers, or of arrays of numbers, holds no label; its elements are not visited, which a
+# compiler tracing the array may not allow
+is_nodelabel(x::AbstractArray{<:Number}) = false
+is_nodelabel(x::AbstractArray{<:AbstractArray{<:Number}}) = false
 is_nodelabel(x::GraphPPL.NodeLabel) = true
 is_nodelabel(x::ProxyLabel) = true
 is_nodelabel(x::VariableRef) = true
@@ -1997,8 +2049,11 @@ make_node!(materialize::True, node_type::NodeType, behaviour::NodeBehaviour, mod
     GraphPPL.default_parametrization(model, node_type, fform, rhs_interfaces)
 )
 
+# A node that gets materialized takes its arguments either all positionally or all by name, since the
+# two have to be matched against the node's interfaces. Mixing them is reported here rather than
+# further down, where the mismatch would surface as an unreadable dispatch failure.
 make_node!(::True, node_type::NodeType, behaviour::NodeBehaviour, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::MixedArguments) where {F} = error(
-    "MixedArguments not supported for rhs_interfaces when node has to be materialized"
+    lazy"MixedArguments not supported for `$(fform)`: a node that has to be materialized cannot be called with both positional and keyword arguments. Got $(length(rhs_interfaces.args)) positional argument(s) and the keyword argument(s) $(keys(rhs_interfaces.kwargs)). Use either all positional or all keyword arguments."
 )
 
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::Tuple{}) where {F} = make_node!(
@@ -2012,6 +2067,36 @@ make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model
 make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Union{NodeLabel, ProxyLabel, VariableRef}, rhs_interfaces::NamedTuple) where {F} = make_node!(
     Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + 1)
 )
+
+# Multi-output: Tuple LHS for composite nodes (positional)
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::Tuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
+)
+
+# Named-output: NamedTuple LHS for composite nodes (kwarg-style)
+make_node!(materialize::True, node_type::Composite, behaviour::Stochastic, model::Model, ctx::Context, options::NodeCreationOptions, fform::F, lhs_interface::NamedTuple, rhs_interfaces::NamedTuple) where {F} = make_node!(
+    Composite(), model, ctx, options, fform, lhs_interface, rhs_interfaces, static(length(rhs_interfaces) + length(lhs_interface))
+)
+
+# A multi-output submodel call must provide exactly as many outputs on the left-hand side as there are
+# interfaces left unspecified on the right-hand side. When it does not, the total arity does not match the
+# `StaticInt{N}` of any generated `make_node!` method and dispatch fails with a `MethodError` that says
+# nothing about the real problem, so this less specific fallback reports it instead.
+function make_node!(
+    ::Composite,
+    model::Model,
+    ctx::Context,
+    options::NodeCreationOptions,
+    fform::F,
+    lhs_interface::Union{Tuple, NamedTuple},
+    rhs_interfaces::NamedTuple,
+    ::StaticInt{N}
+) where {F, N}
+    n = "\n"
+    error(
+        lazy"Node '$(fform)' cannot be called with $(length(lhs_interface)) output(s) on the left-hand side and $(length(rhs_interfaces)) interface(s) on the right-hand side, $(N) in total.$(n)$(n)The number of outputs on the left-hand side must be equal to the number of interfaces of '$(fform)' that are left unspecified on the right-hand side. Currently specified interfaces are: $(keys(rhs_interfaces)), but check the documentation to see the specification options."
+    )
+end
 
 """
     make_node!
