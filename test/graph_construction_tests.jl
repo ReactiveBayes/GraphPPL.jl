@@ -2018,3 +2018,136 @@ end
         return (;)
     end
 end
+
+@testitem "Broadcasting with mixed positional and keyword arguments" begin
+    using Distributions
+    import GraphPPL: create_model
+
+    include("testutils.jl")
+
+    @model function bc_mixed_sub(out, x, y)
+        out ~ Normal(x, y)
+    end
+
+    @model function bc_mixed_main()
+        local mu
+        local sg
+        for i in 1:5
+            mu[i] ~ Normal(0, 1)
+            sg[i] ~ Gamma(1, 1)
+        end
+        z .~ bc_mixed_sub(mu; y = sg)
+        out ~ Normal(z[5], 1)
+    end
+
+    # A broadcast mixing positional and keyword arguments now lowers to a well-formed `MixedArguments`,
+    # built by slicing the broadcast closure's `args` tuple. Materializing a node from `MixedArguments`
+    # is still unsupported (same as for the non-broadcast `~`), but the user gets that stated limitation
+    # instead of an opaque `MethodError: no method matching tuple(...)` from the broken lowering.
+    @test_throws "MixedArguments not supported" create_model(bc_mixed_main())
+
+    # Keyword-only and positional-only broadcasts are unaffected
+    @model function bc_kwargs_only()
+        y .~ Normal(fill(0.0, 5), 1.0)
+        z .~ Normal(mean = y, var = fill(1.0, 5))
+    end
+    @test create_model(bc_kwargs_only()) isa GraphPPL.Model
+end
+
+@testitem "Multiple anonymous variables in one context should not collapse to a single key" begin
+    using Distributions
+    import GraphPPL:
+        create_model, getcontext, children, individual_variables, variable_nodes, as_variable, is_anonymous, getproperties, VariableNameAnonymous
+
+    include("testutils.jl")
+
+    # `x + 1` and `y + 1` each create an anonymous variable inside the same submodel context
+    @model function two_anonymous_submodel(z, x, y)
+        z ~ Normal(x + 1, y + 1)
+    end
+
+    @model function two_anonymous_outer()
+        a ~ Normal(0, 1)
+        b ~ Normal(0, 1)
+        z ~ two_anonymous_submodel(x = a, y = b)
+    end
+
+    model = create_model(two_anonymous_outer())
+    context = getcontext(model)
+    inner_context = first(values(children(context)))
+
+    # Both anonymous variables exist as distinct vertices in the graph ...
+    anonymous_in_graph = length(collect(filter(as_variable(VariableNameAnonymous), model)))
+    @test anonymous_in_graph === 2
+
+    # ... and both must be reachable through the context registry, not just the last one
+    anonymous_keys = filter(key -> startswith(String(key), String(VariableNameAnonymous)), collect(keys(individual_variables(inner_context))))
+    @test length(anonymous_keys) === anonymous_in_graph
+    @test length(unique(anonymous_keys)) === anonymous_in_graph
+
+    # The node property `name` is untouched, so `is_anonymous` keeps working
+    @test length(collect(filter(v -> is_anonymous(getproperties(model[v])), collect(variable_nodes(model))))) === 2
+end
+
+@testitem "Mixed positional and keyword arguments in the comma form `f(a, b = c)`" begin
+    using Distributions
+    import GraphPPL: create_model, getcontext, factor_nodes, variable_nodes
+
+    include("testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    # `f(a, b = c)` and `f(a; b = c)` are the same call in Julia, but the comma form used to leave
+    # the keyword among the positional arguments, so the generated code contained a tuple literal
+    # with a `:kw` node in it and the model failed to even macro-expand:
+    #   syntax: invalid named tuple element ...
+    # The contract asserted here is that the two spellings are now indistinguishable.
+    mixed_det(a; s) = a + s
+    GraphPPL.NodeBehaviour(::TestUtils.TestGraphPPLBackend, ::typeof(mixed_det)) = GraphPPL.Deterministic()
+
+    # A nested deterministic call over constants is evaluated directly, so mixed arguments
+    # genuinely work here. This is the shape reported in the original issue.
+    @model function anon_comma()
+        x ~ NormalMeanVariance(mixed_det(1.0, s = 2.0), 1.0)
+    end
+
+    @model function anon_semicolon()
+        x ~ NormalMeanVariance(mixed_det(1.0; s = 2.0), 1.0)
+    end
+
+    model_comma = create_model(anon_comma())
+    model_semicolon = create_model(anon_semicolon())
+    @test model_comma isa GraphPPL.Model
+    @test length(collect(factor_nodes(model_comma))) === length(collect(factor_nodes(model_semicolon)))
+    @test length(collect(variable_nodes(model_comma))) === length(collect(variable_nodes(model_semicolon)))
+
+    # A node that has to be materialized still cannot take both, but the comma form now reaches
+    # that stated limitation instead of failing as invalid syntax, exactly like the semicolon form
+    @model function materialized_comma()
+        x ~ NormalMeanVariance(0, var = 1)
+    end
+
+    @model function materialized_semicolon()
+        x ~ NormalMeanVariance(0; var = 1)
+    end
+
+    @test_throws "MixedArguments not supported" create_model(materialized_comma())
+    @test_throws "cannot be called with both positional and keyword arguments" create_model(materialized_comma())
+    @test_throws "MixedArguments not supported" create_model(materialized_semicolon())
+
+    # `:=` takes the same path and must agree as well
+    @model function deterministic_comma()
+        y ~ NormalMeanVariance(0, 1)
+        z := mixed_det(y, s = 3.0)
+        x ~ NormalMeanVariance(z, 1.0)
+    end
+
+    @model function deterministic_semicolon()
+        y ~ NormalMeanVariance(0, 1)
+        z := mixed_det(y; s = 3.0)
+        x ~ NormalMeanVariance(z, 1.0)
+    end
+
+    @test_throws "MixedArguments not supported" create_model(deterministic_comma())
+    @test_throws "MixedArguments not supported" create_model(deterministic_semicolon())
+end

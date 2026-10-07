@@ -6,5 +6,8 @@ GraphPPL = "b3f8163a-e979-4e85-b43e-1f63d8c8b42c"
 GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
 GraphViz = "f526b714-d49f-11e8-06ff-31ed36ee7ee0"
 
+[sources]
+GraphPPL = {path = ".."}
+
 [compat]
 Documenter = "1.0"

@@ -182,6 +182,9 @@ GraphPPL.keyword_expressions_to_named_tuple
 GraphPPL.convert_anonymous_variables
 GraphPPL.is_kwargs_expression
 GraphPPL.convert_to_kwargs_expression
+GraphPPL.split_positional_and_keyword_args
+GraphPPL.mixed_kwargs_rhs
+GraphPPL.reconstruct_call
 GraphPPL.convert_deterministic_statement
 GraphPPL.proxy_args
 GraphPPL.save_expression_in_tilde

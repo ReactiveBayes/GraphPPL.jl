@@ -613,6 +613,52 @@ end
     end
 end
 
+
+@testitem "Applying a second form constraint warns and preserves the original" begin
+    import GraphPPL:
+        create_model,
+        MarginalFormConstraint,
+        MessageFormConstraint,
+        IndexedVariable,
+        apply_constraints!,
+        getextra,
+        VariationalConstraintsMarginalFormConstraintKey,
+        VariationalConstraintsMessagesFormConstraintKey
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    struct FirstArbitraryFormConstraint end
+    struct SecondArbitraryFormConstraint end
+
+    # A node that already carries a marginal form constraint must warn (not throw) and keep the first one
+    model = create_model(simple_model())
+    context = GraphPPL.getcontext(model)
+    apply_constraints!(model, context, MarginalFormConstraint(IndexedVariable(:x, nothing), FirstArbitraryFormConstraint()))
+
+    @test_logs (:warn, r"already has functional form constraint") match_mode = :any apply_constraints!(
+        model, context, MarginalFormConstraint(IndexedVariable(:x, nothing), SecondArbitraryFormConstraint())
+    )
+
+    for node in filter(GraphPPL.as_variable(:x), model)
+        @test getextra(model[node], VariationalConstraintsMarginalFormConstraintKey) == FirstArbitraryFormConstraint()
+    end
+
+    # ... and the same for message form constraints
+    model = create_model(simple_model())
+    context = GraphPPL.getcontext(model)
+    apply_constraints!(model, context, MessageFormConstraint(IndexedVariable(:x, nothing), FirstArbitraryFormConstraint()))
+
+    @test_logs (:warn, r"already has functional form constraint") match_mode = :any apply_constraints!(
+        model, context, MessageFormConstraint(IndexedVariable(:x, nothing), SecondArbitraryFormConstraint())
+    )
+
+    for node in filter(GraphPPL.as_variable(:x), model)
+        @test getextra(model[node], VariationalConstraintsMessagesFormConstraintKey) == FirstArbitraryFormConstraint()
+    end
+end
+
 @testitem "save constraints with constants via `mean_field_constraint!`" begin
     using BitSetTuples
     import GraphPPL:
@@ -1523,3 +1569,30 @@ end
     @test occursin(r"q\(x, y\) = q\(x\)q\(y\)", repr(constraint))
     @test occursin(r"μ\(x\) ::(.*?)PointMass", repr(constraint))
 end
+
+@testitem "ConstraintStack" begin
+    import GraphPPL:
+        ConstraintStack, constraints, Context, ResolvedFunctionalFormConstraint, ResolvedConstraintLHS, ResolvedIndexedVariable, rhs
+
+    context = Context()
+    other = Context()
+    constraint(form) = ResolvedFunctionalFormConstraint(ResolvedConstraintLHS((ResolvedIndexedVariable(:x, nothing, context),)), form)
+
+    stack = ConstraintStack()
+    push!(stack, constraint(:a), context)
+    push!(stack, constraint(:b), context)
+    push!(stack, constraint(:c), other)
+    # read from the top, the constraint pushed last first
+    @test length(stack) == 3
+    @test map(rhs, collect(stack)) == [:c, :b, :a]
+    @test map(rhs, collect(constraints(stack))) == [:c, :b, :a]
+    @test stack[context] == 2 && stack[other] == 1
+
+    # each context pops as many as it pushed, from the top
+    @test pop!(stack, other) === true
+    @test map(rhs, collect(stack)) == [:b, :a]
+    @test pop!(stack, other) === false
+    @test pop!(stack, context) === true
+    @test map(rhs, collect(stack)) == [:a]
+end
+
