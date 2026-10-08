@@ -1596,3 +1596,42 @@ end
     @test map(rhs, collect(stack)) == [:a]
 end
 
+@testitem "invalid factorization constraint set throws a descriptive error with a hint" begin
+    using BitSetTuples
+    import GraphPPL:
+        create_model,
+        with_plugins,
+        materialize_constraints!,
+        getcontext,
+        setextra!,
+        VariationalConstraintsPlugin,
+        PluginsCollection,
+        VariationalConstraintsFactorizationBitSetKey
+
+    include("../../testutils.jl")
+
+    using .TestUtils.ModelZoo
+
+    # A constraint set where the same interface appears in more than one group is invalid:
+    # `((1,), (3,), (1, 3))` puts interface `1` in both the first and the third group.
+    model = create_model(with_plugins(simple_model(), PluginsCollection(VariationalConstraintsPlugin())))
+    ctx = getcontext(model)
+    node = ctx[NormalMeanVariance, 2]
+
+    setextra!(model[node], VariationalConstraintsFactorizationBitSetKey, BoundedBitSetTuple(((1,), (3,), (1, 3))))
+
+    error = try
+        materialize_constraints!(model, node)
+        nothing
+    catch e
+        e
+    end
+
+    @test error !== nothing
+    @test error isa ErrorException
+    message = sprint(showerror, error)
+    @test occursin("not a valid constraint set", message)
+    @test occursin("valid constraint set requires", message)
+    @test occursin("each interface belongs to exactly one factorization group", message)
+    @test occursin("Hint", message)
+end
